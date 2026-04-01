@@ -300,11 +300,15 @@ section{padding:80px 5%}
 .modal-msg.error{background:rgba(239,68,68,.15);border:1px solid rgba(239,68,68,.3);color:#f87171}
 
 /* VIDEO MODAL */
-.video-modal{position:fixed;inset:0;background:rgba(0,0,0,.9);z-index:3000;display:none;align-items:center;justify-content:center;padding:20px}
+.video-modal{position:fixed;inset:0;background:rgba(0,0,0,.92);z-index:3000;display:none;align-items:center;justify-content:center;padding:20px}
 .video-modal.open{display:flex}
-.video-container{width:100%;max-width:800px;position:relative}
-.video-close{position:absolute;top:-40px;right:0;background:none;border:none;color:#fff;font-size:1.5rem;cursor:pointer;font-size:2rem}
-.video-container iframe{width:100%;height:450px;border:none;border-radius:var(--radius)}
+.video-container{width:100%;max-width:860px;position:relative;background:var(--bg2);border-radius:var(--radius-lg);overflow:hidden;border:1px solid var(--border)}
+.video-modal-header{display:flex;justify-content:space-between;align-items:center;padding:14px 20px;background:var(--bg3);border-bottom:1px solid var(--border)}
+.video-modal-title{font-size:.95rem;font-weight:700;color:#fff;flex:1;margin-right:16px}
+.video-close{background:rgba(239,68,68,.2);border:1px solid rgba(239,68,68,.4);color:#f87171;padding:6px 14px;border-radius:8px;cursor:pointer;font-size:.82rem;font-weight:600;transition:.2s}
+.video-close:hover{background:rgba(239,68,68,.35)}
+.video-container iframe{width:100%;height:480px;border:none;display:block}
+@media(max-width:600px){.video-container iframe{height:220px}}
 
 /* TOAST */
 .toast{position:fixed;bottom:24px;right:24px;background:var(--bg2);border:1px solid var(--green);border-radius:10px;padding:14px 20px;font-size:.88rem;color:#fff;z-index:9999;display:none;max-width:320px;box-shadow:var(--shadow)}
@@ -383,6 +387,130 @@ footer{background:#060b18;border-top:1px solid var(--border);padding:48px 5% 28p
 /* EMPTY STATE */
 .empty-state{text-align:center;padding:48px 20px;color:var(--text2)}
 .empty-state-icon{font-size:3rem;margin-bottom:14px;opacity:.5}
+
+/* ── SEARCH BAR ── */
+.search-bar-wrap{position:relative;max-width:520px}
+.search-bar-wrap input{width:100%;background:var(--bg3);border:1px solid var(--border);border-radius:10px;padding:10px 44px 10px 16px;color:var(--text);font-size:.9rem;outline:none;font-family:inherit;transition:.2s}
+.search-bar-wrap input:focus{border-color:var(--green);box-shadow:0 0 0 3px rgba(0,200,83,.1)}
+.search-bar-wrap .search-icon{position:absolute;right:14px;top:50%;transform:translateY(-50%);color:var(--text3);pointer-events:none}
+.search-dropdown{position:absolute;top:calc(100% + 6px);left:0;right:0;background:var(--bg2);border:1px solid var(--border);border-radius:10px;box-shadow:var(--shadow);z-index:500;max-height:360px;overflow-y:auto;display:none}
+.search-dropdown.open{display:block}
+.search-result-group{padding:10px 14px 4px;font-size:.72rem;text-transform:uppercase;letter-spacing:.1em;color:var(--text3);font-weight:700}
+.search-result-item{display:flex;align-items:center;gap:12px;padding:10px 14px;cursor:pointer;transition:.15s;border-bottom:1px solid rgba(255,255,255,.04)}
+.search-result-item:hover{background:rgba(0,200,83,.08)}
+.search-result-item:last-child{border-bottom:none}
+.search-result-icon{font-size:1.4rem;flex-shrink:0}
+.search-result-name{font-size:.88rem;font-weight:600;color:#fff}
+.search-result-meta{font-size:.75rem;color:var(--text2)}
+.search-no-results{padding:20px;text-align:center;color:var(--text2);font-size:.88rem}
+
+/* ── WEATHER WIDGET ── */
+.weather-bar{background:linear-gradient(90deg,rgba(0,200,83,.1),rgba(30,136,229,.1));border-bottom:1px solid var(--border);padding:10px 5%;display:flex;align-items:center;gap:16px;flex-wrap:wrap;font-size:.82rem}
+.weather-district-select{background:transparent;border:1px solid var(--border);border-radius:6px;padding:4px 10px;color:var(--text);font-size:.8rem;outline:none;cursor:pointer}
+.weather-district-select option{background:var(--bg2)}
+.weather-item{display:flex;align-items:center;gap:6px;color:var(--text2)}
+.weather-item strong{color:#fff}
+.weather-alert{background:rgba(255,214,0,.15);border:1px solid rgba(255,214,0,.3);border-radius:6px;padding:4px 10px;color:var(--gold);font-size:.78rem;font-weight:600}
+
+/* ── FARMER DASHBOARD ── */
+.dashboard-modal{position:fixed;inset:0;background:rgba(0,0,0,.85);backdrop-filter:blur(8px);z-index:2500;display:none;align-items:flex-start;justify-content:center;padding:20px;overflow-y:auto}
+.dashboard-modal.open{display:flex}
+.dashboard-panel{background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius-lg);width:100%;max-width:900px;margin:auto}
+.dashboard-header{padding:20px 28px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center}
+.dashboard-header h2{font-size:1.1rem;font-weight:700;color:#fff}
+.dashboard-tabs{display:flex;gap:0;border-bottom:1px solid var(--border);overflow-x:auto}
+.dashboard-tab{padding:12px 22px;background:none;border:none;color:var(--text2);font-size:.85rem;cursor:pointer;font-weight:500;border-bottom:2px solid transparent;transition:.2s;white-space:nowrap;font-family:inherit}
+.dashboard-tab.active{color:var(--green);border-bottom-color:var(--green)}
+.dashboard-body{padding:24px}
+.dash-stat-row{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:24px}
+.dash-stat{background:var(--bg3);border:1px solid var(--border);border-radius:var(--radius);padding:16px;text-align:center}
+.dash-stat-val{font-size:1.4rem;font-weight:800;color:var(--green);display:block}
+.dash-stat-label{font-size:.75rem;color:var(--text2);margin-top:4px}
+.dash-table{width:100%;border-collapse:collapse;font-size:.85rem}
+.dash-table th{background:var(--bg3);padding:10px 14px;text-align:left;color:var(--text2);font-size:.78rem;text-transform:uppercase;letter-spacing:.05em;border-bottom:1px solid var(--border)}
+.dash-table td{padding:10px 14px;border-bottom:1px solid rgba(255,255,255,.04);color:var(--text)}
+.dash-table tr:hover td{background:rgba(255,255,255,.02)}
+.status-badge{display:inline-block;padding:2px 10px;border-radius:20px;font-size:.72rem;font-weight:700}
+.status-active{background:rgba(0,200,83,.15);color:var(--green)}
+.status-pending{background:rgba(255,214,0,.15);color:var(--gold)}
+.status-delivered{background:rgba(30,136,229,.15);color:var(--blue)}
+.status-cancelled{background:rgba(239,68,68,.15);color:#f87171}
+@media(max-width:700px){.dash-stat-row{grid-template-columns:repeat(2,1fr)}}
+
+/* ── INTERACTIVE MAP ── */
+.map-section{background:var(--bg)}
+.map-container{position:relative;background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius-lg);overflow:hidden;height:500px}
+.map-svg{width:100%;height:100%}
+.map-tooltip{position:absolute;background:var(--bg2);border:1px solid var(--green);border-radius:8px;padding:10px 14px;font-size:.82rem;pointer-events:none;display:none;z-index:10;min-width:160px}
+.map-tooltip strong{color:#fff;display:block;margin-bottom:4px}
+.map-tooltip span{color:var(--text2);font-size:.78rem}
+.map-legend{display:flex;gap:16px;margin-top:16px;flex-wrap:wrap}
+.map-legend-item{display:flex;align-items:center;gap:6px;font-size:.78rem;color:var(--text2)}
+.map-legend-dot{width:12px;height:12px;border-radius:50%;flex-shrink:0}
+.district-dot{cursor:pointer;transition:.2s}
+.district-dot:hover{transform:scale(1.4)}
+
+/* ── WHATSAPP BUTTON ── */
+.whatsapp-float{position:fixed;bottom:28px;left:28px;z-index:1500;display:flex;flex-direction:column;align-items:flex-start;gap:8px}
+.whatsapp-btn{width:56px;height:56px;background:#25d366;border-radius:50%;display:flex;align-items:center;justify-content:center;cursor:pointer;box-shadow:0 4px 20px rgba(37,211,102,.4);transition:.2s;border:none;font-size:1.6rem;animation:pulse-wa 2.5s ease-in-out infinite}
+.whatsapp-btn:hover{transform:scale(1.1);box-shadow:0 6px 28px rgba(37,211,102,.6)}
+@keyframes pulse-wa{0%,100%{box-shadow:0 4px 20px rgba(37,211,102,.4)}50%{box-shadow:0 4px 28px rgba(37,211,102,.7)}}
+.whatsapp-tooltip{background:var(--bg2);border:1px solid rgba(37,211,102,.3);border-radius:8px;padding:8px 14px;font-size:.8rem;color:#fff;white-space:nowrap;display:none;box-shadow:var(--shadow)}
+.whatsapp-float:hover .whatsapp-tooltip{display:block}
+
+/* ── DELIVERY TRACKING ── */
+.delivery-section{background:linear-gradient(135deg,#0a0f1e,#0a100a)}
+.delivery-grid{display:grid;grid-template-columns:1fr 1fr;gap:40px;align-items:start}
+.track-form{background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius-lg);padding:28px}
+.track-form h3{font-size:1.1rem;font-weight:700;color:#fff;margin-bottom:20px}
+.track-input-row{display:flex;gap:10px;margin-bottom:20px}
+.track-input{flex:1;background:var(--bg3);border:1px solid var(--border);border-radius:8px;padding:12px 16px;color:var(--text);font-size:.9rem;outline:none;font-family:inherit}
+.track-input:focus{border-color:var(--green)}
+.btn-track{background:var(--green);color:#000;border:none;border-radius:8px;padding:12px 20px;font-weight:700;cursor:pointer;font-size:.9rem;transition:.2s;white-space:nowrap}
+.btn-track:hover{background:var(--green-dark)}
+.track-result{display:none}
+.track-result.show{display:block}
+.track-order-header{background:var(--bg3);border:1px solid var(--border);border-radius:var(--radius);padding:16px;margin-bottom:20px}
+.track-order-id{font-size:.75rem;color:var(--text2);margin-bottom:4px}
+.track-order-name{font-size:1rem;font-weight:700;color:#fff;margin-bottom:4px}
+.track-order-meta{font-size:.82rem;color:var(--text2)}
+.delivery-timeline{position:relative;padding-left:28px}
+.delivery-timeline::before{content:'';position:absolute;left:10px;top:0;bottom:0;width:2px;background:var(--border)}
+.timeline-step{position:relative;margin-bottom:24px}
+.timeline-step:last-child{margin-bottom:0}
+.timeline-dot{position:absolute;left:-23px;top:3px;width:16px;height:16px;border-radius:50%;border:2px solid var(--border);background:var(--bg3);z-index:1;transition:.3s}
+.timeline-step.done .timeline-dot{background:var(--green);border-color:var(--green)}
+.timeline-step.active .timeline-dot{background:var(--gold);border-color:var(--gold);box-shadow:0 0 0 4px rgba(255,214,0,.2);animation:pulse-dot 1.5s ease-in-out infinite}
+@keyframes pulse-dot{0%,100%{box-shadow:0 0 0 4px rgba(255,214,0,.2)}50%{box-shadow:0 0 0 8px rgba(255,214,0,.1)}}
+.timeline-step-title{font-size:.9rem;font-weight:700;color:var(--text2)}
+.timeline-step.done .timeline-step-title{color:#fff}
+.timeline-step.active .timeline-step-title{color:var(--gold)}
+.timeline-step-desc{font-size:.78rem;color:var(--text3);margin-top:2px}
+.timeline-step-time{font-size:.72rem;color:var(--green);margin-top:3px;font-weight:600}
+.delivery-alerts{background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius-lg);padding:24px}
+.delivery-alerts h3{font-size:1rem;font-weight:700;color:#fff;margin-bottom:16px}
+.alert-item{display:flex;gap:12px;padding:12px;background:var(--bg3);border-radius:8px;margin-bottom:10px;border-left:3px solid var(--green)}
+.alert-item.warning{border-left-color:var(--gold)}
+.alert-item.info{border-left-color:var(--blue)}
+.alert-icon{font-size:1.2rem;flex-shrink:0}
+.alert-text{font-size:.82rem;color:var(--text2)}
+.alert-text strong{color:#fff;display:block;margin-bottom:2px}
+.alert-time{font-size:.72rem;color:var(--text3);margin-top:4px}
+.new-delivery-btn{width:100%;background:linear-gradient(135deg,var(--green),var(--blue));color:#fff;border:none;border-radius:10px;padding:14px;font-weight:700;font-size:.95rem;cursor:pointer;margin-top:16px;transition:.2s}
+.new-delivery-btn:hover{opacity:.9;transform:translateY(-1px)}
+
+/* ── MOBILE IMPROVEMENTS ── */
+@media(max-width:768px){
+  .weather-bar{padding:8px 4%}
+  .search-bar-wrap{max-width:100%}
+  .delivery-grid{grid-template-columns:1fr}
+  .dash-stat-row{grid-template-columns:repeat(2,1fr)}
+  .map-container{height:320px}
+  .whatsapp-float{bottom:20px;left:16px}
+  section{padding:56px 4%}
+  .hero{padding:88px 4% 48px}
+  .track-input-row{flex-direction:column}
+}
 </style>
 </head>
 <body>
@@ -400,13 +528,42 @@ footer{background:#060b18;border-top:1px solid var(--border);padding:48px 5% 28p
     <li><a href="#marketplace">Marketplace</a></li>
     <li><a href="#training">Training</a></li>
     <li><a href="#ussd">USSD/SMS</a></li>
-    <li><a href="#revenue">Business Model</a></li>
+    <li><a href="#delivery">Delivery</a></li>
     <li><a href="#register" onclick="openModal()" class="nav-cta">Join Free</a></li>
   </ul>
+  <div style="display:flex;align-items:center;gap:12px">
+    <div class="search-bar-wrap" id="navSearchWrap">
+      <input id="navSearch" type="text" placeholder="🔍 Search farmers, crops..." oninput="liveSearch(this.value)" onfocus="liveSearch(this.value)" autocomplete="off">
+      <span class="search-icon">↵</span>
+      <div class="search-dropdown" id="searchDropdown"></div>
+    </div>
+    <button onclick="openDashboard()" style="background:rgba(0,200,83,.15);border:1px solid rgba(0,200,83,.3);color:var(--green);padding:8px 14px;border-radius:8px;cursor:pointer;font-size:.8rem;font-weight:600;white-space:nowrap">📊 Dashboard</button>
+  </div>
   <div class="hamburger" onclick="toggleMenu()">
     <span></span><span></span><span></span>
   </div>
 </nav>
+
+<!-- ═══ WEATHER BAR ═══ -->
+<div class="weather-bar" id="weatherBar">
+  <span style="color:var(--green);font-weight:700">🌤 Live Weather:</span>
+  <select class="weather-district-select" onchange="loadWeather(this.value)" id="weatherDistrict">
+    <option value="Kampala">Kampala</option>
+    <option value="Wakiso">Wakiso</option>
+    <option value="Gulu">Gulu</option>
+    <option value="Mbarara">Mbarara</option>
+    <option value="Jinja">Jinja</option>
+    <option value="Mbale">Mbale</option>
+    <option value="Lira">Lira</option>
+  </select>
+  <div id="weatherData" style="display:flex;gap:16px;flex-wrap:wrap;align-items:center">
+    <span class="weather-item">🌡 <strong id="wTemp">26°C</strong></span>
+    <span class="weather-item">💧 <strong id="wHumidity">72%</strong> humidity</span>
+    <span class="weather-item">🌬 <strong id="wWind">12 km/h</strong> wind</span>
+    <span class="weather-item" id="wCondition">⛅ Partly Cloudy</span>
+    <span class="weather-alert" id="wAlert">✅ Good harvest conditions today</span>
+  </div>
+</div>
 
 <div class="mobile-menu" id="mobileMenu">
   <a href="#problems" onclick="toggleMenu()">The Problem</a>
@@ -414,6 +571,7 @@ footer{background:#060b18;border-top:1px solid var(--border);padding:48px 5% 28p
   <a href="#marketplace" onclick="toggleMenu()">Marketplace</a>
   <a href="#training" onclick="toggleMenu()">Training</a>
   <a href="#ussd" onclick="toggleMenu()">USSD/SMS</a>
+  <a href="#delivery" onclick="toggleMenu()">🚚 Delivery Tracking</a>
   <a href="#revenue" onclick="toggleMenu()">Business Model</a>
   <a href="#" onclick="openModal();toggleMenu()">Join Free →</a>
 </div>
@@ -763,6 +921,9 @@ footer{background:#060b18;border-top:1px solid var(--border);padding:48px 5% 28p
           <div style="text-align:center;margin-top:8px">
             <button onclick="resetUSSD()" style="background:none;border:1px solid var(--border);color:var(--text2);padding:6px 14px;border-radius:6px;cursor:pointer;font-size:.8rem">Reset</button>
           </div>
+          <div style="text-align:center;margin-top:10px;font-size:.75rem;color:var(--text3)">
+            💡 Press <strong style="color:var(--green)">* 7 8 9 #</strong> to start, then pick a menu number and press <strong style="color:var(--green)">Send</strong>
+          </div>
         </div>
       </div>
       <div class="ussd-info">
@@ -881,7 +1042,7 @@ footer{background:#060b18;border-top:1px solid var(--border);padding:48px 5% 28p
         <p>Whether you're a farmer wanting to join, an investor interested in partnering, or a hotel looking for fresh supply — we're here to help.</p>
         <div class="contact-item"><div class="contact-icon">📞</div><div><strong style="color:#fff">Toll-Free Hotline</strong><br>0800-100-789 (free from any network)</div></div>
         <div class="contact-item"><div class="contact-icon">📱</div><div><strong style="color:#fff">WhatsApp</strong><br>+256 700 AGR-BRDG</div></div>
-        <div class="contact-item"><div class="contact-icon">✉️</div><div><strong style="color:#fff">Email</strong><br>hello@agribridge.ug</div></div>
+        <div class="contact-item"><div class="contact-icon">✉️</div><div><strong style="color:#fff">Email</strong><br><a href="/cdn-cgi/l/email-protection" class="__cf_email__" data-cfemail="660e030a0a09260701140f04140f020103481301">[email&#160;protected]</a></div></div>
         <div class="contact-item"><div class="contact-icon">📍</div><div><strong style="color:#fff">Office</strong><br>Plot 12, Kampala Road, Kampala</div></div>
         <div class="contact-item"><div class="contact-icon">🌐</div><div><strong style="color:#fff">USSD</strong><br>Dial *789# from any phone</div></div>
       </div>
@@ -892,6 +1053,95 @@ footer{background:#060b18;border-top:1px solid var(--border);padding:48px 5% 28p
         <div class="form-group"><label>Email Address</label><input id="contactEmail" type="email" placeholder="john@example.com"></div>
         <div class="form-group"><label>Message</label><textarea id="contactMessage" rows="5" placeholder="Tell us how we can help you..."></textarea></div>
         <button class="btn-submit" onclick="sendContact()">Send Message →</button>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══ INTERACTIVE MAP ═══ -->
+<section class="map-section" id="map">
+  <div class="container">
+    <div class="section-label">Geographic Coverage</div>
+    <h2 class="section-title">Live Farmer Map — All Uganda Districts</h2>
+    <p class="section-sub">Click any district bubble to see active farmers, crops, and listings in that area.</p>
+    <div class="map-container" id="mapContainer">
+      <div id="mapTooltip" class="map-tooltip"></div>
+      <svg class="map-svg" id="ugandaMap" viewBox="0 0 600 500"></svg>
+    </div>
+    <div class="map-legend">
+      <div class="map-legend-item"><div class="map-legend-dot" style="background:#00c853"></div> 400+ farmers</div>
+      <div class="map-legend-item"><div class="map-legend-dot" style="background:#1e88e5"></div> 200–400 farmers</div>
+      <div class="map-legend-item"><div class="map-legend-dot" style="background:#7c3aed"></div> Under 200 farmers</div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══ DELIVERY TRACKING ═══ -->
+<section class="delivery-section" id="delivery">
+  <div class="container">
+    <div class="section-label">Smart Logistics</div>
+    <h2 class="section-title">🚚 Delivery Tracking System</h2>
+    <p class="section-sub">Track every order from farm loading to final delivery — with real-time alerts at every stage sent to both farmer and buyer.</p>
+    <div class="delivery-grid">
+      <div>
+        <div class="track-form">
+          <h3>🔍 Track Your Order</h3>
+          <div class="track-input-row">
+            <input id="trackInput" class="track-input" placeholder="Enter Order ID (e.g. AB-2026-001)" oninput="this.value=this.value.toUpperCase()">
+            <button class="btn-track" onclick="trackOrder()">Track →</button>
+          </div>
+          <div class="track-result" id="trackResult">
+            <div class="track-order-header">
+              <div class="track-order-id" id="trackOrderId">Order #AB-2026-001</div>
+              <div class="track-order-name" id="trackOrderName">500kg Tomatoes → Nakasero Market</div>
+              <div class="track-order-meta" id="trackOrderMeta">📍 From: Kampala Farm · To: Nakasero Market · ETA: <strong id="trackETA" style="color:var(--green)">Today 3:00 PM</strong></div>
+            </div>
+            <div class="delivery-timeline" id="deliveryTimeline"></div>
+          </div>
+          <button class="new-delivery-btn" onclick="createDelivery()">+ Create New Delivery Order</button>
+        </div>
+      </div>
+      <div>
+        <div class="delivery-alerts">
+          <h3>🔔 Live Delivery Alerts</h3>
+          <div id="deliveryAlerts">
+            <div class="alert-item">
+              <div class="alert-icon">✅</div>
+              <div class="alert-text">
+                <strong>Order AB-2026-001 Picked Up</strong>
+                500kg Tomatoes loaded at Grace Farm, Kampala
+                <div class="alert-time">Today 8:15 AM</div>
+              </div>
+            </div>
+            <div class="alert-item warning">
+              <div class="alert-icon">⚠️</div>
+              <div class="alert-text">
+                <strong>Order AB-2026-003 Delayed</strong>
+                Traffic on Kampala–Gulu highway. New ETA: 5:30 PM
+                <div class="alert-time">Today 11:42 AM</div>
+              </div>
+            </div>
+            <div class="alert-item info">
+              <div class="alert-icon">🚚</div>
+              <div class="alert-text">
+                <strong>Order AB-2026-002 Out for Delivery</strong>
+                300kg Matooke 8km from Serena Hotel
+                <div class="alert-time">Today 12:05 PM</div>
+              </div>
+            </div>
+            <div class="alert-item">
+              <div class="alert-icon">🎉</div>
+              <div class="alert-text">
+                <strong>Order AB-2026-005 Delivered</strong>
+                800kg Maize delivered & confirmed at Jinja Depot
+                <div class="alert-time">Today 9:50 AM</div>
+              </div>
+            </div>
+          </div>
+          <div style="margin-top:16px;padding:14px;background:var(--bg3);border-radius:8px;font-size:.82rem;color:var(--text2)">
+            📱 <strong style="color:#fff">SMS Alerts active</strong> — You will receive updates at every stage via SMS to your registered number.
+          </div>
+        </div>
       </div>
     </div>
   </div>
@@ -931,7 +1181,7 @@ footer{background:#060b18;border-top:1px solid var(--border);padding:48px 5% 28p
       <h4>Contact</h4>
       <ul>
         <li><a href="#">0800-100-789 (Free)</a></li>
-        <li><a href="#">hello@agribridge.ug</a></li>
+        <li><a href="#"><span class="__cf_email__" data-cfemail="1f777a7373705f7e786d767d6d767b787a316a78">[email&#160;protected]</span></a></li>
         <li><a href="#">Dial *789#</a></li>
         <li><a href="#">Kampala, Uganda</a></li>
       </ul>
@@ -946,6 +1196,110 @@ footer{background:#060b18;border-top:1px solid var(--border);padding:48px 5% 28p
     </div>
   </div>
 </footer>
+
+<!-- ═══ WHATSAPP FLOAT ═══ -->
+<div class="whatsapp-float">
+  <div class="whatsapp-tooltip">💬 Chat with AgriBridge on WhatsApp</div>
+  <button class="whatsapp-btn" onclick="window.open('https://wa.me/256700000789?text=Hello%20AgriBridge!%20I%20need%20help.','_blank')" title="Chat on WhatsApp">💬</button>
+</div>
+
+<!-- ═══ FARMER DASHBOARD ═══ -->
+<div class="dashboard-modal" id="dashboardModal">
+  <div class="dashboard-panel">
+    <div class="dashboard-header">
+      <h2>📊 My AgriBridge Dashboard</h2>
+      <button class="modal-close" onclick="closeDashboard()">×</button>
+    </div>
+    <div class="dashboard-tabs">
+      <button class="dashboard-tab active" onclick="switchDashTab('overview',this)">📈 Overview</button>
+      <button class="dashboard-tab" onclick="switchDashTab('listings',this)">🌿 My Listings</button>
+      <button class="dashboard-tab" onclick="switchDashTab('orders',this)">🛒 Orders</button>
+      <button class="dashboard-tab" onclick="switchDashTab('deliveries',this)">🚚 Deliveries</button>
+      <button class="dashboard-tab" onclick="switchDashTab('training',this)">🎓 Training</button>
+    </div>
+    <div class="dashboard-body">
+      <!-- Overview Tab -->
+      <div id="dash-overview" class="dash-pane">
+        <div class="dash-stat-row">
+          <div class="dash-stat"><span class="dash-stat-val">6</span><div class="dash-stat-label">Active Listings</div></div>
+          <div class="dash-stat"><span class="dash-stat-val">12</span><div class="dash-stat-label">Orders Received</div></div>
+          <div class="dash-stat"><span class="dash-stat-val" style="color:var(--gold)">UGX 2.4M</span><div class="dash-stat-label">Revenue This Month</div></div>
+          <div class="dash-stat"><span class="dash-stat-val" style="color:var(--blue)">4.8⭐</span><div class="dash-stat-label">Buyer Rating</div></div>
+        </div>
+        <div style="background:var(--bg3);border:1px solid var(--border);border-radius:var(--radius);padding:16px;margin-bottom:16px">
+          <div style="font-size:.82rem;color:var(--text2);margin-bottom:12px;font-weight:600">📦 RECENT ACTIVITY</div>
+          <div style="font-size:.85rem;color:var(--text2);line-height:2">
+            ✅ Order AB-2026-011 confirmed — 200kg Tomatoes to Mukasa Vendors<br>
+            🚚 Delivery AB-2026-009 in transit — arriving 3:00 PM today<br>
+            💬 New message from Serena Hotel — bulk order inquiry<br>
+            📈 Your Tomatoes price up 8% this week — good time to list more
+          </div>
+        </div>
+        <div style="background:rgba(0,200,83,.08);border:1px solid rgba(0,200,83,.2);border-radius:var(--radius);padding:16px">
+          <div style="font-size:.82rem;color:var(--green);font-weight:700;margin-bottom:8px">💡 AI RECOMMENDATIONS</div>
+          <div style="font-size:.83rem;color:var(--text2);line-height:1.8">
+            • Tomato prices are peaking — consider listing 300kg more this week<br>
+            • 3 hotels in Kampala are actively looking for Matooke — perfect match<br>
+            • Your farm profile is 80% complete — add GPS coordinates to get more matches
+          </div>
+        </div>
+      </div>
+      <!-- Listings Tab -->
+      <div id="dash-listings" class="dash-pane" style="display:none">
+        <table class="dash-table">
+          <thead><tr><th>Crop</th><th>Qty (kg)</th><th>Price/kg</th><th>District</th><th>Grade</th><th>Status</th></tr></thead>
+          <tbody>
+            <tr><td>🍅 Tomatoes</td><td>500</td><td>UGX 1,500</td><td>Kampala</td><td>A</td><td><span class="status-badge status-active">Active</span></td></tr>
+            <tr><td>🍌 Matooke</td><td>800</td><td>UGX 800</td><td>Kampala</td><td>A</td><td><span class="status-badge status-active">Active</span></td></tr>
+            <tr><td>🥕 Carrots</td><td>300</td><td>UGX 1,200</td><td>Wakiso</td><td>B</td><td><span class="status-badge status-pending">Pending</span></td></tr>
+          </tbody>
+        </table>
+        <button class="btn-primary" style="margin-top:16px" onclick="showToast('Opening listing form...')">+ Add New Listing</button>
+      </div>
+      <!-- Orders Tab -->
+      <div id="dash-orders" class="dash-pane" style="display:none">
+        <table class="dash-table">
+          <thead><tr><th>Order ID</th><th>Buyer</th><th>Crop</th><th>Qty</th><th>Total</th><th>Status</th></tr></thead>
+          <tbody>
+            <tr><td>AB-2026-011</td><td>Mukasa Vendors</td><td>Tomatoes</td><td>200kg</td><td>UGX 300K</td><td><span class="status-badge status-active">Confirmed</span></td></tr>
+            <tr><td>AB-2026-009</td><td>Serena Hotel</td><td>Matooke</td><td>300kg</td><td>UGX 240K</td><td><span class="status-badge status-delivered">Delivered</span></td></tr>
+            <tr><td>AB-2026-007</td><td>Nakasero Market</td><td>Tomatoes</td><td>500kg</td><td>UGX 750K</td><td><span class="status-badge status-delivered">Delivered</span></td></tr>
+            <tr><td>AB-2026-005</td><td>City Supermarket</td><td>Carrots</td><td>150kg</td><td>UGX 180K</td><td><span class="status-badge status-cancelled">Cancelled</span></td></tr>
+          </tbody>
+        </table>
+      </div>
+      <!-- Deliveries Tab -->
+      <div id="dash-deliveries" class="dash-pane" style="display:none">
+        <table class="dash-table">
+          <thead><tr><th>Delivery ID</th><th>Order</th><th>Driver</th><th>Stage</th><th>ETA</th><th>Status</th></tr></thead>
+          <tbody>
+            <tr><td>DEL-001</td><td>AB-2026-011</td><td>Okello James</td><td>In Transit</td><td>3:00 PM</td><td><span class="status-badge status-pending">En Route</span></td></tr>
+            <tr><td>DEL-002</td><td>AB-2026-009</td><td>Nalubega Ruth</td><td>Delivered</td><td>✅ Done</td><td><span class="status-badge status-delivered">Delivered</span></td></tr>
+          </tbody>
+        </table>
+        <button class="btn-primary" style="margin-top:16px" onclick="document.getElementById('dashboardModal').classList.remove('open');document.getElementById('delivery').scrollIntoView({behavior:'smooth'})">🚚 Open Delivery Tracker</button>
+      </div>
+      <!-- Training Tab -->
+      <div id="dash-training" class="dash-pane" style="display:none">
+        <div style="font-size:.85rem;color:var(--text2);margin-bottom:16px">Your training progress across all modules:</div>
+        <div style="display:flex;flex-direction:column;gap:12px" id="dashTrainingList">
+          <div style="background:var(--bg3);border-radius:8px;padding:14px">
+            <div style="display:flex;justify-content:space-between;margin-bottom:8px"><span style="color:#fff;font-weight:600">Modern Crop Farming</span><span style="color:var(--green)">80%</span></div>
+            <div style="background:var(--bg4);border-radius:4px;height:6px"><div style="background:var(--green);height:6px;border-radius:4px;width:80%"></div></div>
+          </div>
+          <div style="background:var(--bg3);border-radius:8px;padding:14px">
+            <div style="display:flex;justify-content:space-between;margin-bottom:8px"><span style="color:#fff;font-weight:600">Mobile Money & Finance</span><span style="color:var(--green)">100% ✅</span></div>
+            <div style="background:var(--bg4);border-radius:4px;height:6px"><div style="background:var(--green);height:6px;border-radius:4px;width:100%"></div></div>
+          </div>
+          <div style="background:var(--bg3);border-radius:8px;padding:14px">
+            <div style="display:flex;justify-content:space-between;margin-bottom:8px"><span style="color:#fff;font-weight:600">Post-Harvest Storage</span><span style="color:var(--gold)">35%</span></div>
+            <div style="background:var(--bg4);border-radius:4px;height:6px"><div style="background:var(--gold);height:6px;border-radius:4px;width:35%"></div></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
 
 <!-- ═══ MODALS ═══ -->
 <!-- Registration -->
@@ -1010,8 +1364,11 @@ footer{background:#060b18;border-top:1px solid var(--border);padding:48px 5% 28p
 <!-- Video Modal -->
 <div class="video-modal" id="videoModal">
   <div class="video-container">
-    <button class="video-close" onclick="closeVideo()">×</button>
-    <iframe id="videoFrame" src="" allowfullscreen allow="autoplay"></iframe>
+    <div class="video-modal-header">
+      <span id="videoTitle" class="video-modal-title"></span>
+      <button class="video-close" onclick="closeVideo()">✕ Close</button>
+    </div>
+    <iframe id="videoFrame" src="" allowfullscreen allow="autoplay; encrypted-media; picture-in-picture"></iframe>
   </div>
 </div>
 
@@ -1075,7 +1432,7 @@ footer{background:#060b18;border-top:1px solid var(--border);padding:48px 5% 28p
           <div class="metric"><strong>10 districts</strong><span>Target Coverage</span></div>
           <div class="metric"><strong>10,000</strong><span>Farmers Goal</span></div>
         </div>
-        <p style="color:var(--text2);font-size:.85rem;margin-top:16px">Contact: investors@agribridge.ug | +256 700 000 789</p>
+        <p style="color:var(--text2);font-size:.85rem;margin-top:16px">Contact: <a href="/cdn-cgi/l/email-protection" class="__cf_email__" data-cfemail="274e4951425453485554674640554e45554e434042095240">[email&#160;protected]</a> | +256 700 000 789</p>
       </div>
     </div>
   </div>
@@ -1085,11 +1442,247 @@ footer{background:#060b18;border-top:1px solid var(--border);padding:48px 5% 28p
 <div id="toast" class="toast"></div>
 
 <!-- ═══ JAVASCRIPT ═══ -->
-<script>
+<script data-cfasync="false" src="/cdn-cgi/scripts/5c5dd728/cloudflare-static/email-decode.min.js"></script><script>
 // ── State ──
 let currentRole = 'farmer';
-let ussdText = '';
 let priceChart = null;
+let searchTimeout = null;
+
+// ── SEARCH ──
+async function liveSearch(q) {
+  const dropdown = document.getElementById('searchDropdown');
+  clearTimeout(searchTimeout);
+  if (!q || q.length < 2) { dropdown.classList.remove('open'); return; }
+  searchTimeout = setTimeout(async () => {
+    const d = await apiFetch(`/api/search?q=${encodeURIComponent(q)}`);
+    if (!d.success) { dropdown.classList.remove('open'); return; }
+    const r = d.results;
+    let html = '';
+    if (r.listings && r.listings.length) {
+      html += `<div class="search-result-group">🌿 Produce</div>`;
+      r.listings.slice(0,3).forEach(l => {
+        html += `<div class="search-result-item" onclick="document.getElementById('marketplace').scrollIntoView({behavior:'smooth'});closeSearch()">
+          <div class="search-result-icon">🌿</div>
+          <div><div class="search-result-name">${l.crop} — ${l.quantity_kg}kg</div>
+          <div class="search-result-meta">📍 ${l.district} · UGX ${Number(l.price_per_kg).toLocaleString()}/kg · Grade ${l.quality_grade}</div></div></div>`;
+      });
+    }
+    if (r.farmers && r.farmers.length) {
+      html += `<div class="search-result-group">👨‍🌾 Farmers</div>`;
+      r.farmers.slice(0,3).forEach(f => {
+        html += `<div class="search-result-item" onclick="showToast('📞 Contact ${f.name} via 0800-100-789');closeSearch()">
+          <div class="search-result-icon">👨‍🌾</div>
+          <div><div class="search-result-name">${f.name}</div>
+          <div class="search-result-meta">📍 ${f.district||'Uganda'} · ${f.crops||'Various crops'}</div></div></div>`;
+      });
+    }
+    if (r.vendors && r.vendors.length) {
+      html += `<div class="search-result-group">🏪 Vendors</div>`;
+      r.vendors.slice(0,2).forEach(v => {
+        html += `<div class="search-result-item" onclick="showToast('📍 ${v.business_name} at ${v.market_name}');closeSearch()">
+          <div class="search-result-icon">🏪</div>
+          <div><div class="search-result-name">${v.business_name||v.name}</div>
+          <div class="search-result-meta">📍 ${v.market_name||''} · ${v.district||''}</div></div></div>`;
+      });
+    }
+    if (!html) html = '<div class="search-no-results">No results found for "'+q+'"</div>';
+    dropdown.innerHTML = html;
+    dropdown.classList.add('open');
+  }, 300);
+}
+
+function closeSearch() {
+  document.getElementById('searchDropdown').classList.remove('open');
+  document.getElementById('navSearch').value = '';
+}
+
+document.addEventListener('click', e => {
+  if (!document.getElementById('navSearchWrap').contains(e.target)) closeSearch();
+});
+
+// ── WEATHER ──
+const weatherData = {
+  Kampala:  { temp:26, humidity:72, wind:12, condition:'⛅ Partly Cloudy', alert:'✅ Good harvest conditions', alertType:'' },
+  Wakiso:   { temp:25, humidity:75, wind:10, condition:'🌤 Mostly Sunny',  alert:'✅ Excellent for transport', alertType:'' },
+  Gulu:     { temp:29, humidity:58, wind:18, condition:'☀️ Sunny & Dry',   alert:'⚠️ High heat — water crops early', alertType:'warning' },
+  Mbarara:  { temp:23, humidity:80, wind:8,  condition:'🌦 Light Showers', alert:'🌧 Rain expected — delay harvest', alertType:'warning' },
+  Jinja:    { temp:27, humidity:70, wind:14, condition:'⛅ Partly Cloudy', alert:'✅ Good conditions', alertType:'' },
+  Mbale:    { temp:22, humidity:82, wind:9,  condition:'🌧 Rainy',         alert:'⚠️ Heavy rain — secure storage', alertType:'warning' },
+  Lira:     { temp:30, humidity:55, wind:20, condition:'☀️ Hot & Sunny',   alert:'⚠️ Irrigate fields today', alertType:'warning' },
+};
+
+function loadWeather(district) {
+  const w = weatherData[district] || weatherData.Kampala;
+  document.getElementById('wTemp').textContent = w.temp + '°C';
+  document.getElementById('wHumidity').textContent = w.humidity + '%';
+  document.getElementById('wWind').textContent = w.wind + ' km/h';
+  document.getElementById('wCondition').textContent = w.condition;
+  const alertEl = document.getElementById('wAlert');
+  alertEl.textContent = w.alert;
+  alertEl.style.background = w.alertType === 'warning' ? 'rgba(255,214,0,.15)' : 'rgba(0,200,83,.15)';
+  alertEl.style.borderColor = w.alertType === 'warning' ? 'rgba(255,214,0,.3)' : 'rgba(0,200,83,.3)';
+  alertEl.style.color = w.alertType === 'warning' ? 'var(--gold)' : 'var(--green)';
+}
+
+// ── DASHBOARD ──
+function openDashboard() {
+  document.getElementById('dashboardModal').classList.add('open');
+  document.body.style.overflow = 'hidden';
+}
+function closeDashboard() {
+  document.getElementById('dashboardModal').classList.remove('open');
+  document.body.style.overflow = '';
+}
+function switchDashTab(tab, btn) {
+  document.querySelectorAll('.dashboard-tab').forEach(b => b.classList.remove('active'));
+  document.querySelectorAll('.dash-pane').forEach(p => p.style.display = 'none');
+  btn.classList.add('active');
+  document.getElementById('dash-' + tab).style.display = 'block';
+}
+document.addEventListener('click', e => {
+  const modal = document.getElementById('dashboardModal');
+  if (e.target === modal) closeDashboard();
+});
+
+// ── INTERACTIVE MAP ──
+function buildMap() {
+  const svg = document.getElementById('ugandaMap');
+  const districts = [
+    {name:'Kampala', x:300, y:270, farmers:342, crops:'Vegetables, Matooke', color:'#00c853'},
+    {name:'Wakiso',  x:270, y:250, farmers:521, crops:'Carrots, Cabbages',   color:'#00c853'},
+    {name:'Mukono',  x:340, y:255, farmers:287, crops:'Tomatoes, Fruits',    color:'#1e88e5'},
+    {name:'Gulu',    x:280, y:100, farmers:412, crops:'Maize, Groundnuts',   color:'#00c853'},
+    {name:'Mbarara', x:220, y:370, farmers:356, crops:'Maize, Beans',        color:'#00c853'},
+    {name:'Jinja',   x:370, y:265, farmers:198, crops:'Sugarcane, Maize',    color:'#7c3aed'},
+    {name:'Mbale',   x:420, y:210, farmers:267, crops:'Coffee, Maize',       color:'#1e88e5'},
+    {name:'Lira',    x:310, y:150, farmers:389, crops:'Cotton, Maize',       color:'#00c853'},
+    {name:'Arua',    x:170, y:110, farmers:231, crops:'Cassava, Groundnuts', color:'#1e88e5'},
+    {name:'Soroti',  x:380, y:175, farmers:178, crops:'Millet, Cassava',     color:'#7c3aed'},
+    {name:'Masaka',  x:240, y:320, farmers:295, crops:'Bananas, Coffee',     color:'#1e88e5'},
+    {name:'Kabale',  x:200, y:400, farmers:189, crops:'Potatoes, Wheat',     color:'#7c3aed'},
+    {name:'Fort Portal',x:160,y:240,farmers:214,crops:'Tea, Maize',          color:'#1e88e5'},
+    {name:'Tororo',  x:430, y:255, farmers:156, crops:'Sugarcane, Beans',    color:'#7c3aed'},
+  ];
+
+  // Uganda outline (simplified polygon)
+  const outline = document.createElementNS('http://www.w3.org/2000/svg','polygon');
+  outline.setAttribute('points','150,80 200,60 280,55 360,70 440,90 490,140 500,200 480,270 470,330 420,390 360,420 290,440 220,430 160,400 120,340 100,270 110,200 130,140');
+  outline.setAttribute('fill','rgba(0,200,83,0.06)');
+  outline.setAttribute('stroke','rgba(0,200,83,0.25)');
+  outline.setAttribute('stroke-width','2');
+  svg.appendChild(outline);
+
+  const tooltip = document.getElementById('mapTooltip');
+  const container = document.getElementById('mapContainer');
+
+  districts.forEach(d => {
+    const r = Math.max(10, Math.min(26, d.farmers / 22));
+    const g = document.createElementNS('http://www.w3.org/2000/svg','g');
+
+    const circle = document.createElementNS('http://www.w3.org/2000/svg','circle');
+    circle.setAttribute('cx', d.x); circle.setAttribute('cy', d.y); circle.setAttribute('r', r);
+    circle.setAttribute('fill', d.color); circle.setAttribute('opacity','0.85');
+    circle.setAttribute('class','district-dot');
+
+    const pulse = document.createElementNS('http://www.w3.org/2000/svg','circle');
+    pulse.setAttribute('cx', d.x); pulse.setAttribute('cy', d.y); pulse.setAttribute('r', r + 4);
+    pulse.setAttribute('fill','none'); pulse.setAttribute('stroke', d.color); pulse.setAttribute('opacity','0.3');
+    pulse.setAttribute('stroke-width','2');
+
+    const label = document.createElementNS('http://www.w3.org/2000/svg','text');
+    label.setAttribute('x', d.x); label.setAttribute('y', d.y + r + 14);
+    label.setAttribute('text-anchor','middle'); label.setAttribute('fill','#9ca3af');
+    label.setAttribute('font-size','10'); label.textContent = d.name;
+
+    g.appendChild(pulse); g.appendChild(circle); g.appendChild(label);
+
+    g.addEventListener('mouseenter', ev => {
+      tooltip.style.display = 'block';
+      tooltip.innerHTML = `<strong>${d.name}</strong><span>👨‍🌾 ${d.farmers} farmers</span><br><span>🌿 ${d.crops}</span>`;
+      const rect = container.getBoundingClientRect();
+      const svgRect = svg.getBoundingClientRect();
+      const scaleX = svgRect.width / 600;
+      const scaleY = svgRect.height / 500;
+      tooltip.style.left = (d.x * scaleX + 16) + 'px';
+      tooltip.style.top  = (d.y * scaleY - 20) + 'px';
+    });
+    g.addEventListener('mouseleave', () => { tooltip.style.display = 'none'; });
+    g.addEventListener('click', () => {
+      showToast(`📍 ${d.name}: ${d.farmers} farmers growing ${d.crops}`);
+      document.getElementById('filterDistrict').value = d.name;
+      loadListings();
+      document.getElementById('marketplace').scrollIntoView({behavior:'smooth'});
+    });
+    svg.appendChild(g);
+  });
+}
+
+// ── DELIVERY TRACKING ──
+const mockOrders = {
+  'AB-2026-001': {
+    name:'500kg Tomatoes → Nakasero Market', from:'Grace Farm, Kampala', to:'Nakasero Market',
+    eta:'Today 3:00 PM', driver:'Okello James (+256 701 234 567)',
+    steps:[
+      {title:'Order Confirmed',    desc:'Farmer accepted order',          time:'8:00 AM today',  done:true,  active:false},
+      {title:'Produce Loaded',     desc:'500kg loaded & weighed at farm', time:'8:15 AM today',  done:true,  active:false},
+      {title:'Picked Up',          desc:'Driver Okello departed farm',    time:'8:45 AM today',  done:true,  active:false},
+      {title:'In Transit',         desc:'25km from destination',          time:'Now — 12:30 PM', done:false, active:true},
+      {title:'At Delivery Point',  desc:'Arrived at Nakasero Market',     time:'ETA 3:00 PM',    done:false, active:false},
+      {title:'Delivered & Signed', desc:'Buyer confirms receipt',         time:'Pending',        done:false, active:false},
+    ]
+  },
+  'AB-2026-002': {
+    name:'300kg Matooke → Serena Hotel', from:'Ssemakula Farm, Wakiso', to:'Serena Hotel, Kampala',
+    eta:'Today 1:30 PM', driver:'Nalubega Ruth (+256 702 345 678)',
+    steps:[
+      {title:'Order Confirmed',    desc:'Hotel placed bulk order',        time:'7:00 AM today',  done:true,  active:false},
+      {title:'Produce Loaded',     desc:'300kg graded & packed',          time:'7:30 AM today',  done:true,  active:false},
+      {title:'Picked Up',          desc:'Driver Nalubega departed',       time:'8:00 AM today',  done:true,  active:false},
+      {title:'In Transit',         desc:'8km from Serena Hotel',          time:'Now — 12:05 PM', done:false, active:true},
+      {title:'At Delivery Point',  desc:'Arriving at hotel loading bay',  time:'ETA 1:30 PM',    done:false, active:false},
+      {title:'Delivered & Signed', desc:'Hotel manager confirms',         time:'Pending',        done:false, active:false},
+    ]
+  },
+  'AB-2026-003': {
+    name:'1000kg Maize → Gulu Depot', from:'Apio Farm, Gulu', to:'Northern Uganda Depot',
+    eta:'Today 5:30 PM (delayed)', driver:'Ongom David (+256 703 456 789)',
+    steps:[
+      {title:'Order Confirmed',    desc:'Depot placed bulk order',        time:'6:00 AM today',  done:true,  active:false},
+      {title:'Produce Loaded',     desc:'1000kg bagged & loaded',         time:'7:00 AM today',  done:true,  active:false},
+      {title:'Picked Up',          desc:'Driver Ongom departed',          time:'7:30 AM today',  done:true,  active:false},
+      {title:'In Transit',         desc:'⚠️ Delayed — highway traffic',   time:'Now — 11:42 AM', done:false, active:true},
+      {title:'At Delivery Point',  desc:'Arriving at depot',              time:'ETA 5:30 PM',    done:false, active:false},
+      {title:'Delivered & Signed', desc:'Depot manager confirms',         time:'Pending',        done:false, active:false},
+    ]
+  }
+};
+
+function trackOrder() {
+  const id = document.getElementById('trackInput').value.trim();
+  const result = document.getElementById('trackResult');
+  const order = mockOrders[id];
+  if (!order) {
+    showToast('❌ Order not found. Try AB-2026-001, AB-2026-002 or AB-2026-003');
+    return;
+  }
+  document.getElementById('trackOrderId').textContent = 'Order #' + id;
+  document.getElementById('trackOrderName').textContent = order.name;
+  document.getElementById('trackOrderMeta').innerHTML = `📍 From: ${order.from} · To: ${order.to} · 🚗 Driver: ${order.driver} · ETA: <strong style="color:var(--green)">${order.eta}</strong>`;
+  const timeline = document.getElementById('deliveryTimeline');
+  timeline.innerHTML = order.steps.map(s => `
+    <div class="timeline-step ${s.done?'done':''} ${s.active?'active':''}">
+      <div class="timeline-dot"></div>
+      <div class="timeline-step-title">${s.title}</div>
+      <div class="timeline-step-desc">${s.desc}</div>
+      ${s.done || s.active ? `<div class="timeline-step-time">🕐 ${s.time}</div>` : ''}
+    </div>`).join('');
+  result.classList.add('show');
+  showToast(`✅ Tracking loaded for ${id}`);
+}
+
+function createDelivery() {
+  showToast('📦 Opening new delivery form... Call 0800-100-789 or use the app to create a delivery');
+}
 
 // ── API Base ──
 const API = '';  // relative URLs — works on any domain
@@ -1276,65 +1869,132 @@ async function loadTraining(category, btn) {
 
 function playVideo(url, title) {
   if (!url) { showToast('Video coming soon!'); return; }
-  document.getElementById('videoFrame').src = url + '?autoplay=1';
+  let embedUrl = url;
+  if (url.includes('youtube.com/watch?v=')) {
+    const id = url.split('v=')[1].split('&')[0];
+    embedUrl = 'https://www.youtube.com/embed/' + id;
+  } else if (url.includes('youtu.be/')) {
+    const id = url.split('youtu.be/')[1].split('?')[0];
+    embedUrl = 'https://www.youtube.com/embed/' + id;
+  }
+  embedUrl += (embedUrl.includes('?') ? '&' : '?') + 'autoplay=1&rel=0&modestbranding=1';
+  document.getElementById('videoFrame').src = embedUrl;
+  document.getElementById('videoTitle').textContent = title || 'Training Video';
   document.getElementById('videoModal').classList.add('open');
+  document.body.style.overflow = 'hidden';
 }
 
 function closeVideo() {
   document.getElementById('videoModal').classList.remove('open');
   document.getElementById('videoFrame').src = '';
+  document.body.style.overflow = '';
 }
 
 // ── USSD Simulator ──
+let ussdDialBuffer = ''; // what user is typing before Send (e.g. "1", "2")
+let ussdSessionText = ''; // accumulated session text sent to API (e.g. "1*2")
+let ussdStarted = false;
+
+function updateScreen(text) {
+  const screen = document.getElementById('ussdScreen');
+  // Strip CON/END prefix for display
+  screen.textContent = text.replace(/^(CON|END)\s*/, '');
+}
+
 async function sendUSSD() {
   const input = document.getElementById('ussdInput').value.trim();
-  if (input) {
-    ussdText = ussdText ? ussdText + '*' + input : input;
+
+  if (!ussdStarted) {
+    showToast('Dial *789# first to start a session');
+    return;
   }
-  const screen = document.getElementById('ussdScreen');
-  screen.textContent = 'Processing...';
+
+  if (input) {
+    ussdSessionText = ussdSessionText ? ussdSessionText + '*' + input : input;
+  }
+
+  updateScreen('Processing...');
 
   const d = await apiFetch('/api/ussd', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ text: ussdText, phoneNumber: '+256700000001', sessionId: 'demo_' + Date.now() })
+    body: JSON.stringify({ text: ussdSessionText, phoneNumber: '+256700000001', sessionId: 'demo_' + Date.now() })
   });
 
-  const resp = d.response || 'Error connecting. Try again.';
-  screen.textContent = resp.replace(/^(CON|END)\s/, '');
   document.getElementById('ussdInput').value = '';
+  ussdDialBuffer = '';
+
+  const resp = d.response || 'Error connecting. Try again.';
+  updateScreen(resp);
 
   if (resp.startsWith('END')) {
-    ussdText = '';
-    setTimeout(() => { screen.textContent = 'Session ended. Dial *789# to start again.'; }, 3000);
+    ussdStarted = false;
+    ussdSessionText = '';
+    setTimeout(() => {
+      document.getElementById('ussdScreen').textContent = 'Session ended.\nDial *789# to start again.';
+    }, 4000);
   }
+}
+
+async function startUSSDSession() {
+  ussdStarted = true;
+  ussdSessionText = '';
+  ussdDialBuffer = '';
+  document.getElementById('ussdInput').value = '';
+  updateScreen('Connecting to *789#...');
+
+  const d = await apiFetch('/api/ussd', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ text: '', phoneNumber: '+256700000001', sessionId: 'demo_' + Date.now() })
+  });
+
+  updateScreen(d.response || 'Welcome to AgriBridge *789#');
 }
 
 function pressKey(k) {
   const inp = document.getElementById('ussdInput');
-  if (k === '#') {
-    ussdText = '';
+  const screen = document.getElementById('ussdScreen');
+
+  if (k === '*') {
+    // Accumulate the dial string: *789#
+    ussdDialBuffer += '*';
+    screen.textContent = 'Dialling: ' + ussdDialBuffer;
+  } else if (k === '#') {
+    ussdDialBuffer += '#';
+    screen.textContent = 'Dialling: ' + ussdDialBuffer;
+    // Check if they dialled *789#
+    if (ussdDialBuffer === '*789#' || ussdDialBuffer.includes('789')) {
+      setTimeout(startUSSDSession, 300);
+    } else {
+      // If session active, # = send current input
+      if (ussdStarted && inp.value.trim()) {
+        sendUSSD();
+      } else {
+        ussdDialBuffer = '';
+        screen.textContent = 'Dial *789# to start';
+      }
+    }
+    ussdDialBuffer = '';
     inp.value = '';
-    apiFetch('/api/ussd', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ text: '', phoneNumber: '+256700000001', sessionId: 'demo' })
-    }).then(d => {
-      document.getElementById('ussdScreen').textContent = (d.response||'').replace(/^CON\s/, '');
-    });
-  } else if (k === '*') {
-    inp.value = '';
-    ussdText = '';
-    document.getElementById('ussdScreen').textContent = 'Dial *789# to start';
   } else {
-    inp.value = inp.value + k;
+    if (ussdStarted) {
+      // During session: add number to input field
+      inp.value += k;
+    } else {
+      // Before session: accumulate dial string
+      ussdDialBuffer += k;
+      screen.textContent = 'Dialling: ' + ussdDialBuffer;
+    }
   }
 }
 
 function syncInput(v) { /* real-time sync */ }
 
 function resetUSSD() {
-  ussdText = '';
+  ussdStarted = false;
+  ussdSessionText = '';
+  ussdDialBuffer = '';
   document.getElementById('ussdInput').value = '';
   document.getElementById('ussdScreen').textContent = 'Dial *789# to start';
 }
@@ -1496,19 +2156,22 @@ document.getElementById('regModal').addEventListener('click', e => { if(e.target
 document.getElementById('pitchModal').addEventListener('click', e => { if(e.target===e.currentTarget) closePitch(); });
 document.getElementById('videoModal').addEventListener('click', e => { if(e.target===e.currentTarget) closeVideo(); });
 
-// Close video on Escape
+// ── Keyboard ESC closes modals ──
 document.addEventListener('keydown', e => {
-  if (e.key === 'Escape') { closeVideo(); closeModal(); closePitch(); }
+  if (e.key === 'Escape') {
+    closeModal(); closePitch(); closeVideo(); closeDashboard();
+  }
 });
 
-// ── INIT ──
+// ── Init on page load ──
 window.addEventListener('DOMContentLoaded', () => {
   loadStats();
-  loadChart('Tomatoes', null);
   loadListings();
   loadTraining('', null);
   loadDistricts();
-  runMatch();
+  loadChart('Tomatoes', document.querySelector('.price-control-btn'));
+  loadWeather('Kampala');
+  buildMap();
 });
 </script>
 </body>
