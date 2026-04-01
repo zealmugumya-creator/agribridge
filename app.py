@@ -72,6 +72,7 @@ CREATE TABLE IF NOT EXISTS farmers (
     user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
     national_id TEXT,
     farm_name TEXT,
+    district TEXT,
     gps_lat REAL,
     gps_lon REAL,
     farm_size_acres REAL,
