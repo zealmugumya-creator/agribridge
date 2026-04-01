@@ -286,6 +286,14 @@ init_db()
 # SERVE FRONTEND
 # ─────────────────────────────────────────
 
+@app.route('/sitemap.xml')
+def sitemap():
+    return send_from_directory('static', 'sitemap.xml'), 200, {'Content-Type': 'application/xml'}
+
+@app.route('/robots.txt')
+def robots():
+    return send_from_directory('static', 'robots.txt'), 200, {'Content-Type': 'text/plain'}
+
 @app.route('/')
 def index():
     return send_from_directory('static', 'index.html')
@@ -719,6 +727,71 @@ def districts():
         {"name": "Lira", "farmers": 389, "produce": "Cotton, Maize, Sunflower", "lat": 2.2449, "lon": 32.8997},
     ]
     return jsonify({'success': True, 'districts': data})
+
+# ─────────────────────────────────────────
+# SEARCH
+# ─────────────────────────────────────────
+
+@app.route('/api/search')
+def search():
+    q = request.args.get('q', '').strip().lower()
+    if not q:
+        return jsonify({'success': False, 'error': 'No search query provided'}), 400
+
+    # Search listings (produce/crops)
+    listings = query(
+        """SELECT l.*, u.name as farmer_name, u.district as farmer_district
+           FROM listings l
+           JOIN farmers f ON l.farmer_id = f.id
+           JOIN users u ON f.user_id = u.id
+           WHERE (LOWER(l.crop) LIKE ? OR LOWER(l.district) LIKE ? OR LOWER(u.name) LIKE ?)
+           AND l.status = 'active'
+           ORDER BY l.created_at DESC""",
+        (f'%{q}%', f'%{q}%', f'%{q}%')
+    )
+
+    # Search farmers
+    farmers = query(
+        """SELECT f.*, u.name, u.phone, u.district, u.verified
+           FROM farmers f
+           JOIN users u ON f.user_id = u.id
+           WHERE LOWER(u.name) LIKE ? OR LOWER(u.district) LIKE ?
+           OR LOWER(f.farm_name) LIKE ? OR LOWER(f.crops) LIKE ?
+           ORDER BY u.verified DESC""",
+        (f'%{q}%', f'%{q}%', f'%{q}%', f'%{q}%')
+    )
+
+    # Search vendors
+    vendors = query(
+        """SELECT v.*, u.name, u.phone, u.verified
+           FROM vendors v
+           JOIN users u ON v.user_id = u.id
+           WHERE LOWER(u.name) LIKE ? OR LOWER(v.business_name) LIKE ?
+           OR LOWER(v.market_name) LIKE ? OR LOWER(v.district) LIKE ?
+           OR LOWER(v.product_categories) LIKE ?""",
+        (f'%{q}%', f'%{q}%', f'%{q}%', f'%{q}%', f'%{q}%')
+    )
+
+    # Search training modules
+    training = query(
+        """SELECT * FROM training_modules
+           WHERE LOWER(title) LIKE ? OR LOWER(category) LIKE ? OR LOWER(description) LIKE ?""",
+        (f'%{q}%', f'%{q}%', f'%{q}%')
+    )
+
+    total = len(listings) + len(farmers) + len(vendors) + len(training)
+
+    return jsonify({
+        'success': True,
+        'query': q,
+        'total_results': total,
+        'results': {
+            'listings': rows_to_list(listings),
+            'farmers': rows_to_list(farmers),
+            'vendors': rows_to_list(vendors),
+            'training': rows_to_list(training),
+        }
+    })
 
 # ─────────────────────────────────────────
 # HEALTH CHECK
