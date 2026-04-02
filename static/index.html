@@ -1686,7 +1686,14 @@ const API = '';  // relative URLs — works on any domain
 async function apiFetch(path, opts) {
   try {
     const res = await fetch(API + path, opts);
-    return await res.json();
+    const contentType = res.headers.get('content-type') || '';
+    if (!contentType.includes('application/json')) {
+      // Server returned HTML (error page) — app.py not deployed yet or crashed
+      console.warn('API returned non-JSON for', path, '— status:', res.status);
+      return { success: false, error: `Server error (${res.status}). Please redeploy app.py on Render.` };
+    }
+    const data = await res.json();
+    return data;
   } catch(e) {
     console.error('API error', path, e);
     return { success: false, error: e.message };
