@@ -1040,8 +1040,8 @@ footer{background:#060b18;border-top:1px solid var(--border);padding:48px 5% 28p
         <div class="section-label">Get in Touch</div>
         <h3>Talk to the AgriBridge Team</h3>
         <p>Whether you're a farmer wanting to join, an investor interested in partnering, or a hotel looking for fresh supply — we're here to help.</p>
-        <div class="contact-item"><div class="contact-icon">📞</div><div><strong style="color:#fff">Toll-Free Hotline</strong><br>0800-100-789 (free from any network)</div></div>
-        <div class="contact-item"><div class="contact-icon">📱</div><div><strong style="color:#fff">WhatsApp</strong><br>+256 700 AGR-BRDG</div></div>
+        <div class="contact-item"><div class="contact-icon">📞</div><div><strong style="color:#fff">Toll-Free Hotline</strong><br>0755 966 690</div></div>
+        <div class="contact-item"><div class="contact-icon">📱</div><div><strong style="color:#fff">WhatsApp</strong><br>+256 755 966 690</div></div>
         <div class="contact-item"><div class="contact-icon">✉️</div><div><strong style="color:#fff">Email</strong><br><a href="/cdn-cgi/l/email-protection" class="__cf_email__" data-cfemail="660e030a0a09260701140f04140f020103481301">[email&#160;protected]</a></div></div>
         <div class="contact-item"><div class="contact-icon">📍</div><div><strong style="color:#fff">Office</strong><br>Plot 12, Kampala Road, Kampala</div></div>
         <div class="contact-item"><div class="contact-icon">🌐</div><div><strong style="color:#fff">USSD</strong><br>Dial *789# from any phone</div></div>
@@ -1180,7 +1180,7 @@ footer{background:#060b18;border-top:1px solid var(--border);padding:48px 5% 28p
     <div class="footer-col">
       <h4>Contact</h4>
       <ul>
-        <li><a href="#">0800-100-789 (Free)</a></li>
+        <li><a href="#">0755 966 690</a></li>
         <li><a href="#"><span class="__cf_email__" data-cfemail="1f777a7373705f7e786d767d6d767b787a316a78">[email&#160;protected]</span></a></li>
         <li><a href="#">Dial *789#</a></li>
         <li><a href="#">Kampala, Uganda</a></li>
@@ -1200,7 +1200,7 @@ footer{background:#060b18;border-top:1px solid var(--border);padding:48px 5% 28p
 <!-- ═══ WHATSAPP FLOAT ═══ -->
 <div class="whatsapp-float">
   <div class="whatsapp-tooltip">💬 Chat with AgriBridge on WhatsApp</div>
-  <button class="whatsapp-btn" onclick="window.open('https://wa.me/256700000789?text=Hello%20AgriBridge!%20I%20need%20help.','_blank')" title="Chat on WhatsApp">💬</button>
+  <button class="whatsapp-btn" onclick="window.open('https://wa.me/256755966690?text=Hello%20AgriBridge!%20I%20need%20help.','_blank')" title="Chat on WhatsApp">💬</button>
 </div>
 
 <!-- ═══ FARMER DASHBOARD ═══ -->
@@ -1432,7 +1432,7 @@ footer{background:#060b18;border-top:1px solid var(--border);padding:48px 5% 28p
           <div class="metric"><strong>10 districts</strong><span>Target Coverage</span></div>
           <div class="metric"><strong>10,000</strong><span>Farmers Goal</span></div>
         </div>
-        <p style="color:var(--text2);font-size:.85rem;margin-top:16px">Contact: <a href="/cdn-cgi/l/email-protection" class="__cf_email__" data-cfemail="274e4951425453485554674640554e45554e434042095240">[email&#160;protected]</a> | +256 700 000 789</p>
+        <p style="color:var(--text2);font-size:.85rem;margin-top:16px">Contact: <a href="/cdn-cgi/l/email-protection" class="__cf_email__" data-cfemail="274e4951425453485554674640554e45554e434042095240">[email&#160;protected]</a> | +256 755 966 690</p>
       </div>
     </div>
   </div>
@@ -1470,7 +1470,7 @@ async function liveSearch(q) {
     if (r.farmers && r.farmers.length) {
       html += `<div class="search-result-group">👨‍🌾 Farmers</div>`;
       r.farmers.slice(0,3).forEach(f => {
-        html += `<div class="search-result-item" onclick="showToast('📞 Contact ${f.name} via 0800-100-789');closeSearch()">
+        html += `<div class="search-result-item" onclick="showToast('📞 Contact ${f.name} via 0755 966 690');closeSearch()">
           <div class="search-result-icon">👨‍🌾</div>
           <div><div class="search-result-name">${f.name}</div>
           <div class="search-result-meta">📍 ${f.district||'Uganda'} · ${f.crops||'Various crops'}</div></div></div>`;
@@ -1618,70 +1618,66 @@ function buildMap() {
 }
 
 // ── DELIVERY TRACKING ──
-const mockOrders = {
-  'AB-2026-001': {
-    name:'500kg Tomatoes → Nakasero Market', from:'Grace Farm, Kampala', to:'Nakasero Market',
-    eta:'Today 3:00 PM', driver:'Okello James (+256 701 234 567)',
-    steps:[
-      {title:'Order Confirmed',    desc:'Farmer accepted order',          time:'8:00 AM today',  done:true,  active:false},
-      {title:'Produce Loaded',     desc:'500kg loaded & weighed at farm', time:'8:15 AM today',  done:true,  active:false},
-      {title:'Picked Up',          desc:'Driver Okello departed farm',    time:'8:45 AM today',  done:true,  active:false},
-      {title:'In Transit',         desc:'25km from destination',          time:'Now — 12:30 PM', done:false, active:true},
-      {title:'At Delivery Point',  desc:'Arrived at Nakasero Market',     time:'ETA 3:00 PM',    done:false, active:false},
-      {title:'Delivered & Signed', desc:'Buyer confirms receipt',         time:'Pending',        done:false, active:false},
-    ]
-  },
-  'AB-2026-002': {
-    name:'300kg Matooke → Serena Hotel', from:'Ssemakula Farm, Wakiso', to:'Serena Hotel, Kampala',
-    eta:'Today 1:30 PM', driver:'Nalubega Ruth (+256 702 345 678)',
-    steps:[
-      {title:'Order Confirmed',    desc:'Hotel placed bulk order',        time:'7:00 AM today',  done:true,  active:false},
-      {title:'Produce Loaded',     desc:'300kg graded & packed',          time:'7:30 AM today',  done:true,  active:false},
-      {title:'Picked Up',          desc:'Driver Nalubega departed',       time:'8:00 AM today',  done:true,  active:false},
-      {title:'In Transit',         desc:'8km from Serena Hotel',          time:'Now — 12:05 PM', done:false, active:true},
-      {title:'At Delivery Point',  desc:'Arriving at hotel loading bay',  time:'ETA 1:30 PM',    done:false, active:false},
-      {title:'Delivered & Signed', desc:'Hotel manager confirms',         time:'Pending',        done:false, active:false},
-    ]
-  },
-  'AB-2026-003': {
-    name:'1000kg Maize → Gulu Depot', from:'Apio Farm, Gulu', to:'Northern Uganda Depot',
-    eta:'Today 5:30 PM (delayed)', driver:'Ongom David (+256 703 456 789)',
-    steps:[
-      {title:'Order Confirmed',    desc:'Depot placed bulk order',        time:'6:00 AM today',  done:true,  active:false},
-      {title:'Produce Loaded',     desc:'1000kg bagged & loaded',         time:'7:00 AM today',  done:true,  active:false},
-      {title:'Picked Up',          desc:'Driver Ongom departed',          time:'7:30 AM today',  done:true,  active:false},
-      {title:'In Transit',         desc:'⚠️ Delayed — highway traffic',   time:'Now — 11:42 AM', done:false, active:true},
-      {title:'At Delivery Point',  desc:'Arriving at depot',              time:'ETA 5:30 PM',    done:false, active:false},
-      {title:'Delivered & Signed', desc:'Depot manager confirms',         time:'Pending',        done:false, active:false},
-    ]
-  }
-};
-
-function trackOrder() {
-  const id = document.getElementById('trackInput').value.trim();
+async function trackOrder() {
+  const id = document.getElementById('trackInput').value.trim().toUpperCase();
   const result = document.getElementById('trackResult');
-  const order = mockOrders[id];
-  if (!order) {
-    showToast('❌ Order not found. Try AB-2026-001, AB-2026-002 or AB-2026-003');
+  if (!id) { showToast('Enter an order or delivery reference'); return; }
+
+  showToast('🔍 Looking up delivery...');
+  const d = await apiFetch(`/api/deliveries/${encodeURIComponent(id)}`);
+
+  if (!d.success) {
+    showToast(`❌ ${d.error || 'Not found. Try DEL-2026-001, DEL-2026-002 or DEL-2026-003'}`, 5000);
     return;
   }
-  document.getElementById('trackOrderId').textContent = 'Order #' + id;
-  document.getElementById('trackOrderName').textContent = order.name;
-  document.getElementById('trackOrderMeta').innerHTML = `📍 From: ${order.from} · To: ${order.to} · 🚗 Driver: ${order.driver} · ETA: <strong style="color:var(--green)">${order.eta}</strong>`;
+
+  const del = d.delivery;
+  const order = d.order || {};
+  const events = d.events || [];
+
+  document.getElementById('trackOrderId').textContent = `Delivery #${del.ref}  |  Order #${order.ref || ''}`;
+  document.getElementById('trackOrderName').textContent = `${order.quantity_kg || ''}kg ${order.crop || 'Produce'} → ${del.dropoff_location || del.dropoff_district || ''}`;
+  document.getElementById('trackOrderMeta').innerHTML =
+    `📍 From: ${del.pickup_location || del.pickup_district} &nbsp;·&nbsp; ` +
+    `🚗 Driver: ${del.driver_name} (${del.driver_phone}) &nbsp;·&nbsp; ` +
+    `ETA: <strong style="color:var(--green)">${del.eta || 'Calculating...'}</strong>`;
+
+  const statusOrder = ['assigned','loading','picked_up','in_transit','at_destination','delivered'];
+  const currentIdx  = statusOrder.indexOf(del.status);
+
+  const stepLabels = {
+    assigned:       {title:'Order Confirmed',      desc:'Driver assigned to delivery'},
+    loading:        {title:'Produce Being Loaded', desc:'Produce weighed and packed at farm'},
+    picked_up:      {title:'Picked Up',            desc:'Driver departed from farm'},
+    in_transit:     {title:'In Transit',           desc:`Currently: ${del.current_location || 'En route'}`},
+    at_destination: {title:'At Destination',       desc:'Arrived at delivery point'},
+    delivered:      {title:'Delivered ✅',          desc:'Recipient signed and confirmed'},
+  };
+
   const timeline = document.getElementById('deliveryTimeline');
-  timeline.innerHTML = order.steps.map(s => `
-    <div class="timeline-step ${s.done?'done':''} ${s.active?'active':''}">
-      <div class="timeline-dot"></div>
-      <div class="timeline-step-title">${s.title}</div>
-      <div class="timeline-step-desc">${s.desc}</div>
-      ${s.done || s.active ? `<div class="timeline-step-time">🕐 ${s.time}</div>` : ''}
-    </div>`).join('');
+  timeline.innerHTML = statusOrder.map((s, i) => {
+    const isDone   = i < currentIdx;
+    const isActive = i === currentIdx;
+    const info     = stepLabels[s];
+    const evt      = events.find(e => e.event_type === s);
+    const timeStr  = evt ? new Date(evt.created_at).toLocaleTimeString('en-UG',{hour:'2-digit',minute:'2-digit'}) : '';
+    return `
+      <div class="timeline-step ${isDone?'done':''} ${isActive?'active':''}">
+        <div class="timeline-dot"></div>
+        <div class="timeline-step-title">${info.title}</div>
+        <div class="timeline-step-desc">${isActive||isDone ? info.desc : 'Pending'}</div>
+        ${(isDone||isActive) && timeStr ? `<div class="timeline-step-time">🕐 ${timeStr}</div>` : ''}
+      </div>`;
+  }).join('');
+
   result.classList.add('show');
   showToast(`✅ Tracking loaded for ${id}`);
 }
 
 function createDelivery() {
-  showToast('📦 Opening new delivery form... Call 0800-100-789 or use the app to create a delivery');
+  const ref = prompt('Enter Order Reference to create delivery (e.g. AB-2026-00103):');
+  if (!ref) return;
+  showToast(`📦 Delivery for ${ref} — call 0755 966 690 to assign a driver`, 5000);
 }
 
 // ── API Base ──
@@ -1796,7 +1792,7 @@ async function runMatch() {
       <div class="match-meta">📍 ${m.user_district || m.district || 'Uganda'} · ${m.farm_size_acres || '?'} acres · ${m.experience_years || '?'}yrs exp</div>
       <div class="match-meta">📦 ${(m.monthly_output_kg||0).toLocaleString()} kg/month ${m.storage_available?'· 📦 Storage':''}${m.irrigation?'· 💧 Irrigation':''}</div>
       <div class="match-crops">${cropsHtml}</div>
-      <button class="btn-order" style="margin-top:14px" onclick="showToast('📞 Connecting you with ${m.name}... Call 0800-100-789')">Contact Farmer</button>
+      <button class="btn-order" style="margin-top:14px" onclick="showToast('📞 Connecting you with ${m.name}... Call 0755 966 690')">Contact Farmer</button>
     </div>`;
   }).join('');
 }
@@ -1832,7 +1828,26 @@ async function loadListings() {
 }
 
 function orderListing(id, crop, price) {
-  showToast(`✅ Order request sent for ${crop} @ UGX ${Number(price).toLocaleString()}/kg. You will be contacted shortly.`, 4000);
+  const qty = prompt(`How many kg of ${crop} do you want? (Available at UGX ${Number(price).toLocaleString()}/kg)`);
+  if (!qty || isNaN(qty) || qty <= 0) return;
+  const address = prompt('Enter your delivery address (e.g. Nakasero Market, Kampala):');
+  if (!address) return;
+  const total = Math.round(qty * price);
+  apiFetch('/api/orders', {
+    method: 'POST',
+    headers: {'Content-Type':'application/json'},
+    body: JSON.stringify({
+      listing_id: id, quantity_kg: parseFloat(qty),
+      delivery_address: address, delivery_district: address.split(',').pop().trim(),
+      payment_method: 'mobile_money'
+    })
+  }).then(d => {
+    if (d.success) {
+      showToast(`✅ Order placed! Ref: ${d.ref} · Total: UGX ${Number(d.total).toLocaleString()} · The farmer will confirm within 2 hours.`, 6000);
+    } else {
+      showToast('❌ ' + (d.error || 'Order failed. Call 0755 966 690'), 5000);
+    }
+  });
 }
 
 // ── Training ──
@@ -1918,7 +1933,7 @@ async function sendUSSD() {
   const d = await apiFetch('/api/ussd', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ text: ussdSessionText, phoneNumber: '+256700000001', sessionId: 'demo_' + Date.now() })
+    body: JSON.stringify({ text: ussdSessionText, phoneNumber: '+256755966690', sessionId: 'demo_' + Date.now() })
   });
 
   document.getElementById('ussdInput').value = '';
@@ -1946,7 +1961,7 @@ async function startUSSDSession() {
   const d = await apiFetch('/api/ussd', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ text: '', phoneNumber: '+256700000001', sessionId: 'demo_' + Date.now() })
+    body: JSON.stringify({ text: '', phoneNumber: '+256755966690', sessionId: 'demo_' + Date.now() })
   });
 
   updateScreen(d.response || 'Welcome to AgriBridge *789#');
@@ -2011,7 +2026,7 @@ async function testSMS() {
   const d = await apiFetch('/api/sms', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ message: msg, phone: '+256700000001' })
+    body: JSON.stringify({ message: msg, phone: '+256755966690' })
   });
 
   reply.textContent = d.reply || d.error || 'No reply';
@@ -2172,7 +2187,25 @@ window.addEventListener('DOMContentLoaded', () => {
   loadChart('Tomatoes', document.querySelector('.price-control-btn'));
   loadWeather('Kampala');
   buildMap();
+  loadDeliveryAlerts();
 });
+
+async function loadDeliveryAlerts() {
+  const d = await apiFetch('/api/deliveries/alerts?limit=5');
+  if (!d.success || !d.alerts.length) return;
+  const typeMap = {info:'🚚', warning:'⚠️', success:'✅', error:'❌'};
+  const colorMap = {info:'var(--blue)', warning:'var(--gold)', success:'var(--green)', error:'#f87171'};
+  const el = document.getElementById('deliveryAlerts');
+  if (!el) return;
+  el.innerHTML = d.alerts.map(a => `
+    <div class="alert-item ${a.alert_type === 'warning' ? 'warning' : a.alert_type === 'info' ? 'info' : ''}">
+      <div class="alert-icon">${typeMap[a.alert_type] || '📦'}</div>
+      <div class="alert-text">
+        <strong>${a.title}</strong>${a.message}
+        <div class="alert-time">${new Date(a.created_at).toLocaleString('en-UG',{hour:'2-digit',minute:'2-digit', month:'short', day:'numeric'})}</div>
+      </div>
+    </div>`).join('');
+}
 </script>
 </body>
 </html>
