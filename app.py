@@ -1232,6 +1232,207 @@ def handle_sms():
     return jsonify({'success': True, 'reply': reply})
 
 # ─────────────────────────────────────────
+# ADMIN PANEL
+# ─────────────────────────────────────────
+
+ADMIN_PASSWORD = os.environ.get('ADMIN_PASSWORD', 'agribridge2026')
+
+def check_admin(req):
+    auth = req.headers.get('X-Admin-Key') or req.args.get('key') or (req.json or {}).get('key') if req.is_json else req.headers.get('X-Admin-Key') or req.args.get('key')
+    return auth == ADMIN_PASSWORD
+
+@app.route('/admin')
+def admin_panel():
+    return send_from_directory('static', 'admin.html')
+
+@app.route('/api/admin/login', methods=['POST'])
+def admin_login():
+    d = request.json or {}
+    if d.get('password') == ADMIN_PASSWORD:
+        return jsonify({'success': True, 'token': ADMIN_PASSWORD})
+    return jsonify({'success': False, 'error': 'Wrong password'}), 401
+
+@app.route('/api/admin/overview')
+def admin_overview():
+    if not check_admin(request):
+        return jsonify({'error': 'Unauthorized'}), 401
+    users      = query("SELECT COUNT(*) as c FROM users", one=True)['c']
+    farmers    = query("SELECT COUNT(*) as c FROM farmers", one=True)['c']
+    vendors    = query("SELECT COUNT(*) as c FROM vendors", one=True)['c']
+    listings   = query("SELECT COUNT(*) as c FROM listings WHERE status='active'", one=True)['c']
+    orders     = query("SELECT COUNT(*) as c FROM orders", one=True)['c']
+    pending    = query("SELECT COUNT(*) as c FROM orders WHERE status='pending'", one=True)['c']
+    delivered  = query("SELECT COUNT(*) as c FROM orders WHERE status='delivered'", one=True)['c']
+    deliveries = query("SELECT COUNT(*) as c FROM deliveries", one=True)['c']
+    active_del = query("SELECT COUNT(*) as c FROM deliveries WHERE status NOT IN ('delivered','failed')", one=True)['c']
+    revenue    = query("SELECT SUM(total_price) as t FROM orders WHERE status='delivered'", one=True)['t'] or 0
+    contacts   = query("SELECT COUNT(*) as c FROM contacts WHERE status='new'", one=True)['c']
+    sms        = query("SELECT COUNT(*) as c FROM sms_logs", one=True)['c']
+    unverified = query("SELECT COUNT(*) as c FROM users WHERE verified=0", one=True)['c']
+    recent_orders = rows_to_list(query("""
+        SELECT o.*, l.crop, u.name as buyer_name
+        FROM orders o JOIN listings l ON o.listing_id=l.id
+        JOIN users u ON o.buyer_user_id=u.id
+        ORDER BY o.created_at DESC LIMIT 8
+    """))
+    recent_users = rows_to_list(query(
+        "SELECT id,name,phone,role,district,verified,created_at FROM users ORDER BY created_at DESC LIMIT 8"
+    ))
+    return jsonify({'success': True, 'overview': {
+        'users': users, 'farmers': farmers, 'vendors': vendors,
+        'active_listings': listings, 'orders': orders,
+        'pending_orders': pending, 'delivered_orders': delivered,
+        'deliveries': deliveries, 'active_deliveries': active_del,
+        'revenue': revenue, 'new_contacts': contacts,
+        'sms_total': sms, 'unverified_users': unverified,
+        'recent_orders': recent_orders, 'recent_users': recent_users
+    }})
+
+@app.route('/api/admin/users')
+def admin_users():
+    if not check_admin(request): return jsonify({'error': 'Unauthorized'}), 401
+    role = request.args.get('role', '')
+    verified = request.args.get('verified', '')
+    sql = "SELECT id,name,phone,email,role,district,verified,profile_pct,created_at FROM users WHERE 1=1"
+    args = []
+    if role:
+        sql += " AND role=?"; args.append(role)
+    if verified != '':
+        sql += " AND verified=?"; args.append(int(verified))
+    sql += " ORDER BY created_at DESC"
+    return jsonify({'success': True, 'users': rows_to_list(query(sql, args))})
+
+@app.route('/api/admin/users/<int:uid>/verify', methods=['PATCH'])
+def admin_verify_user(uid):
+    if not check_admin(request): return jsonify({'error': 'Unauthorized'}), 401
+    execute("UPDATE users SET verified=1 WHERE id=?", (uid,))
+    return jsonify({'success': True})
+
+@app.route('/api/admin/users/<int:uid>', methods=['DELETE'])
+def admin_delete_user(uid):
+    if not check_admin(request): return jsonify({'error': 'Unauthorized'}), 401
+    execute("DELETE FROM users WHERE id=?", (uid,))
+    return jsonify({'success': True})
+
+@app.route('/api/admin/orders')
+def admin_orders():
+    if not check_admin(request): return jsonify({'error': 'Unauthorized'}), 401
+    status = request.args.get('status', '')
+    sql = """
+        SELECT o.*, l.crop, l.price_per_kg,
+               ub.name as buyer_name, ub.phone as buyer_phone,
+               uf.name as farmer_name, uf.phone as farmer_phone
+        FROM orders o
+        JOIN listings l ON o.listing_id=l.id
+        JOIN users ub ON o.buyer_user_id=ub.id
+        JOIN users uf ON o.farmer_user_id=uf.id
+        WHERE 1=1
+    """
+    args = []
+    if status:
+        sql += " AND o.status=?"; args.append(status)
+    sql += " ORDER BY o.created_at DESC"
+    return jsonify({'success': True, 'orders': rows_to_list(query(sql, args))})
+
+@app.route('/api/admin/orders/<int:oid>/status', methods=['PATCH'])
+def admin_update_order(oid):
+    if not check_admin(request): return jsonify({'error': 'Unauthorized'}), 401
+    d = request.json or {}
+    execute("UPDATE orders SET status=?, updated_at=? WHERE id=?",
+            (d.get('status'), datetime.now().isoformat(), oid))
+    return jsonify({'success': True})
+
+@app.route('/api/admin/deliveries')
+def admin_deliveries():
+    if not check_admin(request): return jsonify({'error': 'Unauthorized'}), 401
+    rows = query("""
+        SELECT d.*, o.ref as order_ref, l.crop, l.quantity_kg,
+               ub.name as buyer_name, uf.name as farmer_name
+        FROM deliveries d
+        JOIN orders o ON d.order_id=o.id
+        JOIN listings l ON o.listing_id=l.id
+        JOIN users ub ON o.buyer_user_id=ub.id
+        JOIN users uf ON o.farmer_user_id=uf.id
+        ORDER BY d.created_at DESC
+    """)
+    return jsonify({'success': True, 'deliveries': rows_to_list(rows)})
+
+@app.route('/api/admin/deliveries/<int:did>/status', methods=['PATCH'])
+def admin_update_delivery(did):
+    if not check_admin(request): return jsonify({'error': 'Unauthorized'}), 401
+    d = request.json or {}
+    new_status = d.get('status')
+    now = datetime.now().isoformat()
+    execute("UPDATE deliveries SET status=?, current_location=?, eta=?, updated_at=? WHERE id=?",
+            (new_status, d.get('location',''), d.get('eta',''), now, did))
+    execute("INSERT INTO delivery_events (delivery_id,event_type,description,location) VALUES (?,?,?,?)",
+            (did, new_status, d.get('description', f'Admin updated status to {new_status}'), d.get('location','')))
+    if new_status == 'delivered':
+        execute("UPDATE deliveries SET delivered_at=? WHERE id=?", (now, did))
+        delivery = query("SELECT order_id FROM deliveries WHERE id=?", (did,), one=True)
+        if delivery:
+            execute("UPDATE orders SET status='delivered', updated_at=? WHERE id=?", (now, delivery['order_id']))
+    return jsonify({'success': True})
+
+@app.route('/api/admin/contacts')
+def admin_contacts():
+    if not check_admin(request): return jsonify({'error': 'Unauthorized'}), 401
+    rows = query("SELECT * FROM contacts ORDER BY created_at DESC")
+    return jsonify({'success': True, 'contacts': rows_to_list(rows)})
+
+@app.route('/api/admin/contacts/<int:cid>/status', methods=['PATCH'])
+def admin_update_contact(cid):
+    if not check_admin(request): return jsonify({'error': 'Unauthorized'}), 401
+    d = request.json or {}
+    execute("UPDATE contacts SET status=? WHERE id=?", (d.get('status','read'), cid))
+    return jsonify({'success': True})
+
+@app.route('/api/admin/listings')
+def admin_listings():
+    if not check_admin(request): return jsonify({'error': 'Unauthorized'}), 401
+    rows = query("""
+        SELECT l.*, u.name as farmer_name, u.phone as farmer_phone
+        FROM listings l
+        JOIN farmers f ON l.farmer_id=f.id
+        JOIN users u ON f.user_id=u.id
+        ORDER BY l.created_at DESC
+    """)
+    return jsonify({'success': True, 'listings': rows_to_list(rows)})
+
+@app.route('/api/admin/listings/<int:lid>/status', methods=['PATCH'])
+def admin_update_listing(lid):
+    if not check_admin(request): return jsonify({'error': 'Unauthorized'}), 401
+    d = request.json or {}
+    execute("UPDATE listings SET status=? WHERE id=?", (d.get('status'), lid))
+    return jsonify({'success': True})
+
+@app.route('/api/admin/sms')
+def admin_sms():
+    if not check_admin(request): return jsonify({'error': 'Unauthorized'}), 401
+    rows = query("SELECT * FROM sms_logs ORDER BY created_at DESC LIMIT 100")
+    return jsonify({'success': True, 'logs': rows_to_list(rows)})
+
+@app.route('/api/admin/broadcast', methods=['POST'])
+def admin_broadcast():
+    if not check_admin(request): return jsonify({'error': 'Unauthorized'}), 401
+    d = request.json or {}
+    message = d.get('message','')
+    role = d.get('role','')
+    if not message:
+        return jsonify({'success': False, 'error': 'Message required'}), 400
+    if role:
+        users = query("SELECT phone FROM users WHERE role=? AND verified=1", (role,))
+    else:
+        users = query("SELECT phone FROM users WHERE verified=1")
+    count = 0
+    for u in users:
+        execute("INSERT INTO sms_logs (phone,message,direction,status) VALUES (?,?,?,?)",
+                (u['phone'], message, 'outbound', 'queued'))
+        count += 1
+    return jsonify({'success': True, 'queued': count,
+                    'message': f'Broadcast queued for {count} users'})
+
+# ─────────────────────────────────────────
 # HEALTH CHECK
 # ─────────────────────────────────────────
 
