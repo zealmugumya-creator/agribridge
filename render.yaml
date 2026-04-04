@@ -1,16 +1,12 @@
 services:
   - type: web
-    name: agribridge
-    env: python
+    name: agribridge-1
+    runtime: python
+    pythonVersion: "3.12.7"
     buildCommand: pip install -r requirements.txt
-    startCommand: gunicorn app:app --bind 0.0.0.0:$PORT --workers 2
-    plan: free
+    startCommand: gunicorn app:app --bind 0.0.0.0:$PORT --workers 2 --timeout 120
     envVars:
+      - key: FLASK_ENV
+        value: production
       - key: SECRET_KEY
         generateValue: true
-      - key: ADMIN_PASSWORD
-        value: agribridge2026
-      - key: AT_USERNAME
-        value: sandbox
-      - key: DB_PATH
-        value: /opt/render/project/src/agribridge.db
