@@ -5,496 +5,691 @@
 <meta name="viewport" content="width=device-width,initial-scale=1.0">
 <title>AgriBridge · Uganda Farm-to-Table Platform</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;500;600;700;800&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <style>
-/* ═══════════════════════════════════════
-   RESET & BASE
-═══════════════════════════════════════ */
 *{margin:0;padding:0;box-sizing:border-box}
 html{scroll-behavior:smooth}
-body{font-family:'Inter',sans-serif;background:#0a0f1e;color:#e2e8f0;line-height:1.6;overflow-x:hidden}
-
-/* COLOURS */
+body{font-family:'DM Sans',sans-serif;background:#0a0f1e;color:#e2e8f0;line-height:1.6;overflow-x:hidden}
 :root{
   --green:#00c853;--green-dark:#00a846;--green-glow:rgba(0,200,83,.18);
-  --gold:#ffd600;--gold-light:#fff176;
-  --blue:#1e88e5;--purple:#7c3aed;
+  --gold:#ffd600;
   --bg:#0a0f1e;--bg2:#111827;--bg3:#1f2937;--bg4:#374151;
   --text:#e2e8f0;--text2:#9ca3af;--text3:#6b7280;
   --border:rgba(255,255,255,.08);
   --shadow:0 8px 32px rgba(0,0,0,.5);
   --radius:12px;--radius-lg:20px;
 }
-
-/* SCROLLBAR */
 ::-webkit-scrollbar{width:6px}
 ::-webkit-scrollbar-track{background:var(--bg2)}
 ::-webkit-scrollbar-thumb{background:var(--green);border-radius:3px}
 
-/* NAVBAR */
-nav{
+/* ── TOPBAR ── */
+.topbar{
   position:fixed;top:0;width:100%;z-index:1000;
-  background:rgba(10,15,30,.95);backdrop-filter:blur(20px);
+  background:rgba(10,15,30,.97);backdrop-filter:blur(20px);
   border-bottom:1px solid var(--border);
   display:flex;align-items:center;justify-content:space-between;
-  padding:0 5%;height:68px;
+  padding:0 4%;height:62px;
 }
-.logo{display:flex;align-items:center;gap:10px;text-decoration:none}
-.logo-icon{width:38px;height:38px;background:linear-gradient(135deg,var(--green),var(--green-dark));border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:20px}
-.logo-text{font-size:1.3rem;font-weight:800;color:#fff}
+.logo{display:flex;align-items:center;gap:10px;text-decoration:none;cursor:pointer}
+.logo-icon{width:36px;height:36px;background:linear-gradient(135deg,var(--green),var(--green-dark));border-radius:9px;display:flex;align-items:center;justify-content:center;font-size:18px}
+.logo-text{font-family:'Syne',sans-serif;font-size:1.25rem;font-weight:800;color:#fff}
 .logo-text span{color:var(--green)}
-.nav-links{display:flex;gap:28px;list-style:none;align-items:center}
-.nav-links a{color:var(--text2);text-decoration:none;font-size:.9rem;font-weight:500;transition:.2s}
-.nav-links a:hover{color:var(--green)}
-.nav-cta{background:var(--green);color:#000!important;padding:8px 20px;border-radius:8px;font-weight:700!important;font-size:.85rem!important}
-.nav-cta:hover{background:var(--green-dark)!important;color:#000!important}
-.hamburger{display:none;flex-direction:column;gap:5px;cursor:pointer;padding:4px}
-.hamburger span{display:block;width:24px;height:2px;background:var(--text);border-radius:2px;transition:.3s}
+.topnav{display:flex;gap:4px;align-items:center}
+.tnav-btn{
+  background:transparent;border:none;
+  color:var(--text2);padding:7px 13px;border-radius:8px;
+  cursor:pointer;font-size:.82rem;font-weight:500;
+  font-family:'DM Sans',sans-serif;
+  transition:background .15s,color .15s;white-space:nowrap;
+}
+.tnav-btn:hover{background:rgba(255,255,255,.07);color:#fff}
+.tnav-btn.active{background:rgba(0,200,83,.15);color:var(--green)}
+.tnav-cta{background:var(--green);color:#000!important;font-weight:700!important;padding:7px 16px;border-radius:8px}
+.tnav-cta:hover{background:var(--green-dark)!important}
+.hamburger{display:none;flex-direction:column;gap:5px;cursor:pointer;background:none;border:none;padding:4px}
+.hamburger span{display:block;width:22px;height:2px;background:var(--text);border-radius:2px;transition:.3s}
+.mobile-drawer{display:none;position:fixed;top:62px;left:0;right:0;background:rgba(10,15,30,.99);backdrop-filter:blur(20px);padding:16px 4% 24px;z-index:999;flex-direction:column;gap:4px;border-bottom:1px solid var(--border)}
+.mobile-drawer.open{display:flex}
+.mdraw-btn{background:transparent;border:none;color:var(--text);font-family:'DM Sans',sans-serif;font-size:.95rem;font-weight:500;padding:10px 8px;text-align:left;cursor:pointer;border-bottom:1px solid var(--border);border-radius:0}
+.mdraw-btn.active{color:var(--green)}
+.mdraw-cta{background:var(--green);color:#000;border-radius:8px;border:none;font-family:'DM Sans',sans-serif;font-weight:700;padding:12px;margin-top:8px;cursor:pointer;font-size:.95rem}
 
-/* HERO */
+/* ── PAGE SYSTEM ── */
+.page{display:none;padding-top:62px;min-height:100vh}
+.page.active{display:block}
+
+/* ── HERO PAGE ── */
 .hero{
-  min-height:100vh;display:flex;align-items:center;
+  min-height:calc(100vh - 62px);display:flex;align-items:center;
   background:linear-gradient(135deg,#0a0f1e 0%,#0d1a0d 50%,#0a0f1e 100%);
-  position:relative;overflow:hidden;padding:100px 5% 60px;
+  position:relative;overflow:hidden;padding:60px 4% 60px;
 }
-.hero::before{
-  content:'';position:absolute;inset:0;
-  background:radial-gradient(ellipse 60% 60% at 70% 40%,rgba(0,200,83,.12),transparent);
-}
+.hero::before{content:'';position:absolute;inset:0;background:radial-gradient(ellipse 60% 60% at 70% 40%,rgba(0,200,83,.1),transparent)}
 .hero-grid{display:grid;grid-template-columns:1fr 1fr;gap:60px;align-items:center;max-width:1200px;margin:0 auto;width:100%;position:relative;z-index:1}
-.hero-badge{display:inline-flex;align-items:center;gap:8px;background:rgba(0,200,83,.15);border:1px solid rgba(0,200,83,.3);padding:6px 14px;border-radius:50px;font-size:.8rem;color:var(--green);font-weight:600;margin-bottom:20px}
-.hero h1{font-size:clamp(2rem,4vw,3.2rem);font-weight:800;line-height:1.15;margin-bottom:20px;color:#fff}
+.hero-badge{display:inline-flex;align-items:center;gap:8px;background:rgba(0,200,83,.12);border:1px solid rgba(0,200,83,.3);padding:5px 14px;border-radius:50px;font-size:.78rem;color:var(--green);font-weight:600;margin-bottom:20px}
+.hero h1{font-family:'Syne',sans-serif;font-size:clamp(2rem,4vw,3.4rem);font-weight:800;line-height:1.1;margin-bottom:20px;color:#fff}
 .hero h1 span{color:var(--green)}
-.hero p{color:var(--text2);font-size:1.05rem;margin-bottom:32px;max-width:480px}
-.hero-btns{display:flex;gap:14px;flex-wrap:wrap}
-.btn-primary{background:var(--green);color:#000;padding:14px 28px;border-radius:10px;font-weight:700;font-size:.95rem;text-decoration:none;border:none;cursor:pointer;transition:.2s;display:inline-flex;align-items:center;gap:8px}
-.btn-primary:hover{background:var(--green-dark);transform:translateY(-1px)}
-.btn-secondary{background:transparent;color:var(--text);padding:14px 28px;border-radius:10px;font-weight:600;font-size:.95rem;text-decoration:none;border:1px solid var(--border);cursor:pointer;transition:.2s;display:inline-flex;align-items:center;gap:8px}
-.btn-secondary:hover{border-color:var(--green);color:var(--green)}
-.hero-stats{display:flex;gap:32px;margin-top:40px}
-.hero-stat strong{display:block;font-size:1.6rem;font-weight:800;color:var(--green)}
-.hero-stat span{font-size:.8rem;color:var(--text2)}
-.hero-visual{position:relative}
-.hero-card{background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius-lg);padding:24px;box-shadow:var(--shadow)}
-.hero-card-title{font-size:.75rem;color:var(--text2);text-transform:uppercase;letter-spacing:.1em;margin-bottom:16px}
-.price-row{display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-bottom:1px solid var(--border)}
+.hero p{color:var(--text2);font-size:1rem;margin-bottom:32px;max-width:480px}
+.hero-btns{display:flex;gap:12px;flex-wrap:wrap}
+.btn-green{background:var(--green);color:#000;padding:13px 26px;border-radius:10px;font-weight:700;font-size:.9rem;text-decoration:none;border:none;cursor:pointer;transition:.2s;display:inline-flex;align-items:center;gap:8px;font-family:'DM Sans',sans-serif}
+.btn-green:hover{background:var(--green-dark);transform:translateY(-1px)}
+.btn-outline{background:transparent;color:var(--text);padding:13px 26px;border-radius:10px;font-weight:600;font-size:.9rem;text-decoration:none;border:1px solid var(--border);cursor:pointer;transition:.2s;display:inline-flex;align-items:center;gap:8px;font-family:'DM Sans',sans-serif}
+.btn-outline:hover{border-color:var(--green);color:var(--green)}
+.hero-stats{display:flex;gap:28px;margin-top:40px;flex-wrap:wrap}
+.hero-stat strong{display:block;font-family:'Syne',sans-serif;font-size:1.6rem;font-weight:800;color:var(--green)}
+.hero-stat span{font-size:.78rem;color:var(--text2)}
+.hero-card{background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius-lg);padding:22px;box-shadow:var(--shadow)}
+.hero-card-title{font-size:.72rem;color:var(--text2);text-transform:uppercase;letter-spacing:.1em;margin-bottom:14px}
+.price-row{display:flex;justify-content:space-between;align-items:center;padding:9px 0;border-bottom:1px solid var(--border)}
 .price-row:last-child{border-bottom:none}
-.price-crop{font-weight:600;font-size:.9rem}
+.price-crop{font-weight:600;font-size:.88rem}
 .price-val{font-weight:700;color:var(--green)}
-.price-change{font-size:.75rem;padding:2px 8px;border-radius:20px}
+.price-change{font-size:.72rem;padding:2px 7px;border-radius:20px}
 .price-up{background:rgba(0,200,83,.2);color:var(--green)}
 .price-down{background:rgba(239,68,68,.2);color:#f87171}
-.floating-badge{position:absolute;background:var(--bg2);border:1px solid var(--border);border-radius:10px;padding:10px 14px;font-size:.8rem;box-shadow:var(--shadow);animation:float 3s ease-in-out infinite}
-.fb1{top:-20px;right:-20px;animation-delay:0s}
-.fb2{bottom:20px;left:-30px;animation-delay:1.5s}
+.floating-badge{position:absolute;background:var(--bg2);border:1px solid var(--border);border-radius:10px;padding:9px 13px;font-size:.75rem;box-shadow:var(--shadow);animation:float 3s ease-in-out infinite}
+.fb1{top:-18px;right:-18px;animation-delay:0s}
+.fb2{bottom:18px;left:-28px;animation-delay:1.5s}
 @keyframes float{0%,100%{transform:translateY(0)}50%{transform:translateY(-8px)}}
 
-/* SECTIONS */
-section{padding:80px 5%}
-.section-label{font-size:.75rem;text-transform:uppercase;letter-spacing:.15em;color:var(--green);font-weight:600;margin-bottom:10px}
-.section-title{font-size:clamp(1.6rem,3vw,2.4rem);font-weight:800;color:#fff;margin-bottom:16px}
-.section-sub{color:var(--text2);font-size:1rem;max-width:560px;margin-bottom:48px}
-.container{max-width:1200px;margin:0 auto}
+/* ── CTA GRID on HOME ── */
+.home-ctas{max-width:1200px;margin:0 auto;padding:60px 4%}
+.home-ctas h2{font-family:'Syne',sans-serif;font-size:1.6rem;font-weight:700;color:#fff;margin-bottom:24px}
+.cta-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:16px}
+.cta-card{background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius-lg);padding:24px;cursor:pointer;transition:border-color .15s,transform .15s;text-align:left}
+.cta-card:hover{border-color:rgba(0,200,83,.4);transform:translateY(-3px)}
+.cta-icon{font-size:2rem;margin-bottom:12px}
+.cta-title{font-family:'Syne',sans-serif;font-size:1rem;font-weight:700;color:#fff;margin-bottom:6px}
+.cta-desc{font-size:.82rem;color:var(--text2);line-height:1.5}
+.cta-arrow{display:inline-block;color:var(--green);font-size:.85rem;margin-top:10px;font-weight:600}
 
-/* CARDS GRID */
-.cards-grid{display:grid;gap:24px}
+/* ── INNER PAGES ── */
+.page-wrap{max-width:1200px;margin:0 auto;padding:48px 4%}
+.page-header{margin-bottom:40px}
+.page-label{font-size:.72rem;text-transform:uppercase;letter-spacing:.15em;color:var(--green);font-weight:600;margin-bottom:8px}
+.page-title{font-family:'Syne',sans-serif;font-size:clamp(1.6rem,3vw,2.4rem);font-weight:800;color:#fff;margin-bottom:12px}
+.page-sub{color:var(--text2);font-size:.95rem;max-width:540px}
+
+/* ── SHARED COMPONENTS ── */
+.section-bg1{background:var(--bg)}
+.section-bg2{background:var(--bg2)}
+
+.cards-grid{display:grid;gap:20px}
 .cards-3{grid-template-columns:repeat(3,1fr)}
 .cards-4{grid-template-columns:repeat(4,1fr)}
 .cards-2{grid-template-columns:repeat(2,1fr)}
-@media(max-width:900px){.cards-3,.cards-4{grid-template-columns:repeat(2,1fr)}}
-@media(max-width:600px){.cards-3,.cards-4,.cards-2{grid-template-columns:1fr}}
+@media(max-width:900px){.cards-3,.cards-4{grid-template-columns:repeat(2,1fr)};.cta-grid{grid-template-columns:repeat(2,1fr)}}
+@media(max-width:600px){.cards-3,.cards-4,.cards-2,.cta-grid{grid-template-columns:1fr};.hero-grid{grid-template-columns:1fr;gap:36px}.topnav{display:none}.hamburger{display:flex}}
 
-/* PROBLEM SECTION */
-.problem-section{background:var(--bg2)}
-.problem-card{background:var(--bg3);border:1px solid var(--border);border-radius:var(--radius);padding:28px;transition:.3s}
-.problem-card:hover{border-color:rgba(239,68,68,.4);transform:translateY(-3px)}
-.problem-icon{font-size:2rem;margin-bottom:14px}
-.problem-card h3{font-size:1rem;font-weight:700;color:#f87171;margin-bottom:8px}
-.problem-card p{font-size:.88rem;color:var(--text2)}
+/* ── FILTER / TAB ROW ── */
+.filter-row{display:flex;gap:10px;margin-bottom:24px;flex-wrap:wrap}
+.filter-btn{padding:8px 16px;border-radius:8px;border:1px solid var(--border);background:transparent;color:var(--text2);cursor:pointer;font-size:.82rem;font-family:'DM Sans',sans-serif;transition:.15s}
+.filter-btn:hover{border-color:rgba(0,200,83,.4);color:var(--green)}
+.filter-btn.active{background:rgba(0,200,83,.15);color:var(--green);border-color:rgba(0,200,83,.4);font-weight:600}
+.filter-input{background:var(--bg3);border:1px solid var(--border);border-radius:8px;padding:10px 14px;color:var(--text);font-size:.88rem;outline:none;flex:1;min-width:140px;font-family:'DM Sans',sans-serif}
+.filter-input:focus{border-color:var(--green)}
+.filter-input option{background:var(--bg3)}
 
-/* SOLUTION SECTION */
-.solution-card{background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius);padding:28px;transition:.3s;position:relative;overflow:hidden}
-.solution-card::before{content:'';position:absolute;top:0;left:0;right:0;height:3px;background:linear-gradient(90deg,var(--green),var(--blue))}
-.solution-card:hover{border-color:rgba(0,200,83,.3);transform:translateY(-3px)}
-.solution-icon{font-size:2rem;margin-bottom:14px}
-.solution-card h3{font-size:1rem;font-weight:700;color:#fff;margin-bottom:8px}
-.solution-card p{font-size:.88rem;color:var(--text2)}
+/* ── PROBLEM CARDS ── */
+.problem-card{background:var(--bg3);border:1px solid var(--border);border-radius:var(--radius);padding:24px;transition:.2s}
+.problem-card:hover{border-color:rgba(239,68,68,.3);transform:translateY(-2px)}
+.problem-icon{font-size:1.8rem;margin-bottom:12px}
+.problem-card h3{font-size:.92rem;font-weight:700;color:#f87171;margin-bottom:6px;font-family:'Syne',sans-serif}
+.problem-card p{font-size:.82rem;color:var(--text2)}
 
-/* PROFILING SECTION */
-.profile-tabs{display:flex;gap:12px;margin-bottom:32px;flex-wrap:wrap}
-.profile-tab{padding:10px 20px;border-radius:8px;border:1px solid var(--border);background:transparent;color:var(--text2);cursor:pointer;font-size:.88rem;font-weight:500;transition:.2s}
-.profile-tab.active{background:var(--green);color:#000;border-color:var(--green);font-weight:700}
+/* ── SOLUTION CARDS ── */
+.solution-card{background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius);padding:24px;transition:.2s;position:relative;overflow:hidden}
+.solution-card::before{content:'';position:absolute;top:0;left:0;right:0;height:2px;background:linear-gradient(90deg,var(--green),#1e88e5)}
+.solution-card:hover{border-color:rgba(0,200,83,.3);transform:translateY(-2px)}
+.solution-icon{font-size:1.8rem;margin-bottom:12px}
+.solution-card h3{font-size:.92rem;font-weight:700;color:#fff;margin-bottom:6px;font-family:'Syne',sans-serif}
+.solution-card p{font-size:.82rem;color:var(--text2)}
+
+/* ── PROFILES ── */
+.profile-tabs{display:flex;gap:10px;margin-bottom:28px;flex-wrap:wrap}
+.profile-tab{padding:9px 18px;border-radius:8px;border:1px solid var(--border);background:transparent;color:var(--text2);cursor:pointer;font-size:.85rem;font-weight:500;transition:.2s;font-family:'DM Sans',sans-serif}
+.profile-tab.active{background:rgba(0,200,83,.15);color:var(--green);border-color:rgba(0,200,83,.4);font-weight:700}
 .profile-content{display:none}
 .profile-content.active{display:block}
 .profile-grid{display:grid;grid-template-columns:1fr 1fr;gap:32px;align-items:start}
-.profile-info h3{font-size:1.3rem;font-weight:700;color:#fff;margin-bottom:12px}
-.profile-info p{color:var(--text2);font-size:.9rem;margin-bottom:20px}
+@media(max-width:700px){.profile-grid{grid-template-columns:1fr}}
+.profile-info h3{font-family:'Syne',sans-serif;font-size:1.2rem;font-weight:700;color:#fff;margin-bottom:10px}
+.profile-info p{color:var(--text2);font-size:.88rem;margin-bottom:18px}
 .profile-features{list-style:none}
-.profile-features li{display:flex;align-items:flex-start;gap:10px;padding:8px 0;font-size:.88rem;color:var(--text2);border-bottom:1px solid var(--border)}
+.profile-features li{display:flex;align-items:flex-start;gap:9px;padding:7px 0;font-size:.84rem;color:var(--text2);border-bottom:1px solid var(--border)}
 .profile-features li:last-child{border-bottom:none}
 .profile-features li::before{content:'✓';color:var(--green);font-weight:700;flex-shrink:0;margin-top:1px}
-.profile-visual{background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius-lg);padding:24px}
-.form-step{margin-bottom:16px}
-.form-step label{display:block;font-size:.75rem;color:var(--text2);margin-bottom:6px;text-transform:uppercase;letter-spacing:.05em}
-.form-step input,.form-step select,.form-step textarea{width:100%;background:var(--bg3);border:1px solid var(--border);border-radius:8px;padding:10px 14px;color:var(--text);font-size:.88rem;outline:none;transition:.2s;font-family:inherit}
-.form-step input:focus,.form-step select:focus,.form-step textarea:focus{border-color:var(--green)}
+.profile-visual{background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius-lg);padding:22px}
+.form-step{margin-bottom:14px}
+.form-step label{display:block;font-size:.72rem;color:var(--text2);margin-bottom:5px;text-transform:uppercase;letter-spacing:.05em}
+.form-step input,.form-step select{width:100%;background:var(--bg3);border:1px solid var(--border);border-radius:8px;padding:9px 13px;color:var(--text);font-size:.86rem;outline:none;transition:.2s;font-family:'DM Sans',sans-serif}
+.form-step input:focus,.form-step select:focus{border-color:var(--green)}
 .form-step select option{background:var(--bg3)}
 
-/* PRICE DASHBOARD */
-.price-dashboard{background:var(--bg2)}
-.price-header{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:32px;flex-wrap:gap}
-.price-controls{display:flex;gap:12px;flex-wrap:wrap;margin-bottom:24px}
-.price-control-btn{padding:8px 16px;border-radius:8px;border:1px solid var(--border);background:transparent;color:var(--text2);cursor:pointer;font-size:.85rem;transition:.2s}
-.price-control-btn.active{background:var(--green);color:#000;border-color:var(--green);font-weight:700}
-.chart-container{background:var(--bg3);border:1px solid var(--border);border-radius:var(--radius-lg);padding:24px;margin-bottom:24px}
-.price-cards{display:grid;grid-template-columns:repeat(4,1fr);gap:16px}
-.price-card{background:var(--bg3);border:1px solid var(--border);border-radius:var(--radius);padding:20px;transition:.3s}
-.price-card:hover{border-color:rgba(0,200,83,.3)}
-.price-card-crop{font-size:.8rem;color:var(--text2);margin-bottom:6px}
-.price-card-val{font-size:1.4rem;font-weight:800;color:var(--green);margin-bottom:4px}
-.price-card-change{font-size:.75rem}
+/* ── PRICE DASHBOARD ── */
+.chart-container{background:var(--bg3);border:1px solid var(--border);border-radius:var(--radius-lg);padding:22px;margin-bottom:22px}
+.price-cards{display:grid;grid-template-columns:repeat(4,1fr);gap:14px}
+.pc{background:var(--bg3);border:1px solid var(--border);border-radius:var(--radius);padding:18px;transition:.2s}
+.pc:hover{border-color:rgba(0,200,83,.3)}
+.pc-crop{font-size:.76rem;color:var(--text2);margin-bottom:5px}
+.pc-val{font-family:'Syne',sans-serif;font-size:1.3rem;font-weight:800;color:var(--green);margin-bottom:3px}
+.pc-change{font-size:.72rem}
 @media(max-width:900px){.price-cards{grid-template-columns:repeat(2,1fr)}}
+.forward-box{background:rgba(0,200,83,.06);border:1px solid rgba(0,200,83,.2);border-radius:var(--radius);padding:18px;margin-top:20px}
+.forward-box h4{color:var(--green);font-size:.88rem;margin-bottom:7px;font-family:'Syne',sans-serif}
+.forward-box p{color:var(--text2);font-size:.82rem}
 
-/* MATCHING ENGINE */
-.match-section{background:linear-gradient(135deg,#0a0f1e,#0d1a0d)}
-.match-form{background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius-lg);padding:32px;margin-bottom:32px}
-.match-form-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:16px;margin-bottom:20px}
-.match-results{display:grid;grid-template-columns:repeat(3,1fr);gap:20px}
-.match-card{background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius);padding:20px;transition:.3s}
+/* ── MATCHING ── */
+.match-form{background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius-lg);padding:28px;margin-bottom:28px}
+.match-grid-inputs{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:18px}
+@media(max-width:700px){.match-grid-inputs{grid-template-columns:repeat(2,1fr)}}
+.match-label{font-size:.72rem;color:var(--text2);display:block;margin-bottom:5px;text-transform:uppercase;letter-spacing:.04em}
+.match-results-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:18px}
+@media(max-width:900px){.match-results-grid{grid-template-columns:repeat(2,1fr)}}
+@media(max-width:600px){.match-results-grid{grid-template-columns:1fr}}
+.match-card{background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius);padding:18px;transition:.2s}
 .match-card:hover{border-color:rgba(0,200,83,.3);transform:translateY(-2px)}
-.match-score{display:inline-flex;align-items:center;gap:6px;background:rgba(0,200,83,.15);border:1px solid rgba(0,200,83,.3);padding:4px 10px;border-radius:20px;font-size:.75rem;color:var(--green);font-weight:700;margin-bottom:12px}
-.match-name{font-size:1rem;font-weight:700;color:#fff;margin-bottom:4px}
-.match-meta{font-size:.8rem;color:var(--text2);margin-bottom:8px}
-.match-crops{display:flex;gap:6px;flex-wrap:wrap;margin-top:10px}
-.crop-tag{background:rgba(0,200,83,.1);border:1px solid rgba(0,200,83,.2);padding:2px 10px;border-radius:20px;font-size:.72rem;color:var(--green)}
-@media(max-width:900px){.match-form-grid{grid-template-columns:repeat(2,1fr)}.match-results{grid-template-columns:repeat(2,1fr)}}
-@media(max-width:600px){.match-form-grid{grid-template-columns:1fr}.match-results{grid-template-columns:1fr}}
+.match-score{display:inline-flex;align-items:center;gap:5px;background:rgba(0,200,83,.12);border:1px solid rgba(0,200,83,.3);padding:3px 9px;border-radius:20px;font-size:.72rem;color:var(--green);font-weight:700;margin-bottom:10px}
+.match-name{font-size:.95rem;font-weight:700;color:#fff;margin-bottom:3px;font-family:'Syne',sans-serif}
+.match-meta{font-size:.78rem;color:var(--text2);margin-bottom:6px}
+.crop-tag{background:rgba(0,200,83,.1);border:1px solid rgba(0,200,83,.2);padding:2px 9px;border-radius:20px;font-size:.7rem;color:var(--green);display:inline-block;margin:2px}
 
-/* MARKETPLACE */
-.marketplace-section{background:var(--bg2)}
-.marketplace-filters{display:flex;gap:12px;margin-bottom:28px;flex-wrap:wrap}
-.filter-input{background:var(--bg3);border:1px solid var(--border);border-radius:8px;padding:10px 14px;color:var(--text);font-size:.88rem;outline:none;flex:1;min-width:140px;font-family:inherit}
-.filter-input:focus{border-color:var(--green)}
-.filter-input option{background:var(--bg3)}
-.listings-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:20px}
-.listing-card{background:var(--bg3);border:1px solid var(--border);border-radius:var(--radius-lg);overflow:hidden;transition:.3s}
-.listing-card:hover{border-color:rgba(0,200,83,.3);transform:translateY(-3px);box-shadow:var(--shadow)}
-.listing-img{width:100%;height:180px;object-fit:cover;background:var(--bg4)}
-.listing-img-placeholder{width:100%;height:180px;background:linear-gradient(135deg,var(--bg3),var(--bg4));display:flex;align-items:center;justify-content:center;font-size:3rem}
-.listing-body{padding:16px}
-.listing-grade{display:inline-block;background:rgba(0,200,83,.15);border:1px solid rgba(0,200,83,.3);padding:2px 8px;border-radius:4px;font-size:.7rem;color:var(--green);font-weight:700;margin-bottom:8px}
-.listing-crop{font-size:1rem;font-weight:700;color:#fff;margin-bottom:4px}
-.listing-meta{font-size:.8rem;color:var(--text2);margin-bottom:10px}
-.listing-price{font-size:1.1rem;font-weight:800;color:var(--green);margin-bottom:12px}
-.listing-price span{font-size:.75rem;font-weight:400;color:var(--text2)}
-.btn-order{width:100%;background:var(--green);color:#000;border:none;border-radius:8px;padding:10px;font-weight:700;font-size:.88rem;cursor:pointer;transition:.2s}
-.btn-order:hover{background:var(--green-dark)}
+/* ── MARKETPLACE ── */
+.listings-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:18px}
 @media(max-width:900px){.listings-grid{grid-template-columns:repeat(2,1fr)}}
 @media(max-width:600px){.listings-grid{grid-template-columns:1fr}}
+.listing-card{background:var(--bg3);border:1px solid var(--border);border-radius:var(--radius-lg);overflow:hidden;transition:.2s}
+.listing-card:hover{border-color:rgba(0,200,83,.3);transform:translateY(-2px);box-shadow:var(--shadow)}
+.listing-img-placeholder{width:100%;height:160px;background:linear-gradient(135deg,var(--bg3),var(--bg4));display:flex;align-items:center;justify-content:center;font-size:3rem}
+.listing-body{padding:14px}
+.listing-grade{display:inline-block;background:rgba(0,200,83,.12);border:1px solid rgba(0,200,83,.25);padding:2px 8px;border-radius:4px;font-size:.68rem;color:var(--green);font-weight:700;margin-bottom:7px}
+.listing-crop{font-size:.95rem;font-weight:700;color:#fff;margin-bottom:3px;font-family:'Syne',sans-serif}
+.listing-meta{font-size:.76rem;color:var(--text2);margin-bottom:8px}
+.listing-price{font-size:1.05rem;font-weight:800;color:var(--green);margin-bottom:10px;font-family:'Syne',sans-serif}
+.listing-price span{font-size:.72rem;font-weight:400;color:var(--text2)}
+.btn-order{width:100%;background:var(--green);color:#000;border:none;border-radius:8px;padding:9px;font-weight:700;font-size:.84rem;cursor:pointer;transition:.2s;font-family:'DM Sans',sans-serif}
+.btn-order:hover{background:var(--green-dark)}
 
-/* TRAINING */
-.training-section{background:var(--bg)}
-.training-cats{display:flex;gap:12px;margin-bottom:28px;flex-wrap:wrap}
-.training-cat{padding:8px 18px;border-radius:8px;border:1px solid var(--border);background:transparent;color:var(--text2);cursor:pointer;font-size:.85rem;transition:.2s}
-.training-cat.active{background:var(--green);color:#000;border-color:var(--green);font-weight:700}
-.training-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:20px}
-.training-card{background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius-lg);overflow:hidden;transition:.3s;cursor:pointer}
-.training-card:hover{border-color:rgba(0,200,83,.3);transform:translateY(-3px)}
-.training-thumb{width:100%;height:150px;background:linear-gradient(135deg,var(--bg3),var(--bg4));display:flex;align-items:center;justify-content:center;font-size:3rem;position:relative}
-.training-play{position:absolute;inset:0;background:rgba(0,0,0,.4);display:flex;align-items:center;justify-content:center;opacity:0;transition:.3s}
-.training-card:hover .training-play{opacity:1}
-.play-btn{width:48px;height:48px;background:var(--green);border-radius:50%;display:flex;align-items:center;justify-content:center;color:#000;font-size:1.2rem}
-.training-body{padding:16px}
-.training-level{font-size:.72rem;color:var(--gold);font-weight:600;text-transform:uppercase;margin-bottom:6px}
-.training-title{font-size:.95rem;font-weight:700;color:#fff;margin-bottom:6px}
-.training-desc{font-size:.8rem;color:var(--text2);margin-bottom:12px}
-.training-meta{display:flex;justify-content:space-between;font-size:.75rem;color:var(--text3)}
+/* ── TRAINING ── */
+.training-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:18px}
 @media(max-width:900px){.training-grid{grid-template-columns:repeat(2,1fr)}}
 @media(max-width:600px){.training-grid{grid-template-columns:1fr}}
+.training-card{background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius-lg);overflow:hidden;transition:.2s;cursor:pointer}
+.training-card:hover{border-color:rgba(0,200,83,.3);transform:translateY(-2px)}
+.training-thumb{width:100%;height:140px;background:linear-gradient(135deg,var(--bg3),var(--bg4));display:flex;align-items:center;justify-content:center;font-size:2.8rem;position:relative}
+.training-play{position:absolute;inset:0;background:rgba(0,0,0,.4);display:flex;align-items:center;justify-content:center;opacity:0;transition:.3s}
+.training-card:hover .training-play{opacity:1}
+.play-btn{width:44px;height:44px;background:var(--green);border-radius:50%;display:flex;align-items:center;justify-content:center;color:#000;font-size:1rem}
+.training-body{padding:14px}
+.training-level{font-size:.68rem;color:var(--gold);font-weight:600;text-transform:uppercase;margin-bottom:5px}
+.training-title{font-size:.9rem;font-weight:700;color:#fff;margin-bottom:5px;font-family:'Syne',sans-serif}
+.training-desc{font-size:.78rem;color:var(--text2);margin-bottom:10px}
+.training-meta{display:flex;justify-content:space-between;font-size:.72rem;color:var(--text3)}
 
-/* USSD SIMULATOR */
-.ussd-section{background:var(--bg2)}
-.ussd-grid{display:grid;grid-template-columns:1fr 1fr;gap:48px;align-items:start}
-.phone-mockup{background:var(--bg3);border:1px solid var(--border);border-radius:28px;padding:20px;max-width:320px;box-shadow:var(--shadow)}
-.phone-screen{background:#1a1a2e;border-radius:16px;padding:20px;min-height:240px;font-family:'Courier New',monospace;font-size:.82rem;margin-bottom:16px;border:1px solid var(--border);white-space:pre-line;color:#a3e635;line-height:1.7}
-.phone-keypad{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:10px}
-.key{background:var(--bg4);border:1px solid var(--border);border-radius:8px;padding:12px 8px;text-align:center;font-size:.9rem;font-weight:600;cursor:pointer;transition:.2s;color:var(--text)}
+/* ── USSD ── */
+.ussd-layout{display:grid;grid-template-columns:1fr 1fr;gap:48px;align-items:start}
+@media(max-width:700px){.ussd-layout{grid-template-columns:1fr}}
+.phone-mockup{background:var(--bg3);border:1px solid var(--border);border-radius:24px;padding:18px;max-width:300px;box-shadow:var(--shadow)}
+.phone-screen{background:#1a1a2e;border-radius:14px;padding:18px;min-height:220px;font-family:'Courier New',monospace;font-size:.8rem;margin-bottom:14px;border:1px solid var(--border);white-space:pre-line;color:#a3e635;line-height:1.8}
+.phone-keypad{display:grid;grid-template-columns:repeat(3,1fr);gap:7px;margin-bottom:8px}
+.key{background:var(--bg4);border:1px solid var(--border);border-radius:8px;padding:11px 8px;text-align:center;font-size:.88rem;font-weight:600;cursor:pointer;transition:.2s;color:var(--text)}
 .key:hover{background:var(--green);color:#000;border-color:var(--green)}
-.key-row-bottom{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px}
-.ussd-input-row{display:flex;gap:8px;margin-top:8px}
-.ussd-input{flex:1;background:var(--bg3);border:1px solid var(--border);border-radius:8px;padding:10px;color:var(--text);font-size:.88rem;outline:none;font-family:inherit}
+.ussd-input-row{display:flex;gap:7px;margin-top:7px}
+.ussd-input{flex:1;background:var(--bg3);border:1px solid var(--border);border-radius:8px;padding:9px;color:var(--text);font-size:.85rem;outline:none;font-family:'DM Sans',sans-serif}
 .ussd-input:focus{border-color:var(--green)}
-.btn-ussd-send{background:var(--green);color:#000;border:none;border-radius:8px;padding:10px 16px;font-weight:700;cursor:pointer;transition:.2s}
-.btn-ussd-send:hover{background:var(--green-dark)}
-.ussd-info h3{font-size:1.4rem;font-weight:700;color:#fff;margin-bottom:12px}
-.ussd-info p{color:var(--text2);font-size:.9rem;margin-bottom:24px}
-.sms-section{background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius-lg);padding:24px;margin-top:24px}
+.btn-ussd-send{background:var(--green);color:#000;border:none;border-radius:8px;padding:9px 14px;font-weight:700;cursor:pointer}
+.sms-section{background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius-lg);padding:22px;margin-top:22px}
 .sms-commands{list-style:none}
-.sms-cmd{display:flex;gap:12px;padding:10px 0;border-bottom:1px solid var(--border);font-size:.88rem}
+.sms-cmd{display:flex;gap:10px;padding:9px 0;border-bottom:1px solid var(--border);font-size:.85rem;align-items:flex-start}
 .sms-cmd:last-child{border-bottom:none}
-.sms-kw{background:rgba(0,200,83,.15);border:1px solid rgba(0,200,83,.3);padding:2px 10px;border-radius:4px;color:var(--green);font-weight:700;font-size:.8rem;white-space:nowrap}
-.sms-test{margin-top:16px;display:flex;gap:8px}
-.sms-test input{flex:1;background:var(--bg3);border:1px solid var(--border);border-radius:8px;padding:10px;color:var(--text);font-size:.88rem;outline:none;font-family:inherit}
+.sms-kw{background:rgba(0,200,83,.12);border:1px solid rgba(0,200,83,.25);padding:2px 9px;border-radius:4px;color:var(--green);font-weight:700;font-size:.76rem;white-space:nowrap}
+.sms-test{margin-top:14px;display:flex;gap:7px}
+.sms-test input{flex:1;background:var(--bg3);border:1px solid var(--border);border-radius:8px;padding:9px;color:var(--text);font-size:.85rem;outline:none;font-family:'DM Sans',sans-serif}
 .sms-test input:focus{border-color:var(--green)}
-.sms-reply{background:var(--bg3);border:1px solid var(--border);border-radius:8px;padding:14px;margin-top:12px;font-size:.85rem;color:var(--green);font-family:'Courier New',monospace;display:none}
+.sms-reply{background:var(--bg3);border:1px solid var(--border);border-radius:8px;padding:12px;margin-top:10px;font-size:.82rem;color:var(--green);font-family:'Courier New',monospace;display:none}
 
-/* REVENUE / BIZ MODEL */
-.revenue-section{background:linear-gradient(135deg,#0a0f1e,#0a150a)}
-.revenue-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:20px}
-.revenue-card{background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius-lg);padding:28px;text-align:center;transition:.3s}
-.revenue-card:hover{border-color:rgba(0,200,83,.3);transform:translateY(-3px)}
-.revenue-icon{font-size:2.5rem;margin-bottom:14px}
-.revenue-card h3{font-size:.95rem;font-weight:700;color:#fff;margin-bottom:8px}
-.revenue-card p{font-size:.85rem;color:var(--text2);margin-bottom:14px}
-.revenue-amount{font-size:1.2rem;font-weight:800;color:var(--green)}
+/* ── REVENUE ── */
+.revenue-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:18px}
 @media(max-width:900px){.revenue-grid{grid-template-columns:repeat(2,1fr)}}
+@media(max-width:600px){.revenue-grid{grid-template-columns:1fr}}
+.revenue-card{background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius-lg);padding:24px;text-align:center;transition:.2s}
+.revenue-card:hover{border-color:rgba(0,200,83,.3);transform:translateY(-2px)}
+.revenue-icon{font-size:2.2rem;margin-bottom:12px}
+.revenue-card h3{font-size:.88rem;font-weight:700;color:#fff;margin-bottom:7px;font-family:'Syne',sans-serif}
+.revenue-card p{font-size:.8rem;color:var(--text2);margin-bottom:12px}
+.revenue-amount{font-family:'Syne',sans-serif;font-size:1.1rem;font-weight:800;color:var(--green)}
 
-/* COMPETITIVE ADVANTAGE */
-.compare-section{background:var(--bg2)}
-.compare-table{width:100%;border-collapse:collapse;margin-top:28px}
-.compare-table th{background:var(--bg3);padding:14px 16px;text-align:left;font-size:.8rem;text-transform:uppercase;letter-spacing:.05em;color:var(--text2);border:1px solid var(--border)}
-.compare-table td{padding:12px 16px;border:1px solid var(--border);font-size:.88rem}
+/* ── COMPARE TABLE ── */
+.compare-table{width:100%;border-collapse:collapse;margin-top:24px}
+.compare-table th{background:var(--bg3);padding:12px 14px;text-align:left;font-size:.76rem;text-transform:uppercase;letter-spacing:.05em;color:var(--text2);border:1px solid var(--border)}
+.compare-table td{padding:10px 14px;border:1px solid var(--border);font-size:.84rem}
 .compare-table tr:nth-child(even) td{background:rgba(255,255,255,.02)}
-.compare-table tr:first-child td{font-weight:700;color:#fff}
 .check{color:var(--green);font-weight:700}
 .cross{color:#f87171}
 .agri-col{background:rgba(0,200,83,.05)!important}
 
-/* DISTRICTS MAP */
-.districts-section{background:var(--bg)}
-.districts-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:16px}
-.district-card{background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius);padding:20px;text-align:center;transition:.3s}
-.district-card:hover{border-color:rgba(0,200,83,.3);transform:translateY(-2px)}
-.district-icon{font-size:2rem;margin-bottom:10px}
-.district-name{font-size:.95rem;font-weight:700;color:#fff;margin-bottom:4px}
-.district-farmers{font-size:1.2rem;font-weight:800;color:var(--green);margin-bottom:4px}
-.district-produce{font-size:.75rem;color:var(--text2)}
+/* ── DISTRICTS ── */
+.districts-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:14px}
 @media(max-width:900px){.districts-grid{grid-template-columns:repeat(3,1fr)}}
 @media(max-width:600px){.districts-grid{grid-template-columns:repeat(2,1fr)}}
+.district-card{background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius);padding:18px;text-align:center;transition:.2s}
+.district-card:hover{border-color:rgba(0,200,83,.3);transform:translateY(-2px)}
+.district-icon{font-size:1.8rem;margin-bottom:8px}
+.district-name{font-size:.88rem;font-weight:700;color:#fff;margin-bottom:3px;font-family:'Syne',sans-serif}
+.district-farmers{font-family:'Syne',sans-serif;font-size:1.1rem;font-weight:800;color:var(--green);margin-bottom:3px}
+.district-produce{font-size:.72rem;color:var(--text2)}
 
-/* REGISTRATION MODAL */
+/* ── CONTACT ── */
+.contact-layout{display:grid;grid-template-columns:1fr 1fr;gap:48px}
+@media(max-width:700px){.contact-layout{grid-template-columns:1fr}}
+.contact-item{display:flex;align-items:center;gap:12px;margin-bottom:14px;color:var(--text2);font-size:.88rem}
+.contact-icon{width:38px;height:38px;background:rgba(0,200,83,.12);border:1px solid rgba(0,200,83,.25);border-radius:9px;display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:1rem}
+.contact-form{background:var(--bg3);border:1px solid var(--border);border-radius:var(--radius-lg);padding:26px}
+.form-group{margin-bottom:14px}
+.form-group label{display:block;font-size:.72rem;color:var(--text2);margin-bottom:5px;text-transform:uppercase;letter-spacing:.05em}
+.form-group input,.form-group textarea{width:100%;background:var(--bg2);border:1px solid var(--border);border-radius:8px;padding:10px 13px;color:var(--text);font-size:.88rem;outline:none;transition:.2s;font-family:'DM Sans',sans-serif}
+.form-group input:focus,.form-group textarea:focus{border-color:var(--green)}
+
+/* ── FOOTER ── */
+footer{background:#060b18;border-top:1px solid var(--border);padding:44px 4% 24px}
+.footer-grid{display:grid;grid-template-columns:2fr 1fr 1fr 1fr;gap:36px;max-width:1200px;margin:0 auto 28px}
+@media(max-width:900px){.footer-grid{grid-template-columns:1fr 1fr}}
+@media(max-width:600px){.footer-grid{grid-template-columns:1fr}}
+.footer-brand p{color:var(--text2);font-size:.82rem;margin-top:10px;line-height:1.7}
+.footer-col h4{font-size:.8rem;font-weight:700;color:#fff;margin-bottom:14px;text-transform:uppercase;letter-spacing:.05em;font-family:'Syne',sans-serif}
+.footer-col ul{list-style:none}
+.footer-col li{margin-bottom:9px}
+.footer-col a,.footer-col button{color:var(--text2);text-decoration:none;font-size:.82rem;transition:.2s;background:none;border:none;cursor:pointer;font-family:'DM Sans',sans-serif;padding:0}
+.footer-col a:hover,.footer-col button:hover{color:var(--green)}
+.footer-bottom{border-top:1px solid var(--border);padding-top:20px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;max-width:1200px;margin:0 auto;color:var(--text2);font-size:.76rem}
+.footer-badges{display:flex;gap:8px}
+.f-badge{background:rgba(0,200,83,.12);border:1px solid rgba(0,200,83,.25);padding:3px 10px;border-radius:20px;font-size:.68rem;color:var(--green);font-weight:600}
+
+/* ── MODAL ── */
 .modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.8);backdrop-filter:blur(8px);z-index:2000;display:none;align-items:center;justify-content:center;padding:20px}
 .modal-overlay.open{display:flex}
-.modal{background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius-lg);width:100%;max-width:560px;max-height:90vh;overflow-y:auto;position:relative}
-.modal-header{padding:24px 28px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center}
-.modal-header h2{font-size:1.2rem;font-weight:700;color:#fff}
-.modal-close{background:none;border:none;color:var(--text2);font-size:1.5rem;cursor:pointer;line-height:1}
-.modal-body{padding:28px}
-.role-selector{display:grid;grid-template-columns:repeat(2,1fr);gap:12px;margin-bottom:24px}
-.role-btn{background:var(--bg3);border:2px solid var(--border);border-radius:10px;padding:16px;text-align:center;cursor:pointer;transition:.2s}
+.modal{background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius-lg);width:100%;max-width:540px;max-height:90vh;overflow-y:auto}
+.modal-header{padding:22px 26px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center}
+.modal-header h2{font-family:'Syne',sans-serif;font-size:1.1rem;font-weight:700;color:#fff}
+.modal-close{background:none;border:none;color:var(--text2);font-size:1.4rem;cursor:pointer;line-height:1}
+.modal-body{padding:26px}
+.role-selector{display:grid;grid-template-columns:repeat(2,1fr);gap:10px;margin-bottom:20px}
+.role-btn{background:var(--bg3);border:2px solid var(--border);border-radius:10px;padding:14px;text-align:center;cursor:pointer;transition:.2s}
 .role-btn:hover,.role-btn.active{border-color:var(--green);background:rgba(0,200,83,.1)}
-.role-btn-icon{font-size:1.8rem;margin-bottom:6px}
-.role-btn-label{font-size:.85rem;font-weight:600;color:#fff}
-.form-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px}
-.form-group{margin-bottom:16px}
+.role-btn-icon{font-size:1.6rem;margin-bottom:5px}
+.role-btn-label{font-size:.8rem;font-weight:600;color:#fff}
+.form-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
 .form-group.full{grid-column:1/-1}
-.form-group label{display:block;font-size:.78rem;color:var(--text2);margin-bottom:6px;text-transform:uppercase;letter-spacing:.05em}
-.form-group input,.form-group select,.form-group textarea{width:100%;background:var(--bg3);border:1px solid var(--border);border-radius:8px;padding:10px 14px;color:var(--text);font-size:.9rem;outline:none;transition:.2s;font-family:inherit}
-.form-group input:focus,.form-group select:focus,.form-group textarea:focus{border-color:var(--green)}
-.form-group select option{background:var(--bg3)}
-.btn-submit{width:100%;background:var(--green);color:#000;border:none;border-radius:10px;padding:14px;font-weight:700;font-size:1rem;cursor:pointer;transition:.2s;margin-top:8px}
+.btn-submit{width:100%;background:var(--green);color:#000;border:none;border-radius:9px;padding:13px;font-weight:700;font-size:.95rem;cursor:pointer;transition:.2s;margin-top:6px;font-family:'DM Sans',sans-serif}
 .btn-submit:hover{background:var(--green-dark)}
-.modal-msg{padding:12px 16px;border-radius:8px;margin-bottom:16px;font-size:.88rem;display:none}
-.modal-msg.success{background:rgba(0,200,83,.15);border:1px solid rgba(0,200,83,.3);color:var(--green)}
-.modal-msg.error{background:rgba(239,68,68,.15);border:1px solid rgba(239,68,68,.3);color:#f87171}
+.modal-msg{padding:10px 14px;border-radius:8px;margin-bottom:14px;font-size:.84rem;display:none}
+.modal-msg.success{background:rgba(0,200,83,.12);border:1px solid rgba(0,200,83,.3);color:var(--green)}
+.modal-msg.error{background:rgba(239,68,68,.12);border:1px solid rgba(239,68,68,.3);color:#f87171}
 
-/* VIDEO MODAL */
-.video-modal{position:fixed;inset:0;background:rgba(0,0,0,.9);z-index:3000;display:none;align-items:center;justify-content:center;padding:20px}
-.video-modal.open{display:flex}
-.video-container{width:100%;max-width:800px;position:relative}
-.video-close{position:absolute;top:-40px;right:0;background:none;border:none;color:#fff;font-size:1.5rem;cursor:pointer;font-size:2rem}
-.video-container iframe{width:100%;height:450px;border:none;border-radius:var(--radius)}
-
-/* TOAST */
-.toast{position:fixed;bottom:24px;right:24px;background:var(--bg2);border:1px solid var(--green);border-radius:10px;padding:14px 20px;font-size:.88rem;color:#fff;z-index:9999;display:none;max-width:320px;box-shadow:var(--shadow)}
-.toast.show{display:block;animation:slideUp .3s ease}
-@keyframes slideUp{from{transform:translateY(20px);opacity:0}to{transform:translateY(0);opacity:1}}
-
-/* INVESTOR PITCH */
-.pitch-section{background:linear-gradient(135deg,#0a0f1e,#12081e)}
-.pitch-trigger{text-align:center;padding:20px 0}
-.btn-pitch{background:linear-gradient(135deg,var(--gold),var(--gold-light));color:#000;border:none;border-radius:12px;padding:16px 32px;font-weight:800;font-size:1rem;cursor:pointer;transition:.2s}
-.btn-pitch:hover{transform:translateY(-2px);box-shadow:0 8px 24px rgba(255,214,0,.3)}
-.pitch-modal{background:var(--bg2);border:1px solid rgba(255,214,0,.3);border-radius:var(--radius-lg);width:100%;max-width:720px;max-height:90vh;overflow-y:auto}
-.pitch-modal .modal-header{border-bottom-color:rgba(255,214,0,.2)}
-.pitch-slide{padding:28px;border-bottom:1px solid var(--border)}
+/* ── INVESTOR PITCH ── */
+.pitch-modal{background:var(--bg2);border:1px solid rgba(255,214,0,.25);border-radius:var(--radius-lg);width:100%;max-width:700px;max-height:90vh;overflow-y:auto}
+.pitch-slide{padding:24px;border-bottom:1px solid var(--border)}
 .pitch-slide:last-child{border-bottom:none}
-.pitch-slide h3{font-size:1.1rem;font-weight:700;color:var(--gold);margin-bottom:16px}
-.metric-row{display:flex;gap:24px;flex-wrap:wrap}
-.metric{text-align:center;flex:1;min-width:100px;background:var(--bg3);border-radius:10px;padding:16px}
-.metric strong{display:block;font-size:1.4rem;font-weight:800;color:var(--green)}
-.metric span{font-size:.78rem;color:var(--text2)}
+.pitch-slide h3{font-family:'Syne',sans-serif;font-size:1rem;font-weight:700;color:var(--gold);margin-bottom:14px}
+.metric-row{display:flex;gap:12px;flex-wrap:wrap}
+.metric{text-align:center;flex:1;min-width:90px;background:var(--bg3);border-radius:9px;padding:14px}
+.metric strong{display:block;font-family:'Syne',sans-serif;font-size:1.3rem;font-weight:800;color:var(--green)}
+.metric span{font-size:.72rem;color:var(--text2)}
 .pitch-table{width:100%;border-collapse:collapse}
-.pitch-table td,.pitch-table th{padding:10px 12px;border:1px solid var(--border);font-size:.85rem}
+.pitch-table td,.pitch-table th{padding:9px 11px;border:1px solid var(--border);font-size:.8rem}
 .pitch-table th{background:var(--bg3);color:var(--text2);font-weight:600}
 
-/* CONTACT */
-.contact-section{background:var(--bg2)}
-.contact-grid{display:grid;grid-template-columns:1fr 1fr;gap:48px}
-.contact-info h3{font-size:1.2rem;font-weight:700;color:#fff;margin-bottom:12px}
-.contact-info p{color:var(--text2);font-size:.9rem;margin-bottom:24px}
-.contact-item{display:flex;align-items:center;gap:14px;margin-bottom:16px;color:var(--text2);font-size:.9rem}
-.contact-icon{width:40px;height:40px;background:rgba(0,200,83,.15);border:1px solid rgba(0,200,83,.3);border-radius:10px;display:flex;align-items:center;justify-content:center;flex-shrink:0}
-.contact-form{background:var(--bg3);border:1px solid var(--border);border-radius:var(--radius-lg);padding:28px}
+/* ── TOAST ── */
+.toast{position:fixed;bottom:22px;right:22px;background:var(--bg2);border:1px solid var(--green);border-radius:9px;padding:12px 18px;font-size:.84rem;color:#fff;z-index:9999;display:none;max-width:300px;box-shadow:var(--shadow)}
+.toast.show{display:block;animation:slideUp .3s ease}
+@keyframes slideUp{from{transform:translateY(16px);opacity:0}to{transform:translateY(0);opacity:1}}
 
-/* FOOTER */
-footer{background:#060b18;border-top:1px solid var(--border);padding:48px 5% 28px}
-.footer-grid{display:grid;grid-template-columns:2fr 1fr 1fr 1fr;gap:40px;max-width:1200px;margin:0 auto 32px}
-.footer-brand p{color:var(--text2);font-size:.85rem;margin-top:12px;line-height:1.7}
-.footer-col h4{font-size:.85rem;font-weight:700;color:#fff;margin-bottom:16px;text-transform:uppercase;letter-spacing:.05em}
-.footer-col ul{list-style:none}
-.footer-col li{margin-bottom:10px}
-.footer-col a{color:var(--text2);text-decoration:none;font-size:.85rem;transition:.2s}
-.footer-col a:hover{color:var(--green)}
-.footer-bottom{border-top:1px solid var(--border);padding-top:24px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px;max-width:1200px;margin:0 auto;color:var(--text2);font-size:.8rem}
-.footer-badges{display:flex;gap:10px}
-.badge{background:rgba(0,200,83,.15);border:1px solid rgba(0,200,83,.3);padding:4px 12px;border-radius:20px;font-size:.72rem;color:var(--green);font-weight:600}
-
-/* MOBILE NAV */
-.mobile-menu{display:none;position:fixed;top:68px;left:0;right:0;background:rgba(10,15,30,.98);backdrop-filter:blur(20px);padding:20px 5%;z-index:999;flex-direction:column;gap:16px;border-bottom:1px solid var(--border)}
-.mobile-menu.open{display:flex}
-.mobile-menu a{color:var(--text);text-decoration:none;font-size:1rem;font-weight:500;padding:8px 0;border-bottom:1px solid var(--border)}
-
-/* RESPONSIVE */
-@media(max-width:900px){
-  .hero-grid{grid-template-columns:1fr;gap:40px}
-  .hero-visual{max-width:400px;margin:0 auto}
-  .profile-grid,.ussd-grid,.contact-grid{grid-template-columns:1fr}
-  .footer-grid{grid-template-columns:1fr 1fr}
-  .compare-table{font-size:.78rem}
-  .compare-table th,.compare-table td{padding:10px 10px}
-}
-@media(max-width:600px){
-  nav .nav-links{display:none}
-  .hamburger{display:flex}
-  .hero-stats{flex-wrap:wrap;gap:20px}
-  .footer-grid{grid-template-columns:1fr}
-  .form-grid{grid-template-columns:1fr}
-  .video-container iframe{height:220px}
-  .metric-row{gap:12px}
-  .revenue-grid{grid-template-columns:1fr}
-}
-
-/* LOADING SPINNER */
-.spinner{display:inline-block;width:20px;height:20px;border:2px solid rgba(0,200,83,.3);border-top-color:var(--green);border-radius:50%;animation:spin .6s linear infinite;vertical-align:middle;margin-right:6px}
+/* ── UTILS ── */
+.spinner{display:inline-block;width:18px;height:18px;border:2px solid rgba(0,200,83,.3);border-top-color:var(--green);border-radius:50%;animation:spin .6s linear infinite;vertical-align:middle;margin-right:6px}
 @keyframes spin{to{transform:rotate(360deg)}}
-
-/* EMPTY STATE */
-.empty-state{text-align:center;padding:48px 20px;color:var(--text2)}
-.empty-state-icon{font-size:3rem;margin-bottom:14px;opacity:.5}
+.empty-state{text-align:center;padding:44px 20px;color:var(--text2)}
+.empty-icon{font-size:2.8rem;margin-bottom:12px;opacity:.5}
+.two-col{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+@media(max-width:600px){.two-col{grid-template-columns:1fr}}
 </style>
 </head>
 <body>
 
-<!-- ═══ NAVBAR ═══ -->
-<nav>
-  <a href="#" class="logo">
+<!-- ══════════════════════════════════
+     TOP NAV BAR
+══════════════════════════════════ -->
+<div class="topbar">
+  <div class="logo" onclick="showPage('home')">
     <div class="logo-icon">🌿</div>
     <span class="logo-text">Agri<span>Bridge</span></span>
-  </a>
-  <ul class="nav-links">
-    <li><a href="#problems">The Problem</a></li>
-    <li><a href="#solution">Solution</a></li>
-    <li><a href="#profiles">Profiling</a></li>
-    <li><a href="#marketplace">Marketplace</a></li>
-    <li><a href="#training">Training</a></li>
-    <li><a href="#ussd">USSD/SMS</a></li>
-    <li><a href="#revenue">Business Model</a></li>
-    <li><a href="#register" onclick="openModal()" class="nav-cta">Join Free</a></li>
-  </ul>
-  <div class="hamburger" onclick="toggleMenu()">
-    <span></span><span></span><span></span>
   </div>
-</nav>
-
-<div class="mobile-menu" id="mobileMenu">
-  <a href="#problems" onclick="toggleMenu()">The Problem</a>
-  <a href="#solution" onclick="toggleMenu()">Solution</a>
-  <a href="#marketplace" onclick="toggleMenu()">Marketplace</a>
-  <a href="#training" onclick="toggleMenu()">Training</a>
-  <a href="#ussd" onclick="toggleMenu()">USSD/SMS</a>
-  <a href="#revenue" onclick="toggleMenu()">Business Model</a>
-  <a href="#" onclick="openModal();toggleMenu()">Join Free →</a>
+  <div class="topnav">
+    <button class="tnav-btn active" onclick="showPage('home')">Home</button>
+    <button class="tnav-btn" onclick="showPage('problems')">The Problem</button>
+    <button class="tnav-btn" onclick="showPage('solution')">Solution</button>
+    <button class="tnav-btn" onclick="showPage('marketplace')">Marketplace</button>
+    <button class="tnav-btn" onclick="showPage('prices')">Prices</button>
+    <button class="tnav-btn" onclick="showPage('matching')">AI Match</button>
+    <button class="tnav-btn" onclick="showPage('training')">Training</button>
+    <button class="tnav-btn" onclick="showPage('profiles')">Register</button>
+    <button class="tnav-btn" onclick="showPage('ussd')">USSD</button>
+    <button class="tnav-btn" onclick="showPage('revenue')">Business</button>
+    <button class="tnav-btn" onclick="showPage('contact')">Contact</button>
+    <button class="tnav-btn tnav-cta" onclick="openModal()">Join Free</button>
+  </div>
+  <button class="hamburger" onclick="toggleMenu()"><span></span><span></span><span></span></button>
 </div>
 
-<!-- ═══ HERO ═══ -->
-<section class="hero">
-  <div class="hero-grid">
-    <div class="hero-content">
-      <div class="hero-badge">🇺🇬 Made for Uganda · Serving 135 Districts</div>
-      <h1>Uganda's <span>Farm-to-Table</span> Intelligence Platform</h1>
-      <p>We connect farmers, vendors, hotels and buyers through a smart marketplace, eliminating middlemen, stabilising prices and guaranteeing fresh supply — accessible even without a smartphone.</p>
-      <div class="hero-btns">
-        <button class="btn-primary" onclick="openModal()">🌱 Join as Farmer / Vendor</button>
-        <a href="#marketplace" class="btn-secondary">🛒 Browse Marketplace</a>
+<div class="mobile-drawer" id="mobileDrawer">
+  <button class="mdraw-btn" onclick="showPage('home');toggleMenu()">Home</button>
+  <button class="mdraw-btn" onclick="showPage('problems');toggleMenu()">The Problem</button>
+  <button class="mdraw-btn" onclick="showPage('solution');toggleMenu()">Solution</button>
+  <button class="mdraw-btn" onclick="showPage('marketplace');toggleMenu()">Marketplace</button>
+  <button class="mdraw-btn" onclick="showPage('prices');toggleMenu()">Live Prices</button>
+  <button class="mdraw-btn" onclick="showPage('matching');toggleMenu()">AI Matching</button>
+  <button class="mdraw-btn" onclick="showPage('training');toggleMenu()">Training Hub</button>
+  <button class="mdraw-btn" onclick="showPage('profiles');toggleMenu()">Register / Profile</button>
+  <button class="mdraw-btn" onclick="showPage('ussd');toggleMenu()">USSD *789#</button>
+  <button class="mdraw-btn" onclick="showPage('revenue');toggleMenu()">Business Model</button>
+  <button class="mdraw-btn" onclick="showPage('contact');toggleMenu()">Contact</button>
+  <button class="mdraw-cta" onclick="openModal();toggleMenu()">Join Free →</button>
+</div>
+
+<!-- ══════════════════════════════════
+     PAGE: HOME
+══════════════════════════════════ -->
+<div id="page-home" class="page active">
+  <div class="hero">
+    <div class="hero-grid">
+      <div>
+        <div class="hero-badge">🇺🇬 Made for Uganda · Serving 135 Districts</div>
+        <h1>Uganda's <span>Farm-to-Table</span> Intelligence Platform</h1>
+        <p>We connect farmers, vendors, hotels and buyers through a smart marketplace, eliminating middlemen, stabilising prices and guaranteeing fresh supply — accessible even without a smartphone.</p>
+        <div class="hero-btns">
+          <button class="btn-green" onclick="openModal()">🌱 Join as Farmer / Vendor</button>
+          <button class="btn-outline" onclick="showPage('marketplace')">🛒 Browse Marketplace</button>
+        </div>
+        <div class="hero-stats">
+          <div class="hero-stat"><strong id="stat-farmers">2,772</strong><span>Farmers</span></div>
+          <div class="hero-stat"><strong id="stat-listings">6</strong><span>Active Listings</span></div>
+          <div class="hero-stat"><strong>135</strong><span>Districts</span></div>
+          <div class="hero-stat"><strong>UGX 847M</strong><span>Revenue Facilitated</span></div>
+        </div>
       </div>
-      <div class="hero-stats">
-        <div class="hero-stat"><strong id="stat-farmers">2,772</strong><span>Farmers</span></div>
-        <div class="hero-stat"><strong id="stat-listings">6</strong><span>Active Listings</span></div>
-        <div class="hero-stat"><strong id="stat-districts">135</strong><span>Districts</span></div>
-        <div class="hero-stat"><strong>UGX 847M</strong><span>Revenue Facilitated</span></div>
+      <div style="position:relative">
+        <div class="hero-card">
+          <div class="hero-card-title">📊 Live Market Prices — Kampala</div>
+          <div class="price-row"><span class="price-crop">🍅 Tomatoes</span><div><span class="price-val">UGX 1,500/kg</span> <span class="price-change price-up">+15%</span></div></div>
+          <div class="price-row"><span class="price-crop">🍌 Matooke</span><div><span class="price-val">UGX 800/kg</span> <span class="price-change price-up">+7%</span></div></div>
+          <div class="price-row"><span class="price-crop">🌽 Maize</span><div><span class="price-val">UGX 700/kg</span> <span class="price-change price-up">+8%</span></div></div>
+          <div class="price-row"><span class="price-crop">🥕 Carrots</span><div><span class="price-val">UGX 1,200/kg</span> <span class="price-change price-down">-8%</span></div></div>
+          <div class="price-row"><span class="price-crop">🥬 Cabbages</span><div><span class="price-val">UGX 600/kg</span> <span class="price-change price-up">+5%</span></div></div>
+        </div>
+        <div class="floating-badge fb1">✅ 98% Supply SLA Guaranteed</div>
+        <div class="floating-badge fb2">📱 Works on Any Phone (*789#)</div>
       </div>
-    </div>
-    <div class="hero-visual">
-      <div class="hero-card">
-        <div class="hero-card-title">📊 Live Market Prices — Kampala</div>
-        <div class="price-row"><span class="price-crop">🍅 Tomatoes</span><div><span class="price-val">UGX 1,500/kg</span> <span class="price-change price-up">+15%</span></div></div>
-        <div class="price-row"><span class="price-crop">🍌 Matooke</span><div><span class="price-val">UGX 800/kg</span> <span class="price-change price-up">+7%</span></div></div>
-        <div class="price-row"><span class="price-crop">🌽 Maize</span><div><span class="price-val">UGX 700/kg</span> <span class="price-change price-up">+8%</span></div></div>
-        <div class="price-row"><span class="price-crop">🥕 Carrots</span><div><span class="price-val">UGX 1,200/kg</span> <span class="price-change price-down">-8%</span></div></div>
-        <div class="price-row"><span class="price-crop">🥬 Cabbages</span><div><span class="price-val">UGX 600/kg</span> <span class="price-change price-up">+5%</span></div></div>
-      </div>
-      <div class="floating-badge fb1">✅ 98% Supply SLA Guaranteed</div>
-      <div class="floating-badge fb2">📱 Works on Any Phone (*789#)</div>
     </div>
   </div>
-</section>
 
-<!-- ═══ PROBLEMS ═══ -->
-<section class="problem-section" id="problems">
-  <div class="container">
-    <div class="section-label">The Challenge</div>
-    <h2 class="section-title">What Uganda's Farmers & Vendors Face</h2>
-    <p class="section-sub">These are the real problems we set out to solve — documented through profiling over 2,700 farmers and 400+ vendors across Uganda.</p>
+  <!-- Quick nav cards -->
+  <div class="home-ctas">
+    <h2>What do you want to do?</h2>
+    <div class="cta-grid">
+      <div class="cta-card" onclick="showPage('marketplace')">
+        <div class="cta-icon">🛒</div>
+        <div class="cta-title">Browse Marketplace</div>
+        <div class="cta-desc">Buy fresh produce directly from verified farmers across Uganda.</div>
+        <div class="cta-arrow">Go to Marketplace →</div>
+      </div>
+      <div class="cta-card" onclick="showPage('prices')">
+        <div class="cta-icon">📊</div>
+        <div class="cta-title">Live Market Prices</div>
+        <div class="cta-desc">Check today's prices and lock forward contracts 4–8 weeks ahead.</div>
+        <div class="cta-arrow">View Prices →</div>
+      </div>
+      <div class="cta-card" onclick="showPage('matching')">
+        <div class="cta-icon">🤖</div>
+        <div class="cta-title">AI Farmer Matching</div>
+        <div class="cta-desc">Find the perfect farmer or buyer using our 5-factor algorithm.</div>
+        <div class="cta-arrow">Find Matches →</div>
+      </div>
+      <div class="cta-card" onclick="showPage('training')">
+        <div class="cta-icon">🎓</div>
+        <div class="cta-title">Training Hub</div>
+        <div class="cta-desc">Video + SMS modules in Luganda, Swahili and English.</div>
+        <div class="cta-arrow">Start Learning →</div>
+      </div>
+      <div class="cta-card" onclick="showPage('profiles')">
+        <div class="cta-icon">📋</div>
+        <div class="cta-title">Register & Profile</div>
+        <div class="cta-desc">Create your digital identity as a farmer, vendor, hotel or buyer.</div>
+        <div class="cta-arrow">Register Now →</div>
+      </div>
+      <div class="cta-card" onclick="showPage('ussd')">
+        <div class="cta-icon">📱</div>
+        <div class="cta-title">USSD *789#</div>
+        <div class="cta-desc">No smartphone needed — full access from any basic phone.</div>
+        <div class="cta-arrow">Learn More →</div>
+      </div>
+      <div class="cta-card" onclick="showPage('problems')">
+        <div class="cta-icon">📉</div>
+        <div class="cta-title">The Problem We Solve</div>
+        <div class="cta-desc">Documented challenges facing 2,700+ farmers and 400+ vendors across Uganda.</div>
+        <div class="cta-arrow">Read More →</div>
+      </div>
+      <div class="cta-card" onclick="showPage('revenue')">
+        <div class="cta-icon">💼</div>
+        <div class="cta-title">Business Model</div>
+        <div class="cta-desc">Six diversified revenue streams keeping basic access free for all farmers.</div>
+        <div class="cta-arrow">View Model →</div>
+      </div>
+      <div class="cta-card" onclick="openPitch()">
+        <div class="cta-icon">📈</div>
+        <div class="cta-title">Investor Pitch Deck</div>
+        <div class="cta-desc">Targeting Uganda's $4.3B agricultural market with proven traction.</div>
+        <div class="cta-arrow">View Pitch →</div>
+      </div>
+    </div>
+  </div>
+  <!-- FOOTER -->
+  <div id="footer-home"></div>
+</div>
+
+<!-- ══════════════════════════════════
+     PAGE: PROBLEMS
+══════════════════════════════════ -->
+<div id="page-problems" class="page section-bg2">
+  <div class="page-wrap">
+    <div class="page-header">
+      <div class="page-label">The Challenge</div>
+      <div class="page-title">What Uganda's Farmers & Vendors Face</div>
+      <div class="page-sub">These are the real problems we set out to solve — documented through profiling over 2,700 farmers and 400+ vendors across Uganda.</div>
+    </div>
     <div class="cards-grid cards-4">
       <div class="problem-card"><div class="problem-icon">📉</div><h3>Price Fluctuations</h3><p>Farmers lose up to 60% of value during glut seasons with no mechanism to lock prices ahead of harvest.</p></div>
       <div class="problem-card"><div class="problem-icon">🔗</div><h3>Too Many Middlemen</h3><p>Produce passes through 4–6 hands before reaching consumers. Farmers earn only 15–25% of final price.</p></div>
       <div class="problem-card"><div class="problem-icon">📵</div><h3>Limited Market Access</h3><p>Vendors have no reliable way to find and contact farmers for fresh, consistent produce in their area.</p></div>
-      <div class="problem-card"><div class="problem-icon">📦</div><h3>Inconsistent Supply</h3><p>Hotels and restaurants cannot plan menus because supply is unreliable, causing food waste and loss of revenue.</p></div>
+      <div class="problem-card"><div class="problem-icon">📦</div><h3>Inconsistent Supply</h3><p>Hotels and restaurants cannot plan menus because supply is unreliable, causing food waste and revenue loss.</p></div>
       <div class="problem-card"><div class="problem-icon">📚</div><h3>Limited Information</h3><p>Farmers in deep villages have no access to market prices, best practices or training resources.</p></div>
       <div class="problem-card"><div class="problem-icon">⏰</div><h3>Timing Mismatch</h3><p>Produce spoils because buyers and sellers can't coordinate harvest timing and delivery schedules.</p></div>
       <div class="problem-card"><div class="problem-icon">🌾</div><h3>Poor Post-Harvest</h3><p>Up to 40% of produce is lost post-harvest due to lack of storage knowledge, packaging and cold chain.</p></div>
       <div class="problem-card"><div class="problem-icon">💳</div><h3>No Credit Access</h3><p>Farmers cannot access input finance because they have no credit history or digital financial profile.</p></div>
     </div>
-  </div>
-</section>
-
-<!-- ═══ SOLUTION ═══ -->
-<section id="solution" style="background:var(--bg)">
-  <div class="container">
-    <div class="section-label">Our Solution</div>
-    <h2 class="section-title">How AgriBridge Solves Every Problem</h2>
-    <p class="section-sub">One platform built end-to-end for Uganda's agricultural value chain — from village farm to city restaurant.</p>
-    <div class="cards-grid cards-4">
-      <div class="solution-card"><div class="solution-icon">📈</div><h3>Price Stabilisation</h3><p>AI-powered forward contracts lock prices 4–8 weeks ahead. Glut alerts, group pooling and transparent live price dashboards.</p></div>
-      <div class="solution-card"><div class="solution-icon">🤖</div><h3>AI Matching Engine</h3><p>Automatically matches farmers to vendors by crop type, district, volume and quality grade. 5-factor scoring delivers top 10 matches in seconds.</p></div>
-      <div class="solution-card"><div class="solution-icon">📱</div><h3>Zero Smartphone Needed</h3><p>Full platform access via USSD *789# and SMS on any basic phone. Village agents and FM radio partnerships for zero-connectivity areas.</p></div>
-      <div class="solution-card"><div class="solution-icon">🎓</div><h3>Capacity Training</h3><p>Video + SMS training in 5 categories: Crop Science, Post-Harvest, Finance, Business Skills and Digital Literacy — in Luganda, Swahili and English.</p></div>
-      <div class="solution-card"><div class="solution-icon">📋</div><h3>End-to-End Profiling</h3><p>Every stakeholder is profiled by role: farmer, vendor, hotel, buyer. Profiles unlock personalised services, matching and credit scoring.</p></div>
-      <div class="solution-card"><div class="solution-icon">❄️</div><h3>Cold Chain Network</h3><p>Integrated cold storage partners, refrigerated transport and harvest calendar coordination to eliminate post-harvest losses.</p></div>
-      <div class="solution-card"><div class="solution-icon">📜</div><h3>Traceability & Quality</h3><p>UNBS-certified grading (A/B/C), QR farm-to-plate traceability and SLA contracts for consistent quality assurance.</p></div>
-      <div class="solution-card"><div class="solution-icon">💰</div><h3>Financial Inclusion</h3><p>Digital transaction history builds credit profiles. Integration with MTN Mobile Money, Airtel Money for seamless payments.</p></div>
+    <div style="text-align:center;margin-top:40px">
+      <button class="btn-green" onclick="showPage('solution')">See How We Solve This →</button>
     </div>
   </div>
-</section>
+</div>
 
-<!-- ═══ PROFILING ═══ -->
-<section id="profiles" style="background:var(--bg2);padding:80px 5%">
-  <div class="container">
-    <div class="section-label">End-to-End Profiling</div>
-    <h2 class="section-title">Every Stakeholder, Fully Profiled</h2>
-    <p class="section-sub">We profile farmers, vendors, hotels and buyers in depth so the platform can serve each person's exact needs.</p>
+<!-- ══════════════════════════════════
+     PAGE: SOLUTION
+══════════════════════════════════ -->
+<div id="page-solution" class="page section-bg1">
+  <div class="page-wrap">
+    <div class="page-header">
+      <div class="page-label">Our Solution</div>
+      <div class="page-title">How AgriBridge Solves Every Problem</div>
+      <div class="page-sub">One platform built end-to-end for Uganda's agricultural value chain — from village farm to city restaurant.</div>
+    </div>
+    <div class="cards-grid cards-4">
+      <div class="solution-card"><div class="solution-icon">📈</div><h3>Price Stabilisation</h3><p>AI-powered forward contracts lock prices 4–8 weeks ahead. Glut alerts, group pooling and transparent live price dashboards.</p></div>
+      <div class="solution-card"><div class="solution-icon">🤖</div><h3>AI Matching Engine</h3><p>Automatically matches farmers to vendors by crop type, district, volume and quality grade. 5-factor scoring in seconds.</p></div>
+      <div class="solution-card"><div class="solution-icon">📱</div><h3>Zero Smartphone Needed</h3><p>Full platform access via USSD *789# and SMS on any basic phone. Village agents and FM radio partnerships.</p></div>
+      <div class="solution-card"><div class="solution-icon">🎓</div><h3>Capacity Training</h3><p>Video + SMS training in 5 categories in Luganda, Swahili and English. Works on any phone.</p></div>
+      <div class="solution-card"><div class="solution-icon">📋</div><h3>End-to-End Profiling</h3><p>Every stakeholder profiled by role: farmer, vendor, hotel, buyer. Profiles unlock personalised services and credit scoring.</p></div>
+      <div class="solution-card"><div class="solution-icon">❄️</div><h3>Cold Chain Network</h3><p>Integrated cold storage partners, refrigerated transport and harvest calendar coordination.</p></div>
+      <div class="solution-card"><div class="solution-icon">📜</div><h3>Traceability & Quality</h3><p>UNBS-certified grading (A/B/C), QR farm-to-plate traceability and SLA contracts for quality assurance.</p></div>
+      <div class="solution-card"><div class="solution-icon">💰</div><h3>Financial Inclusion</h3><p>Digital transaction history builds credit profiles. MTN Mobile Money and Airtel Money integration.</p></div>
+    </div>
+    <div style="margin-top:40px;overflow-x:auto">
+      <div class="page-label" style="margin-bottom:16px">Competitive Advantage</div>
+      <table class="compare-table">
+        <thead>
+          <tr><th>Feature</th><th class="agri-col">✅ AgriBridge</th><th>Twiga Foods</th><th>Jumia Food</th><th>WhatsApp Groups</th></tr>
+        </thead>
+        <tbody>
+          <tr><td>USSD / SMS Access</td><td class="agri-col check">✅ Yes (*789#)</td><td class="cross">❌ No</td><td class="cross">❌ No</td><td class="cross">❌ No</td></tr>
+          <tr><td>Farmer Profiling & Credit Score</td><td class="agri-col check">✅ Full Profile</td><td>⚡ Partial</td><td class="cross">❌ No</td><td class="cross">❌ No</td></tr>
+          <tr><td>AI Matching Engine</td><td class="agri-col check">✅ Yes (5-factor)</td><td class="cross">❌ No</td><td class="cross">❌ No</td><td class="cross">❌ No</td></tr>
+          <tr><td>Forward Price Contracts</td><td class="agri-col check">✅ Yes (4–8wk lock)</td><td class="cross">❌ No</td><td class="cross">❌ No</td><td class="cross">❌ No</td></tr>
+          <tr><td>Farmer Training Modules</td><td class="agri-col check">✅ Video + SMS</td><td class="cross">❌ No</td><td class="cross">❌ No</td><td class="cross">❌ No</td></tr>
+          <tr><td>Built for Uganda</td><td class="agri-col check">✅ 135 districts</td><td>Kenya-first</td><td>Urban-only</td><td>Manual</td></tr>
+          <tr><td>Free for Farmers</td><td class="agri-col check">✅ Always free</td><td class="cross">❌ Commission</td><td class="cross">❌ Listing fee</td><td class="check">✅ Free</td></tr>
+          <tr><td>Mobile Money Integration</td><td class="agri-col check">✅ MTN + Airtel</td><td>⚡ Limited</td><td class="cross">❌ No</td><td class="cross">❌ No</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════
+     PAGE: MARKETPLACE
+══════════════════════════════════ -->
+<div id="page-marketplace" class="page section-bg2">
+  <div class="page-wrap">
+    <div class="page-header">
+      <div class="page-label">Live Marketplace</div>
+      <div class="page-title">Browse Fresh Produce Listings</div>
+      <div class="page-sub">All listings from verified, profiled farmers. Filter by crop, district or quality grade and order directly.</div>
+    </div>
+    <div class="filter-row">
+      <input id="filterCrop" type="text" placeholder="🔍 Search crop..." class="filter-input" style="max-width:220px" oninput="loadListings()">
+      <select id="filterDistrict" class="filter-input" style="max-width:180px" onchange="loadListings()">
+        <option value="">All Districts</option>
+        <option>Kampala</option><option>Wakiso</option><option>Gulu</option><option>Mbarara</option>
+      </select>
+      <select id="filterGrade" class="filter-input" style="max-width:160px" onchange="loadListings()">
+        <option value="">All Grades</option>
+        <option value="A">Grade A</option>
+        <option value="B">Grade B</option>
+        <option value="C">Grade C</option>
+      </select>
+    </div>
+    <div id="listingsGrid" class="listings-grid">
+      <div class="empty-state" style="grid-column:1/-1"><div class="empty-icon">🌿</div>Loading listings...</div>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════
+     PAGE: PRICES
+══════════════════════════════════ -->
+<div id="page-prices" class="page section-bg1">
+  <div class="page-wrap">
+    <div class="page-header">
+      <div class="page-label">Price Intelligence</div>
+      <div class="page-title">Live Price Dashboard & Forward Contracts</div>
+      <div class="page-sub">Real-time price tracking, 6-month trend charts and AI forward contracts that lock prices weeks ahead.</div>
+    </div>
+    <div class="filter-row">
+      <button class="filter-btn active" onclick="loadChart('Tomatoes',this)">🍅 Tomatoes</button>
+      <button class="filter-btn" onclick="loadChart('Matooke',this)">🍌 Matooke</button>
+      <button class="filter-btn" onclick="loadChart('Maize',this)">🌽 Maize</button>
+      <button class="filter-btn" onclick="loadChart('Carrots',this)">🥕 Carrots</button>
+    </div>
+    <div class="chart-container">
+      <canvas id="priceChart" height="80"></canvas>
+    </div>
+    <div class="price-cards">
+      <div class="pc"><div class="pc-crop">🍅 Tomatoes · Kampala</div><div class="pc-val">UGX 1,500/kg</div><div class="pc-change" style="color:var(--green)">▲ +15% this month</div></div>
+      <div class="pc"><div class="pc-crop">🍌 Matooke · Kampala</div><div class="pc-val">UGX 800/kg</div><div class="pc-change" style="color:var(--green)">▲ +7% this month</div></div>
+      <div class="pc"><div class="pc-crop">🌽 Maize · Gulu</div><div class="pc-val">UGX 700/kg</div><div class="pc-change" style="color:var(--green)">▲ +8% this month</div></div>
+      <div class="pc"><div class="pc-crop">🥕 Carrots · Wakiso</div><div class="pc-val">UGX 1,200/kg</div><div class="pc-change" style="color:#f87171">▼ -8% this month</div></div>
+    </div>
+    <div class="forward-box">
+      <h4>🔒 Forward Contract System — How We Stabilise Prices</h4>
+      <p>Farmers and buyers can lock a price 4–8 weeks before harvest. The platform holds escrow, guarantees delivery and releases payment upon quality-verified delivery. This eliminates the price shock of seasonal gluts and protects farmers' income.</p>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════
+     PAGE: AI MATCHING
+══════════════════════════════════ -->
+<div id="page-matching" class="page section-bg2">
+  <div class="page-wrap">
+    <div class="page-header">
+      <div class="page-label">AI Matching Engine</div>
+      <div class="page-title">Find Your Perfect Farmer or Buyer</div>
+      <div class="page-sub">Our 5-factor algorithm scores farmers by crop match, district, output volume, storage and irrigation.</div>
+    </div>
+    <div class="match-form">
+      <div class="match-grid-inputs">
+        <div><label class="match-label">Crop Needed</label><input id="matchCrop" type="text" placeholder="e.g. Tomatoes" class="filter-input" style="width:100%"></div>
+        <div><label class="match-label">District</label>
+          <select id="matchDistrict" class="filter-input" style="width:100%">
+            <option value="">Any District</option><option>Kampala</option><option>Wakiso</option><option>Mukono</option><option>Gulu</option><option>Mbarara</option><option>Jinja</option>
+          </select>
+        </div>
+        <div><label class="match-label">Volume Needed (kg)</label><input id="matchVolume" type="number" placeholder="e.g. 500" class="filter-input" style="width:100%"></div>
+        <div><label class="match-label">Quality Grade</label>
+          <select id="matchGrade" class="filter-input" style="width:100%">
+            <option value="A">Grade A (Premium)</option><option value="B">Grade B (Standard)</option><option value="C">Grade C (Basic)</option>
+          </select>
+        </div>
+      </div>
+      <button class="btn-green" onclick="runMatch()">🤖 Find Matching Farmers</button>
+    </div>
+    <div id="matchResults" class="match-results-grid"></div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════
+     PAGE: TRAINING
+══════════════════════════════════ -->
+<div id="page-training" class="page section-bg1">
+  <div class="page-wrap">
+    <div class="page-header">
+      <div class="page-label">Capacity Development</div>
+      <div class="page-title">Training Hub for Farmers & Vendors</div>
+      <div class="page-sub">Video modules + SMS delivery in Luganda, English and Swahili. Works on any phone.</div>
+    </div>
+    <div class="filter-row">
+      <button class="filter-btn active" onclick="loadTraining('',this)">All</button>
+      <button class="filter-btn" onclick="loadTraining('Crop Science',this)">🌱 Crop Science</button>
+      <button class="filter-btn" onclick="loadTraining('Post-Harvest',this)">📦 Post-Harvest</button>
+      <button class="filter-btn" onclick="loadTraining('Finance',this)">💰 Finance</button>
+      <button class="filter-btn" onclick="loadTraining('Business',this)">📊 Business</button>
+      <button class="filter-btn" onclick="loadTraining('Digital Literacy',this)">📱 Digital</button>
+    </div>
+    <div id="trainingGrid" class="training-grid">
+      <div class="empty-state" style="grid-column:1/-1">Loading modules...</div>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════
+     PAGE: PROFILES / REGISTER
+══════════════════════════════════ -->
+<div id="page-profiles" class="page section-bg2">
+  <div class="page-wrap">
+    <div class="page-header">
+      <div class="page-label">End-to-End Profiling</div>
+      <div class="page-title">Every Stakeholder, Fully Profiled</div>
+      <div class="page-sub">We profile farmers, vendors, hotels and buyers in depth so the platform can serve each person's exact needs.</div>
+    </div>
     <div class="profile-tabs">
       <button class="profile-tab active" onclick="switchProfile('farmer',this)">🌱 Farmers</button>
       <button class="profile-tab" onclick="switchProfile('vendor',this)">🏪 Vendors</button>
@@ -508,26 +703,20 @@ footer{background:#060b18;border-top:1px solid var(--border);padding:48px 5% 28p
           <h3>🌱 Farmer Profile</h3>
           <p>A 4-step registration builds a complete digital identity for every farmer — enabling matching, training, credit scoring and fair pricing.</p>
           <ul class="profile-features">
-            <li>National ID verification</li>
-            <li>GPS farm location mapping</li>
-            <li>Land size &amp; ownership type</li>
-            <li>Crop list &amp; monthly output (kg)</li>
-            <li>Irrigation &amp; storage facilities</li>
-            <li>MTN / Airtel Mobile Money account</li>
-            <li>Planting &amp; harvest calendar</li>
-            <li>Experience years &amp; training history</li>
-            <li>Credit history &amp; financial challenges</li>
+            <li>National ID verification</li><li>GPS farm location mapping</li><li>Land size & ownership type</li>
+            <li>Crop list & monthly output (kg)</li><li>Irrigation & storage facilities</li>
+            <li>MTN / Airtel Mobile Money account</li><li>Planting & harvest calendar</li>
+            <li>Experience years & training history</li><li>Credit history & financial challenges</li>
             <li>Language preference (Luganda/English/Swahili)</li>
           </ul>
         </div>
         <div class="profile-visual">
-          <div style="font-size:.75rem;color:var(--text2);text-transform:uppercase;letter-spacing:.1em;margin-bottom:16px">Farmer Registration Preview</div>
+          <div style="font-size:.72rem;color:var(--text2);text-transform:uppercase;letter-spacing:.1em;margin-bottom:14px">Farmer Registration Preview</div>
           <div class="form-step"><label>Full Name</label><input type="text" placeholder="e.g. Nakato Grace" readonly></div>
           <div class="form-step"><label>Phone Number</label><input type="text" placeholder="+256 700 000 000" readonly></div>
           <div class="form-step"><label>District</label><select disabled><option>Kampala</option></select></div>
-          <div class="form-step"><label>Primary Crops</label><input type="text" placeholder="Tomatoes, Matooke, Sukuma Wiki" readonly></div>
+          <div class="form-step"><label>Primary Crops</label><input type="text" placeholder="Tomatoes, Matooke" readonly></div>
           <div class="form-step"><label>Monthly Output (kg)</label><input type="number" placeholder="e.g. 1200" readonly></div>
-          <div class="form-step"><label>Farm Size (Acres)</label><input type="number" placeholder="e.g. 2.5" readonly></div>
           <button class="btn-submit" onclick="openModal()">Register as Farmer →</button>
         </div>
       </div>
@@ -539,23 +728,18 @@ footer{background:#060b18;border-top:1px solid var(--border);padding:48px 5% 28p
           <h3>🏪 Vendor Profile</h3>
           <p>Market vendors are profiled by market, product categories and buying volumes so farmers can find the right buyers instantly.</p>
           <ul class="profile-features">
-            <li>Business permit / KCCA number</li>
-            <li>Market name &amp; GPS stall location</li>
-            <li>Product categories (vegetables, fruits, grains)</li>
-            <li>Weekly buying volume (kg)</li>
-            <li>Buyer types (retail, wholesale, export)</li>
-            <li>Delivery radius preference</li>
-            <li>Quality grade requirements (A/B/C)</li>
+            <li>Business permit / KCCA number</li><li>Market name & GPS stall location</li>
+            <li>Product categories (vegetables, fruits, grains)</li><li>Weekly buying volume (kg)</li>
+            <li>Buyer types (retail, wholesale, export)</li><li>Quality grade requirements (A/B/C)</li>
             <li>Payment terms (cash, mobile money, credit)</li>
           </ul>
         </div>
         <div class="profile-visual">
-          <div style="font-size:.75rem;color:var(--text2);text-transform:uppercase;letter-spacing:.1em;margin-bottom:16px">Vendor Registration Preview</div>
+          <div style="font-size:.72rem;color:var(--text2);text-transform:uppercase;letter-spacing:.1em;margin-bottom:14px">Vendor Registration Preview</div>
           <div class="form-step"><label>Business Name</label><input type="text" placeholder="e.g. Mukasa Fresh Produce" readonly></div>
-          <div class="form-step"><label>Business Permit Number</label><input type="text" placeholder="KCCA-2024-XXXXX" readonly></div>
+          <div class="form-step"><label>Business Permit No.</label><input type="text" placeholder="KCCA-2024-XXXXX" readonly></div>
           <div class="form-step"><label>Market Name</label><input type="text" placeholder="e.g. Nakasero Market" readonly></div>
           <div class="form-step"><label>Weekly Volume Needed (kg)</label><input type="number" placeholder="e.g. 500" readonly></div>
-          <div class="form-step"><label>Product Categories</label><input type="text" placeholder="Vegetables, Fruits, Grains" readonly></div>
           <button class="btn-submit" onclick="openModal()">Register as Vendor →</button>
         </div>
       </div>
@@ -567,23 +751,18 @@ footer{background:#060b18;border-top:1px solid var(--border);padding:48px 5% 28p
           <h3>🏨 Hotel & Restaurant Profile</h3>
           <p>Hotels and restaurants get consistent, quality-graded produce through SLA contracts with verified farmers.</p>
           <ul class="profile-features">
-            <li>Hotel name, star rating &amp; district</li>
-            <li>Weekly produce volume requirement (kg)</li>
-            <li>Quality grade requirement (Grade A mandatory)</li>
-            <li>Delivery schedule (days &amp; times)</li>
-            <li>Preferred crops &amp; seasonal menus</li>
-            <li>SLA contract terms (98% availability)</li>
-            <li>Cold chain requirement preferences</li>
-            <li>Payment terms &amp; invoicing schedule</li>
+            <li>Hotel name, star rating & district</li><li>Weekly produce volume requirement (kg)</li>
+            <li>Quality grade requirement (Grade A mandatory)</li><li>Delivery schedule (days & times)</li>
+            <li>Preferred crops & seasonal menus</li><li>SLA contract terms (98% availability)</li>
+            <li>Cold chain requirement preferences</li><li>Payment terms & invoicing schedule</li>
           </ul>
         </div>
         <div class="profile-visual">
-          <div style="font-size:.75rem;color:var(--text2);text-transform:uppercase;letter-spacing:.1em;margin-bottom:16px">Hotel Registration Preview</div>
+          <div style="font-size:.72rem;color:var(--text2);text-transform:uppercase;letter-spacing:.1em;margin-bottom:14px">Hotel Registration Preview</div>
           <div class="form-step"><label>Hotel / Restaurant Name</label><input type="text" placeholder="e.g. Serena Gardens Hotel" readonly></div>
-          <div class="form-step"><label>Star Rating</label><select disabled><option>5 Stars</option><option>4 Stars</option><option>3 Stars</option></select></div>
+          <div class="form-step"><label>Star Rating</label><select disabled><option>5 Stars</option><option>4 Stars</option></select></div>
           <div class="form-step"><label>District</label><input type="text" placeholder="Kampala" readonly></div>
           <div class="form-step"><label>Weekly Produce Needed (kg)</label><input type="number" placeholder="e.g. 300" readonly></div>
-          <div class="form-step"><label>Preferred Crops</label><input type="text" placeholder="Tomatoes, Capsicum, Herbs" readonly></div>
           <button class="btn-submit" onclick="openModal()">Register as Hotel →</button>
         </div>
       </div>
@@ -595,18 +774,13 @@ footer{background:#060b18;border-top:1px solid var(--border);padding:48px 5% 28p
           <h3>🛒 Buyer Profile</h3>
           <p>Individual buyers, supermarkets and exporters are profiled to receive personalised listings and price alerts.</p>
           <ul class="profile-features">
-            <li>Buyer type (individual, supermarket, exporter)</li>
-            <li>District &amp; delivery address</li>
-            <li>Preferred crops &amp; quality grades</li>
-            <li>Typical order volume</li>
-            <li>Budget range &amp; payment method</li>
-            <li>Frequency of purchase</li>
-            <li>SMS / WhatsApp notification preference</li>
-            <li>Language preference</li>
+            <li>Buyer type (individual, supermarket, exporter)</li><li>District & delivery address</li>
+            <li>Preferred crops & quality grades</li><li>Typical order volume</li>
+            <li>Budget range & payment method</li><li>SMS / WhatsApp notification preference</li>
           </ul>
         </div>
         <div class="profile-visual">
-          <div style="font-size:.75rem;color:var(--text2);text-transform:uppercase;letter-spacing:.1em;margin-bottom:16px">Buyer Registration Preview</div>
+          <div style="font-size:.72rem;color:var(--text2);text-transform:uppercase;letter-spacing:.1em;margin-bottom:14px">Buyer Registration Preview</div>
           <div class="form-step"><label>Your Name</label><input type="text" placeholder="e.g. Peter Mugisha" readonly></div>
           <div class="form-step"><label>Buyer Type</label><select disabled><option>Individual</option><option>Supermarket</option><option>Exporter</option></select></div>
           <div class="form-step"><label>District</label><input type="text" placeholder="e.g. Wakiso" readonly></div>
@@ -616,177 +790,52 @@ footer{background:#060b18;border-top:1px solid var(--border);padding:48px 5% 28p
       </div>
     </div>
   </div>
-</section>
+</div>
 
-<!-- ═══ PRICE DASHBOARD ═══ -->
-<section class="price-dashboard" id="prices">
-  <div class="container">
-    <div class="section-label">Price Intelligence</div>
-    <h2 class="section-title">Live Price Dashboard & Forward Contracts</h2>
-    <p class="section-sub">Real-time price tracking, 6-month trend charts and AI forward contracts that lock prices weeks ahead — eliminating price shock for farmers.</p>
-    <div class="price-controls">
-      <button class="price-control-btn active" onclick="loadChart('Tomatoes',this)">🍅 Tomatoes</button>
-      <button class="price-control-btn" onclick="loadChart('Matooke',this)">🍌 Matooke</button>
-      <button class="price-control-btn" onclick="loadChart('Maize',this)">🌽 Maize</button>
-      <button class="price-control-btn" onclick="loadChart('Carrots',this)">🥕 Carrots</button>
+<!-- ══════════════════════════════════
+     PAGE: USSD
+══════════════════════════════════ -->
+<div id="page-ussd" class="page section-bg1">
+  <div class="page-wrap">
+    <div class="page-header">
+      <div class="page-label">Zero Smartphone Access</div>
+      <div class="page-title">USSD *789# & SMS for Every Phone</div>
+      <div class="page-sub">Farmers in deep villages with no internet can access the full platform via USSD and SMS — solving the digital divide completely.</div>
     </div>
-    <div class="chart-container">
-      <canvas id="priceChart" height="80"></canvas>
-    </div>
-    <div class="price-cards" id="priceCards">
-      <div class="price-card"><div class="price-card-crop">🍅 Tomatoes · Kampala</div><div class="price-card-val">UGX 1,500/kg</div><div class="price-card-change" style="color:var(--green)">▲ +15% this month</div></div>
-      <div class="price-card"><div class="price-card-crop">🍌 Matooke · Kampala</div><div class="price-card-val">UGX 800/kg</div><div class="price-card-change" style="color:var(--green)">▲ +7% this month</div></div>
-      <div class="price-card"><div class="price-card-crop">🌽 Maize · Gulu</div><div class="price-card-val">UGX 700/kg</div><div class="price-card-change" style="color:var(--green)">▲ +8% this month</div></div>
-      <div class="price-card"><div class="price-card-crop">🥕 Carrots · Wakiso</div><div class="price-card-val">UGX 1,200/kg</div><div class="price-card-change" style="color:#f87171">▼ -8% this month</div></div>
-    </div>
-    <div style="background:rgba(0,200,83,.08);border:1px solid rgba(0,200,83,.2);border-radius:var(--radius);padding:20px;margin-top:24px">
-      <h4 style="color:var(--green);font-size:.9rem;margin-bottom:8px">🔒 Forward Contract System — How We Stabilise Prices</h4>
-      <p style="color:var(--text2);font-size:.85rem">Farmers and buyers can lock a price 4–8 weeks before harvest. The platform holds escrow, guarantees delivery and releases payment upon quality-verified delivery. This eliminates the price shock of seasonal gluts and protects farmers' income.</p>
-    </div>
-  </div>
-</section>
-
-<!-- ═══ MATCHING ENGINE ═══ -->
-<section class="match-section" id="matching">
-  <div class="container">
-    <div class="section-label">AI Matching Engine</div>
-    <h2 class="section-title">Find Your Perfect Farmer or Buyer</h2>
-    <p class="section-sub">Our 5-factor algorithm scores farmers by crop match, district, output volume, storage and irrigation to find your best match instantly.</p>
-    <div class="match-form">
-      <div class="match-form-grid">
-        <div>
-          <label style="font-size:.78rem;color:var(--text2);display:block;margin-bottom:6px">Crop Needed</label>
-          <input id="matchCrop" type="text" placeholder="e.g. Tomatoes" class="filter-input">
-        </div>
-        <div>
-          <label style="font-size:.78rem;color:var(--text2);display:block;margin-bottom:6px">District</label>
-          <select id="matchDistrict" class="filter-input">
-            <option value="">Any District</option>
-            <option>Kampala</option><option>Wakiso</option><option>Mukono</option>
-            <option>Gulu</option><option>Mbarara</option><option>Jinja</option>
-          </select>
-        </div>
-        <div>
-          <label style="font-size:.78rem;color:var(--text2);display:block;margin-bottom:6px">Volume Needed (kg)</label>
-          <input id="matchVolume" type="number" placeholder="e.g. 500" class="filter-input">
-        </div>
-        <div>
-          <label style="font-size:.78rem;color:var(--text2);display:block;margin-bottom:6px">Quality Grade</label>
-          <select id="matchGrade" class="filter-input">
-            <option value="A">Grade A (Premium)</option>
-            <option value="B">Grade B (Standard)</option>
-            <option value="C">Grade C (Basic)</option>
-          </select>
-        </div>
-      </div>
-      <button class="btn-primary" onclick="runMatch()">🤖 Find Matching Farmers</button>
-    </div>
-    <div id="matchResults" class="match-results"></div>
-  </div>
-</section>
-
-<!-- ═══ MARKETPLACE ═══ -->
-<section class="marketplace-section" id="marketplace">
-  <div class="container">
-    <div class="section-label">Live Marketplace</div>
-    <h2 class="section-title">Browse Fresh Produce Listings</h2>
-    <p class="section-sub">All listings come from verified, profiled farmers. Filter by crop, district or quality grade and order directly.</p>
-    <div class="marketplace-filters">
-      <input id="filterCrop" type="text" placeholder="🔍 Search crop..." class="filter-input" oninput="loadListings()">
-      <select id="filterDistrict" class="filter-input" onchange="loadListings()">
-        <option value="">All Districts</option>
-        <option>Kampala</option><option>Wakiso</option><option>Gulu</option><option>Mbarara</option>
-      </select>
-      <select id="filterGrade" class="filter-input" onchange="loadListings()">
-        <option value="">All Grades</option>
-        <option value="A">Grade A</option>
-        <option value="B">Grade B</option>
-        <option value="C">Grade C</option>
-      </select>
-    </div>
-    <div id="listingsGrid" class="listings-grid">
-      <div class="empty-state" style="grid-column:1/-1"><div class="empty-state-icon">🌿</div>Loading listings...</div>
-    </div>
-  </div>
-</section>
-
-<!-- ═══ TRAINING ═══ -->
-<section class="training-section" id="training">
-  <div class="container">
-    <div class="section-label">Capacity Development</div>
-    <h2 class="section-title">Training Hub for Farmers & Vendors</h2>
-    <p class="section-sub">Video modules + SMS delivery in Luganda, English and Swahili. Works on any phone. Village agents bring training offline.</p>
-    <div class="training-cats">
-      <button class="training-cat active" onclick="loadTraining('',this)">All</button>
-      <button class="training-cat" onclick="loadTraining('Crop Science',this)">🌱 Crop Science</button>
-      <button class="training-cat" onclick="loadTraining('Post-Harvest',this)">📦 Post-Harvest</button>
-      <button class="training-cat" onclick="loadTraining('Finance',this)">💰 Finance</button>
-      <button class="training-cat" onclick="loadTraining('Business',this)">📊 Business</button>
-      <button class="training-cat" onclick="loadTraining('Digital Literacy',this)">📱 Digital</button>
-    </div>
-    <div id="trainingGrid" class="training-grid">
-      <div class="empty-state" style="grid-column:1/-1">Loading modules...</div>
-    </div>
-  </div>
-</section>
-
-<!-- ═══ USSD & SMS ═══ -->
-<section class="ussd-section" id="ussd">
-  <div class="container">
-    <div class="section-label">Zero Smartphone Access</div>
-    <h2 class="section-title">USSD *789# & SMS for Every Phone</h2>
-    <p class="section-sub">Farmers in deep villages with no internet can access the full platform via USSD and SMS — solving the digital divide completely.</p>
-    <div class="ussd-grid">
+    <div class="ussd-layout">
       <div>
         <div class="phone-mockup">
           <div class="phone-screen" id="ussdScreen">Dial *789# to start</div>
           <div class="phone-keypad">
-            <div class="key" onclick="pressKey('1')">1</div>
-            <div class="key" onclick="pressKey('2')">2</div>
-            <div class="key" onclick="pressKey('3')">3</div>
-            <div class="key" onclick="pressKey('4')">4</div>
-            <div class="key" onclick="pressKey('5')">5</div>
-            <div class="key" onclick="pressKey('6')">6</div>
-            <div class="key" onclick="pressKey('7')">7</div>
-            <div class="key" onclick="pressKey('8')">8</div>
-            <div class="key" onclick="pressKey('9')">9</div>
-          </div>
-          <div class="key-row-bottom">
-            <div class="key" onclick="pressKey('*')">*</div>
-            <div class="key" onclick="pressKey('0')">0</div>
-            <div class="key" onclick="pressKey('#')">#</div>
+            <div class="key" onclick="pressKey('1')">1</div><div class="key" onclick="pressKey('2')">2</div><div class="key" onclick="pressKey('3')">3</div>
+            <div class="key" onclick="pressKey('4')">4</div><div class="key" onclick="pressKey('5')">5</div><div class="key" onclick="pressKey('6')">6</div>
+            <div class="key" onclick="pressKey('7')">7</div><div class="key" onclick="pressKey('8')">8</div><div class="key" onclick="pressKey('9')">9</div>
+            <div class="key" onclick="pressKey('*')">*</div><div class="key" onclick="pressKey('0')">0</div><div class="key" onclick="pressKey('#')">#</div>
           </div>
           <div class="ussd-input-row">
-            <input id="ussdInput" class="ussd-input" placeholder="Enter choice..." oninput="syncInput(this.value)">
+            <input id="ussdInput" class="ussd-input" placeholder="Enter choice...">
             <button class="btn-ussd-send" onclick="sendUSSD()">Send</button>
           </div>
           <div style="text-align:center;margin-top:8px">
-            <button onclick="resetUSSD()" style="background:none;border:1px solid var(--border);color:var(--text2);padding:6px 14px;border-radius:6px;cursor:pointer;font-size:.8rem">Reset</button>
+            <button onclick="resetUSSD()" style="background:none;border:1px solid var(--border);color:var(--text2);padding:5px 12px;border-radius:6px;cursor:pointer;font-size:.76rem">Reset</button>
           </div>
         </div>
       </div>
-      <div class="ussd-info">
-        <h3>*789# — Full Platform on Any Phone</h3>
-        <p>No internet. No smartphone. Just dial *789# from any mobile phone — MTN, Airtel, or Uganda Telecom — and access everything AgriBridge offers.</p>
-        <div style="background:var(--bg3);border:1px solid var(--border);border-radius:var(--radius);padding:16px;margin-bottom:20px">
-          <div style="font-size:.8rem;color:var(--text2);margin-bottom:8px">USSD Menu Structure</div>
-          <div style="font-size:.82rem;font-family:'Courier New',monospace;color:#a3e635;line-height:2">
-            1. Check Prices<br>
-            2. List My Produce<br>
-            3. Find Buyers<br>
-            4. Training<br>
-            5. Weather Forecast<br>
-            6. My Account
-          </div>
+      <div>
+        <h3 style="font-family:'Syne',sans-serif;font-size:1.3rem;font-weight:700;color:#fff;margin-bottom:10px">*789# — Full Platform on Any Phone</h3>
+        <p style="color:var(--text2);font-size:.88rem;margin-bottom:20px">No internet. No smartphone. Just dial *789# from any mobile phone — MTN, Airtel, or Uganda Telecom — and access everything AgriBridge offers.</p>
+        <div style="background:var(--bg3);border:1px solid var(--border);border-radius:var(--radius);padding:14px;margin-bottom:18px">
+          <div style="font-size:.76rem;color:var(--text2);margin-bottom:8px">USSD Menu Structure</div>
+          <div style="font-size:.8rem;font-family:'Courier New',monospace;color:#a3e635;line-height:2">1. Check Prices<br>2. List My Produce<br>3. Find Buyers<br>4. Training<br>5. Weather Forecast<br>6. My Account</div>
         </div>
         <div class="sms-section">
-          <div style="font-size:.85rem;font-weight:700;color:#fff;margin-bottom:14px">📨 SMS Commands — Text 8204</div>
+          <div style="font-size:.84rem;font-weight:700;color:#fff;margin-bottom:12px">📨 SMS Commands — Text 8204</div>
           <ul class="sms-commands">
             <li class="sms-cmd"><span class="sms-kw">PRICES</span><span style="color:var(--text2)">Get today's market prices for all crops</span></li>
             <li class="sms-cmd"><span class="sms-kw">WEATHER</span><span style="color:var(--text2)">5-day weather forecast for your district</span></li>
             <li class="sms-cmd"><span class="sms-kw">LIST</span><span style="color:var(--text2)">LIST Tomatoes 100 1500 — add listing</span></li>
             <li class="sms-cmd"><span class="sms-kw">JOIN</span><span style="color:var(--text2)">Register on AgriBridge via SMS</span></li>
-            <li class="sms-cmd"><span class="sms-kw">ORDERS</span><span style="color:var(--text2)">Check your recent orders &amp; status</span></li>
+            <li class="sms-cmd"><span class="sms-kw">ORDERS</span><span style="color:var(--text2)">Check your recent orders & status</span></li>
             <li class="sms-cmd"><span class="sms-kw">HELP</span><span style="color:var(--text2)">Full list of all SMS commands</span></li>
           </ul>
           <div class="sms-test">
@@ -798,157 +847,127 @@ footer{background:#060b18;border-top:1px solid var(--border);padding:48px 5% 28p
       </div>
     </div>
   </div>
-</section>
+</div>
 
-<!-- ═══ REVENUE / BUSINESS MODEL ═══ -->
-<section class="revenue-section" id="revenue">
-  <div class="container">
-    <div class="section-label">Business Model</div>
-    <h2 class="section-title">How AgriBridge Makes Money</h2>
-    <p class="section-sub">Six diversified revenue streams ensure sustainability while keeping basic access free for all farmers.</p>
+<!-- ══════════════════════════════════
+     PAGE: REVENUE / BUSINESS MODEL
+══════════════════════════════════ -->
+<div id="page-revenue" class="page section-bg2">
+  <div class="page-wrap">
+    <div class="page-header">
+      <div class="page-label">Business Model</div>
+      <div class="page-title">How AgriBridge Makes Money</div>
+      <div class="page-sub">Six diversified revenue streams ensure sustainability while keeping basic access free for all farmers.</div>
+    </div>
     <div class="revenue-grid">
       <div class="revenue-card"><div class="revenue-icon">💸</div><h3>Transaction Commission</h3><p>3–5% commission on every order placed through the marketplace. Charged to buyers; farmers pay zero.</p><div class="revenue-amount">3–5% per order</div></div>
-      <div class="revenue-card"><div class="revenue-icon">📦</div><h3>Farmer Premium Plans</h3><p>Advanced analytics, priority matching, certified training and logistics management for subscribing farmers.</p><div class="revenue-amount">UGX 50k/month</div></div>
+      <div class="revenue-card"><div class="revenue-icon">📦</div><h3>Farmer Premium Plans</h3><p>Advanced analytics, priority matching, certified training and logistics management.</p><div class="revenue-amount">UGX 50k/month</div></div>
       <div class="revenue-card"><div class="revenue-icon">🏨</div><h3>Hotel & Business Plans</h3><p>Dedicated account manager, SLA guarantees, custom supply contracts and real-time dashboards.</p><div class="revenue-amount">UGX 200–500k/mo</div></div>
       <div class="revenue-card"><div class="revenue-icon">🚚</div><h3>Logistics Facilitation</h3><p>2% logistics coordination fee on deliveries arranged through our cold chain partner network.</p><div class="revenue-amount">2% per delivery</div></div>
       <div class="revenue-card"><div class="revenue-icon">🌿</div><h3>Agro-Input Marketplace</h3><p>Seeds, fertiliser and equipment sold through an integrated marketplace with supplier partnerships.</p><div class="revenue-amount">8–12% margin</div></div>
       <div class="revenue-card"><div class="revenue-icon">📊</div><h3>Agricultural Data</h3><p>Anonymised price, crop and supply chain data licensed to NGOs, governments and research institutions.</p><div class="revenue-amount">UGX 2M+/dataset</div></div>
     </div>
-  </div>
-</section>
-
-<!-- ═══ COMPETITIVE ADVANTAGE ═══ -->
-<section class="compare-section" id="compare">
-  <div class="container">
-    <div class="section-label">Competitive Advantage</div>
-    <h2 class="section-title">What Makes AgriBridge Different</h2>
-    <p class="section-sub">We are the only platform that combines profiling, USSD, forward contracts, training, and quality assurance in one place — built specifically for Uganda.</p>
-    <div style="overflow-x:auto">
-      <table class="compare-table">
-        <thead>
-          <tr>
-            <th>Feature</th>
-            <th class="agri-col">✅ AgriBridge</th>
-            <th>Twiga Foods</th>
-            <th>Jumia Food</th>
-            <th>WhatsApp Groups</th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr><td>USSD / SMS Access (no smartphone)</td><td class="agri-col check">✅ Yes (*789#)</td><td class="cross">❌ No</td><td class="cross">❌ No</td><td class="cross">❌ No</td></tr>
-          <tr><td>Farmer Profiling &amp; Credit Score</td><td class="agri-col check">✅ Full Profile</td><td>⚡ Partial</td><td class="cross">❌ No</td><td class="cross">❌ No</td></tr>
-          <tr><td>AI Matching Engine</td><td class="agri-col check">✅ Yes (5-factor)</td><td class="cross">❌ No</td><td class="cross">❌ No</td><td class="cross">❌ No</td></tr>
-          <tr><td>Forward Price Contracts</td><td class="agri-col check">✅ Yes (4–8wk lock)</td><td class="cross">❌ No</td><td class="cross">❌ No</td><td class="cross">❌ No</td></tr>
-          <tr><td>Farmer Training Modules</td><td class="agri-col check">✅ Video + SMS</td><td class="cross">❌ No</td><td class="cross">❌ No</td><td class="cross">❌ No</td></tr>
-          <tr><td>Built for Uganda</td><td class="agri-col check">✅ 135 districts</td><td>Kenya-first</td><td>Urban-only</td><td>Manual</td></tr>
-          <tr><td>Hotel / Restaurant SLA</td><td class="agri-col check">✅ 98% guarantee</td><td class="cross">❌ No</td><td>⚡ Partial</td><td class="cross">❌ No</td></tr>
-          <tr><td>Quality Traceability (QR)</td><td class="agri-col check">✅ Farm-to-plate</td><td class="cross">❌ No</td><td class="cross">❌ No</td><td class="cross">❌ No</td></tr>
-          <tr><td>Free for Farmers</td><td class="agri-col check">✅ Always free</td><td class="cross">❌ Commission</td><td class="cross">❌ Listing fee</td><td class="check">✅ Free</td></tr>
-          <tr><td>Mobile Money Integration</td><td class="agri-col check">✅ MTN + Airtel</td><td>⚡ Limited</td><td class="cross">❌ No</td><td class="cross">❌ No</td></tr>
-        </tbody>
-      </table>
+    <div style="text-align:center;margin-top:40px">
+      <button class="btn-green" onclick="openPitch()">📊 View Full Investor Pitch Deck</button>
     </div>
   </div>
-</section>
+</div>
 
-<!-- ═══ DISTRICTS ═══ -->
-<section class="districts-section" id="districts">
-  <div class="container">
-    <div class="section-label">Geographic Coverage</div>
-    <h2 class="section-title">Serving All 135 Districts of Uganda</h2>
-    <p class="section-sub">Active farming communities in every region — with village agents and FM radio partnerships where internet is unavailable.</p>
-    <div id="districtsGrid" class="districts-grid">Loading districts...</div>
-  </div>
-</section>
-
-<!-- ═══ INVESTOR PITCH ═══ -->
-<section class="pitch-section" id="pitch">
-  <div class="container" style="text-align:center">
-    <div class="section-label">For Investors & Partners</div>
-    <h2 class="section-title">AgriBridge Investment Case</h2>
-    <p class="section-sub" style="margin:0 auto 32px">A compelling, investable business targeting Uganda's $4.3B agricultural market.</p>
-    <button class="btn-pitch" onclick="openPitch()">📊 View Full Investor Pitch Deck</button>
-  </div>
-</section>
-
-<!-- ═══ CONTACT ═══ -->
-<section class="contact-section" id="contact">
-  <div class="container">
-    <div class="contact-grid">
-      <div class="contact-info">
-        <div class="section-label">Get in Touch</div>
-        <h3>Talk to the AgriBridge Team</h3>
-        <p>Whether you're a farmer wanting to join, an investor interested in partnering, or a hotel looking for fresh supply — we're here to help.</p>
+<!-- ══════════════════════════════════
+     PAGE: CONTACT
+══════════════════════════════════ -->
+<div id="page-contact" class="page section-bg1">
+  <div class="page-wrap">
+    <div class="page-header">
+      <div class="page-label">Get in Touch</div>
+      <div class="page-title">Talk to the AgriBridge Team</div>
+      <div class="page-sub">Whether you're a farmer wanting to join, an investor interested in partnering, or a hotel looking for fresh supply — we're here to help.</div>
+    </div>
+    <div class="contact-layout">
+      <div>
         <div class="contact-item"><div class="contact-icon">📞</div><div><strong style="color:#fff">Toll-Free Hotline</strong><br>0800-100-789 (free from any network)</div></div>
         <div class="contact-item"><div class="contact-icon">📱</div><div><strong style="color:#fff">WhatsApp</strong><br>+256 700 AGR-BRDG</div></div>
-        <div class="contact-item"><div class="contact-icon">✉️</div><div><strong style="color:#fff">Email</strong><br><a href="/cdn-cgi/l/email-protection" class="__cf_email__" data-cfemail="83ebe6efefecc3e2e4f1eae1f1eae7e4e6adf6e4">[email&#160;protected]</a></div></div>
+        <div class="contact-item"><div class="contact-icon">✉️</div><div><strong style="color:#fff">Email</strong><br>hello@agribridge.ug</div></div>
         <div class="contact-item"><div class="contact-icon">📍</div><div><strong style="color:#fff">Office</strong><br>Plot 12, Kampala Road, Kampala</div></div>
         <div class="contact-item"><div class="contact-icon">🌐</div><div><strong style="color:#fff">USSD</strong><br>Dial *789# from any phone</div></div>
-      </div>
-      <div class="contact-form">
-        <h3 style="color:#fff;margin-bottom:20px">Send us a Message</h3>
-        <div id="contactMsg" class="modal-msg"></div>
-        <div class="form-group"><label>Your Name</label><input id="contactName" type="text" placeholder="e.g. John Ssemakula"></div>
-        <div class="form-group"><label>Email Address</label><input id="contactEmail" type="email" placeholder="john@example.com"></div>
-        <div class="form-group"><label>Message</label><textarea id="contactMessage" rows="5" placeholder="Tell us how we can help you..."></textarea></div>
-        <button class="btn-submit" onclick="sendContact()">Send Message →</button>
-      </div>
-    </div>
-  </div>
-</section>
 
-<!-- ═══ FOOTER ═══ -->
-<footer>
-  <div class="footer-grid">
-    <div class="footer-brand">
-      <div class="logo" style="margin-bottom:12px;display:flex;align-items:center;gap:10px;text-decoration:none">
-        <div class="logo-icon">🌿</div>
-        <span class="logo-text">Agri<span>Bridge</span></span>
+        <!-- Districts -->
+        <div style="margin-top:32px">
+          <div class="page-label" style="margin-bottom:12px">Geographic Coverage</div>
+          <h3 style="font-family:'Syne',sans-serif;font-size:1.1rem;font-weight:700;color:#fff;margin-bottom:16px">Serving All 135 Districts of Uganda</h3>
+          <div id="districtsGrid" class="districts-grid" style="grid-template-columns:repeat(2,1fr)">Loading districts...</div>
+        </div>
       </div>
-      <p>Uganda's complete farm-to-table intelligence platform connecting 2,700+ farmers with vendors, hotels and buyers across 135 districts.</p>
-    </div>
-    <div class="footer-col">
-      <h4>Platform</h4>
-      <ul>
-        <li><a href="#marketplace">Marketplace</a></li>
-        <li><a href="#matching">AI Matching</a></li>
-        <li><a href="#prices">Price Dashboard</a></li>
-        <li><a href="#training">Training Hub</a></li>
-        <li><a href="#ussd">USSD *789#</a></li>
-      </ul>
-    </div>
-    <div class="footer-col">
-      <h4>For You</h4>
-      <ul>
-        <li><a href="#" onclick="openModal()">Farmers</a></li>
-        <li><a href="#" onclick="openModal()">Vendors</a></li>
-        <li><a href="#" onclick="openModal()">Hotels</a></li>
-        <li><a href="#" onclick="openModal()">Buyers</a></li>
-        <li><a href="#pitch">Investors</a></li>
-      </ul>
-    </div>
-    <div class="footer-col">
-      <h4>Contact</h4>
-      <ul>
-        <li><a href="#">0800-100-789 (Free)</a></li>
-        <li><a href="#"><span class="__cf_email__" data-cfemail="2e464b4242416e4f495c474c5c474a494b005b49">[email&#160;protected]</span></a></li>
-        <li><a href="#">Dial *789#</a></li>
-        <li><a href="#">Kampala, Uganda</a></li>
-      </ul>
+      <div>
+        <div class="contact-form">
+          <h3 style="font-family:'Syne',sans-serif;color:#fff;margin-bottom:18px;font-size:1.1rem">Send us a Message</h3>
+          <div id="contactMsg" class="modal-msg"></div>
+          <div class="form-group"><label>Your Name</label><input id="contactName" type="text" placeholder="e.g. John Ssemakula"></div>
+          <div class="form-group"><label>Email Address</label><input id="contactEmail" type="email" placeholder="john@example.com"></div>
+          <div class="form-group"><label>Message</label><textarea id="contactMessage" rows="5" placeholder="Tell us how we can help you..." style="width:100%;background:var(--bg2);border:1px solid var(--border);border-radius:8px;padding:10px 13px;color:var(--text);font-size:.88rem;outline:none;font-family:'DM Sans',sans-serif;resize:vertical"></textarea></div>
+          <button class="btn-submit" onclick="sendContact()">Send Message →</button>
+        </div>
+      </div>
     </div>
   </div>
-  <div class="footer-bottom">
-    <span>© 2026 AgriBridge Uganda. All rights reserved.</span>
-    <div class="footer-badges">
-      <span class="badge">🇺🇬 Made in Uganda</span>
-      <span class="badge">🌿 Agri-Tech</span>
-      <span class="badge">📱 USSD Ready</span>
-    </div>
-  </div>
-</footer>
+</div>
 
-<!-- ═══ MODALS ═══ -->
-<!-- Registration -->
+<!-- SHARED FOOTER (injected into all pages) -->
+<template id="footer-tpl">
+  <footer>
+    <div class="footer-grid">
+      <div class="footer-brand">
+        <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px">
+          <div class="logo-icon">🌿</div>
+          <span class="logo-text">Agri<span>Bridge</span></span>
+        </div>
+        <p>Uganda's complete farm-to-table intelligence platform connecting 2,700+ farmers with vendors, hotels and buyers across 135 districts.</p>
+      </div>
+      <div class="footer-col">
+        <h4>Platform</h4>
+        <ul>
+          <li><button onclick="showPage('marketplace')">Marketplace</button></li>
+          <li><button onclick="showPage('matching')">AI Matching</button></li>
+          <li><button onclick="showPage('prices')">Price Dashboard</button></li>
+          <li><button onclick="showPage('training')">Training Hub</button></li>
+          <li><button onclick="showPage('ussd')">USSD *789#</button></li>
+        </ul>
+      </div>
+      <div class="footer-col">
+        <h4>For You</h4>
+        <ul>
+          <li><button onclick="openModal()">Farmers</button></li>
+          <li><button onclick="openModal()">Vendors</button></li>
+          <li><button onclick="openModal()">Hotels</button></li>
+          <li><button onclick="openModal()">Buyers</button></li>
+          <li><button onclick="openPitch()">Investors</button></li>
+        </ul>
+      </div>
+      <div class="footer-col">
+        <h4>Contact</h4>
+        <ul>
+          <li><a href="#">0800-100-789 (Free)</a></li>
+          <li><a href="#">hello@agribridge.ug</a></li>
+          <li><button onclick="showPage('ussd')">Dial *789#</button></li>
+          <li><a href="#">Kampala, Uganda</a></li>
+        </ul>
+      </div>
+    </div>
+    <div class="footer-bottom">
+      <span>© 2026 AgriBridge Uganda. All rights reserved.</span>
+      <div class="footer-badges">
+        <span class="f-badge">🇺🇬 Made in Uganda</span>
+        <span class="f-badge">🌿 Agri-Tech</span>
+        <span class="f-badge">📱 USSD Ready</span>
+      </div>
+    </div>
+  </footer>
+</template>
+
+<!-- ══════════════════════════════════
+     MODALS
+══════════════════════════════════ -->
+<!-- Registration Modal -->
 <div class="modal-overlay" id="regModal">
   <div class="modal">
     <div class="modal-header">
@@ -957,89 +976,80 @@ footer{background:#060b18;border-top:1px solid var(--border);padding:48px 5% 28p
     </div>
     <div class="modal-body">
       <div id="regMsg" class="modal-msg"></div>
-      <!-- Registration Form -->
       <div id="regFormSection">
-      <div style="margin-bottom:16px;font-size:.88rem;color:var(--text2)">Select your role:</div>
-      <div class="role-selector">
-        <div class="role-btn active" onclick="selectRole('farmer',this)"><div class="role-btn-icon">🌱</div><div class="role-btn-label">Farmer</div></div>
-        <div class="role-btn" onclick="selectRole('vendor',this)"><div class="role-btn-icon">🏪</div><div class="role-btn-label">Vendor</div></div>
-        <div class="role-btn" onclick="selectRole('hotel',this)"><div class="role-btn-icon">🏨</div><div class="role-btn-label">Hotel/Restaurant</div></div>
-        <div class="role-btn" onclick="selectRole('buyer',this)"><div class="role-btn-icon">🛒</div><div class="role-btn-label">Buyer</div></div>
+        <div style="margin-bottom:14px;font-size:.84rem;color:var(--text2)">Select your role:</div>
+        <div class="role-selector">
+          <div class="role-btn active" onclick="selectRole('farmer',this)"><div class="role-btn-icon">🌱</div><div class="role-btn-label">Farmer</div></div>
+          <div class="role-btn" onclick="selectRole('vendor',this)"><div class="role-btn-icon">🏪</div><div class="role-btn-label">Vendor</div></div>
+          <div class="role-btn" onclick="selectRole('hotel',this)"><div class="role-btn-icon">🏨</div><div class="role-btn-label">Hotel/Restaurant</div></div>
+          <div class="role-btn" onclick="selectRole('buyer',this)"><div class="role-btn-icon">🛒</div><div class="role-btn-label">Buyer</div></div>
+        </div>
+        <div class="form-grid">
+          <div class="form-group"><label>Full Name *</label><input id="regName" type="text" placeholder="Your full name"></div>
+          <div class="form-group"><label>Phone Number *</label><input id="regPhone" type="tel" placeholder="+256 7XX XXX XXX"></div>
+          <div class="form-group"><label>Email (optional)</label><input id="regEmail" type="email" placeholder="your@email.com"></div>
+          <div class="form-group"><label>Password *</label><input id="regPassword" type="password" placeholder="Choose a password"></div>
+          <div class="form-group full"><label>District</label>
+            <select id="regDistrict">
+              <option value="">Select district...</option>
+              <option>Kampala</option><option>Wakiso</option><option>Mukono</option><option>Gulu</option>
+              <option>Mbarara</option><option>Jinja</option><option>Mbale</option><option>Lira</option>
+              <option>Arua</option><option>Fort Portal</option><option>Masaka</option><option>Soroti</option>
+            </select>
+          </div>
+          <div class="form-group full" id="farmerFields">
+            <div class="form-grid">
+              <div class="form-group"><label>Farm Name</label><input id="regFarmName" type="text" placeholder="e.g. Grace Organic Farm"></div>
+              <div class="form-group"><label>Main Crops</label><input id="regCrops" type="text" placeholder="Tomatoes, Matooke"></div>
+              <div class="form-group"><label>Monthly Output (kg)</label><input id="regOutput" type="number" placeholder="e.g. 1200"></div>
+              <div class="form-group"><label>Farm Size (acres)</label><input id="regFarmSize" type="number" placeholder="e.g. 2.5"></div>
+            </div>
+          </div>
+          <div class="form-group full" id="vendorFields" style="display:none">
+            <div class="form-grid">
+              <div class="form-group"><label>Business Name</label><input id="regBizName" type="text" placeholder="e.g. Mukasa Fresh Produce"></div>
+              <div class="form-group"><label>Market Name</label><input id="regMarket" type="text" placeholder="e.g. Nakasero Market"></div>
+              <div class="form-group full"><label>Product Categories</label><input id="regCategories" type="text" placeholder="Vegetables, Fruits, Grains"></div>
+            </div>
+          </div>
+          <div class="form-group full" id="hotelFields" style="display:none">
+            <div class="form-grid">
+              <div class="form-group"><label>Hotel / Restaurant Name</label><input id="regHotelName" type="text" placeholder="e.g. Serena Gardens Hotel"></div>
+              <div class="form-group"><label>Weekly Produce Needed (kg)</label><input id="regWeeklyKg" type="number" placeholder="e.g. 300"></div>
+            </div>
+          </div>
+        </div>
+        <button class="btn-submit" onclick="register()">Create My Account →</button>
       </div>
-      <div class="form-grid">
-        <div class="form-group"><label>Full Name *</label><input id="regName" type="text" placeholder="Your full name"></div>
-        <div class="form-group"><label>Phone Number *</label><input id="regPhone" type="tel" placeholder="+256 7XX XXX XXX"></div>
-        <div class="form-group"><label>Email (optional)</label><input id="regEmail" type="email" placeholder="your@email.com"></div>
-        <div class="form-group"><label>Password *</label><input id="regPassword" type="password" placeholder="Choose a password"></div>
-        <div class="form-group full"><label>District</label>
-          <select id="regDistrict">
-            <option value="">Select district...</option>
-            <option>Kampala</option><option>Wakiso</option><option>Mukono</option><option>Gulu</option>
-            <option>Mbarara</option><option>Jinja</option><option>Mbale</option><option>Lira</option>
-            <option>Arua</option><option>Fort Portal</option><option>Masaka</option><option>Soroti</option>
-          </select>
-        </div>
-        <!-- Farmer fields -->
-        <div class="form-group full" id="farmerFields">
-          <div class="form-grid">
-            <div class="form-group"><label>Farm Name</label><input id="regFarmName" type="text" placeholder="e.g. Grace Organic Farm"></div>
-            <div class="form-group"><label>Main Crops</label><input id="regCrops" type="text" placeholder="Tomatoes, Matooke, Maize"></div>
-            <div class="form-group"><label>Monthly Output (kg)</label><input id="regOutput" type="number" placeholder="e.g. 1200"></div>
-            <div class="form-group"><label>Farm Size (acres)</label><input id="regFarmSize" type="number" placeholder="e.g. 2.5"></div>
-          </div>
-        </div>
-        <!-- Vendor fields -->
-        <div class="form-group full" id="vendorFields" style="display:none">
-          <div class="form-grid">
-            <div class="form-group"><label>Business Name</label><input id="regBizName" type="text" placeholder="e.g. Mukasa Fresh Produce"></div>
-            <div class="form-group"><label>Market Name</label><input id="regMarket" type="text" placeholder="e.g. Nakasero Market"></div>
-            <div class="form-group full"><label>Product Categories</label><input id="regCategories" type="text" placeholder="Vegetables, Fruits, Grains"></div>
-          </div>
-        </div>
-        <!-- Hotel fields -->
-        <div class="form-group full" id="hotelFields" style="display:none">
-          <div class="form-grid">
-            <div class="form-group"><label>Hotel / Restaurant Name</label><input id="regHotelName" type="text" placeholder="e.g. Serena Gardens Hotel"></div>
-            <div class="form-group"><label>Weekly Produce Needed (kg)</label><input id="regWeeklyKg" type="number" placeholder="e.g. 300"></div>
-          </div>
-        </div>
-      </div>
-      <button class="btn-submit" onclick="register()">Create My Account →</button>
-      </div><!-- /regFormSection -->
-
-      <!-- OTP Verification Section -->
       <div id="otpSection" style="display:none;text-align:center;padding:10px 0">
-        <div style="font-size:2rem;margin-bottom:12px">📱</div>
-        <h3 style="color:#fff;margin-bottom:8px">Verify Your Phone</h3>
-        <p style="color:var(--text2);font-size:.85rem;margin-bottom:20px">Enter the 6-digit code sent to your phone via SMS</p>
-        <input id="otpInput" type="number" placeholder="Enter 6-digit OTP code" style="width:100%;background:var(--bg3);border:1px solid var(--border);border-radius:8px;padding:14px;color:#fff;font-size:1.2rem;text-align:center;outline:none;letter-spacing:.3em;margin-bottom:14px;font-family:inherit">
+        <div style="font-size:2rem;margin-bottom:10px">📱</div>
+        <h3 style="color:#fff;margin-bottom:7px;font-family:'Syne',sans-serif">Verify Your Phone</h3>
+        <p style="color:var(--text2);font-size:.82rem;margin-bottom:18px">Enter the 6-digit code sent to your phone via SMS</p>
+        <input id="otpInput" type="number" placeholder="Enter 6-digit OTP" style="width:100%;background:var(--bg3);border:1px solid var(--border);border-radius:8px;padding:13px;color:#fff;font-size:1.1rem;text-align:center;outline:none;letter-spacing:.3em;margin-bottom:12px;font-family:'DM Sans',sans-serif">
         <button class="btn-submit" onclick="verifyOTP()">✅ Verify Phone →</button>
-        <div style="margin-top:12px">
-          <button onclick="resendOTP()" style="background:none;border:none;color:var(--text2);font-size:.82rem;cursor:pointer;text-decoration:underline">Didn't receive code? Resend OTP</button>
-        </div>
+        <div style="margin-top:10px"><button onclick="resendOTP()" style="background:none;border:none;color:var(--text2);font-size:.78rem;cursor:pointer;text-decoration:underline">Didn't receive code? Resend OTP</button></div>
       </div>
     </div>
   </div>
 </div>
 
 <!-- Video Modal -->
-<div class="video-modal" id="videoModal">
-  <div class="video-container">
-    <button class="video-close" onclick="closeVideo()">×</button>
-    <iframe id="videoFrame" src="" allowfullscreen allow="autoplay"></iframe>
+<div class="modal-overlay" id="videoModal" style="z-index:3000">
+  <div style="width:100%;max-width:780px;position:relative">
+    <button onclick="closeVideo()" style="position:absolute;top:-38px;right:0;background:none;border:none;color:#fff;font-size:1.8rem;cursor:pointer">×</button>
+    <iframe id="videoFrame" src="" allowfullscreen allow="autoplay" style="width:100%;height:440px;border:none;border-radius:var(--radius)"></iframe>
   </div>
 </div>
 
 <!-- Investor Pitch Modal -->
 <div class="modal-overlay" id="pitchModal">
-  <div class="modal pitch-modal">
-    <div class="modal-header">
-      <h2 style="color:var(--gold)">📊 AgriBridge — Investor Pitch</h2>
+  <div class="pitch-modal">
+    <div class="modal-header" style="border-color:rgba(255,214,0,.2)">
+      <h2 style="color:var(--gold);font-family:'Syne',sans-serif">📊 AgriBridge — Investor Pitch</h2>
       <button class="modal-close" onclick="closePitch()">×</button>
     </div>
-    <div class="modal-body" style="padding:0">
-      <div class="pitch-slide">
-        <h3>The Opportunity</h3>
+    <div style="padding:0">
+      <div class="pitch-slide"><h3>The Opportunity</h3>
         <div class="metric-row">
           <div class="metric"><strong>$4.3B</strong><span>Uganda Agri Market</span></div>
           <div class="metric"><strong>72%</strong><span>Population in Agriculture</span></div>
@@ -1047,8 +1057,7 @@ footer{background:#060b18;border-top:1px solid var(--border);padding:48px 5% 28p
           <div class="metric"><strong>135</strong><span>Districts to Serve</span></div>
         </div>
       </div>
-      <div class="pitch-slide">
-        <h3>Traction (Year 1)</h3>
+      <div class="pitch-slide"><h3>Traction (Year 1)</h3>
         <div class="metric-row">
           <div class="metric"><strong>2,772</strong><span>Farmers Profiled</span></div>
           <div class="metric"><strong>847M</strong><span>UGX Revenue Facilitated</span></div>
@@ -1056,8 +1065,7 @@ footer{background:#060b18;border-top:1px solid var(--border);padding:48px 5% 28p
           <div class="metric"><strong>6</strong><span>Active Districts</span></div>
         </div>
       </div>
-      <div class="pitch-slide">
-        <h3>3-Year Revenue Projections (UGX Millions)</h3>
+      <div class="pitch-slide"><h3>3-Year Revenue Projections (UGX Millions)</h3>
         <table class="pitch-table">
           <thead><tr><th>Stream</th><th>Year 1</th><th>Year 2</th><th>Year 3</th></tr></thead>
           <tbody>
@@ -1071,78 +1079,97 @@ footer{background:#060b18;border-top:1px solid var(--border);padding:48px 5% 28p
           </tbody>
         </table>
       </div>
-      <div class="pitch-slide">
-        <h3>Why Invest in AgriBridge?</h3>
+      <div class="pitch-slide"><h3>Why Invest in AgriBridge?</h3>
         <ul class="profile-features">
           <li>Only platform with USSD *789# for farmers without smartphones</li>
           <li>AI matching engine — first-mover advantage in Uganda</li>
           <li>Forward price contracts prevent seasonal revenue crashes</li>
-          <li>Multi-stakeholder model (farmers, vendors, hotels, buyers) = strong network effects</li>
+          <li>Multi-stakeholder model = strong network effects</li>
           <li>Built for scale across East Africa (Tanzania, Kenya expansion Year 3)</li>
           <li>Social impact: +35% average farmer income, 25% reduction in food waste</li>
         </ul>
       </div>
-      <div class="pitch-slide">
-        <h3>Ask</h3>
+      <div class="pitch-slide"><h3>Ask</h3>
         <div class="metric-row">
           <div class="metric"><strong>UGX 800M</strong><span>Seed Round Ask</span></div>
           <div class="metric"><strong>18 months</strong><span>Runway</span></div>
           <div class="metric"><strong>10 districts</strong><span>Target Coverage</span></div>
           <div class="metric"><strong>10,000</strong><span>Farmers Goal</span></div>
         </div>
-        <p style="color:var(--text2);font-size:.85rem;margin-top:16px">Contact: <a href="/cdn-cgi/l/email-protection" class="__cf_email__" data-cfemail="650c0b130016110a1716250402170c07170c0102004b1002">[email&#160;protected]</a> | +256 700 000 789</p>
+        <p style="color:var(--text2);font-size:.82rem;margin-top:14px">Contact: hello@agribridge.ug | +256 700 000 789</p>
       </div>
     </div>
   </div>
 </div>
 
-<!-- Toast -->
 <div id="toast" class="toast"></div>
 
-<!-- ═══ JAVASCRIPT ═══ -->
-<script data-cfasync="false" src="/cdn-cgi/scripts/5c5dd728/cloudflare-static/email-decode.min.js"></script><script>
-// ── State ──
+<!-- ══════════════════════════════════
+     JAVASCRIPT
+══════════════════════════════════ -->
+<script>
+const API = 'https://agribridge-1-og7a.onrender.com';
 let currentRole = 'farmer';
 let ussdText = '';
 let priceChart = null;
+let pendingPhone = '';
 
-// ── API Base ──
-const API = 'https://agribridge-1-og7a.onrender.com';  // relative URLs — works on any domain
-
+// ── API ──
 async function apiFetch(path, opts) {
   try {
     const res = await fetch(API + path, opts);
     return await res.json();
   } catch(e) {
-    console.error('API error', path, e);
     return { success: false, error: e.message };
   }
 }
 
 // ── Toast ──
-function showToast(msg, ms=3000) {
+function showToast(msg, ms=3200) {
   const t = document.getElementById('toast');
   t.textContent = msg;
   t.classList.add('show');
   setTimeout(() => t.classList.remove('show'), ms);
 }
 
-// ── Nav ──
+// ── PAGE ROUTING ──
+const pages = ['home','problems','solution','marketplace','prices','matching','training','profiles','ussd','revenue','contact'];
+
+function showPage(id) {
+  pages.forEach(p => {
+    const el = document.getElementById('page-' + p);
+    const btn = document.querySelector(`.tnav-btn[onclick*="'${p}'"]`);
+    if (el) el.classList.toggle('active', p === id);
+    if (btn) btn.classList.toggle('active', p === id);
+    const mBtn = document.querySelector(`.mdraw-btn[onclick*="'${p}'"]`);
+    if (mBtn) mBtn.classList.toggle('active', p === id);
+  });
+  window.scrollTo(0, 0);
+
+  // Lazy-init per page
+  if (id === 'marketplace') loadListings();
+  if (id === 'prices' && !priceChart) { loadChart('Tomatoes', document.querySelector('#page-prices .filter-btn')); }
+  if (id === 'training') loadTraining('', document.querySelector('#page-training .filter-btn'));
+  if (id === 'matching') { document.getElementById('matchResults').innerHTML = ''; }
+  if (id === 'contact') loadDistricts();
+  if (id === 'ussd') { document.getElementById('ussdScreen').textContent = 'Dial *789# to start'; ussdText = ''; }
+}
+
+// ── Mobile drawer ──
 function toggleMenu() {
-  document.getElementById('mobileMenu').classList.toggle('open');
+  document.getElementById('mobileDrawer').classList.toggle('open');
 }
 
 // ── Stats ──
 async function loadStats() {
   const d = await apiFetch('/api/stats');
-  if (d.success) {
-    const s = d.stats;
-    document.getElementById('stat-farmers').textContent = s.farmers.toLocaleString();
-    document.getElementById('stat-listings').textContent = s.active_listings;
+  if (d.success && d.stats) {
+    document.getElementById('stat-farmers').textContent = d.stats.farmers.toLocaleString();
+    document.getElementById('stat-listings').textContent = d.stats.active_listings;
   }
 }
 
-// ── Profile Tabs ──
+// ── Profile tabs ──
 function switchProfile(role, btn) {
   document.querySelectorAll('.profile-tab').forEach(b => b.classList.remove('active'));
   document.querySelectorAll('.profile-content').forEach(c => c.classList.remove('active'));
@@ -1152,46 +1179,26 @@ function switchProfile(role, btn) {
 
 // ── Price Chart ──
 const priceData = {
-  Tomatoes: { labels:['Nov','Dec','Jan','Feb','Mar','Apr'], data:[1200,1400,1100,1600,1300,1500], color:'#ef4444' },
-  Matooke:  { labels:['Nov','Dec','Jan','Feb','Mar','Apr'], data:[700,750,800,760,750,800], color:'#f59e0b' },
-  Maize:    { labels:['Nov','Dec','Jan','Feb','Mar','Apr'], data:[600,620,650,640,680,700], color:'#f0c040' },
-  Carrots:  { labels:['Nov','Dec','Jan','Feb','Mar','Apr'], data:[1000,1050,1100,1200,1300,1200], color:'#f97316' },
+  Tomatoes:{ labels:['Nov','Dec','Jan','Feb','Mar','Apr'], data:[1200,1400,1100,1600,1300,1500], color:'#ef4444' },
+  Matooke:{ labels:['Nov','Dec','Jan','Feb','Mar','Apr'], data:[700,750,800,760,750,800], color:'#f59e0b' },
+  Maize:{ labels:['Nov','Dec','Jan','Feb','Mar','Apr'], data:[600,620,650,640,680,700], color:'#f0c040' },
+  Carrots:{ labels:['Nov','Dec','Jan','Feb','Mar','Apr'], data:[1000,1050,1100,1200,1300,1200], color:'#f97316' },
 };
 
 function loadChart(crop, btn) {
-  document.querySelectorAll('.price-control-btn').forEach(b => b.classList.remove('active'));
+  document.querySelectorAll('#page-prices .filter-btn').forEach(b => b.classList.remove('active'));
   if (btn) btn.classList.add('active');
   const d = priceData[crop] || priceData.Tomatoes;
   const ctx = document.getElementById('priceChart').getContext('2d');
   if (priceChart) priceChart.destroy();
   priceChart = new Chart(ctx, {
-    type: 'line',
-    data: {
-      labels: d.labels,
-      datasets: [{
-        label: `${crop} price (UGX/kg)`,
-        data: d.data,
-        borderColor: d.color,
-        backgroundColor: d.color + '22',
-        borderWidth: 2.5,
-        tension: 0.4,
-        fill: true,
-        pointBackgroundColor: d.color,
-        pointRadius: 5,
-      }]
-    },
-    options: {
-      responsive: true,
-      plugins: { legend: { labels: { color: '#9ca3af', font: { size: 12 } } } },
-      scales: {
-        x: { ticks: { color: '#9ca3af' }, grid: { color: 'rgba(255,255,255,.05)' } },
-        y: { ticks: { color: '#9ca3af', callback: v => 'UGX ' + v.toLocaleString() }, grid: { color: 'rgba(255,255,255,.05)' } }
-      }
-    }
+    type:'line',
+    data:{ labels:d.labels, datasets:[{ label:`${crop} price (UGX/kg)`, data:d.data, borderColor:d.color, backgroundColor:d.color+'22', borderWidth:2.5, tension:0.4, fill:true, pointBackgroundColor:d.color, pointRadius:5 }] },
+    options:{ responsive:true, plugins:{ legend:{ labels:{ color:'#9ca3af', font:{ size:12 } } } }, scales:{ x:{ ticks:{ color:'#9ca3af' }, grid:{ color:'rgba(255,255,255,.05)' } }, y:{ ticks:{ color:'#9ca3af', callback:v=>'UGX '+v.toLocaleString() }, grid:{ color:'rgba(255,255,255,.05)' } } } }
   });
 }
 
-// ── Matching Engine ──
+// ── Matching ──
 async function runMatch() {
   const crop     = document.getElementById('matchCrop').value;
   const district = document.getElementById('matchDistrict').value;
@@ -1201,24 +1208,20 @@ async function runMatch() {
   el.innerHTML   = '<div class="empty-state" style="grid-column:1/-1"><div class="spinner"></div> Searching...</div>';
 
   const d = await apiFetch(`/api/match?crop=${encodeURIComponent(crop)}&district=${encodeURIComponent(district)}&volume=${volume}&grade=${grade}`);
-  if (!d.success || !d.matches.length) {
-    el.innerHTML = '<div class="empty-state" style="grid-column:1/-1"><div class="empty-state-icon">🔍</div>No matches found. Try a different crop or district.</div>';
+  if (!d.success || !d.matches || !d.matches.length) {
+    el.innerHTML = '<div class="empty-state" style="grid-column:1/-1"><div class="empty-icon">🔍</div>No matches found. Try a different crop or district.</div>';
     return;
   }
-
   const icons = {'Tomatoes':'🍅','Matooke':'🍌','Maize':'🌽','Carrots':'🥕','Cabbages':'🥬','Groundnuts':'🥜','Onions':'🧅','Pepper':'🌶️'};
-
   el.innerHTML = d.matches.map(m => {
-    const crops = (m.crops || '').split(',').map(c => c.trim()).filter(Boolean);
-    const cropsHtml = crops.map(c => `<span class="crop-tag">${icons[c]||'🌿'} ${c}</span>`).join('');
-    return `
-    <div class="match-card">
+    const crops = (m.crops||'').split(',').map(c=>c.trim()).filter(Boolean);
+    return `<div class="match-card">
       <div class="match-score">🎯 Match ${m.match_score}%</div>
-      <div class="match-name">${m.name || 'Farmer'}</div>
-      <div class="match-meta">📍 ${m.user_district || m.district || 'Uganda'} · ${m.farm_size_acres || '?'} acres · ${m.experience_years || '?'}yrs exp</div>
-      <div class="match-meta">📦 ${(m.monthly_output_kg||0).toLocaleString()} kg/month ${m.storage_available?'· 📦 Storage':''}${m.irrigation?'· 💧 Irrigation':''}</div>
-      <div class="match-crops">${cropsHtml}</div>
-      <button class="btn-order" style="margin-top:14px" onclick="showToast('📞 Connecting you with ${m.name}... Call 0800-100-789')">Contact Farmer</button>
+      <div class="match-name">${m.name||'Farmer'}</div>
+      <div class="match-meta">📍 ${m.user_district||m.district||'Uganda'} · ${m.farm_size_acres||'?'} acres</div>
+      <div class="match-meta">📦 ${(m.monthly_output_kg||0).toLocaleString()} kg/month${m.storage_available?' · 📦 Storage':''}${m.irrigation?' · 💧 Irrigation':''}</div>
+      <div>${crops.map(c=>`<span class="crop-tag">${icons[c]||'🌿'} ${c}</span>`).join('')}</div>
+      <button class="btn-order" style="margin-top:12px" onclick="showToast('📞 Connecting you with ${m.name}... Call 0800-100-789')">Contact Farmer</button>
     </div>`;
   }).join('');
 }
@@ -1232,58 +1235,43 @@ async function loadListings() {
   el.innerHTML   = '<div class="empty-state" style="grid-column:1/-1"><div class="spinner"></div> Loading...</div>';
 
   const d = await apiFetch(`/api/listings?crop=${encodeURIComponent(crop)}&district=${encodeURIComponent(district)}&grade=${grade}`);
-  if (!d.success || !d.listings.length) {
-    el.innerHTML = '<div class="empty-state" style="grid-column:1/-1"><div class="empty-state-icon">🛒</div>No listings found.</div>';
+  if (!d.success || !d.listings || !d.listings.length) {
+    el.innerHTML = '<div class="empty-state" style="grid-column:1/-1"><div class="empty-icon">🛒</div>No listings found.</div>';
     return;
   }
-
-  const cropIcons = {'Tomatoes':'🍅','Matooke':'🍌','Maize':'🌽','Carrots':'🥕','Cabbages':'🥬','Groundnuts':'🥜','Onions':'🧅','Pepper':'🌶️'};
-  el.innerHTML = d.listings.map(l => `
+  const cropIcons={'Tomatoes':'🍅','Matooke':'🍌','Maize':'🌽','Carrots':'🥕','Cabbages':'🥬','Groundnuts':'🥜','Onions':'🧅','Pepper':'🌶️'};
+  el.innerHTML = d.listings.map(l=>`
     <div class="listing-card">
-      ${l.image_url
-        ? `<img class="listing-img" src="${l.image_url}" alt="${l.crop}" loading="lazy">`
-        : `<div class="listing-img-placeholder">${cropIcons[l.crop]||'🌿'}</div>`}
+      ${l.image_url?`<img style="width:100%;height:160px;object-fit:cover" src="${l.image_url}" alt="${l.crop}" loading="lazy">`:`<div class="listing-img-placeholder">${cropIcons[l.crop]||'🌿'}</div>`}
       <div class="listing-body">
         <span class="listing-grade">Grade ${l.quality_grade}</span>
         <div class="listing-crop">${cropIcons[l.crop]||'🌿'} ${l.crop}</div>
-        <div class="listing-meta">📍 ${l.district} · ${l.farmer_name} · ${l.quantity_kg} kg available ${l.delivery_available?'· 🚚 Delivery':''}</div>
+        <div class="listing-meta">📍 ${l.district} · ${l.farmer_name} · ${l.quantity_kg} kg available${l.delivery_available?' · 🚚 Delivery':''}</div>
         <div class="listing-price">UGX ${Number(l.price_per_kg).toLocaleString()} <span>per kg</span></div>
-        <button class="btn-order" onclick="orderListing(${l.id},'${l.crop}',${l.price_per_kg})">🛒 Order Now</button>
+        <button class="btn-order" onclick="showToast('✅ Order request sent for ${l.crop} @ UGX ${Number(l.price_per_kg).toLocaleString()}/kg. You will be contacted shortly.',4000)">🛒 Order Now</button>
       </div>
     </div>`).join('');
 }
 
-function orderListing(id, crop, price) {
-  showToast(`✅ Order request sent for ${crop} @ UGX ${Number(price).toLocaleString()}/kg. You will be contacted shortly.`, 4000);
-}
-
 // ── Training ──
 async function loadTraining(category, btn) {
-  if (btn) {
-    document.querySelectorAll('.training-cat').forEach(b => b.classList.remove('active'));
-    btn.classList.add('active');
-  }
+  if (btn) { document.querySelectorAll('#page-training .filter-btn').forEach(b=>b.classList.remove('active')); btn.classList.add('active'); }
   const el = document.getElementById('trainingGrid');
   el.innerHTML = '<div class="empty-state" style="grid-column:1/-1"><div class="spinner"></div> Loading...</div>';
-
   const url = category ? `/api/training?category=${encodeURIComponent(category)}` : '/api/training';
-  const d   = await apiFetch(url);
-  if (!d.success || !d.modules.length) {
-    el.innerHTML = '<div class="empty-state" style="grid-column:1/-1"><div class="empty-state-icon">📚</div>No modules found.</div>';
+  const d = await apiFetch(url);
+  if (!d.success || !d.modules || !d.modules.length) {
+    el.innerHTML = '<div class="empty-state" style="grid-column:1/-1"><div class="empty-icon">📚</div>No modules found.</div>';
     return;
   }
-
-  const catIcons = {'Crop Science':'🌱','Post-Harvest':'📦','Finance':'💰','Business':'📊','Digital Literacy':'📱'};
-  el.innerHTML = d.modules.map(m => `
-    <div class="training-card" onclick="playVideo('${m.video_url}','${m.title}')">
-      <div class="training-thumb">
-        ${catIcons[m.category]||'📚'}
-        <div class="training-play"><div class="play-btn">▶</div></div>
-      </div>
+  const catIcons={'Crop Science':'🌱','Post-Harvest':'📦','Finance':'💰','Business':'📊','Digital Literacy':'📱'};
+  el.innerHTML = d.modules.map(m=>`
+    <div class="training-card" onclick="playVideo('${m.video_url||''}','${m.title}')">
+      <div class="training-thumb">${catIcons[m.category]||'📚'}<div class="training-play"><div class="play-btn">▶</div></div></div>
       <div class="training-body">
         <div class="training-level">⭐ ${m.level} · ${m.category}</div>
         <div class="training-title">${m.title}</div>
-        <div class="training-desc">${m.description || ''}</div>
+        <div class="training-desc">${m.description||''}</div>
         <div class="training-meta"><span>⏱ ${m.duration_mins} mins</span><span>▶ Watch Now</span></div>
       </div>
     </div>`).join('');
@@ -1294,227 +1282,143 @@ function playVideo(url, title) {
   document.getElementById('videoFrame').src = url + '?autoplay=1';
   document.getElementById('videoModal').classList.add('open');
 }
-
 function closeVideo() {
   document.getElementById('videoModal').classList.remove('open');
   document.getElementById('videoFrame').src = '';
 }
 
-// ── USSD Simulator ──
+// ── USSD ──
 async function sendUSSD() {
   const input = document.getElementById('ussdInput').value.trim();
-  if (input) {
-    ussdText = ussdText ? ussdText + '*' + input : input;
-  }
+  if (input) ussdText = ussdText ? ussdText + '*' + input : input;
   const screen = document.getElementById('ussdScreen');
   screen.textContent = 'Processing...';
-
-  const d = await apiFetch('/api/ussd', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ text: ussdText, phoneNumber: '+256700000001', sessionId: 'demo_' + Date.now() })
-  });
-
+  const d = await apiFetch('/api/ussd',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({text:ussdText,phoneNumber:'+256700000001',sessionId:'demo_'+Date.now()})});
   const resp = d.response || 'Error connecting. Try again.';
-  screen.textContent = resp.replace(/^(CON|END)\s/, '');
+  screen.textContent = resp.replace(/^(CON|END)\s/,'');
   document.getElementById('ussdInput').value = '';
-
-  if (resp.startsWith('END')) {
-    ussdText = '';
-    setTimeout(() => { screen.textContent = 'Session ended. Dial *789# to start again.'; }, 3000);
-  }
+  if (resp.startsWith('END')) { ussdText=''; setTimeout(()=>{screen.textContent='Session ended. Dial *789# again.'},3000); }
 }
 
 function pressKey(k) {
   const inp = document.getElementById('ussdInput');
-  if (k === '#') {
-    ussdText = '';
-    inp.value = '';
-    apiFetch('/api/ussd', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ text: '', phoneNumber: '+256700000001', sessionId: 'demo' })
-    }).then(d => {
-      document.getElementById('ussdScreen').textContent = (d.response||'').replace(/^CON\s/, '');
-    });
-  } else if (k === '*') {
-    inp.value = '';
-    ussdText = '';
-    document.getElementById('ussdScreen').textContent = 'Dial *789# to start';
-  } else {
-    inp.value = inp.value + k;
-  }
+  if (k==='#') { ussdText=''; inp.value=''; apiFetch('/api/ussd',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({text:'',phoneNumber:'+256700000001',sessionId:'demo'})}).then(d=>{ document.getElementById('ussdScreen').textContent=(d.response||'').replace(/^CON\s/,''); }); }
+  else if (k==='*') { inp.value=''; ussdText=''; document.getElementById('ussdScreen').textContent='Dial *789# to start'; }
+  else { inp.value = inp.value + k; }
 }
 
-function syncInput(v) { /* real-time sync */ }
-
-function resetUSSD() {
-  ussdText = '';
-  document.getElementById('ussdInput').value = '';
-  document.getElementById('ussdScreen').textContent = 'Dial *789# to start';
-}
+function resetUSSD() { ussdText=''; document.getElementById('ussdInput').value=''; document.getElementById('ussdScreen').textContent='Dial *789# to start'; }
 
 // ── SMS ──
 async function testSMS() {
-  const msg   = document.getElementById('smsInput').value.trim();
+  const msg = document.getElementById('smsInput').value.trim();
   const reply = document.getElementById('smsReply');
   if (!msg) { showToast('Enter an SMS command first'); return; }
-
-  reply.style.display = 'block';
-  reply.textContent   = 'Sending...';
-
-  const d = await apiFetch('/api/sms', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ message: msg, phone: '+256700000001' })
-  });
-
+  reply.style.display='block'; reply.textContent='Sending...';
+  const d = await apiFetch('/api/sms',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({message:msg,phone:'+256700000001'})});
   reply.textContent = d.reply || d.error || 'No reply';
 }
 
 // ── Districts ──
 async function loadDistricts() {
-  const d  = await apiFetch('/api/districts');
+  const d = await apiFetch('/api/districts');
   const el = document.getElementById('districtsGrid');
-  if (!d.success) { el.innerHTML = ''; return; }
-  const icons = ['🏙️','🌄','🏞️','🌾','🏔️','💧','☕','🌻'];
-  el.innerHTML = d.districts.map((dist, i) => `
+  if (!d.success || !d.districts) { el.innerHTML=''; return; }
+  const icons=['🏙️','🌄','🏞️','🌾','🏔️','💧','☕','🌻'];
+  el.innerHTML = d.districts.map((dist,i)=>`
     <div class="district-card">
-      <div class="district-icon">${icons[i % icons.length]}</div>
+      <div class="district-icon">${icons[i%icons.length]}</div>
       <div class="district-name">${dist.name}</div>
       <div class="district-farmers">${dist.farmers.toLocaleString()} farmers</div>
       <div class="district-produce">${dist.produce}</div>
     </div>`).join('');
 }
 
-// ── Registration Modal ──
-function openModal() {
-  document.getElementById('regModal').classList.add('open');
-  document.body.style.overflow = 'hidden';
-}
-function closeModal() {
-  document.getElementById('regModal').classList.remove('open');
-  document.body.style.overflow = '';
-}
+// ── Registration ──
+function openModal() { document.getElementById('regModal').classList.add('open'); document.body.style.overflow='hidden'; }
+function closeModal() { document.getElementById('regModal').classList.remove('open'); document.body.style.overflow=''; }
 
 function selectRole(role, btn) {
   currentRole = role;
-  document.querySelectorAll('.role-btn').forEach(b => b.classList.remove('active'));
+  document.querySelectorAll('.role-btn').forEach(b=>b.classList.remove('active'));
   btn.classList.add('active');
-  document.getElementById('farmerFields').style.display = role === 'farmer' ? 'block' : 'none';
-  document.getElementById('vendorFields').style.display = role === 'vendor' ? 'block' : 'none';
-  document.getElementById('hotelFields').style.display  = role === 'hotel'  ? 'block' : 'none';
+  document.getElementById('farmerFields').style.display = role==='farmer'?'block':'none';
+  document.getElementById('vendorFields').style.display = role==='vendor'?'block':'none';
+  document.getElementById('hotelFields').style.display  = role==='hotel' ?'block':'none';
 }
 
 async function register() {
-  const name     = document.getElementById('regName').value.trim();
-  const phone    = document.getElementById('regPhone').value.trim();
-  const password = document.getElementById('regPassword').value;
-  const msg      = document.getElementById('regMsg');
-
-  if (!name || !phone || !password) {
-    msg.style.display = 'block';
-    msg.className = 'modal-msg error';
-    msg.textContent = '❌ Please fill in Name, Phone and Password.';
-    return;
-  }
-
-  const body = {
-    name, phone, email: document.getElementById('regEmail').value,
-    password, role: currentRole,
-    district: document.getElementById('regDistrict').value,
-  };
-
-  if (currentRole === 'farmer') {
-    body.farm_name = document.getElementById('regFarmName').value;
-    body.crops = document.getElementById('regCrops').value;
-    body.monthly_output_kg = document.getElementById('regOutput').value;
-    body.farm_size_acres = document.getElementById('regFarmSize').value;
-  } else if (currentRole === 'vendor') {
-    body.business_name = document.getElementById('regBizName').value;
-    body.market_name = document.getElementById('regMarket').value;
-    body.product_categories = document.getElementById('regCategories').value;
-  } else if (currentRole === 'hotel') {
-    body.hotel_name = document.getElementById('regHotelName').value;
-    body.weekly_produce_kg = document.getElementById('regWeeklyKg').value;
-  }
-
-  msg.style.display = 'block';
-  msg.className = 'modal-msg';
-  msg.textContent = '⏳ Registering...';
-
-  const d = await apiFetch('/api/register', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(body)
-  });
-
+  const name=document.getElementById('regName').value.trim();
+  const phone=document.getElementById('regPhone').value.trim();
+  const password=document.getElementById('regPassword').value;
+  const msg=document.getElementById('regMsg');
+  if (!name||!phone||!password) { msg.style.display='block'; msg.className='modal-msg error'; msg.textContent='❌ Please fill in Name, Phone and Password.'; return; }
+  const body={ name,phone,email:document.getElementById('regEmail').value,password,role:currentRole,district:document.getElementById('regDistrict').value };
+  if (currentRole==='farmer') { body.farm_name=document.getElementById('regFarmName').value; body.crops=document.getElementById('regCrops').value; body.monthly_output_kg=document.getElementById('regOutput').value; body.farm_size_acres=document.getElementById('regFarmSize').value; }
+  else if (currentRole==='vendor') { body.business_name=document.getElementById('regBizName').value; body.market_name=document.getElementById('regMarket').value; body.product_categories=document.getElementById('regCategories').value; }
+  else if (currentRole==='hotel') { body.hotel_name=document.getElementById('regHotelName').value; body.weekly_produce_kg=document.getElementById('regWeeklyKg').value; }
+  msg.style.display='block'; msg.className='modal-msg'; msg.textContent='⏳ Registering...';
+  const d=await apiFetch('/api/register',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
   if (d.success) {
-    pendingPhone = phone;
-    msg.className = 'modal-msg success';
-    msg.textContent = `✅ Account created! A 6-digit OTP was sent to ${phone}. Enter it below.`;
-    document.getElementById('regFormSection').style.display = 'none';
-    document.getElementById('otpSection').style.display = 'block';
-    loadStats();
-  } else {
-    msg.className = 'modal-msg error';
-    msg.textContent = '❌ ' + (d.error || 'Registration failed. Please try again.');
-  }
+    pendingPhone=phone; msg.className='modal-msg success'; msg.textContent=`✅ Account created! A 6-digit OTP was sent to ${phone}.`;
+    document.getElementById('regFormSection').style.display='none'; document.getElementById('otpSection').style.display='block'; loadStats();
+  } else { msg.className='modal-msg error'; msg.textContent='❌ '+(d.error||'Registration failed. Please try again.'); }
 }
 
-let pendingPhone = '';
-
 async function verifyOTP() {
-  const otp = document.getElementById('otpInput').value.trim();
-  const msg = document.getElementById('regMsg');
-  if (!otp || otp.length < 4) { msg.style.display='block'; msg.className='modal-msg error'; msg.textContent='❌ Enter the OTP code sent to your phone.'; return; }
+  const otp=document.getElementById('otpInput').value.trim(); const msg=document.getElementById('regMsg');
+  if (!otp||otp.length<4) { msg.style.display='block'; msg.className='modal-msg error'; msg.textContent='❌ Enter the OTP code sent to your phone.'; return; }
   msg.style.display='block'; msg.className='modal-msg'; msg.textContent='⏳ Verifying...';
-  const d = await apiFetch('/api/verify-otp',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({phone:pendingPhone,otp})});
-  if (d.success) {
-    if (d.user?.token) localStorage.setItem('ab_token', d.user.token);
-    msg.className='modal-msg success';
-    msg.textContent=`✅ Phone verified! Welcome to AgriBridge!`;
-    setTimeout(closeModal, 2500);
-  } else {
-    msg.className='modal-msg error';
-    msg.textContent='❌ '+(d.error||'Invalid OTP. Try again.');
-  }
+  const d=await apiFetch('/api/verify-otp',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({phone:pendingPhone,otp})});
+  if (d.success) { if(d.user?.token) localStorage.setItem('ab_token',d.user.token); msg.className='modal-msg success'; msg.textContent='✅ Phone verified! Welcome to AgriBridge!'; setTimeout(closeModal,2500); }
+  else { msg.className='modal-msg error'; msg.textContent='❌ '+(d.error||'Invalid OTP. Try again.'); }
 }
 
 async function resendOTP() {
-  const d = await apiFetch('/api/resend-otp',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({phone:pendingPhone})});
-  showToast(d.success ? '✅ New OTP sent!' : '❌ Failed. Call 0755 966 690');
+  const d=await apiFetch('/api/resend-otp',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({phone:pendingPhone})});
+  showToast(d.success?'✅ New OTP sent!':'❌ Failed. Call 0755 966 690');
 }
 
-// ── Contact Form ──
+// ── Contact ──
 async function sendContact() {
-  const name    = document.getElementById('contactName').value.trim();
-  const email   = document.getElementById('contactEmail').value.trim();
-  const message = document.getElementById('contactMessage').value.trim();
-  const msg     = document.getElementById('contactMsg');
-  if (!name || !message) { msg.style.display='block'; msg.className='form-msg error'; msg.textContent='❌ Fill in Name and Message.'; return; }
-  msg.style.display='block'; msg.className='form-msg'; msg.textContent='⏳ Sending...';
-  const d = await apiFetch('/api/contact',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name,email,phone:document.getElementById('contactPhone')?.value||'',message})});
-  if (d.success) { msg.className='form-msg success'; msg.textContent='✅ '+d.message; document.getElementById('contactName').value=''; document.getElementById('contactMessage').value=''; }
-  else { msg.className='form-msg error'; msg.textContent='❌ Failed. Call 0755 966 690.'; }
+  const name=document.getElementById('contactName').value.trim();
+  const email=document.getElementById('contactEmail').value.trim();
+  const message=document.getElementById('contactMessage').value.trim();
+  const msg=document.getElementById('contactMsg');
+  if (!name||!message) { msg.style.display='block'; msg.className='modal-msg error'; msg.textContent='❌ Fill in Name and Message.'; return; }
+  msg.style.display='block'; msg.className='modal-msg'; msg.textContent='⏳ Sending...';
+  const d=await apiFetch('/api/contact',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name,email,message})});
+  if (d.success) { msg.className='modal-msg success'; msg.textContent='✅ '+d.message; document.getElementById('contactName').value=''; document.getElementById('contactMessage').value=''; }
+  else { msg.className='modal-msg error'; msg.textContent='❌ Failed. Call 0755 966 690.'; }
 }
 
-// ── Pitch Modal ──
+// ── Pitch ──
 function openPitch() { document.getElementById('pitchModal').classList.add('open'); document.body.style.overflow='hidden'; }
 function closePitch() { document.getElementById('pitchModal').classList.remove('open'); document.body.style.overflow=''; }
 
 // ── Close modals on overlay click ──
-document.addEventListener('DOMContentLoaded', () => {
-  ['regModal','pitchModal','videoModal'].forEach(id => {
-    const el = document.getElementById(id);
-    if (el) el.addEventListener('click', e => { if(e.target===el){ closeModal();closePitch();closeVideo(); } });
-  });
+document.addEventListener('click', e => {
+  if (e.target.id==='regModal') closeModal();
+  if (e.target.id==='pitchModal') closePitch();
+  if (e.target.id==='videoModal') closeVideo();
+});
 
-  // ── Init ──
+// ── Inject footer into all inner pages ──
+function injectFooters() {
+  const tpl = document.getElementById('footer-tpl').content;
+  pages.filter(p=>p!=='home').forEach(p=>{
+    const pg = document.getElementById('page-'+p);
+    if (pg) pg.appendChild(document.importNode(tpl,true));
+  });
+  // also inject into home's footer placeholder
+  const homeFooter = document.getElementById('footer-home');
+  if (homeFooter) homeFooter.appendChild(document.importNode(tpl,true));
+}
+
+// ── Init ──
+document.addEventListener('DOMContentLoaded', () => {
+  injectFooters();
   loadStats();
-  loadListings();
-  loadWeather('Kampala');
-  loadChart('Tomatoes', document.querySelector('.ptab'));
 });
 </script>
 </body>
