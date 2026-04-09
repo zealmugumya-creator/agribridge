@@ -2,7 +2,11 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="theme-color" content="#060f09">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <title>AgriBridge · Uganda's Farm-to-Table Platform</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
@@ -426,6 +430,26 @@ img { max-width: 100%; }
 }
 .toast.show { opacity:1; transform:translateX(-50%) translateY(0); }
 
+/* ── MOBILE SEARCH ── */
+.mob-search-btn {
+  display:none; background:none; border:none; color:var(--text2);
+  font-size:1.2rem; cursor:pointer; padding:6px; margin-left:auto;
+}
+.mob-search-bar {
+  position:fixed; top:var(--nav-h); left:0; right:0; z-index:199;
+  background:var(--bg2); border-bottom:1px solid var(--border);
+  padding:8px 12px; animation:fadeUp 0.2s ease;
+}
+.mob-search-bar input {
+  width:100%; padding:9px 14px; background:var(--bg); border:1px solid var(--border);
+  border-radius:8px; color:var(--text); font-size:0.9rem; outline:none;
+}
+.mob-search-bar input:focus { border-color:var(--green); }
+@media(max-width:768px) {
+  .mob-search-btn { display:block; }
+  .nav-btns { margin-left:0; }
+}
+
 /* ── MARKET SEARCH / SORT ── */
 .market-controls { display:flex; gap:10px; margin-bottom:16px; flex-wrap:wrap; }
 .market-search { flex:1; min-width:180px; padding:9px 14px; background:var(--bg2); border:1px solid var(--border); border-radius:8px; color:var(--text); font-size:0.9rem; }
@@ -433,17 +457,218 @@ img { max-width: 100%; }
 .market-sort { padding:9px 14px; background:var(--bg2); border:1px solid var(--border); border-radius:8px; color:var(--text); font-size:0.9rem; cursor:pointer; }
 select option { background:var(--bg2); }
 
-/* ── RESPONSIVE ── */
-@media(max-width:640px) {
-  .hero h1 { font-size:2rem; }
-  .cards-grid { grid-template-columns:1fr 1fr; }
-  .quick-grid { grid-template-columns:repeat(4,1fr); }
-  .quick-btn .label { font-size:0.65rem; }
+/* ═══════════════════════════════════════════════════════
+   RESPONSIVE — MOBILE FIRST
+   ═══════════════════════════════════════════════════════ */
+
+/* ── BASE MOBILE FIXES (all screens ≤ 768px) ── */
+@media(max-width:768px) {
+  /* Navbar: hide search bar, tighten padding */
+  .nav-search { display:none; }
+  .navbar { padding:0 10px; gap:8px; }
+  .nav-logo { font-size:1.1rem; }
+  .btn-sm { padding:5px 10px; font-size:0.78rem; }
+
+  /* Hero: reduce height & padding */
+  .hero { min-height:70vh; padding:32px 14px 60px; }
+  .hero h1 { font-size:clamp(1.7rem,7vw,2.8rem); }
+  .hero p { font-size:0.92rem; margin-bottom:22px; }
+  .btn-primary, .btn-outline { padding:11px 18px; font-size:0.88rem; }
+  .hero-stats { gap:18px; margin-top:28px; }
+  .hero-stat .num { font-size:1.5rem; }
+
+  /* Sections: tighter padding */
+  .section { padding:20px 12px; }
+  .page-header { padding:18px 12px 14px; }
+  .page-header h2 { font-size:1.25rem; }
+  .section-title { font-size:1.15rem; }
+
+  /* Quick access grid: 5 per row */
+  .quick-grid { grid-template-columns:repeat(5,1fr); gap:8px; }
+  .quick-btn { padding:10px 4px; border-radius:10px; }
+  .quick-btn .icon { font-size:1.4rem; }
+  .quick-btn .label { font-size:0.58rem; }
+
+  /* Cards: 2 columns */
+  .cards-grid { grid-template-columns:1fr 1fr; gap:10px; }
+  .card-img, .card-img-placeholder { height:120px; }
+  .card-body { padding:10px; }
+  .card-title { font-size:0.88rem; }
+  .card-desc { font-size:0.75rem; margin-bottom:8px; }
+  .card-price { font-size:0.95rem; }
+  .btn-card { padding:5px 10px; font-size:0.75rem; }
+
+  /* Crops: 2 columns */
+  .crop-card-img, .crop-emoji-bg { height:120px; }
+  .crop-info { padding:10px; }
+  .crop-name { font-size:0.88rem; }
+
+  /* Filters: horizontal scroll */
+  .filters { flex-wrap:nowrap; overflow-x:auto; padding-bottom:4px; -webkit-overflow-scrolling:touch; scrollbar-width:none; }
+  .filters::-webkit-scrollbar { display:none; }
+  .filter-btn { white-space:nowrap; flex-shrink:0; padding:5px 12px; font-size:0.76rem; }
+
+  /* Market controls: stack vertically */
+  .market-controls { flex-direction:column; gap:8px; }
+  .market-search, .market-sort { width:100%; }
+
+  /* Price table: horizontal scroll */
+  .price-table { font-size:0.8rem; }
+  .price-table th, .price-table td { padding:8px 8px; }
+
+  /* Training cards */
+  .training-thumb { height:140px; }
+  .training-body { padding:10px; }
+  .training-title { font-size:0.85rem; }
+  .training-desc { font-size:0.76rem; margin-bottom:8px; }
+
+  /* Form rows: single column */
+  .form-row { grid-template-columns:1fr !important; }
+
+  /* About tabs: horizontal scroll */
+  .about-tab { padding:10px 12px; font-size:0.75rem; }
+
+  /* Stat cards */
+  .stats-row { grid-template-columns:repeat(2,1fr); gap:10px; }
+  .stat-card .s-num { font-size:1.5rem; }
+
+  /* Problem grid */
+  .problem-grid { grid-template-columns:1fr 1fr; gap:10px; }
+  .problem-card { padding:14px; }
+  .problem-card .p-icon { font-size:1.5rem; margin-bottom:6px; }
+  .problem-card h4 { font-size:0.85rem; }
+  .problem-card p { font-size:0.75rem; }
+
+  /* USSD phone */
+  .phone { width:100%; max-width:280px; }
+
+  /* Toast: allow wrapping */
+  .toast { white-space:normal; text-align:center; max-width:88vw; font-size:0.82rem; }
+
+  /* Modals */
+  .modal-box { padding:16px; border-radius:12px; }
+  .modal-box h3 { font-size:1.05rem; }
+
+  /* Pitch deck */
+  .pitch-box { border-radius:12px; }
+  .pitch-slide { padding:20px 16px; }
+  .pitch-slide h2 { font-size:1.15rem; }
+  .pitch-metric-row { grid-template-columns:repeat(2,1fr); gap:8px; }
+  .pitch-metric .pm-num { font-size:1.2rem; }
+
+  /* Contact info grid */
+  .contact-info-grid { grid-template-columns:1fr 1fr; gap:10px; }
+  .contact-info-card { padding:12px; }
+
+  /* Supply cards */
+  .supply-grid .card-img { height:100px; }
+
+  /* About hero */
+  .about-hero h2 { font-size:1.4rem; }
+  .about-hero p { font-size:0.85rem; }
+
+  /* Delivery tracking */
+  .tracking-input-row { flex-direction:column; gap:8px; }
+  .btn-track { width:100%; }
 }
-@media(max-width:400px) {
+
+/* ── SMALL PHONES (≤ 480px) ── */
+@media(max-width:480px) {
+  :root { --nav-h:54px; --bot-h:60px; }
+
+  /* Bottom nav: scrollable row, icons + tiny labels */
+  .bottom-nav {
+    overflow-x:auto;
+    justify-content:flex-start;
+    padding:0 4px;
+    scrollbar-width:none;
+    -webkit-overflow-scrolling:touch;
+  }
+  .bottom-nav::-webkit-scrollbar { display:none; }
+  .nav-item {
+    min-width:52px;
+    flex:0 0 auto;
+    font-size:0.5rem;
+    gap:1px;
+    padding:0 2px;
+  }
+  .nav-item .nav-icon { font-size:1.1rem; }
+
+  /* Quick grid: 5 cols tighter */
+  .quick-grid { grid-template-columns:repeat(5,1fr); gap:5px; }
+  .quick-btn { padding:8px 2px; }
+  .quick-btn .icon { font-size:1.2rem; }
+  .quick-btn .label { font-size:0.52rem; }
+
+  /* Cards: 1 column on very small */
   .cards-grid { grid-template-columns:1fr; }
-  .quick-grid { grid-template-columns:repeat(3,1fr); }
+
+  /* Crops grid: 2 columns kept */
+  .crop-card-img, .crop-emoji-bg { height:100px; }
+
+  /* Hero tighter */
+  .hero { min-height:60vh; padding:24px 12px 48px; }
+  .hero-cta { gap:8px; }
+  .btn-primary, .btn-outline { padding:10px 14px; font-size:0.82rem; }
+
+  /* Problem / solution: 1 column */
+  .problem-grid { grid-template-columns:1fr; }
+
+  /* Stats row: 2 columns */
+  .stats-row { grid-template-columns:repeat(2,1fr); }
+
+  /* Pitch metric: 2 cols */
+  .pitch-metric-row { grid-template-columns:1fr 1fr; }
+
+  /* Tables: scroll container */
+  .price-table th { font-size:0.7rem; padding:6px 6px; }
+  .price-table td { font-size:0.78rem; padding:8px 6px; }
 }
+
+/* ── TINY PHONES (≤ 360px) ── */
+@media(max-width:360px) {
+  :root { --nav-h:50px; --bot-h:56px; }
+
+  .nav-logo { font-size:0.95rem; }
+  .btn-sm { padding:4px 8px; font-size:0.72rem; }
+
+  .hero h1 { font-size:1.5rem; }
+  .hero p { font-size:0.82rem; }
+  .hero-stat .num { font-size:1.25rem; }
+
+  .quick-grid { grid-template-columns:repeat(4,1fr); gap:4px; }
+  .quick-btn .icon { font-size:1rem; }
+  .quick-btn .label { font-size:0.48rem; }
+
+  .section { padding:14px 8px; }
+  .page-header { padding:14px 8px 10px; }
+
+  .stat-card .s-num { font-size:1.2rem; }
+
+  .nav-item { min-width:44px; font-size:0.45rem; }
+  .nav-item .nav-icon { font-size:1rem; }
+
+  .modal-box { padding:12px; }
+}
+
+/* ── PRICE TABLE — always horizontal scroll ── */
+#page-prices .section > div { overflow-x:auto; -webkit-overflow-scrolling:touch; }
+
+/* ── ABOUT TABS — always scroll ── */
+#page-about [style*="overflow-x:auto"] { scrollbar-width:none; }
+#page-about [style*="overflow-x:auto"]::-webkit-scrollbar { display:none; }
+
+/* ── MODALS — full screen on very small ── */
+@media(max-width:440px) {
+  .modal-overlay { padding:0; align-items:flex-end; }
+  .modal-box { border-radius:16px 16px 0 0; max-height:92vh; width:100%; max-width:100%; }
+  .pitch-modal { padding:8px; }
+  .pitch-box { max-height:92vh; }
+  .video-modal-box { max-width:100%; }
+}
+
+/* ── WA BUTTON — keep above nav ── */
+.wa-btn { bottom:calc(var(--bot-h) + 12px); }
 </style>
 </head>
 <body>
@@ -455,11 +680,17 @@ select option { background:var(--bg2); }
     <input type="text" id="globalSearch" placeholder="Search crops, farmers…" oninput="handleSearch(this.value)">
     <span class="nav-search-icon">🔍</span>
   </div>
+  <!-- Mobile search toggle (shown only on small screens) -->
+  <button class="mob-search-btn" onclick="toggleMobSearch()" aria-label="Search">🔍</button>
   <div class="nav-btns">
     <button class="btn-sm outline" onclick="openModal('loginModal')">Log In</button>
     <button class="btn-sm" onclick="openModal('registerModal')">Join Free</button>
   </div>
 </nav>
+<!-- Mobile search bar (drops down when toggled) -->
+<div class="mob-search-bar" id="mobSearchBar" style="display:none">
+  <input type="text" id="mobSearchInput" placeholder="Search crops, farmers, districts…" oninput="handleSearch(this.value)" autocomplete="off">
+</div>
 
 <!-- ══ PRICE TICKER ══ -->
 <div class="ticker-wrap">
@@ -582,16 +813,18 @@ select option { background:var(--bg2); }
       <button class="filter-btn" onclick="setPriceFilter('Jinja',this)">Jinja</button>
     </div>
     <div style="background:var(--card);border:1px solid var(--border);border-radius:14px;overflow:hidden">
-      <table class="price-table" id="priceTable">
-        <thead>
-          <tr>
-            <th>Crop</th><th>Market</th><th>Price (UGX/kg)</th><th>Change</th><th>Updated</th>
-          </tr>
-        </thead>
-        <tbody id="priceTableBody">
-          <tr><td colspan="5" style="text-align:center;padding:32px;color:var(--text2)"><div class="spinner" style="margin:0 auto 10px"></div>Loading prices…</td></tr>
-        </tbody>
-      </table>
+      <div style="overflow-x:auto;-webkit-overflow-scrolling:touch">
+        <table class="price-table" id="priceTable" style="min-width:480px">
+          <thead>
+            <tr>
+              <th>Crop</th><th>Market</th><th>Price (UGX)</th><th>Change</th><th>Date</th>
+            </tr>
+          </thead>
+          <tbody id="priceTableBody">
+            <tr><td colspan="5" style="text-align:center;padding:32px;color:var(--text2)"><div class="spinner" style="margin:0 auto 10px"></div>Loading prices…</td></tr>
+          </tbody>
+        </table>
+      </div>
     </div>
   </div>
 </div>
@@ -1032,7 +1265,7 @@ AgriBridge service</div>
     <!-- PROJECTIONS TABLE -->
     <div style="margin-top:28px">
       <div class="section-title">Financial <span>Projections</span></div>
-      <div style="overflow-x:auto">
+      <div style="overflow-x:auto;-webkit-overflow-scrolling:touch">
         <table class="price-table" style="min-width:500px">
           <thead><tr>
             <th>Metric</th><th>Year 1</th><th>Year 2</th><th>Year 3</th>
@@ -1054,8 +1287,8 @@ AgriBridge service</div>
   <div id="atab-compete" class="about-panel section" style="display:none">
     <div class="section-title">AgriBridge <span>vs Competitors</span></div>
     <p style="color:var(--text2);margin-bottom:20px;font-size:0.9rem">No one platform covers all five pillars for Uganda's farmers. That's our moat.</p>
-    <div style="overflow-x:auto">
-      <table class="price-table" style="min-width:600px">
+    <div style="overflow-x:auto;-webkit-overflow-scrolling:touch">
+      <table class="price-table" style="min-width:560px">
         <thead><tr>
           <th>Feature</th>
           <th style="color:var(--green)">AgriBridge ✅</th>
@@ -2448,6 +2681,30 @@ document.addEventListener('DOMContentLoaded', () => {
         d.classList.toggle('active', i === idx);
       });
     });
+  }
+});
+
+// ═══════════════════════════════════════════════════════
+// MOBILE SEARCH TOGGLE
+// ═══════════════════════════════════════════════════════
+function toggleMobSearch() {
+  const bar = document.getElementById('mobSearchBar');
+  const inp = document.getElementById('mobSearchInput');
+  if (bar.style.display === 'none' || !bar.style.display) {
+    bar.style.display = 'block';
+    inp.focus();
+  } else {
+    bar.style.display = 'none';
+    inp.value = '';
+  }
+}
+// Close mobile search on tap outside
+document.addEventListener('click', e => {
+  const bar = document.getElementById('mobSearchBar');
+  if (bar && bar.style.display !== 'none') {
+    if (!bar.contains(e.target) && !e.target.classList.contains('mob-search-btn')) {
+      bar.style.display = 'none';
+    }
   }
 });
 
