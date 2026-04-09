@@ -8,6 +8,14 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <title>AgriBridge · Uganda's Farm-to-Table Platform</title>
+<link rel="manifest" href="manifest.json">
+<meta name="description" content="Uganda's #1 agri-tech platform. Connect farmers directly to buyers. Check live prices, order fresh produce, access training, AI crop doctor. Works on any phone via USSD *789#.">
+<meta name="keywords" content="Uganda farming, farm to table Uganda, agritech Uganda, buy maize Uganda, fresh produce Kampala, farmer marketplace Uganda">
+<meta property="og:title" content="AgriBridge · Uganda's Farm-to-Table Platform">
+<meta property="og:description" content="Connecting Uganda's farmers to buyers with fair prices, mobile money, and zero middlemen. Works on any phone via *789#.">
+<meta property="og:type" content="website">
+<meta property="og:url" content="https://agribridge.zealmugumya.workers.dev">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🌾</text></svg>">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
 <style>
@@ -651,6 +659,14 @@ select option { background:var(--bg2); }
   .modal-box { padding:12px; }
 }
 
+/* ── HOW IT WORKS 3-COL — responsive ── */
+@media(max-width:520px) {
+  .hiw-grid { grid-template-columns: 1fr !important; }
+  .why-grid  { grid-template-columns: 1fr !important; }
+}
+/* ── LISTING CARD FOOTER ── */
+.card-footer { flex-wrap:wrap; gap:8px; }
+
 /* ── PRICE TABLE — always horizontal scroll ── */
 #page-prices .section > div { overflow-x:auto; -webkit-overflow-scrolling:touch; }
 
@@ -715,7 +731,7 @@ select option { background:var(--bg2); }
     <div class="hero-content">
       <div class="hero-badge">🌱 Uganda's #1 AgriTech Platform</div>
       <h1>Farm <em>Smarter</em>,<br>Earn Better</h1>
-      <p>Connecting 50,000+ Ugandan farmers directly to buyers, markets, and expert training — no middlemen.</p>
+      <p>Connecting Uganda's smallholder farmers directly to buyers, markets, and expert training — no middlemen, fair prices, mobile money payments.</p>
       <div class="hero-cta">
         <button class="btn-primary" onclick="showPage('market')">Browse Marketplace</button>
         <button class="btn-outline" onclick="openModal('registerModal')">Join as Farmer</button>
@@ -745,10 +761,76 @@ select option { background:var(--bg2); }
     </div>
   </div>
 
+  <!-- HOW IT WORKS -->
+  <div class="section">
+    <div class="section-title">How It <span>Works</span> <small style="font-size:0.65rem;color:var(--text2);font-weight:400"> / Engamba Otya</small></div>
+    <div class="hiw-grid" style="display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-top:4px">
+      <div style="background:var(--card);border:1px solid var(--border);border-radius:14px;padding:18px;text-align:center">
+        <div style="font-size:2.2rem;margin-bottom:10px">📱</div>
+        <div style="font-weight:700;font-size:0.92rem;margin-bottom:6px">1. Register Free</div>
+        <div style="font-size:0.8rem;color:var(--text2)">Sign up online or dial <strong style="color:var(--green)">*789#</strong> from any phone — even without internet</div>
+      </div>
+      <div style="background:var(--card);border:1px solid var(--border);border-radius:14px;padding:18px;text-align:center">
+        <div style="font-size:2.2rem;margin-bottom:10px">🛒</div>
+        <div style="font-weight:700;font-size:0.92rem;margin-bottom:6px">2. List or Browse</div>
+        <div style="font-size:0.8rem;color:var(--text2)">Farmers post produce. Buyers find fresh, fair-priced crops directly from the farm</div>
+      </div>
+      <div style="background:var(--card);border:1px solid var(--border);border-radius:14px;padding:18px;text-align:center">
+        <div style="font-size:2.2rem;margin-bottom:10px">💳</div>
+        <div style="font-weight:700;font-size:0.92rem;margin-bottom:6px">3. Pay & Deliver</div>
+        <div style="font-size:0.8rem;color:var(--text2)">MTN MoMo or Airtel Money. GPS-tracked delivery from farm gate to your door</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- SOCIAL PROOF STRIP -->
+  <div style="background:var(--bg2);border-top:1px solid var(--border);border-bottom:1px solid var(--border);padding:14px 16px;margin-bottom:8px">
+    <div style="display:flex;gap:24px;justify-content:center;flex-wrap:wrap;font-size:0.82rem;color:var(--text2)">
+      <span>🌾 <strong style="color:var(--green)" id="sp-farmers">Loading…</strong> farmers registered</span>
+      <span>🛒 <strong style="color:var(--green)" id="sp-listings">Loading…</strong> active listings</span>
+      <span>📱 USSD: <strong style="color:var(--green)">*789#</strong> works on any phone</span>
+      <span>🚚 Same-day delivery in Kampala</span>
+    </div>
+  </div>
+
+  <!-- WHY AGRIBRIDGE -->
+  <div class="section">
+    <div class="section-title">Why <span>AgriBridge?</span></div>
+    <div class="why-grid" style="display:grid;grid-template-columns:repeat(2,1fr);gap:12px">
+      <div style="background:var(--card);border:1px solid var(--border);border-radius:12px;padding:14px;display:flex;gap:12px;align-items:flex-start">
+        <div style="font-size:1.5rem;flex-shrink:0">💰</div>
+        <div><div style="font-weight:700;font-size:0.88rem;margin-bottom:4px">Fair Prices, Always</div><div style="font-size:0.78rem;color:var(--text2)">See live market rates before you sell. No more being cheated by middlemen.</div></div>
+      </div>
+      <div style="background:var(--card);border:1px solid var(--border);border-radius:12px;padding:14px;display:flex;gap:12px;align-items:flex-start">
+        <div style="font-size:1.5rem;flex-shrink:0">📵</div>
+        <div><div style="font-weight:700;font-size:0.88rem;margin-bottom:4px">Works Without Internet</div><div style="font-size:0.78rem;color:var(--text2)">Dial *789# from any MTN or Airtel phone. No data, no smartphone needed.</div></div>
+      </div>
+      <div style="background:var(--card);border:1px solid var(--border);border-radius:12px;padding:14px;display:flex;gap:12px;align-items:flex-start">
+        <div style="font-size:1.5rem;flex-shrink:0">🚜</div>
+        <div><div style="font-weight:700;font-size:0.88rem;margin-bottom:4px">Delivery to Your Door</div><div style="font-size:0.78rem;color:var(--text2)">Vetted drivers take produce from farm gate to buyer. GPS tracked, fully insured.</div></div>
+      </div>
+      <div style="background:var(--card);border:1px solid var(--border);border-radius:12px;padding:14px;display:flex;gap:12px;align-items:flex-start">
+        <div style="font-size:1.5rem;flex-shrink:0">🤖</div>
+        <div><div style="font-weight:700;font-size:0.88rem;margin-bottom:4px">Free AI Crop Doctor</div><div style="font-size:0.78rem;color:var(--text2)">Describe your crop problem, get expert treatment advice instantly — for free.</div></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- USSD CTA BANNER -->
+  <div style="margin:0 16px 24px;background:linear-gradient(135deg,#007a33,#00c853);border-radius:16px;padding:20px;text-align:center">
+    <div style="font-size:1.8rem;margin-bottom:8px">📱</div>
+    <div style="font-weight:800;font-size:1.05rem;color:#fff;margin-bottom:6px">No Smartphone? No Problem!</div>
+    <div style="font-size:0.85rem;color:rgba(255,255,255,0.85);margin-bottom:14px">Dial <strong>*789#</strong> from any MTN or Airtel phone to access all AgriBridge features without internet — in English or Luganda</div>
+    <button class="btn-sm" onclick="showPage('ussd')" style="background:#fff;color:#007a33;font-weight:800">Try USSD Simulator ▶</button>
+  </div>
+
   <div class="section">
     <div class="section-title">Featured <span>Listings</span></div>
     <div class="cards-grid" id="homeFeatured">
       <div class="loader"><div class="spinner"></div>Loading…</div>
+    </div>
+    <div style="text-align:center;margin-top:16px">
+      <button class="btn-outline" onclick="showPage('market')" style="padding:10px 28px">View All Listings →</button>
     </div>
   </div>
 </div>
@@ -758,8 +840,13 @@ select option { background:var(--bg2); }
 <!-- ══════════════════════════════════════ -->
 <div id="page-market" class="page">
   <div class="page-header">
-    <h2>🛒 Marketplace</h2>
-    <p>Fresh produce direct from Ugandan farms</p>
+    <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px;flex-wrap:wrap">
+      <div>
+        <h2>🛒 Marketplace <small style="font-size:0.6rem;color:var(--text2);font-weight:400">/ Ssuko</small></h2>
+        <p>Fresh produce direct from Ugandan farms — zero middlemen</p>
+      </div>
+      <button class="btn-sm" onclick="openListProduceModal()" style="white-space:nowrap;flex-shrink:0">+ List Produce</button>
+    </div>
   </div>
   <div class="section">
     <div class="market-controls">
@@ -781,6 +868,15 @@ select option { background:var(--bg2); }
         <option>Bundibugyo</option><option>Kisoro</option><option>Ntungamo</option>
         <option>Kabarole</option><option>Buikwe</option><option>Pallisa</option>
       </select>
+    </div>
+    <!-- Middleman comparison banner -->
+    <div style="background:linear-gradient(135deg,#007a3322,#00c85311);border:1px solid #007a3344;border-radius:12px;padding:12px 16px;margin-bottom:14px;display:flex;align-items:center;gap:12px;flex-wrap:wrap">
+      <div style="font-size:1.2rem">💡</div>
+      <div style="flex:1;min-width:200px">
+        <div style="font-weight:700;font-size:0.88rem">Buy Direct — Save Up to 40%</div>
+        <div style="font-size:0.78rem;color:var(--text2)">AgriBridge removes middlemen. Farmers get paid more. You pay less. <a href="#" onclick="showPage('prices');return false" style="color:var(--green)">View live market prices →</a></div>
+      </div>
+      <button class="btn-sm outline" onclick="refreshListings()" style="font-size:0.75rem;padding:5px 10px">🔄 Refresh</button>
     </div>
     <div class="filters" id="marketFilters">
       <button class="filter-btn active" onclick="setMarketFilter('all',this)">All</button>
@@ -834,8 +930,8 @@ select option { background:var(--bg2); }
 <!-- ══════════════════════════════════════ -->
 <div id="page-crops" class="page">
   <div class="page-header">
-    <h2>🌿 Uganda's Farm Produce</h2>
-    <p>35+ crops grown across Uganda's fertile regions</p>
+    <h2>🌿 Uganda's Farm Produce <small style="font-size:0.6rem;color:var(--text2);font-weight:400">/ Ebibala</small></h2>
+    <p>35+ crops grown across Uganda's fertile regions — prices, seasons & districts</p>
   </div>
   <div class="section">
     <div class="filters" id="cropFilters">
@@ -847,6 +943,31 @@ select option { background:var(--bg2); }
     </div>
     <div class="cards-grid" id="cropsGrid">
       <!-- JS populated -->
+    </div>
+
+    <!-- PLANTING CALENDAR -->
+    <div style="background:var(--card);border:1px solid var(--border);border-radius:16px;padding:20px;margin-top:24px">
+      <div style="font-weight:800;font-size:1rem;margin-bottom:4px">🗓️ Uganda Planting Calendar</div>
+      <div style="font-size:0.8rem;color:var(--text2);margin-bottom:16px">Uganda has two main planting seasons (Season A: March–May · Season B: August–October)</div>
+      <div style="overflow-x:auto;-webkit-overflow-scrolling:touch">
+        <table style="width:100%;min-width:560px;border-collapse:collapse;font-size:0.82rem">
+          <thead>
+            <tr style="background:var(--bg3)">
+              <th style="padding:8px 12px;text-align:left;border:1px solid var(--border)">Crop</th>
+              <th style="padding:8px 12px;border:1px solid var(--border)">Jan</th><th style="padding:8px 12px;border:1px solid var(--border)">Feb</th>
+              <th style="padding:8px 12px;border:1px solid var(--border)">Mar</th><th style="padding:8px 12px;border:1px solid var(--border)">Apr</th>
+              <th style="padding:8px 12px;border:1px solid var(--border)">May</th><th style="padding:8px 12px;border:1px solid var(--border)">Jun</th>
+              <th style="padding:8px 12px;border:1px solid var(--border)">Jul</th><th style="padding:8px 12px;border:1px solid var(--border)">Aug</th>
+              <th style="padding:8px 12px;border:1px solid var(--border)">Sep</th><th style="padding:8px 12px;border:1px solid var(--border)">Oct</th>
+              <th style="padding:8px 12px;border:1px solid var(--border)">Nov</th><th style="padding:8px 12px;border:1px solid var(--border)">Dec</th>
+            </tr>
+          </thead>
+          <tbody id="calendarBody"></tbody>
+        </table>
+      </div>
+      <div style="display:flex;gap:16px;margin-top:12px;font-size:0.75rem;flex-wrap:wrap">
+        <span>🟢 Planting</span><span>🟡 Growing</span><span>🔴 Harvest</span><span style="color:var(--text2)">⬜ Off Season</span>
+      </div>
     </div>
   </div>
 </div>
@@ -959,8 +1080,8 @@ AgriBridge service</div>
 <!-- ══════════════════════════════════════ -->
 <div id="page-doctor" class="page">
   <div class="page-header">
-    <h2>🩺 AI Crop Doctor</h2>
-    <p>Describe your crop problem — get instant expert advice</p>
+    <h2>🩺 AI Crop Doctor <small style="font-size:0.6rem;color:var(--text2);font-weight:400">/ Omusawo w'Ebibala</small></h2>
+    <p>Describe your crop problem — get expert advice instantly, free</p>
   </div>
   <div class="section">
 
@@ -1505,7 +1626,7 @@ AgriBridge service</div>
           <div class="pitch-metric"><div class="pm-num">100%</div><div class="pm-lbl">Mobile-First UI</div></div>
           <div class="pitch-metric"><div class="pm-num">Live</div><div class="pm-lbl">API on Render</div></div>
         </div>
-        <p style="font-size:0.82rem">Stack: Python/Flask API · SQLite→PostgreSQL · Cloudflare Pages CDN · Africa's Talking USSD · MTN MoMo sandbox</p>
+        <p style="font-size:0.82rem">Stack: Supabase PostgreSQL · Cloudflare Pages CDN · Africa's Talking USSD · MTN MoMo (sandbox→live) · Python/Flask USSD API</p>
       </div>
 
       <!-- SLIDE 3: REVENUE -->
@@ -1649,6 +1770,79 @@ AgriBridge service</div>
   </div>
 </div>
 
+<!-- ══ LIST PRODUCE MODAL ══ -->
+<div class="modal-overlay" id="listProduceModal" onclick="handleOverlay(event,'listProduceModal')">
+  <div class="modal-box">
+    <button class="modal-close" onclick="closeModal('listProduceModal')">✕</button>
+    <h3>🌾 List Your Produce</h3>
+    <p style="font-size:0.82rem;color:var(--text2);margin-bottom:14px">Connect directly with buyers across Uganda</p>
+    <div class="form-row">
+      <div class="form-group">
+        <label>Crop / Produce Name</label>
+        <select id="lpCrop">
+          <option value="">Select crop…</option>
+          <option>Maize</option><option>Matooke</option><option>Tomatoes</option><option>Cassava</option>
+          <option>Coffee</option><option>Beans</option><option>Irish Potato</option><option>Cabbage</option>
+          <option>Onions</option><option>Avocado</option><option>Pineapple</option><option>Vanilla</option>
+          <option>Groundnuts</option><option>Soybeans</option><option>Sugarcane</option><option>Other</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>Category</label>
+        <select id="lpCat">
+          <option value="staples">Staples / Grains</option>
+          <option value="vegetables">Vegetables</option>
+          <option value="fruits">Fruits</option>
+          <option value="cash crops">Cash Crops</option>
+        </select>
+      </div>
+    </div>
+    <div class="form-row">
+      <div class="form-group">
+        <label>Quantity Available (kg)</label>
+        <input type="number" id="lpQty" placeholder="e.g. 500" min="1">
+      </div>
+      <div class="form-group">
+        <label>Your Price (UGX per kg)</label>
+        <input type="number" id="lpPrice" placeholder="e.g. 1800" min="100">
+      </div>
+    </div>
+    <div class="form-row">
+      <div class="form-group">
+        <label>Your District</label>
+        <select id="lpDistrict">
+          <option>Kampala</option><option>Wakiso</option><option>Mukono</option><option>Jinja</option>
+          <option>Mbarara</option><option>Bushenyi</option><option>Kabale</option><option>Gulu</option>
+          <option>Lira</option><option>Soroti</option><option>Mbale</option><option>Kasese</option>
+          <option>Masaka</option><option>Hoima</option><option>Arua</option><option>Other</option>
+        </select>
+      </div>
+      <div class="form-group" style="display:flex;align-items:flex-end;gap:10px">
+        <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-weight:500">
+          <input type="checkbox" id="lpOrganic" style="width:16px;height:16px;accent-color:var(--green)"> 🌱 Organic Produce
+        </label>
+      </div>
+    </div>
+    <div class="form-group">
+      <label>Short Description (optional)</label>
+      <textarea id="lpDesc" placeholder="e.g. 'Grade A tomatoes, freshly harvested this week. Ready for pickup in Mpigi.'" style="min-height:60px"></textarea>
+    </div>
+    <button class="btn-submit" onclick="submitListProduce()">📤 Post Listing Free</button>
+  </div>
+</div>
+
+<!-- ══ MY ACCOUNT MODAL ══ -->
+<div class="modal-overlay" id="myAccountModal" onclick="handleOverlay(event,'myAccountModal')">
+  <div class="modal-box">
+    <button class="modal-close" onclick="closeModal('myAccountModal')">✕</button>
+    <h3>👤 My Account</h3>
+    <div id="myAccountBody" style="background:var(--bg3);border-radius:10px;padding:14px;margin-bottom:16px;font-size:0.9rem"></div>
+    <button class="btn-sm" onclick="showPage('market');closeModal('myAccountModal')">🛒 Browse Market</button>
+    <button class="btn-sm outline" onclick="openListProduceModal();closeModal('myAccountModal')" style="margin-left:8px">🌾 List Produce</button>
+    <button class="btn-sm" onclick="logOut()" style="background:#c0392b;margin-top:10px;width:100%">Log Out</button>
+  </div>
+</div>
+
 <!-- ══ WHATSAPP ══ -->
 <a class="wa-btn" href="https://wa.me/256755966690?text=Hi%20AgriBridge!%20I%20want%20to%20know%20more." target="_blank" title="Chat on WhatsApp">💬</a>
 
@@ -1734,7 +1928,7 @@ function showPage(name) {
   if (name === 'prices')   loadPrices();
   if (name === 'training') loadTraining();
   if (name === 'delivery') loadAlerts();
-  if (name === 'crops')    renderCrops();
+  if (name === 'crops')    { renderCrops(); renderCalendar(); }
   if (name === 'home')     loadHomeStats();
 }
 
@@ -1748,8 +1942,18 @@ async function loadHomeStats() {
     sb('listings', { count: true }),
     sb('listings', { select: 'id,crop_name,category,quantity_kg,price_per_kg,unit,district,is_organic,is_verified,description,farmers(full_name,is_verified)', filters: [['is_available', 'eq.true'], ['limit', '6']] })
   ]);
-  if (farmerCount)  document.getElementById('h-farmers').textContent  = (farmerCount  || 0).toLocaleString() + '+';
-  if (listingCount) document.getElementById('h-listings').textContent = (listingCount || 0).toLocaleString() + '+';
+  const fc = (farmerCount || 0).toLocaleString();
+  const lc2 = (listingCount || 0).toLocaleString();
+  if (farmerCount)  document.getElementById('h-farmers').textContent  = fc + '+';
+  if (listingCount) document.getElementById('h-listings').textContent = lc2 + '+';
+  // Update social proof strip
+  const spF = document.getElementById('sp-farmers'); if(spF) spF.textContent = fc + '+';
+  const spL = document.getElementById('sp-listings'); if(spL) spL.textContent = lc2 + '+';
+  // Count unique districts from listings
+  if (listings && listings.length) {
+    const uniqueDistricts = new Set(listings.map(l=>l.district).filter(Boolean)).size;
+    if (uniqueDistricts > 0) document.getElementById('h-districts').textContent = uniqueDistricts + '+';
+  }
   if (listings && listings.length) {
     allListings = listings.map(normalise);
     document.getElementById('homeFeatured').innerHTML = allListings.slice(0, 4).map(listingCard).join('');
@@ -1815,29 +2019,42 @@ function listingCard(l) {
   const district = l.district || 'Uganda';
   const qty = l.quantity_kg || l.quantity || '?';
   const price = l.price_per_kg || l.price || '?';
-  const initials = farmer.split(' ').map(w=>w[0]).join('').slice(0,2).toUpperCase();
-  const organic = l.is_organic ? '<span class="card-tag">Organic</span>' : '';
-  const verified = l.is_verified ? ' ✅' : '';
+  const initials = (farmer||'F').split(' ').map(w=>w[0]||'').join('').slice(0,2).toUpperCase() || 'FA';
+  const organic = l.is_organic ? '<span class="card-tag">🌱 Organic</span>' : '';
+  const verified = l.is_verified ? '<span style="color:var(--green);font-size:0.78rem;font-weight:700"> ✅ Verified</span>' : '';
+  // WhatsApp message for quick contact
+  const waMsg = encodeURIComponent(`Hi! I saw your ${name} listing on AgriBridge. I want to buy ${qty}kg from ${district}. Is it still available?`);
+  const totalEst = Number(qty) > 0 && Number(price) > 0 ? `~UGX ${(Number(qty)*Number(price)).toLocaleString()} total` : '';
   return `<div class="card">
-    <div class="card-img-placeholder" style="background:linear-gradient(135deg,var(--bg2),var(--bg3));font-size:3.5rem">
+    <div class="card-img-placeholder" style="background:linear-gradient(135deg,var(--bg2),var(--bg3));font-size:3.5rem;position:relative">
       ${getCropEmoji(name)}
+      ${l.is_organic ? '<div style="position:absolute;top:8px;left:8px;background:#007a33;color:#fff;font-size:0.65rem;font-weight:700;padding:2px 7px;border-radius:20px">ORGANIC</div>' : ''}
     </div>
     <div class="card-body">
       ${organic}
-      <div class="card-title">${name}</div>
+      <div class="card-title">${escHtml(name)}</div>
       <div class="card-desc">
         <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
-          <div style="width:30px;height:30px;border-radius:50%;background:var(--green-dim);display:flex;align-items:center;justify-content:center;font-size:0.72rem;font-weight:700;color:var(--green)">${initials}</div>
-          <span>${farmer}${verified}</span>
+          <div style="width:30px;height:30px;border-radius:50%;background:var(--green-dim);display:flex;align-items:center;justify-content:center;font-size:0.72rem;font-weight:700;color:var(--green);flex-shrink:0">${initials}</div>
+          <span style="font-size:0.88rem">${escHtml(farmer)}${verified}</span>
         </div>
-        📍 ${district} · 📦 ${Number(qty).toLocaleString()} kg available
+        <div style="font-size:0.82rem;color:var(--text2)">📍 ${escHtml(district)} · 📦 ${Number(qty).toLocaleString()} kg available</div>
+        ${totalEst ? `<div style="font-size:0.78rem;color:var(--green);margin-top:3px">💰 ${totalEst}</div>` : ''}
       </div>
       <div class="card-footer">
         <div><div class="card-price">UGX ${Number(price).toLocaleString()}</div><div class="card-unit">per kg</div></div>
-        <button class="btn-card" onclick="openOrderModal(${l.id||0},'${name}','${farmer}',${price})">Order Now</button>
+        <div style="display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end">
+          <a href="https://wa.me/256755966690?text=${waMsg}" target="_blank" class="btn-card" style="background:#25D366;font-size:0.78rem;padding:6px 10px" title="WhatsApp Farmer">💬</a>
+          <button class="btn-card" onclick="openOrderModal(${l.id||0},${JSON.stringify(name)},${JSON.stringify(farmer)},${price})" style="font-size:0.82rem">Order</button>
+        </div>
       </div>
     </div>
   </div>`;
+}
+
+// Safe HTML escaping helper (prevents XSS)
+function escHtml(str) {
+  return String(str||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#x27;');
 }
 
 function setMarketFilter(f, btn) {
@@ -1848,6 +2065,7 @@ function setMarketFilter(f, btn) {
 }
 
 function filterListings(val) { renderListings(); }
+function refreshListings() { allListings = []; loadListings(); showToast('Refreshing listings…'); }
 
 function sortListings(val) {
   if (val === 'price_asc')  allListings.sort((a,b) => (a.price_per_kg||0)-(b.price_per_kg||0));
@@ -1873,7 +2091,7 @@ function renderPrices() {
   let list = allPrices;
   if (priceFilter !== 'all') list = list.filter(p => (p.market||'').includes(priceFilter));
   document.getElementById('priceTableBody').innerHTML = list.map(p => {
-    const chg = (p.change_pct || (Math.random()*10-5)).toFixed(1);
+    const chg = (p.change_pct ?? (Math.random()*10-5)).toFixed(1);
     const cls = chg > 0 ? 'price-up' : 'price-dn';
     const arrow = chg > 0 ? '↑' : '↓';
     return `<tr>
@@ -1881,7 +2099,7 @@ function renderPrices() {
       <td>${p.market||'Kampala'}</td>
       <td>${Number(p.price_per_kg||p.price||0).toLocaleString()}</td>
       <td class="${cls}">${arrow} ${Math.abs(chg)}%</td>
-      <td>${p.date||'Today'}</td>
+      <td>${p.price_date ? new Date(p.price_date).toLocaleDateString('en-UG',{day:'numeric',month:'short'}) : (p.date||'Today')}</td>
     </tr>`;
   }).join('');
 }
@@ -1932,20 +2150,21 @@ function trainingCard(t) {
   const thumb = vid ? `https://img.youtube.com/vi/${vid}/hqdefault.jpg` : '';
   const lvl = t.level || 'beginner';
   const dur = t.duration_mins || t.duration || 45;
-  const title = (t.title || 'Training').replace(/'/g, "\\'");
+  const safeTitle = escHtml(t.title || 'Training Module');
   const url = t.video_url || '';
+  const safeUrl = encodeURIComponent(url);
   return `<div class="training-card">
-    <div class="training-thumb" onclick="playVideo('${url}','${title}')">
-      ${thumb ? `<img src="${thumb}" alt="${t.title}" onerror="this.style.display='none'">` : `<div style="width:100%;height:100%;background:linear-gradient(135deg,var(--bg2),var(--bg3));display:flex;align-items:center;justify-content:center;font-size:3rem">🎥</div>`}
+    <div class="training-thumb" onclick="playVideoSafe('${safeUrl}','${encodeURIComponent(t.title||'')}')">
+      ${thumb ? `<img src="${thumb}" alt="${safeTitle}" loading="lazy" onerror="this.style.display='none'">` : `<div style="width:100%;height:100%;background:linear-gradient(135deg,var(--bg2),var(--bg3));display:flex;align-items:center;justify-content:center;font-size:3rem">🎥</div>`}
       <div class="training-play"><div class="play-icon">▶</div></div>
       <div class="training-level lv-${lvl}">${lvl}</div>
     </div>
     <div class="training-body">
-      <div class="training-title">${t.title || 'Training Module'}</div>
-      <div class="training-desc">${t.description || ''}</div>
+      <div class="training-title">${safeTitle}</div>
+      <div class="training-desc">${escHtml(t.description||'')}</div>
       <div class="training-meta">
         <div class="training-dur">⏱ ${dur} min</div>
-        <button class="btn-watch" onclick="playVideo('${url}','${title}')">Watch Now ▶</button>
+        <button class="btn-watch" onclick="playVideoSafe('${safeUrl}','${encodeURIComponent(t.title||'')}')">Watch Now ▶</button>
       </div>
     </div>
   </div>`;
@@ -1959,6 +2178,9 @@ function setTrainingFilter(f, btn) {
 }
 
 // ─── VIDEO PLAYER ───
+function playVideoSafe(encodedUrl, encodedTitle) {
+  playVideo(decodeURIComponent(encodedUrl), decodeURIComponent(encodedTitle));
+}
 function playVideo(url, title) {
   if (!url) { showToast('Video not available'); return; }
   let embedUrl = url;
@@ -2199,6 +2421,30 @@ const UGANDA_CROPS = [
   { name:'Sugarcane', emoji:'🎋', cat:'cash', img:'1541123437800-99a8c63d0d8e', price:'50,000–80,000', unit:'tonne', season:'Year-round', districts:'Jinja, Iganga, Lugazi', desc:'Processed into sugar at major mills; byproducts for ethanol' },
 ];
 
+// P=plant, G=grow, H=harvest, _=off
+const PLANTING_CAL = [
+  { crop:'Maize',        months:['P','P','G','G','H','H','P','G','G','H','H','_'] },
+  { crop:'Beans',        months:['_','P','P','G','H','_','P','P','G','H','_','_'] },
+  { crop:'Cassava',      months:['P','P','P','G','G','G','G','G','G','G','H','H'] },
+  { crop:'Tomatoes',     months:['P','G','H','H','_','P','G','H','H','_','_','_'] },
+  { crop:'Irish Potato', months:['_','_','P','G','H','_','_','P','G','H','_','_'] },
+  { crop:'Coffee',       months:['_','_','_','_','_','_','_','_','G','H','H','H'] },
+  { crop:'Vanilla',      months:['_','_','_','_','_','H','H','_','_','_','_','_'] },
+  { crop:'Groundnuts',   months:['_','_','P','G','G','H','P','G','G','H','_','_'] },
+];
+const CAL_COLOR = { P:'#1a7a3a', G:'#8a6a00', H:'#c0392b', _:'transparent' };
+const CAL_TEXT  = { P:'🟢', G:'🟡', H:'🔴', _:'' };
+
+function renderCalendar() {
+  const tb = document.getElementById('calendarBody');
+  if (!tb) return;
+  tb.innerHTML = PLANTING_CAL.map(row => `
+    <tr>
+      <td style="padding:6px 12px;border:1px solid var(--border);font-weight:600;white-space:nowrap">${row.crop}</td>
+      ${row.months.map(m => `<td style="padding:6px;border:1px solid var(--border);text-align:center;font-size:0.85rem;background:${CAL_COLOR[m]}22">${CAL_TEXT[m]}</td>`).join('')}
+    </tr>`).join('');
+}
+
 function setCropFilter(f, btn) {
   cropFilter = f;
   document.querySelectorAll('#cropFilters .filter-btn').forEach(b => b.classList.remove('active'));
@@ -2241,7 +2487,7 @@ async function doLogin() {
     localStorage.setItem('ab_user', JSON.stringify(currentUser));
     closeModal('loginModal');
     showToast('Welcome back, ' + farmer.full_name + '! 🌱');
-    document.querySelectorAll('.nav-btns').forEach(el => el.innerHTML = `<span style="color:var(--green);font-size:0.85rem;font-weight:700">👤 ${farmer.full_name.split(' ')[0]}</span>`);
+    updateNavUser(farmer.full_name, 'farmer');
   } else {
     // Try buyers table
     const buyer = await sb('buyers', { select: '*', filters: [['phone', `eq.${phone}`]], single: true });
@@ -2250,6 +2496,7 @@ async function doLogin() {
       localStorage.setItem('ab_user', JSON.stringify(currentUser));
       closeModal('loginModal');
       showToast('Welcome back, ' + buyer.full_name + '! 🛒');
+      updateNavUser(buyer.full_name, 'buyer');
     } else {
       showToast('Phone not found — please register first');
     }
@@ -2271,10 +2518,12 @@ async function doRegister() {
     currentUser = { id: result[0]?.id, name, phone, district, role };
     localStorage.setItem('ab_user', JSON.stringify(currentUser));
     closeModal('registerModal');
-    showToast('Welcome to AgriBridge, ' + name + '! 🌱');
-    document.querySelectorAll('.nav-btns').forEach(el => el.innerHTML = `<span style="color:var(--green);font-size:0.85rem;font-weight:700">👤 ${name.split(' ')[0]}</span>`);
+    showToast('🌾 Welcome, ' + name + '! Account created. You can now browse and order.');
+    updateNavUser(name, role);
+    // Show what to do next
+    setTimeout(() => showToast('💡 Tip: Browse the Marketplace or dial *789# to sell your crops!'), 3500);
   } else {
-    showToast('Phone already registered — try logging in');
+    showToast('📞 Phone already registered — please Log In instead');
   }
 }
 
@@ -2307,8 +2556,11 @@ async function submitOrder() {
   const orderData = {
     listing_id: currentListingId,
     farmer_id: listing?.farmer_id || null,
+    buyer_id: currentUser?.id || null,
+    buyer_phone: currentUser?.phone || null,
     quantity_kg: qty,
     price_per_kg: listing?.price_per_kg || 0,
+    total_price: qty * (listing?.price_per_kg || 0),
     delivery_address: addr,
     payment_method: pay,
     status: 'pending',
@@ -2332,7 +2584,7 @@ async function submitOrder() {
 async function sendContactMsg() {
   const name    = document.getElementById('cName').value.trim();
   const contact = document.getElementById('cContact').value.trim();
-  const role    = document.getElementById('cRole').value;
+  const role    = document.getElementById('cRole')?.value || 'visitor';
   const msg     = document.getElementById('cMessage').value.trim();
   if (!name || !contact || !msg) { showToast('Please fill all fields'); return; }
   const result = await sbInsert('contact_messages', { full_name: name, contact, role, message: msg });
@@ -2348,12 +2600,96 @@ async function sendContactMsg() {
 // SEARCH
 // ═══════════════════════════════════════════════════════
 function handleSearch(val) {
-  if (!val) return;
-  // If on market page, filter listings
   const activePage = document.querySelector('.page.active')?.id;
   if (activePage === 'page-market') { renderListings(); return; }
-  // Otherwise navigate to market with filter
-  if (val.length >= 2) { showPage('market'); setTimeout(() => { document.querySelector('.market-search').value = val; renderListings(); }, 100); }
+  if (!val) return;
+  if (val.length >= 2) { showPage('market'); setTimeout(() => { const ms = document.querySelector('.market-search'); if(ms){ms.value=val;} renderListings(); }, 120); }
+}
+
+// ═══════════════════════════════════════════════════════
+// LIST PRODUCE
+// ═══════════════════════════════════════════════════════
+function openListProduceModal() {
+  if (!currentUser) {
+    showToast('Please log in or join free first 🌾');
+    setTimeout(() => openModal('loginModal'), 800);
+    return;
+  }
+  if (currentUser.district) {
+    const sel = document.getElementById('lpDistrict');
+    if (sel) sel.value = currentUser.district;
+  }
+  openModal('listProduceModal');
+}
+
+async function submitListProduce() {
+  const crop     = document.getElementById('lpCrop').value;
+  const cat      = document.getElementById('lpCat').value;
+  const qty      = parseFloat(document.getElementById('lpQty').value);
+  const price    = parseFloat(document.getElementById('lpPrice').value);
+  const district = document.getElementById('lpDistrict').value;
+  const organic  = document.getElementById('lpOrganic').checked;
+  const desc     = document.getElementById('lpDesc').value.trim();
+  if (!crop || !qty || !price) { showToast('Please fill in crop, quantity and price'); return; }
+  const payload = {
+    farmer_id: currentUser?.id || null,
+    crop_name: crop,
+    category: cat,
+    quantity_kg: qty,
+    price_per_kg: price,
+    unit: 'kg',
+    district,
+    is_organic: organic,
+    is_available: true,
+    description: desc || null
+  };
+  const result = await sbInsert('listings', payload);
+  if (result) {
+    closeModal('listProduceModal');
+    showToast(`✅ ${crop} listing posted! Buyers can now find you.`);
+    allListings = []; // force reload
+    if (document.querySelector('.page.active')?.id === 'page-market') loadListings();
+  } else {
+    showToast('Could not post listing — please try again');
+  }
+}
+
+function logOut() {
+  currentUser = null;
+  localStorage.removeItem('ab_user');
+  closeModal('myAccountModal');
+  document.querySelectorAll('.nav-btns').forEach(el => {
+    el.innerHTML = `<button class="btn-sm outline" onclick="openModal('loginModal')">Log In</button><button class="btn-sm" onclick="openModal('registerModal')">Join Free</button>`;
+  });
+  showToast('Logged out. See you soon! 🌾');
+}
+
+// ═══════════════════════════════════════════════════════
+// USER NAV STATE
+// ═══════════════════════════════════════════════════════
+function updateNavUser(fullName, role) {
+  const icon = role === 'farmer' ? '🌾' : '🛒';
+  const firstName = (fullName||'User').split(' ')[0];
+  document.querySelectorAll('.nav-btns').forEach(el => {
+    el.innerHTML = `<button class="btn-sm outline" style="font-size:0.8rem" onclick="openMyAccount()">${icon} ${firstName}</button>`;
+  });
+}
+
+function openMyAccount() {
+  const body = document.getElementById('myAccountBody');
+  if (body && currentUser) {
+    const roleLabel = currentUser.role === 'farmer' ? '🌾 Farmer' : '🛒 Buyer / Vendor';
+    body.innerHTML = `
+      <div style="display:flex;align-items:center;gap:12px;margin-bottom:12px">
+        <div style="width:44px;height:44px;border-radius:50%;background:var(--green-dim);display:flex;align-items:center;justify-content:center;font-size:1.2rem;font-weight:700;color:var(--green)">
+          ${(currentUser.name||'U').charAt(0).toUpperCase()}
+        </div>
+        <div><div style="font-weight:700">${escHtml(currentUser.name||'')}</div><div style="font-size:0.8rem;color:var(--text2)">${roleLabel} · ${escHtml(currentUser.district||'')}</div></div>
+      </div>
+      <div style="font-size:0.82rem;color:var(--text2)">📞 ${escHtml(currentUser.phone||'')}</div>
+    `;
+  }
+  openModal('myAccountModal');
 }
 
 // ═══════════════════════════════════════════════════════
@@ -2594,18 +2930,21 @@ function renderSupply() {
 }
 
 async function orderSupply(name, price) {
-  const phone = currentUser?.phone || prompt('Enter your phone number for delivery confirmation:');
-  if (!phone) return;
+  if (!currentUser) {
+    showToast('Please log in or register first to order 🌾');
+    setTimeout(() => openModal('loginModal'), 800);
+    return;
+  }
   await sbInsert('supply_orders', {
-    buyer_phone: phone,
-    buyer_name: currentUser?.name || null,
+    buyer_phone: currentUser.phone,
+    buyer_name: currentUser.name || null,
     product_name: name,
     quantity: 1,
     unit_price: price,
-    district: currentUser?.district || null,
+    district: currentUser.district || null,
     status: 'pending'
   });
-  showToast(`Order placed: ${name}! We'll confirm via SMS 📲`);
+  showToast(`✅ Order placed: ${name}! We'll confirm via SMS to ${currentUser.phone} 📲`);
 }
 
 async function saveDiseaseReport() {
@@ -2734,6 +3073,17 @@ document.addEventListener('DOMContentLoaded', () => {
   loadHomeStats();
   renderCrops();
   renderSupply();
+  // Restore logged-in user state from localStorage
+  if (currentUser?.name) {
+    updateNavUser(currentUser.name, currentUser.role || 'farmer');
+  }
+  // First-time visitor welcome
+  if (!localStorage.getItem('ab_visited')) {
+    setTimeout(() => {
+      showToast('🌾 Welcome to AgriBridge! Browse fresh produce or dial *789# on any phone.');
+      localStorage.setItem('ab_visited', '1');
+    }, 1500);
+  }
 });
 </script>
 </body>
