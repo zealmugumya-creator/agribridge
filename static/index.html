@@ -507,7 +507,9 @@ select option { background:var(--bg2); }
       <div class="quick-btn" onclick="showPage('training')"><div class="icon">🎓</div><div class="label">Training</div></div>
       <div class="quick-btn" onclick="showPage('delivery')"><div class="icon">🚚</div><div class="label">Delivery</div></div>
       <div class="quick-btn" onclick="showPage('ussd')"><div class="icon">📱</div><div class="label">USSD *789#</div></div>
-      <div class="quick-btn" onclick="showPage('about')"><div class="icon">ℹ️</div><div class="label">About</div></div>
+      <div class="quick-btn" onclick="showPage('doctor')"><div class="icon">🩺</div><div class="label">AI Doctor</div></div>
+      <div class="quick-btn" onclick="showPage('supply')"><div class="icon">🏪</div><div class="label">Agri Supply</div></div>
+      <div class="quick-btn" onclick="showPage('about')"><div class="icon">💡</div><div class="label">About</div></div>
       <div class="quick-btn" onclick="showPage('contact')"><div class="icon">✉️</div><div class="label">Contact</div></div>
     </div>
   </div>
@@ -530,19 +532,33 @@ select option { background:var(--bg2); }
   </div>
   <div class="section">
     <div class="market-controls">
-      <input class="market-search" type="text" placeholder="Search produce…" oninput="filterListings(this.value)">
+      <input class="market-search" type="text" placeholder="Search produce, farmer, district…" oninput="filterListings(this.value)">
       <select class="market-sort" onchange="sortListings(this.value)">
         <option value="newest">Newest First</option>
         <option value="price_asc">Price: Low → High</option>
         <option value="price_desc">Price: High → Low</option>
+      </select>
+      <select class="market-sort" id="districtFilter" onchange="filterByDistrict(this.value)">
+        <option value="">All Districts</option>
+        <option>Kampala</option><option>Wakiso</option><option>Mukono</option>
+        <option>Jinja</option><option>Iganga</option><option>Bugiri</option>
+        <option>Mbale</option><option>Soroti</option><option>Lira</option>
+        <option>Gulu</option><option>Arua</option><option>Mbarara</option>
+        <option>Bushenyi</option><option>Kabale</option><option>Kasese</option>
+        <option>Masaka</option><option>Mpigi</option><option>Kayunga</option>
+        <option>Luwero</option><option>Hoima</option><option>Masindi</option>
+        <option>Bundibugyo</option><option>Kisoro</option><option>Ntungamo</option>
+        <option>Kabarole</option><option>Buikwe</option><option>Pallisa</option>
       </select>
     </div>
     <div class="filters" id="marketFilters">
       <button class="filter-btn active" onclick="setMarketFilter('all',this)">All</button>
       <button class="filter-btn" onclick="setMarketFilter('vegetables',this)">Vegetables</button>
       <button class="filter-btn" onclick="setMarketFilter('fruits',this)">Fruits</button>
-      <button class="filter-btn" onclick="setMarketFilter('grains',this)">Grains</button>
+      <button class="filter-btn" onclick="setMarketFilter('staples',this)">Staples</button>
       <button class="filter-btn" onclick="setMarketFilter('cash crops',this)">Cash Crops</button>
+      <button class="filter-btn" onclick="setMarketFilter('organic',this)">🌱 Organic</button>
+      <button class="filter-btn" onclick="setMarketFilter('verified',this)">✅ Verified</button>
     </div>
     <div class="cards-grid" id="marketListings">
       <div class="loader"><div class="spinner"></div>Loading listings…</div>
@@ -705,6 +721,181 @@ AgriBridge service</div>
 </div>
 
 <!-- ══════════════════════════════════════ -->
+<!-- ══════════════════════════════════════ -->
+<!-- PAGE: AI DOCTOR -->
+<!-- ══════════════════════════════════════ -->
+<div id="page-doctor" class="page">
+  <div class="page-header">
+    <h2>🩺 AI Crop Doctor</h2>
+    <p>Describe your crop problem — get instant expert advice</p>
+  </div>
+  <div class="section">
+
+    <!-- DIAGNOSIS FORM -->
+    <div style="background:var(--card);border:1px solid var(--border);border-radius:16px;padding:24px;margin-bottom:24px">
+      <div style="display:flex;align-items:center;gap:12px;margin-bottom:20px">
+        <div style="width:48px;height:48px;border-radius:12px;background:var(--green-dim);border:1px solid var(--green);display:flex;align-items:center;justify-content:center;font-size:1.6rem">🔬</div>
+        <div><h3 style="font-size:1.1rem">Diagnose Your Crop</h3><p style="font-size:0.82rem;color:var(--text2)">Get advice from our AI trained on Ugandan farming conditions</p></div>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label>Crop Type</label>
+          <select id="drCrop">
+            <option value="">Select crop…</option>
+            <option>Maize</option><option>Matooke</option><option>Tomatoes</option>
+            <option>Cassava</option><option>Coffee</option><option>Beans</option>
+            <option>Irish Potato</option><option>Cabbage</option><option>Onions</option>
+            <option>Millet</option><option>Sorghum</option><option>Rice</option>
+            <option>Groundnuts</option><option>Soybeans</option><option>Sugarcane</option>
+            <option>Vanilla</option><option>Other</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Part Affected</label>
+          <select id="drPart">
+            <option value="">Select part…</option>
+            <option>Leaves</option><option>Stem / Stalk</option><option>Roots</option>
+            <option>Fruit / Grain</option><option>Flower</option><option>Whole plant</option>
+          </select>
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label>Symptoms Visible</label>
+          <select id="drSymptom">
+            <option value="">Select symptom…</option>
+            <option>Yellowing / Chlorosis</option><option>Brown spots / Lesions</option>
+            <option>Wilting / Drooping</option><option>Rotting / Soft spots</option>
+            <option>White powder / Mould</option><option>Holes / Chewing damage</option>
+            <option>Stunted growth</option><option>Black streaks</option>
+            <option>Curling / Distorted leaves</option><option>Sticky residue / Honeydew</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>How long has this been happening?</label>
+          <select id="drDuration">
+            <option>Just started (1–3 days)</option>
+            <option>About a week</option>
+            <option>2–4 weeks</option>
+            <option>Over a month</option>
+          </select>
+        </div>
+      </div>
+      <div class="form-group">
+        <label>Additional description (optional)</label>
+        <textarea id="drDesc" placeholder="e.g. 'The lower leaves are turning yellow and falling off. About 30% of my plants are affected…'" style="min-height:80px"></textarea>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label>Your District</label>
+          <select id="drDistrict">
+            <option value="">Select district…</option>
+            <option>Kampala</option><option>Wakiso</option><option>Mukono</option>
+            <option>Mbarara</option><option>Kabale</option><option>Kasese</option>
+            <option>Masaka</option><option>Jinja</option><option>Mbale</option>
+            <option>Gulu</option><option>Lira</option><option>Arua</option>
+            <option>Soroti</option><option>Bushenyi</option><option>Kabarole</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Recent rainfall?</label>
+          <select id="drWeather">
+            <option>Heavy rains (very wet)</option>
+            <option>Normal / Mixed</option>
+            <option>Dry season / Little rain</option>
+            <option>Just after irrigation</option>
+          </select>
+        </div>
+      </div>
+      <button class="btn-submit" onclick="runDiagnosis()">🔍 Diagnose My Crop</button>
+    </div>
+
+    <!-- DIAGNOSIS RESULT -->
+    <div id="drResult" style="display:none;background:var(--card);border:1px solid var(--green);border-radius:16px;padding:24px;margin-bottom:24px;animation:fadeUp 0.4s ease">
+      <div style="display:flex;gap:12px;align-items:flex-start;margin-bottom:16px">
+        <div style="font-size:2rem">🩺</div>
+        <div><h3 style="font-size:1.1rem" id="drDiagName">Diagnosing…</h3><p style="font-size:0.82rem;color:var(--text2)" id="drDiagConf"></p></div>
+      </div>
+      <div id="drDiagBody"></div>
+    </div>
+
+    <!-- COMMON DISEASES LIBRARY -->
+    <div class="section-title">Common Ugandan Crop <span>Diseases</span></div>
+    <div class="problem-grid" id="diseaseLibrary">
+      <div class="problem-card">
+        <div class="p-icon">🍂</div><h4>Maize Lethal Necrosis (MLN)</h4>
+        <p><b>Crops:</b> Maize · <b>Symptoms:</b> Yellowing from leaf edges, plant death · <b>Cause:</b> Virus complex</p>
+        <p style="margin-top:8px;color:var(--green);font-size:0.78rem;font-weight:700">Prevention: Use certified MLN-tolerant seed varieties. Remove &amp; burn infected plants immediately.</p>
+      </div>
+      <div class="problem-card">
+        <div class="p-icon">🍃</div><h4>Cassava Mosaic Disease</h4>
+        <p><b>Crops:</b> Cassava · <b>Symptoms:</b> Mottled yellow-green leaves, stunting · <b>Cause:</b> Whitefly-spread virus</p>
+        <p style="margin-top:8px;color:var(--green);font-size:0.78rem;font-weight:700">Treatment: Plant CMD-resistant varieties. Control whitefly with neem oil spray.</p>
+      </div>
+      <div class="problem-card">
+        <div class="p-icon">🔴</div><h4>Tomato Blight (Early &amp; Late)</h4>
+        <p><b>Crops:</b> Tomatoes · <b>Symptoms:</b> Dark brown spots on leaves and fruit, rotting · <b>Cause:</b> Fungus</p>
+        <p style="margin-top:8px;color:var(--green);font-size:0.78rem;font-weight:700">Treatment: Mancozeb or Ridomil spray. Improve drainage. Avoid overhead watering.</p>
+      </div>
+      <div class="problem-card">
+        <div class="p-icon">🟤</div><h4>Coffee Wilt Disease (CWD)</h4>
+        <p><b>Crops:</b> Coffee · <b>Symptoms:</b> Sudden wilting, brown streaks in stem · <b>Cause:</b> Fusarium fungus</p>
+        <p style="margin-top:8px;color:var(--green);font-size:0.78rem;font-weight:700">Management: Remove &amp; burn infected trees. Plant CWD-resistant Robusta clones.</p>
+      </div>
+      <div class="problem-card">
+        <div class="p-icon">⬛</div><h4>Banana/Matooke Xanthomonas Wilt</h4>
+        <p><b>Crops:</b> Matooke, Banana · <b>Symptoms:</b> Yellowing leaves, internal yellowing of fruit · <b>Cause:</b> Bacteria</p>
+        <p style="margin-top:8px;color:var(--green);font-size:0.78rem;font-weight:700">Control: Sterilise tools between plants. Remove male flower bud. Destroy affected mats.</p>
+      </div>
+      <div class="problem-card">
+        <div class="p-icon">🌾</div><h4>Fall Armyworm</h4>
+        <p><b>Crops:</b> Maize, Sorghum, Millet · <b>Symptoms:</b> Holes in leaves, frass in whorl · <b>Cause:</b> Spodoptera frugiperda</p>
+        <p style="margin-top:8px;color:var(--green);font-size:0.78rem;font-weight:700">Treatment: Emamectin benzoate spray. Push-pull intercropping with Desmodium &amp; Napier.</p>
+      </div>
+      <div class="problem-card">
+        <div class="p-icon">🟡</div><h4>Irish Potato Late Blight</h4>
+        <p><b>Crops:</b> Irish Potato · <b>Symptoms:</b> Water-soaked dark spots on leaves, white mould underside · <b>Cause:</b> Phytophthora</p>
+        <p style="margin-top:8px;color:var(--green);font-size:0.78rem;font-weight:700">Treatment: Ridomil Gold spray every 7–10 days in wet season. Plant resistant varieties.</p>
+      </div>
+      <div class="problem-card">
+        <div class="p-icon">🐛</div><h4>Bean Pod Borer</h4>
+        <p><b>Crops:</b> Beans · <b>Symptoms:</b> Holes in pods, larvae inside · <b>Cause:</b> Maruca vitrata moth</p>
+        <p style="margin-top:8px;color:var(--green);font-size:0.78rem;font-weight:700">Treatment: Karate insecticide at pod formation. Early planting before dry season peak.</p>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════ -->
+<!-- PAGE: AGRICULTURE SUPPLY -->
+<!-- ══════════════════════════════════════ -->
+<div id="page-supply" class="page">
+  <div class="page-header">
+    <h2>🏪 Agriculture Supply Store</h2>
+    <p>Seeds, fertilizers, tools &amp; pesticides — delivered to your farm</p>
+  </div>
+  <div class="section">
+    <div class="market-controls">
+      <input class="market-search" type="text" placeholder="Search seeds, fertilizer, tools…" oninput="filterSupply(this.value)">
+      <select class="market-sort" onchange="filterSupplyCategory(this.value)">
+        <option value="">All Categories</option>
+        <option value="seeds">Seeds</option>
+        <option value="fertilizer">Fertilizers</option>
+        <option value="pesticide">Pesticides</option>
+        <option value="tool">Tools &amp; Equipment</option>
+      </select>
+    </div>
+    <div class="filters" id="supplyFilters">
+      <button class="filter-btn active" onclick="setSupplyFilter('all',this)">All</button>
+      <button class="filter-btn" onclick="setSupplyFilter('seeds',this)">🌱 Seeds</button>
+      <button class="filter-btn" onclick="setSupplyFilter('fertilizer',this)">🧪 Fertilizer</button>
+      <button class="filter-btn" onclick="setSupplyFilter('pesticide',this)">🛡️ Pesticides</button>
+      <button class="filter-btn" onclick="setSupplyFilter('tool',this)">🔧 Tools</button>
+    </div>
+    <div class="cards-grid" id="supplyGrid"></div>
+  </div>
+</div>
+
 <!-- PAGE: ABOUT -->
 <!-- ══════════════════════════════════════ -->
 <div id="page-about" class="page">
@@ -1149,6 +1340,8 @@ AgriBridge service</div>
   <button class="nav-item" id="nav-training" onclick="showPage('training')"><span class="nav-icon">🎓</span>Learn</button>
   <button class="nav-item" id="nav-delivery" onclick="showPage('delivery')"><span class="nav-icon">🚚</span>Track</button>
   <button class="nav-item" id="nav-ussd" onclick="showPage('ussd')"><span class="nav-icon">📱</span>USSD</button>
+  <button class="nav-item" id="nav-doctor" onclick="showPage('doctor')"><span class="nav-icon">🩺</span>AI Doc</button>
+  <button class="nav-item" id="nav-supply" onclick="showPage('supply')"><span class="nav-icon">🏪</span>Supply</button>
   <button class="nav-item" id="nav-about" onclick="showPage('about')"><span class="nav-icon">💡</span>About</button>
   <button class="nav-item" id="nav-contact" onclick="showPage('contact')"><span class="nav-icon">✉️</span>Contact</button>
 </nav>
@@ -1326,8 +1519,13 @@ async function loadListings() {
 
 function renderListings() {
   let list = [...allListings];
-  if (marketFilter !== 'all') {
+  if (marketFilter === 'organic') { list = list.filter(l => l.is_organic); }
+  else if (marketFilter === 'verified') { list = list.filter(l => l.is_verified); }
+  else if (marketFilter !== 'all') {
     list = list.filter(l => (l.category || l.crop_type || '').toLowerCase().includes(marketFilter));
+  }
+  if (activeDistrict) {
+    list = list.filter(l => (l.district || '').toLowerCase().includes(activeDistrict.toLowerCase()));
   }
   const searchVal = document.querySelector('.market-search')?.value?.toLowerCase() || '';
   if (searchVal) {
@@ -1671,45 +1869,45 @@ async function loadAlerts() {
 // ═══════════════════════════════════════════════════════
 const UGANDA_CROPS = [
   // STAPLES
+  // ── STAPLES ──
   { name:'Matooke', emoji:'🍌', cat:'staple', img:'1603833665858-e61d17a86224', price:'800–1,500', unit:'bunch', season:'Year-round', districts:'Mbarara, Bushenyi, Kabale', desc:"Uganda's beloved cooking banana — the national staple food" },
-  { name:'Maize', emoji:'🌽', cat:'staple', img:'1601593346740-925612772716', price:'600–900', unit:'kg', season:'Mar–Jun, Aug–Nov', districts:'Eastern & Northern Uganda', desc:'Main cereal crop; used for posho (ugali) and animal feed' },
-  { name:'Cassava', emoji:'🥔', cat:'staple', img:'1574316071802-0d684efa7bf5', price:'400–700', unit:'kg', season:'Year-round', districts:'Lango, Northern Uganda', desc:'Drought-resistant root crop; second most important staple' },
+  { name:'Maize', emoji:'🌽', cat:'staple', img:'1560493676-696fc1c5d2bf', price:'600–900', unit:'kg', season:'Mar–Jun, Aug–Nov', districts:'Eastern & Northern Uganda', desc:'Main cereal crop; used for posho (ugali) and animal feed' },
+  { name:'Cassava', emoji:'🥔', cat:'staple', img:'1612257999756-2d43c78397ee', price:'400–700', unit:'kg', season:'Year-round', districts:'Lango, Northern Uganda', desc:'Drought-resistant root crop; second most important staple' },
   { name:'Sweet Potato', emoji:'🍠', cat:'staple', img:'1598170845058-32b9d6a5da37', price:'500–800', unit:'kg', season:'Year-round', districts:'Southwestern Uganda', desc:'Nutritious orange-fleshed varieties rich in Vitamin A' },
   { name:'Irish Potato', emoji:'🥔', cat:'staple', img:'1518977676601-b53f82aba655', price:'800–1,200', unit:'kg', season:'Mar–Jun, Sep–Dec', districts:'Kabale, Kisoro, Mbale', desc:'Highland potato grown in Uganda\'s cool mountainous regions' },
-  { name:'Millet', emoji:'🌾', cat:'staple', img:'1574085958-9dcb7fdde756', price:'1,200–1,800', unit:'kg', season:'Apr–Aug', districts:'Northern & Eastern Uganda', desc:'Used for atap (millet bread) and local waragi brew' },
-  { name:'Sorghum', emoji:'🌾', cat:'staple', img:'1589927986089-35812378533c', price:'900–1,300', unit:'kg', season:'Apr–Sep', districts:'Eastern Uganda, Teso', desc:'Drought-tolerant grain; staple in northern households' },
+  { name:'Millet', emoji:'🌾', cat:'staple', img:'1625246174804-de40b2fae23d', price:'1,200–1,800', unit:'kg', season:'Apr–Aug', districts:'Northern & Eastern Uganda', desc:'Used for atap (millet bread) and local waragi brew' },
+  { name:'Sorghum', emoji:'🌾', cat:'staple', img:'1574945526073-1d5c4c44cadf', price:'900–1,300', unit:'kg', season:'Apr–Sep', districts:'Eastern Uganda, Teso', desc:'Drought-tolerant grain; staple in northern households' },
   { name:'Rice', emoji:'🍚', cat:'staple', img:'1586201375761-83865001e31c', price:'2,500–3,500', unit:'kg', season:'Mar–Jul, Sep–Jan', districts:'Bugiri, Iganga, Pallisa', desc:'Grown in wetlands; increasingly popular urban food' },
-  // VEGETABLES
-  { name:'Tomatoes', emoji:'🍅', cat:'vegetable', img:'1592924357228-91a4daadcfea', price:'1,000–2,500', unit:'kg', season:'Jan–Mar, Jun–Sep', districts:'Mpigi, Buikwe, Kayunga', desc:'Most widely traded vegetable in Ugandan markets' },
-  { name:'Cabbage', emoji:'🥬', cat:'vegetable', img:'1568702846914-96b305d2aaeb', price:'500–1,000', unit:'head', season:'Year-round', districts:'Kabale, Kisoro, Ntungamo', desc:'Cool-season vegetable from Uganda\'s highland areas' },
+  // ── VEGETABLES ──
+  { name:'Tomatoes', emoji:'🍅', cat:'vegetable', img:'1546094096-0df4bcaaa337', price:'1,000–2,500', unit:'kg', season:'Jan–Mar, Jun–Sep', districts:'Mpigi, Buikwe, Kayunga', desc:'Most widely traded vegetable in Ugandan markets' },
+  { name:'Cabbage', emoji:'🥬', cat:'vegetable', img:'1551754655-9e95b9a0c3e3', price:'500–1,000', unit:'head', season:'Year-round', districts:'Kabale, Kisoro, Ntungamo', desc:'Cool-season vegetable from Uganda\'s highland areas' },
   { name:'Onions', emoji:'🧅', cat:'vegetable', img:'1618512496248-a07fe83aa8cb', price:'1,500–3,000', unit:'kg', season:'Dec–Mar', districts:'Kasese, Kabarole, Kabale', desc:'Essential kitchen ingredient with high year-round demand' },
   { name:'Carrots', emoji:'🥕', cat:'vegetable', img:'1447955275775-3cd6b8f6c5e8', price:'800–1,500', unit:'kg', season:'Year-round (highlands)', districts:'Kisoro, Kabale', desc:'Highland vegetable with growing urban demand' },
-  { name:'Eggplant', emoji:'🍆', cat:'vegetable', img:'1503454537195-1dcabb73ffb9', price:'600–1,200', unit:'kg', season:'Year-round', districts:'Central Uganda', desc:'Local variety (ngurwe) popular in Ugandan cooking' },
-  { name:'Sukuma Wiki', emoji:'🥬', cat:'vegetable', img:'1540420773420-3366772f4999', price:'300–600', unit:'bunch', season:'Year-round', districts:'Nationwide', desc:'Kale / collard greens — most consumed leafy vegetable' },
+  { name:'Eggplant', emoji:'🍆', cat:'vegetable', img:'1606512386236-ef55a8ec9a9e', price:'600–1,200', unit:'kg', season:'Year-round', districts:'Central Uganda', desc:'Local variety (ngurwe) popular in Ugandan cooking' },
+  { name:'Sukuma Wiki', emoji:'🥬', cat:'vegetable', img:'1556909114-f6e7ad7d3136', price:'300–600', unit:'bunch', season:'Year-round', districts:'Nationwide', desc:'Kale / collard greens — most consumed leafy vegetable' },
   { name:'Peppers', emoji:'🌶️', cat:'vegetable', img:'1583119022894-919a68a3d0e3', price:'2,000–4,000', unit:'kg', season:'Year-round', districts:'Central Uganda', desc:'Hot and sweet peppers for local and export markets' },
-  { name:'Pumpkin', emoji:'🎃', cat:'vegetable', img:'1508747703725-719777637510', price:'300–700', unit:'kg', season:'Jan–Jun', districts:'Nationwide', desc:'Leaves and fruit both eaten — truly zero-waste crop' },
-  // FRUITS
+  { name:'Pumpkin', emoji:'🎃', cat:'vegetable', img:'1569989153237-5f5e1b0da3ce', price:'300–700', unit:'kg', season:'Jan–Jun', districts:'Nationwide', desc:'Leaves and fruit both eaten — truly zero-waste crop' },
+  // ── FRUITS ──
   { name:'Mango', emoji:'🥭', cat:'fruit', img:'1553279768-865429fa0078', price:'200–500', unit:'kg', season:'Oct–Jan', districts:'Soroti, Kumi, Butaleja', desc:'Uganda has 20+ mango varieties; high export potential' },
   { name:'Pineapple', emoji:'🍍', cat:'fruit', img:'1490474418585-ba9bad8fd0ea', price:'800–1,500', unit:'piece', season:'Year-round', districts:'Kayunga, Mukono, Luwero', desc:'Smooth Cayenne variety dominates; processed for juice export' },
   { name:'Avocado', emoji:'🥑', cat:'fruit', img:'1601039641847-7857b994d704', price:'500–1,200', unit:'kg', season:'Feb–May, Jul–Oct', districts:'Western Uganda, Buganda', desc:'Fast-growing export crop with high European demand' },
-  { name:'Passion Fruit', emoji:'🟣', cat:'fruit', img:'1604495772376-9657f04e2be2', price:'3,000–5,000', unit:'kg', season:'Year-round', districts:'Kabale, Kisoro, Mbarara', desc:'Purple & yellow varieties; major juice export product' },
+  { name:'Passion Fruit', emoji:'🟣', cat:'fruit', img:'1544735716-392fe2489ffa', price:'3,000–5,000', unit:'kg', season:'Year-round', districts:'Kabale, Kisoro, Mbarara', desc:'Purple & yellow varieties; major juice export product' },
   { name:'Banana', emoji:'🍌', cat:'fruit', img:'1571771894821-ce9b6c11b08e', price:'500–1,000', unit:'bunch', season:'Year-round', districts:'Nationwide', desc:'Dessert banana (different variety from cooking matooke)' },
-
-  { name:'Papaya', emoji:'🍈', cat:'fruit', img:'1526318896980-cf78c088247c', price:'1,000–2,000', unit:'piece', season:'Year-round', districts:'Central & Eastern Uganda', desc:'Rich in vitamins; widely grown in homestead gardens' },
+  { name:'Papaya', emoji:'🍈', cat:'fruit', img:'1590502160462-58edd4ea5d80', price:'1,000–2,000', unit:'piece', season:'Year-round', districts:'Central & Eastern Uganda', desc:'Rich in vitamins; widely grown in homestead gardens' },
   { name:'Watermelon', emoji:'🍉', cat:'fruit', img:'1587049352846-4a222e784d38', price:'800–1,500', unit:'piece', season:'Dry season', districts:'Mbarara, Kiruhura, Sembabule', desc:'Fast-growing, high water content; popular urban product' },
-  { name:'Jackfruit', emoji:'🫐', cat:'fruit', img:'1597362925123-77861d3fbac7', price:'2,000–5,000', unit:'piece', season:'Jan–Mar, Jun–Aug', districts:'Buganda region', desc:'Largest tree fruit; eaten ripe or cooked when unripe' },
+  { name:'Jackfruit', emoji:'🟡', cat:'fruit', img:'1627483297886-49710ae1fc22', price:'2,000–5,000', unit:'piece', season:'Jan–Mar, Jun–Aug', districts:'Buganda region', desc:'Largest tree fruit; eaten ripe or cooked when unripe' },
   { name:'Oranges', emoji:'🍊', cat:'fruit', img:'1547514701-42782101795e', price:'200–400', unit:'piece', season:'Jun–Sep', districts:'Soroti, Butaleja, Budaka', desc:'Washington Navel variety common; growing export market' },
-  // CASH CROPS
+  // ── CASH CROPS ──
   { name:'Coffee', emoji:'☕', cat:'cash', img:'1447933601403-0c6688de566e', price:'8,000–15,000', unit:'kg', season:'Oct–Feb', districts:'Bugisu, Rwenzori, Masaka', desc:"Uganda's #1 export — Robusta & Arabica for world markets" },
-  { name:'Tea', emoji:'🍵', cat:'cash', img:'1501854140801-50d01698950b', price:'800–1,200', unit:'kg', season:'Year-round', districts:'Bushenyi, Kabarole, Kabale', desc:'Highland cash crop; major employer and foreign earner' },
-  { name:'Cotton', emoji:'🌸', cat:'cash', img:'1581088083167-89cc4ce4e24e', price:'1,500–2,500', unit:'kg', season:'May–Dec', districts:'Northern & Eastern Uganda', desc:'Historical cash crop; raw material for textile industry' },
-  { name:'Vanilla', emoji:'🌿', cat:'cash', img:'1596040033229-a9821ebd058d', price:'50,000–200,000', unit:'kg', season:'Jun–Aug', districts:'Mbarara, Kasese, Mukono', desc:"Premium spice — Uganda is world's top 3 vanilla exporter" },
+  { name:'Tea', emoji:'🍵', cat:'cash', img:'1558008258-3256797b43f3', price:'800–1,200', unit:'kg', season:'Year-round', districts:'Bushenyi, Kabarole, Kabale', desc:'Highland cash crop; major employer and foreign earner' },
+  { name:'Cotton', emoji:'🌸', cat:'cash', img:'1565647952-3fbbf11b1f48', price:'1,500–2,500', unit:'kg', season:'May–Dec', districts:'Northern & Eastern Uganda', desc:'Historical cash crop; raw material for textile industry' },
+  { name:'Vanilla', emoji:'🌿', cat:'cash', img:'1617634975995-b2fa8bcf2f20', price:'50,000–200,000', unit:'kg', season:'Jun–Aug', districts:'Mbarara, Kasese, Mukono', desc:"Premium spice — Uganda is world's top 3 vanilla exporter" },
   { name:'Cocoa', emoji:'🍫', cat:'cash', img:'1606312619070-d48b4c652a52', price:'5,000–8,000', unit:'kg', season:'Mar–Jun, Oct–Feb', districts:'Bundibugyo, Masindi', desc:'Fast-growing export crop with premium organic potential' },
   { name:'Sunflower', emoji:'🌻', cat:'cash', img:'1470509037663-253afd7f0f51', price:'1,200–2,000', unit:'kg', season:'Mar–Aug', districts:'Lira, Gulu, Apac', desc:'Processed into cooking oil; major northern Uganda crop' },
-  { name:'Groundnuts', emoji:'🥜', cat:'cash', img:'1519197924294-4ba991a11128', price:'3,000–5,000', unit:'kg', season:'Mar–Jul, Sep–Dec', districts:'Eastern & Northern Uganda', desc:'Important protein source and oil crop; widely traded' },
-  { name:'Soybeans', emoji:'🫘', cat:'cash', img:'1574943320219-553eb213f72d', price:'2,000–3,500', unit:'kg', season:'Mar–Jul', districts:'Masindi, Lira, Hoima', desc:'Protein-rich legume; animal feed and cooking oil' },
-  { name:'Sesame', emoji:'🌿', cat:'cash', img:'1559181567-c3190e14569a', price:'4,000–7,000', unit:'kg', season:'Apr–Sep', districts:'Northern Uganda (Acholi)', desc:'Export crop (simsim); sesame oil and seeds for export' },
-  { name:'Sugarcane', emoji:'🎋', cat:'cash', img:'1571068316344-75bc76f77890', price:'50,000–80,000', unit:'tonne', season:'Year-round', districts:'Jinja, Iganga, Lugazi', desc:'Processed into sugar at major mills; byproducts for ethanol' },
+  { name:'Groundnuts', emoji:'🥜', cat:'cash', img:'1567892514-e441cdad1c9c', price:'3,000–5,000', unit:'kg', season:'Mar–Jul, Sep–Dec', districts:'Eastern & Northern Uganda', desc:'Important protein source and oil crop; widely traded' },
+  { name:'Soybeans', emoji:'🫘', cat:'cash', img:'1628771065518-0d82f1938462', price:'2,000–3,500', unit:'kg', season:'Mar–Jul', districts:'Masindi, Lira, Hoima', desc:'Protein-rich legume; animal feed and cooking oil' },
+  { name:'Sesame', emoji:'🌿', cat:'cash', img:'1599598888-9f89a2a0b12e', price:'4,000–7,000', unit:'kg', season:'Apr–Sep', districts:'Northern Uganda (Acholi)', desc:'Export crop (simsim); sesame oil and seeds for export' },
+  { name:'Sugarcane', emoji:'🎋', cat:'cash', img:'1541123437800-99a8c63d0d8e', price:'50,000–80,000', unit:'tonne', season:'Year-round', districts:'Jinja, Iganga, Lugazi', desc:'Processed into sugar at major mills; byproducts for ethanol' },
 ];
 
 function setCropFilter(f, btn) {
@@ -1953,6 +2151,151 @@ function sampleAlerts() {
 }
 
 // ═══════════════════════════════════════════════════════
+// DISTRICT FILTER (MARKET)
+// ═══════════════════════════════════════════════════════
+let activeDistrict = '';
+function filterByDistrict(val) {
+  activeDistrict = val;
+  renderListings();
+}
+
+// ═══════════════════════════════════════════════════════
+// AI CROP DOCTOR
+// ═══════════════════════════════════════════════════════
+const DISEASE_DB = {
+  'Maize': {
+    'Yellowing / Chlorosis': { name:'Maize Streak Virus or Nitrogen Deficiency', conf:'High confidence', desc:'Yellowing in maize can indicate Maize Streak Virus (MSV) spread by leafhoppers, or nitrogen deficiency showing yellowing from older leaves upward.', treatment:['For MSV: Remove affected plants. Plant MSV-resistant varieties (NARO Hybrid 212).','For N deficiency: Apply CAN fertilizer at 150kg/ha. Top-dress with Urea at knee-high stage.','Spray neem oil (1%) weekly to control leafhopper vectors.'], prevention:'Use certified treated seed. Practice crop rotation with legumes (beans) to fix nitrogen.' },
+    'Holes / Chewing damage': { name:'Fall Armyworm (Spodoptera frugiperda)', conf:'Very high confidence', desc:'The most common and destructive pest in Uganda maize. Larvae feed inside the whorl, leaving characteristic ragged holes and frass deposits.', treatment:['Apply Emamectin benzoate (Proclaim) or Chlorpyrifos at first sign of damage.','Spray into the whorl (centre funnel) of the plant — not just leaves.','Apply in early morning or evening when larvae are active.'], prevention:'Early planting (start of rains). Push-pull method: plant Desmodium between rows, Napier grass as border. Monitor weekly.' },
+    'Brown spots / Lesions': { name:'Grey Leaf Spot (Cercospora zeae-maydis)', conf:'High confidence', desc:'Fungal disease causing rectangular grey-brown lesions parallel to leaf veins. Worsened by wet, humid weather.', treatment:['Apply Mancozeb 80WP at 2.5kg/ha every 14 days.','Ensure proper plant spacing (75×30cm) for airflow.','Remove and burn severely affected leaves.'], prevention:'Plant tolerant varieties. Avoid monoculture — rotate with beans or groundnuts.' },
+  },
+  'Tomatoes': {
+    'Brown spots / Lesions': { name:'Early Blight (Alternaria solani) or Late Blight (Phytophthora)', conf:'High confidence', desc:'Early blight shows dark brown concentric-ring spots on older leaves. Late blight shows water-soaked grey-green spots that turn brown rapidly in wet weather.', treatment:['Apply Ridomil Gold MZ (Mancozeb+Metalaxyl) every 7 days in wet season.','Remove and destroy infected plant material.','Avoid wetting foliage when watering — use drip irrigation.'], prevention:'Use certified disease-free transplants. Stake tomatoes for airflow. 3-year rotation.' },
+    'Wilting / Drooping': { name:'Bacterial Wilt (Ralstonia solanacearum)', conf:'High confidence', desc:'Sudden wilting of all leaves while still green. Cut stem shows brown discolouration; white bacterial ooze visible in water test.', treatment:['No chemical cure available. Remove and burn entire plant immediately.','Drench soil with Copper oxychloride to reduce spread.','Do NOT replant tomatoes in same bed for 3 seasons.'], prevention:'Use grafted tomato plants resistant to wilt. Avoid water-logged soils. Sterilize tools.' },
+    'White powder / Mould': { name:'Powdery Mildew (Leveillula taurica)', conf:'Medium confidence', desc:'White powdery coating on upper leaf surface. Common in warm dry weather with cool nights.', treatment:['Spray potassium bicarbonate (Kaligreen) or sulfur-based fungicide.','Apply neem oil spray (2%) every 5–7 days.','Remove heavily infected leaves.'], prevention:'Choose mildew-resistant varieties. Ensure good ventilation. Avoid excess nitrogen fertilizer.' },
+  },
+  'Cassava': {
+    'Yellowing / Chlorosis': { name:'Cassava Mosaic Disease (CMD)', conf:'Very high confidence', desc:'The most serious cassava disease in Uganda. Mosaic yellowing pattern on leaves, leaf distortion and stunting. Spread by whiteflies.', treatment:['Remove and burn all infected plants immediately.','Replant with CMD-resistant varieties (NAROCAS 1, TME 14).','Control whitefly with imidacloprid or neem extract spray.'], prevention:'Only plant clean (healthy) stem cuttings. Source from certified multiplication sites (NAARO, NaCRRI).' },
+    'Rotting / Soft spots': { name:'Cassava Brown Streak Disease (CBSD)', conf:'High confidence', desc:'Internal brown/yellow necrosis of root. External symptoms include yellow leaf patches, twig dieback. Makes roots inedible.', treatment:['No chemical treatment. Rogue out infected plants.','Plant CBSD-tolerant varieties (NAROCAS 1, Kiganda Select).'], prevention:'Use only disease-free planting material. Quarantine planting material from other regions.' },
+  },
+  'default': {
+    'Yellowing / Chlorosis': { name:'Nutrient Deficiency (likely Nitrogen or Iron)', conf:'Medium confidence', desc:'General yellowing across many crops often indicates nitrogen deficiency (older leaves first) or iron deficiency (young leaves first, between veins).', treatment:['Apply CAN (26% N) at 100–150kg/ha for nitrogen deficiency.','For iron deficiency: foliar spray of ferrous sulfate (5g/L water).','Test soil pH — iron unavailable above pH 7.5.'], prevention:'Conduct soil testing before planting. Maintain organic matter with compost/manure.' },
+    'Brown spots / Lesions': { name:'Fungal Leaf Spot Disease', conf:'Medium confidence', desc:'Brown or dark spots on leaves are most commonly caused by fungal pathogens (Cercospora, Alternaria, etc.) worsened by wet conditions.', treatment:['Apply Mancozeb 80WP (2–2.5kg/ha) every 10–14 days.','Remove and burn infected plant material.','Improve spacing and drainage.'], prevention:'Use disease-free seed. Crop rotation. Avoid leaf wetness. Apply copper-based fungicide preventively at planting.' },
+    'Wilting / Drooping': { name:'Soil-borne Wilt or Root Damage', conf:'Medium confidence', desc:'Wilting during cooler hours indicates water stress. Wilting despite adequate water suggests root rot, Fusarium wilt, or nematode damage.', treatment:['Expose and inspect roots for brown rot or nematode galls.','Apply Trichoderma-based biocontrol to soil.','Improve drainage. Reduce irrigation frequency.'], prevention:'Crop rotation (3 years). Use resistant varieties. Solarize soil before planting.' },
+  }
+};
+
+function runDiagnosis() {
+  const crop    = document.getElementById('drCrop').value;
+  const part    = document.getElementById('drPart').value;
+  const symptom = document.getElementById('drSymptom').value;
+  const duration= document.getElementById('drDuration').value;
+  const district= document.getElementById('drDistrict').value;
+  const weather = document.getElementById('drWeather').value;
+  const desc    = document.getElementById('drDesc').value;
+
+  if (!crop || !symptom) { showToast('Please select at least the crop and symptom'); return; }
+
+  const db = DISEASE_DB[crop] || DISEASE_DB['default'];
+  const result = db[symptom] || DISEASE_DB['default'][symptom] || {
+    name: 'Unknown / Rare Condition',
+    conf: 'Low confidence — consult extension officer',
+    desc: `Your crop (${crop}) is showing ${symptom} on the ${part || 'plant'}. This combination is uncommon in our database.`,
+    treatment: ['Take clear photos and contact your nearest NAADS extension officer.','Visit the nearest District Agricultural Office for free plant testing.','Call AgriBridge support: +256 755 966 690'],
+    prevention: 'Keep detailed crop records. Scout fields weekly for early detection.'
+  };
+
+  document.getElementById('drDiagName').textContent = '🔬 ' + result.name;
+  document.getElementById('drDiagConf').textContent = `${result.conf} · Crop: ${crop} · ${district ? district + ' District · ' : ''}${weather}`;
+  document.getElementById('drDiagBody').innerHTML = `
+    <p style="margin-bottom:14px;line-height:1.6">${result.desc}</p>
+    <div style="background:var(--bg3);border-radius:10px;padding:16px;margin-bottom:14px">
+      <div style="font-weight:700;margin-bottom:10px;font-size:0.9rem">💊 Recommended Treatment (${duration})</div>
+      ${result.treatment.map((t,i) => `<div style="display:flex;gap:10px;margin-bottom:8px;font-size:0.85rem"><span style="color:var(--green);font-weight:700;min-width:20px">${i+1}.</span><span>${t}</span></div>`).join('')}
+    </div>
+    <div style="background:var(--bg3);border-radius:10px;padding:16px">
+      <div style="font-weight:700;margin-bottom:8px;font-size:0.9rem">🛡️ Prevention Going Forward</div>
+      <p style="font-size:0.85rem;line-height:1.6">${result.prevention}</p>
+    </div>
+    <div style="margin-top:14px;display:flex;gap:10px;flex-wrap:wrap">
+      <button class="btn-card" onclick="showPage('supply')">🏪 Buy Treatments</button>
+      <a href="tel:+256755966690" class="btn-card" style="display:inline-block">📞 Call Expert</a>
+      <button class="btn-card" style="background:transparent;border:1px solid var(--green);color:var(--green)" onclick="showToast('Report saved! Extension officer will follow up. 📋')">📋 Report to Extension Officer</button>
+    </div>`;
+  document.getElementById('drResult').style.display = 'block';
+  document.getElementById('drResult').scrollIntoView({ behavior:'smooth', block:'start' });
+}
+
+// ═══════════════════════════════════════════════════════
+// AGRICULTURE SUPPLY STORE
+// ═══════════════════════════════════════════════════════
+const SUPPLY_ITEMS = [
+  // SEEDS
+  { cat:'seeds', name:'Longe 5H Maize Seed', brand:'NASECO', price:45000, unit:'2kg bag', img:'1560493676-696fc1c5d2bf', badge:'Best Seller', desc:'High-yielding NARO-released hybrid maize. 8–9 tonnes/ha potential. MLN tolerant.' },
+  { cat:'seeds', name:'Tomato Seedlings (F1 Hybrid)', brand:'AgroWays UG', price:12000, unit:'tray of 50', img:'1546094096-0df4bcaaa337', badge:'Organic', desc:'Roma F1 hybrid. Disease resistant. Ready for transplanting at 3–4 weeks.' },
+  { cat:'seeds', name:'NAROCAS 1 Cassava Cuttings', brand:'NaCRRI', price:8000, unit:'bundle (50 stakes)', img:'1612257999756-2d43c78397ee', badge:'CMD Resistant', desc:'CMD and CBSD resistant. Certified planting material from NaCRRI.' },
+  { cat:'seeds', name:'Robusta Coffee Seedlings', brand:'UCDA Nurseries', price:3500, unit:'per seedling', img:'1447933601403-0c6688de566e', badge:'Certified', desc:'Clonal CWD-resistant Robusta seedlings. Ready to plant at 6 months.' },
+  { cat:'seeds', name:'Victoria F1 Cabbage Seed', brand:'Syngenta', price:35000, unit:'10g sachet', img:'1551754655-9e95b9a0c3e3', badge:'', desc:'Early maturing (60 days). Dense heads. Heat tolerant for Uganda lowlands.' },
+  { cat:'seeds', name:'Hass Avocado Grafted Seedlings', brand:'Green Gold Nursery', price:25000, unit:'per plant', img:'1601039641847-7857b994d704', badge:'Export Grade', desc:'Grafted on local rootstock. Fruiting starts at 3–4 years. High European demand.' },
+  // FERTILIZERS
+  { cat:'fertilizer', name:'CAN 26% Nitrogen Fertilizer', brand:'Yara / Balton', price:125000, unit:'50kg bag', img:'1574316071802-0d684efa7bf5', badge:'Top-dress', desc:'Calcium Ammonium Nitrate. Best top-dressing fertilizer for maize, vegetables & coffee.' },
+  { cat:'fertilizer', name:'NPK 17:17:17 Basal Fertilizer', brand:'Yara', price:140000, unit:'50kg bag', img:'1525498128493-380d2990a9c5', badge:'Best for Planting', desc:'Balanced fertilizer for planting time. Ideal for maize, beans, vegetables.' },
+  { cat:'fertilizer', name:'DAP (Di-Ammonium Phosphate)', brand:'Balton', price:150000, unit:'50kg bag', img:'1617199824472-f5dc87237f11', badge:'', desc:'High phosphorus starter fertilizer. Promotes root development and early growth.' },
+  { cat:'fertilizer', name:'Organic Compost Fertilizer', brand:'AgriBridge Certified', price:35000, unit:'50kg bag', img:'1416879591584-be108b5e4b2c', badge:'🌱 Organic', desc:'Certified composted farmyard manure. Improves soil structure and water retention.' },
+  // PESTICIDES
+  { cat:'pesticide', name:'Emamectin Benzoate (Proclaim)', brand:'Syngenta', price:28000, unit:'100ml bottle', img:'1530836369250-ef72a3f5cda8', badge:'Fall Armyworm', desc:'Most effective insecticide for Fall Armyworm in maize. Apply at first sign of infestation.' },
+  { cat:'pesticide', name:'Ridomil Gold MZ 68WP', brand:'Syngenta', price:45000, unit:'100g sachet', img:'1569989153237-5f5e1b0da3ce', badge:'Fungicide', desc:'Controls early and late blight in tomatoes and potatoes. Systemic + contact action.' },
+  { cat:'pesticide', name:'Mancozeb 80WP', brand:'Dithane', price:18000, unit:'200g sachet', img:'1586201375761-83865001e31c', badge:'Broad Spectrum', desc:'Broad-spectrum fungicide. Controls grey leaf spot, blight, rust. Low resistance risk.' },
+  { cat:'pesticide', name:'Neem Oil Extract (Organic)', brand:'AgriBridge Organic', price:22000, unit:'500ml bottle', img:'1503454537195-1dcabb73ffb9', badge:'🌱 Organic', desc:'Cold-pressed neem oil. Controls aphids, whitefly, spider mites. Safe for bees.' },
+  // TOOLS
+  { cat:'tool', name:'Hand Pump Sprayer 16L', brand:'Solo', price:85000, unit:'unit', img:'1488590528505-98d2b5aba04b', badge:'Best Seller', desc:'Solo backpack sprayer. 16L capacity. Adjustable nozzle. 3-year warranty.' },
+  { cat:'tool', name:'Garden Fork & Spade Set', brand:'Bulldog Tools', price:55000, unit:'2-piece set', img:'1416879591584-be108b5e4b2c', badge:'', desc:'Heavy duty forged steel. Comfortable D-grip handle. Ideal for Ugandan soils.' },
+  { cat:'tool', name:'Digital Soil pH Tester', brand:'Kelway', price:120000, unit:'unit', img:'1617199824472-f5dc87237f11', badge:'New', desc:'Test soil pH in 60 seconds. Know exactly what lime or fertilizer your soil needs.' },
+  { cat:'tool', name:'Motorized Knapsack Sprayer 20L', brand:'Jacto', price:380000, unit:'unit', img:'1570197788417-0e82375c9371', badge:'Pro Farmer', desc:'Engine-powered backpack sprayer. Covers 2 acres/hour. 20L tank. Ideal for large farms.' },
+];
+
+let supplyFilter = 'all';
+let supplySearch = '';
+
+function setSupplyFilter(f, btn) {
+  supplyFilter = f;
+  document.querySelectorAll('#supplyFilters .filter-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  renderSupply();
+}
+function filterSupply(q) { supplySearch = q.toLowerCase(); renderSupply(); }
+function filterSupplyCategory(cat) { supplyFilter = cat || 'all'; renderSupply(); }
+
+function renderSupply() {
+  let items = SUPPLY_ITEMS;
+  if (supplyFilter !== 'all') items = items.filter(i => i.cat === supplyFilter);
+  if (supplySearch) items = items.filter(i =>
+    i.name.toLowerCase().includes(supplySearch) ||
+    i.brand.toLowerCase().includes(supplySearch) ||
+    i.desc.toLowerCase().includes(supplySearch)
+  );
+  const catLabel = { seeds:'🌱 Seeds', fertilizer:'🧪 Fertilizer', pesticide:'🛡️ Pesticide', tool:'🔧 Tool' };
+  document.getElementById('supplyGrid').innerHTML = items.map(item => `
+    <div class="card">
+      <img class="card-img" src="https://images.unsplash.com/photo-${item.img}?auto=format&fit=crop&w=400&h=180&q=75" alt="${item.name}" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'">
+      <div class="card-img-placeholder" style="display:none">${catLabel[item.cat]}</div>
+      <div class="card-body">
+        ${item.badge ? `<span class="card-tag">${item.badge}</span>` : `<span class="card-tag">${catLabel[item.cat]}</span>`}
+        <div class="card-title">${item.name}</div>
+        <div class="card-desc">${item.desc}</div>
+        <div style="font-size:0.78rem;color:var(--text2);margin-bottom:12px">🏷️ ${item.brand} · Per ${item.unit}</div>
+        <div class="card-footer">
+          <div><div class="card-price">UGX ${item.price.toLocaleString()}</div><div class="card-unit">per ${item.unit}</div></div>
+          <button class="btn-card" onclick="orderSupply('${item.name}',${item.price})">🛒 Order</button>
+        </div>
+      </div>
+    </div>`).join('');
+}
+
+function orderSupply(name, price) {
+  showToast(`Order placed: ${name}! We'll confirm via SMS 📲`);
+}
+
+// ═══════════════════════════════════════════════════════
 // ABOUT TABS
 // ═══════════════════════════════════════════════════════
 function switchAboutTab(tab, btn) {
@@ -2030,7 +2373,8 @@ document.addEventListener('keydown', e => {
 // ═══════════════════════════════════════════════════════
 document.addEventListener('DOMContentLoaded', () => {
   loadHomeStats();
-  renderCrops(); // Pre-render crops data (no API needed)
+  renderCrops();
+  renderSupply();
 });
 </script>
 </body>
