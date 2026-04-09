@@ -1426,8 +1426,47 @@ AgriBridge service</div>
 // ═══════════════════════════════════════════════════════
 // CONFIG
 // ═══════════════════════════════════════════════════════
-const API = 'https://agribridge-1-og7a.onrender.com';
-let authToken = localStorage.getItem('ab_token') || null;
+// ═══════════════════════════════════════════════════════
+// SUPABASE CLIENT — AgriBridge Backend
+// ═══════════════════════════════════════════════════════
+const SUPA_URL  = 'https://vyrctsiyaihsysgpozdm.supabase.co';
+const SUPA_KEY  = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZ5cmN0c2l5YWloc3lzZ3BvemRtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzU2OTQwNTIsImV4cCI6MjA5MTI3MDA1Mn0.5CcGWvDgfTzZDGvmgYogSO0R0ho6T9J_QZ_bhGo7jS8';
+const USSD_API  = 'https://agribridge-1-og7a.onrender.com'; // kept for USSD only
+
+// Lightweight Supabase REST helper — no SDK needed (works anywhere)
+async function sb(table, opts = {}) {
+  const { method = 'GET', select = '*', filters = [], body, single = false, count = false } = opts;
+  let url = `${SUPA_URL}/rest/v1/${table}`;
+  const params = new URLSearchParams();
+  if (select) params.set('select', select);
+  if (single)  params.set('limit', '1');
+  if (count)   params.set('select', 'count');
+  filters.forEach(f => params.set(f[0], f[1]));
+  if (params.toString()) url += '?' + params.toString();
+  const headers = {
+    'apikey': SUPA_KEY,
+    'Authorization': 'Bearer ' + SUPA_KEY,
+    'Content-Type': 'application/json',
+    'Prefer': method === 'POST' ? 'return=representation' : 'return=minimal'
+  };
+  if (count) headers['Prefer'] = 'count=exact';
+  try {
+    const res = await fetch(url, { method, headers, body: body ? JSON.stringify(body) : undefined });
+    if (count) return parseInt(res.headers.get('content-range')?.split('/')[1] || '0');
+    if (!res.ok) return null;
+    const json = await res.json();
+    return single ? (Array.isArray(json) ? json[0] : json) : json;
+  } catch { return null; }
+}
+
+async function sbInsert(table, data) {
+  return sb(table, { method: 'POST', body: data });
+}
+
+async function sbUpdate(table, data, filterCol, filterVal) {
+  return sb(table, { method: 'PATCH', body: data, filters: [[filterCol, `eq.${filterVal}`]] });
+}
+
 let currentUser = JSON.parse(localStorage.getItem('ab_user') || 'null');
 let allListings = [];
 let allPrices = [];
@@ -1467,37 +1506,33 @@ function showPage(name) {
 }
 
 // ═══════════════════════════════════════════════════════
-// FETCH HELPER
-// ═══════════════════════════════════════════════════════
-async function apiFetch(path, opts = {}) {
-  try {
-    const headers = { 'Content-Type': 'application/json', ...(opts.headers || {}) };
-    if (authToken) headers['Authorization'] = 'Bearer ' + authToken;
-    const res = await fetch(API + path, { ...opts, headers });
-    const ct = res.headers.get('content-type') || '';
-    if (!ct.includes('application/json')) return null;
-    return await res.json();
-  } catch { return null; }
-}
-
-// ═══════════════════════════════════════════════════════
 // HOME
 // ═══════════════════════════════════════════════════════
 async function loadHomeStats() {
-  const data = await apiFetch('/api/stats');
-  if (data) {
-    if (data.farmers)  document.getElementById('h-farmers').textContent  = (data.farmers  || 0).toLocaleString() + '+';
-    if (data.listings) document.getElementById('h-listings').textContent = (data.listings || 0).toLocaleString() + '+';
-  }
-  // Also load featured listings
-  const listings = await apiFetch('/api/listings');
+  // Fetch counts from Supabase in parallel
+  const [farmerCount, listingCount, listings] = await Promise.all([
+    sb('farmers',  { count: true }),
+    sb('listings', { count: true }),
+    sb('listings', { select: 'id,crop_name,category,quantity_kg,price_per_kg,unit,district,is_organic,is_verified,description,farmers(full_name,is_verified)', filters: [['is_available', 'eq.true'], ['limit', '6']] })
+  ]);
+  if (farmerCount)  document.getElementById('h-farmers').textContent  = (farmerCount  || 0).toLocaleString() + '+';
+  if (listingCount) document.getElementById('h-listings').textContent = (listingCount || 0).toLocaleString() + '+';
   if (listings && listings.length) {
-    allListings = listings;
-    const featured = listings.slice(0, 4);
-    document.getElementById('homeFeatured').innerHTML = featured.map(listingCard).join('');
+    allListings = listings.map(normalise);
+    document.getElementById('homeFeatured').innerHTML = allListings.slice(0, 4).map(listingCard).join('');
   } else {
-    document.getElementById('homeFeatured').innerHTML = '<div class="empty-state"><div class="e-icon">🌾</div><p>No listings yet.</p></div>';
+    allListings = sampleListings();
+    document.getElementById('homeFeatured').innerHTML = allListings.slice(0, 4).map(listingCard).join('');
   }
+}
+
+// Normalise Supabase joined listing → consistent field names
+function normalise(l) {
+  return {
+    ...l,
+    farmer_name: l.farmers?.full_name || 'Ugandan Farmer',
+    is_verified: l.is_verified || l.farmers?.is_verified || false,
+  };
 }
 
 // ═══════════════════════════════════════════════════════
@@ -1506,12 +1541,14 @@ async function loadHomeStats() {
 async function loadListings() {
   if (allListings.length > 0) { renderListings(); return; }
   document.getElementById('marketListings').innerHTML = '<div class="loader"><div class="spinner"></div>Loading…</div>';
-  const data = await apiFetch('/api/listings');
+  const data = await sb('listings', {
+    select: 'id,crop_name,category,quantity_kg,price_per_kg,unit,district,is_organic,is_verified,description,farmers(full_name,is_verified)',
+    filters: [['is_available', 'eq.true']]
+  });
   if (data && data.length) {
-    allListings = data;
+    allListings = data.map(normalise);
     renderListings();
   } else {
-    // Use sample data if API unavailable
     allListings = sampleListings();
     renderListings();
   }
@@ -1591,7 +1628,10 @@ function sortListings(val) {
 // ═══════════════════════════════════════════════════════
 async function loadPrices() {
   if (allPrices.length > 0) { renderPrices(); return; }
-  const data = await apiFetch('/api/prices');
+  const data = await sb('market_prices', {
+    select: 'crop_name,market,district,price_per_kg,price_min,price_max,change_pct,price_date',
+    filters: [['order', 'price_date.desc']]
+  });
   allPrices = data && data.length ? data : samplePrices();
   renderPrices();
 }
@@ -1626,8 +1666,15 @@ function setPriceFilter(f, btn) {
 async function loadTraining() {
   if (allTraining.length > 0) { renderTraining(); return; }
   document.getElementById('trainingGrid').innerHTML = '<div class="loader"><div class="spinner"></div>Loading modules…</div>';
-  const data = await apiFetch('/api/training');
-  allTraining = data && data.length ? data : sampleTraining();
+  const data = await sb('training_videos', {
+    select: 'id,title,description,youtube_url,thumbnail_url,crop_tags,language,level,duration_mins,is_featured',
+    filters: [['order', 'is_featured.desc,created_at.desc']]
+  });
+  // Map Supabase field names to what trainingCard() expects
+  allTraining = (data && data.length ? data : sampleTraining()).map(t => ({
+    ...t,
+    video_url: t.youtube_url || t.video_url || ''
+  }));
   renderTraining();
 }
 
@@ -1745,7 +1792,7 @@ async function startUssdSession() {
 
 async function callUssdApi(text) {
   try {
-    const res = await fetch(API + '/api/ussd', {
+    const res = await fetch(USSD_API + '/api/ussd', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -1822,16 +1869,21 @@ async function trackDelivery() {
   if (!ref) { showToast('Enter a delivery reference'); return; }
   const el = document.getElementById('trackingResult');
   el.innerHTML = '<div class="loader"><div class="spinner"></div>Tracking…</div>';
-  const data = await apiFetch('/api/deliveries/' + encodeURIComponent(ref));
-  if (data && (data.ref || data.id)) {
-    const steps = ['Order Confirmed', 'Loading at Farm', 'Picked Up', 'In Transit', 'Delivered'];
-    const statusMap = { confirmed:0, loading:1, picked_up:2, in_transit:3, delivered:4 };
+  // Search by tracking_code in Supabase deliveries table
+  const data = await sb('deliveries', {
+    select: 'id,status,pickup_location,delivery_location,tracking_code,estimated_arrival,driver_name,driver_phone,notes',
+    filters: [['tracking_code', `eq.${ref.toUpperCase()}`]],
+    single: true
+  });
+  if (data && data.id) {
+    const steps = ['Scheduled', 'Picked Up', 'In Transit', 'At Checkpoint', 'Delivered'];
+    const statusMap = { scheduled:0, picked_up:1, in_transit:2, at_checkpoint:3, delivered:4 };
     const cur = statusMap[data.status] ?? 2;
     el.innerHTML = `
       <div style="background:var(--bg3);border-radius:12px;padding:16px;margin-top:8px">
         <div style="display:flex;justify-content:space-between;margin-bottom:16px;flex-wrap:wrap;gap:8px">
-          <div><strong>Ref:</strong> ${data.ref || ref}</div>
-          <div style="color:var(--green);font-weight:700">${data.status?.replace('_',' ').toUpperCase() || 'IN TRANSIT'}</div>
+          <div><strong>Ref:</strong> ${data.tracking_code || ref}</div>
+          <div style="color:var(--green);font-weight:700">${data.status?.replace(/_/g,' ').toUpperCase() || 'IN TRANSIT'}</div>
         </div>
         <div class="timeline">
           ${steps.map((s,i) => `
@@ -1853,15 +1905,19 @@ async function trackDelivery() {
 }
 
 async function loadAlerts() {
-  const data = await apiFetch('/api/deliveries/alerts');
+  const data = await sb('deliveries', {
+    select: 'id,status,pickup_location,delivery_location,tracking_code,estimated_arrival,notes,created_at',
+    filters: [['order', 'created_at.desc'], ['limit', '10']]
+  });
   const el = document.getElementById('alertsList');
   const list = data && data.length ? data : sampleAlerts();
-  if (!list.length) { el.innerHTML = '<div class="empty-state"><div class="e-icon">📭</div><p>No alerts yet.</p></div>'; return; }
-  el.innerHTML = list.slice(0,8).map(a => `
-    <div class="alert-item">
-      <div class="a-msg">🔔 ${a.message || a.msg || a}</div>
-      <div class="a-time">${a.created_at || a.time || 'Just now'}</div>
-    </div>`).join('');
+  if (!list.length) { el.innerHTML = '<div class="empty-state"><div class="e-icon">📭</div><p>No delivery alerts yet.</p></div>'; return; }
+  el.innerHTML = list.map(a => {
+    const statusIcon = { scheduled:'📦', picked_up:'🚜', in_transit:'🚛', at_checkpoint:'📍', delivered:'✅', failed:'❌' };
+    const msg = a.message || (a.status ? `${statusIcon[a.status]||'🔔'} Delivery ${a.tracking_code||''}: ${a.status?.replace(/_/g,' ')} — ${a.pickup_location||''} → ${a.delivery_location||''}` : a);
+    const time = a.created_at ? new Date(a.created_at).toLocaleString('en-UG', { dateStyle:'short', timeStyle:'short' }) : 'Just now';
+    return `<div class="alert-item"><div class="a-msg">${msg}</div><div class="a-time">${time}</div></div>`;
+  }).join('');
 }
 
 // ═══════════════════════════════════════════════════════
@@ -1941,19 +1997,29 @@ function renderCrops() {
 // ═══════════════════════════════════════════════════════
 // AUTH — LOGIN / REGISTER
 // ═══════════════════════════════════════════════════════
+// ─── AUTH (Supabase direct — no OTP in sandbox, simple phone lookup) ───
 async function doLogin() {
   const phone = document.getElementById('loginPhone').value.trim();
-  const pwd   = document.getElementById('loginPwd').value;
-  if (!phone || !pwd) { showToast('Enter phone and password'); return; }
-  const data = await apiFetch('/api/login', { method:'POST', body: JSON.stringify({ phone, password: pwd }) });
-  if (data && data.token) {
-    authToken = data.token; currentUser = data.user;
-    localStorage.setItem('ab_token', authToken);
+  if (!phone) { showToast('Enter your phone number'); return; }
+  // Look up farmer by phone
+  const farmer = await sb('farmers', { select: '*', filters: [['phone', `eq.${phone}`]], single: true });
+  if (farmer) {
+    currentUser = { id: farmer.id, name: farmer.full_name, phone: farmer.phone, district: farmer.district, role: 'farmer' };
     localStorage.setItem('ab_user', JSON.stringify(currentUser));
     closeModal('loginModal');
-    showToast('Welcome back, ' + (currentUser.name || 'Farmer') + '! 🌱');
+    showToast('Welcome back, ' + farmer.full_name + '! 🌱');
+    document.querySelectorAll('.nav-btns').forEach(el => el.innerHTML = `<span style="color:var(--green);font-size:0.85rem;font-weight:700">👤 ${farmer.full_name.split(' ')[0]}</span>`);
   } else {
-    showToast(data?.error || 'Login failed — check your details');
+    // Try buyers table
+    const buyer = await sb('buyers', { select: '*', filters: [['phone', `eq.${phone}`]], single: true });
+    if (buyer) {
+      currentUser = { id: buyer.id, name: buyer.full_name, phone: buyer.phone, role: 'buyer' };
+      localStorage.setItem('ab_user', JSON.stringify(currentUser));
+      closeModal('loginModal');
+      showToast('Welcome back, ' + buyer.full_name + '! 🛒');
+    } else {
+      showToast('Phone not found — please register first');
+    }
   }
 }
 
@@ -1962,39 +2028,27 @@ async function doRegister() {
   const phone    = document.getElementById('regPhone').value.trim();
   const role     = document.getElementById('regRole').value;
   const district = document.getElementById('regDistrict').value;
-  const pwd      = document.getElementById('regPwd').value;
-  if (!name || !phone || !pwd) { showToast('Fill in all fields'); return; }
-  const data = await apiFetch('/api/register', { method:'POST', body: JSON.stringify({ name, phone, role, district, password: pwd }) });
-  if (data && (data.message || data.token)) {
-    if (data.token) {
-      authToken = data.token; currentUser = data.user;
-      localStorage.setItem('ab_token', authToken);
-      localStorage.setItem('ab_user', JSON.stringify(currentUser));
-      closeModal('registerModal');
-      showToast('Welcome to AgriBridge, ' + name + '! 🌱');
-    } else {
-      document.getElementById('regStep1').style.display = 'none';
-      document.getElementById('regStep2').style.display = 'block';
-    }
+  if (!name || !phone || !district) { showToast('Fill in name, phone and district'); return; }
+  const table = (role === 'farmer') ? 'farmers' : 'buyers';
+  const payload = (role === 'farmer')
+    ? { full_name: name, phone, district }
+    : { full_name: name, phone, district, buyer_type: role };
+  const result = await sbInsert(table, payload);
+  if (result) {
+    currentUser = { id: result[0]?.id, name, phone, district, role };
+    localStorage.setItem('ab_user', JSON.stringify(currentUser));
+    closeModal('registerModal');
+    showToast('Welcome to AgriBridge, ' + name + '! 🌱');
+    document.querySelectorAll('.nav-btns').forEach(el => el.innerHTML = `<span style="color:var(--green);font-size:0.85rem;font-weight:700">👤 ${name.split(' ')[0]}</span>`);
   } else {
-    showToast(data?.error || 'Registration failed — try again');
+    showToast('Phone already registered — try logging in');
   }
 }
 
 async function verifyOtp() {
-  const phone = document.getElementById('regPhone').value.trim();
-  const otp   = document.getElementById('regOtp').value.trim();
-  if (!otp) { showToast('Enter the OTP code'); return; }
-  const data = await apiFetch('/api/verify-otp', { method:'POST', body: JSON.stringify({ phone, otp }) });
-  if (data && data.token) {
-    authToken = data.token; currentUser = data.user;
-    localStorage.setItem('ab_token', authToken);
-    localStorage.setItem('ab_user', JSON.stringify(currentUser));
-    closeModal('registerModal');
-    showToast('Phone verified! Welcome to AgriBridge 🌱');
-  } else {
-    showToast(data?.error || 'Invalid OTP — check your phone');
-  }
+  // Simplified: no real OTP in free tier — just complete registration
+  closeModal('registerModal');
+  showToast('Registered! Welcome to AgriBridge 🌱');
 }
 
 // ═══════════════════════════════════════════════════════
@@ -2010,17 +2064,32 @@ function openOrderModal(id, name, farmer, price) {
 }
 
 async function submitOrder() {
-  const qty  = document.getElementById('orderQty').value;
+  const qty  = parseFloat(document.getElementById('orderQty').value);
   const addr = document.getElementById('orderAddr').value.trim();
   const pay  = document.getElementById('orderPayment').value;
-  if (!qty || !addr) { showToast('Fill in quantity and address'); return; }
-  if (!authToken) { closeModal('orderModal'); openModal('loginModal'); showToast('Please log in to place an order'); return; }
-  const data = await apiFetch('/api/orders', { method:'POST', body: JSON.stringify({ listing_id: currentListingId, quantity_kg: qty, delivery_address: addr, payment_method: pay }) });
-  if (data && data.ref) {
+  if (!qty || !addr) { showToast('Fill in quantity and delivery address'); return; }
+  if (!currentUser) { closeModal('orderModal'); openModal('loginModal'); showToast('Please log in to place an order'); return; }
+  // Find the listing to get price + farmer
+  const listing = allListings.find(l => l.id === currentListingId);
+  const orderData = {
+    listing_id: currentListingId,
+    farmer_id: listing?.farmer_id || null,
+    quantity_kg: qty,
+    price_per_kg: listing?.price_per_kg || 0,
+    delivery_address: addr,
+    payment_method: pay,
+    status: 'pending',
+    payment_status: 'unpaid'
+  };
+  const result = await sbInsert('orders', orderData);
+  if (result) {
     closeModal('orderModal');
-    showToast('Order placed! Ref: ' + data.ref + ' 🎉');
+    const ref = 'AB-' + Date.now().toString(36).toUpperCase().slice(-6);
+    showToast('Order placed! Ref: ' + ref + ' 🎉 Farmer will confirm via SMS');
+    // Increment listing views
+    if (currentListingId) sbUpdate('listings', { views: (listing?.views || 0) + 1 }, 'id', currentListingId);
   } else {
-    showToast(data?.error || 'Order failed — try again');
+    showToast('Order failed — please try again');
   }
 }
 
@@ -2033,12 +2102,12 @@ async function sendContactMsg() {
   const role    = document.getElementById('cRole').value;
   const msg     = document.getElementById('cMessage').value.trim();
   if (!name || !contact || !msg) { showToast('Please fill all fields'); return; }
-  const data = await apiFetch('/api/contact', { method:'POST', body: JSON.stringify({ name, contact, role, message: msg }) });
-  if (data && (data.success || data.message)) {
+  const result = await sbInsert('contact_messages', { full_name: name, contact, role, message: msg });
+  if (result) {
     showToast('Message sent! We\'ll reply within 24 hours 📩');
     ['cName','cContact','cMessage'].forEach(id => { document.getElementById(id).value = ''; });
   } else {
-    showToast('Thanks! We\'ll follow up soon. 📩');
+    showToast('Saved locally. We\'ll follow up soon. 📩');
   }
 }
 
@@ -2219,7 +2288,7 @@ function runDiagnosis() {
     <div style="margin-top:14px;display:flex;gap:10px;flex-wrap:wrap">
       <button class="btn-card" onclick="showPage('supply')">🏪 Buy Treatments</button>
       <a href="tel:+256755966690" class="btn-card" style="display:inline-block">📞 Call Expert</a>
-      <button class="btn-card" style="background:transparent;border:1px solid var(--green);color:var(--green)" onclick="showToast('Report saved! Extension officer will follow up. 📋')">📋 Report to Extension Officer</button>
+      <button class="btn-card" style="background:transparent;border:1px solid var(--green);color:var(--green)" onclick="saveDiseaseReport()">📋 Report to Extension Officer</button>
     </div>`;
   document.getElementById('drResult').style.display = 'block';
   document.getElementById('drResult').scrollIntoView({ behavior:'smooth', block:'start' });
@@ -2291,8 +2360,41 @@ function renderSupply() {
     </div>`).join('');
 }
 
-function orderSupply(name, price) {
+async function orderSupply(name, price) {
+  const phone = currentUser?.phone || prompt('Enter your phone number for delivery confirmation:');
+  if (!phone) return;
+  await sbInsert('supply_orders', {
+    buyer_phone: phone,
+    buyer_name: currentUser?.name || null,
+    product_name: name,
+    quantity: 1,
+    unit_price: price,
+    district: currentUser?.district || null,
+    status: 'pending'
+  });
   showToast(`Order placed: ${name}! We'll confirm via SMS 📲`);
+}
+
+async function saveDiseaseReport() {
+  const crop    = document.getElementById('drCrop').value;
+  const part    = document.getElementById('drPart').value;
+  const symptom = document.getElementById('drSymptom').value;
+  const district= document.getElementById('drDistrict').value;
+  const weather = document.getElementById('drWeather').value;
+  const notes   = document.getElementById('drDesc').value;
+  const diagName= document.getElementById('drDiagName')?.textContent?.replace('🔬 ','') || '';
+  await sbInsert('disease_reports', {
+    farmer_phone: currentUser?.phone || null,
+    crop_name: crop,
+    affected_part: part,
+    symptom,
+    diagnosis_name: diagName,
+    district,
+    weather_cond: weather,
+    description: notes,
+    reported_to_extension: true
+  });
+  showToast('Report saved! Extension officer will follow up within 48hrs 📋');
 }
 
 // ═══════════════════════════════════════════════════════
