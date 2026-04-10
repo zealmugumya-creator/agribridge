@@ -659,6 +659,121 @@ select option { background:var(--bg2); }
   .modal-box { padding:12px; }
 }
 
+
+/* ── LANGUAGE PICKER BUTTON ── */
+.lang-opt-btn {
+  background:var(--card); border:2px solid var(--border); border-radius:12px;
+  padding:14px 10px; cursor:pointer; text-align:center; color:var(--text);
+  transition:border-color 0.2s, background 0.2s;
+}
+.lang-opt-btn:hover { border-color:var(--green); background:var(--green-dim); }
+
+/* ── NOTIFICATION BELL ── */
+.notif-bell { position:relative; background:none; border:none; font-size:1.2rem; cursor:pointer; color:var(--text2); padding:4px 8px; }
+.notif-badge { position:absolute; top:0; right:0; background:var(--green); color:#000; font-size:0.6rem; font-weight:800; border-radius:50%; width:16px; height:16px; display:flex; align-items:center; justify-content:center; }
+
+/* ── COOKIE BANNER ── */
+.cookie-banner {
+  position:fixed; bottom:calc(var(--bot-h) + 8px); left:12px; right:12px; z-index:300;
+  background:var(--bg2); border:1px solid var(--border); border-radius:14px;
+  padding:14px 16px; display:flex; align-items:center; gap:12px; flex-wrap:wrap;
+  box-shadow:0 4px 24px rgba(0,0,0,0.4); animation:fadeUp 0.4s ease;
+}
+.cookie-banner p { flex:1; font-size:0.82rem; color:var(--text2); min-width:200px; margin:0; }
+.cookie-banner .cb-btns { display:flex; gap:8px; }
+
+/* ── TESTIMONIALS ── */
+.testimonials-grid { display:grid; grid-template-columns:repeat(3,1fr); gap:14px; }
+@media(max-width:680px) { .testimonials-grid { grid-template-columns:1fr; } }
+.testimonial-card { background:var(--card); border:1px solid var(--border); border-radius:14px; padding:18px; position:relative; }
+.testimonial-card::before { content:'"'; position:absolute; top:10px; left:14px; font-size:3rem; color:var(--green-dim); font-family:'Syne',sans-serif; line-height:1; }
+.t-body { font-size:0.88rem; line-height:1.6; color:var(--text); margin:16px 0 14px; font-style:italic; }
+.t-name { font-weight:700; font-size:0.85rem; }
+.t-role { font-size:0.75rem; color:var(--text2); }
+.t-stars { color:#f4c430; font-size:0.9rem; margin-bottom:6px; }
+
+/* ── SHARE BUTTON ── */
+.btn-share { background:transparent; border:1px solid var(--border); color:var(--text2); border-radius:8px; padding:6px 10px; font-size:0.78rem; cursor:pointer; }
+.btn-share:hover { border-color:var(--green); color:var(--green); }
+
+/* ── FOOTER ── */
+.site-footer { background:var(--bg2); border-top:1px solid var(--border); padding:32px 16px 20px; margin-top:32px; }
+.footer-grid { display:grid; grid-template-columns:repeat(4,1fr); gap:20px; max-width:900px; margin:0 auto 24px; }
+@media(max-width:600px) { .footer-grid { grid-template-columns:1fr 1fr; } }
+@media(max-width:360px) { .footer-grid { grid-template-columns:1fr; } }
+.footer-col h4 { font-size:0.88rem; font-weight:700; color:var(--text); margin-bottom:10px; }
+.footer-col a, .footer-col p { font-size:0.8rem; color:var(--text2); display:block; margin-bottom:5px; text-decoration:none; }
+.footer-col a:hover { color:var(--green); }
+.footer-bottom { text-align:center; font-size:0.75rem; color:var(--text2); border-top:1px solid var(--border); padding-top:16px; }
+
+/* ── PRICE ALERT SETUP ── */
+.alert-setup-card { background:var(--card); border:1px solid var(--border); border-radius:14px; padding:20px; margin-bottom:16px; }
+
+/* ── NOTIFICATION PANEL ── */
+.notif-panel { position:fixed; top:var(--nav-h); right:12px; width:320px; max-width:calc(100vw - 24px); background:var(--bg2); border:1px solid var(--border); border-radius:14px; z-index:250; box-shadow:0 8px 32px rgba(0,0,0,0.5); animation:fadeIn 0.2s ease; max-height:60vh; overflow-y:auto; display:none; }
+.notif-panel.open { display:block; }
+.notif-item { padding:12px 16px; border-bottom:1px solid var(--border); font-size:0.85rem; }
+.notif-item:last-child { border-bottom:none; }
+.notif-time { font-size:0.72rem; color:var(--text2); margin-top:3px; }
+
+/* ── FAQ ── */
+.faq-item { background:var(--card); border:1px solid var(--border); border-radius:12px; margin-bottom:10px; overflow:hidden; }
+.faq-q { padding:14px 16px; font-weight:700; font-size:0.92rem; cursor:pointer; display:flex; justify-content:space-between; align-items:center; }
+.faq-q:hover { background:var(--bg3); }
+.faq-a { padding:0 16px; font-size:0.86rem; color:var(--text2); line-height:1.7; max-height:0; overflow:hidden; transition:max-height 0.3s ease, padding 0.3s ease; }
+.faq-a.open { max-height:300px; padding:0 16px 14px; }
+.faq-chevron { transition:transform 0.3s; font-size:0.8rem; }
+.faq-q.open .faq-chevron { transform:rotate(180deg); }
+
+/* ── IN-SEASON BADGE ── */
+.season-badge { display:inline-block; padding:2px 8px; border-radius:20px; font-size:0.7rem; font-weight:700; margin-top:3px; }
+.season-badge.in { background:#00c85322; color:var(--green); border:1px solid var(--green); }
+.season-badge.off { background:#88888822; color:var(--text2); border:1px solid var(--border); }
+
+
+/* ── DASHBOARD ── */
+.dash-row { display:flex;align-items:center;gap:12px;padding:10px 0;border-bottom:1px solid var(--border);font-size:0.9rem; }
+.dash-row span:first-child { flex:1;font-weight:600; }
+.status-badge { padding:2px 8px;border-radius:20px;font-size:0.75rem;font-weight:700;text-transform:capitalize; }
+.status-badge.pending { background:#3a2f00;color:#ffd600; }
+.status-badge.confirmed { background:#0a3a1a;color:#00c853; }
+.status-badge.delivered { background:#1a3a2a;color:#69f0ae; }
+.status-badge.cancelled { background:#3a0000;color:#ff5252; }
+
+/* ── PITCH DECK ── */
+.pitch-slide { background:var(--card);border-radius:16px;padding:20px;margin-bottom:20px;border:1px solid var(--border); }
+.pitch-slide-label { font-size:0.7rem;font-weight:800;color:var(--green);text-transform:uppercase;letter-spacing:0.12em;margin-bottom:8px; }
+.pitch-slide h3 { font-size:1.1rem;font-weight:700;margin-bottom:14px;line-height:1.4; }
+.pitch-list { list-style:none;margin:0;padding:0; }
+.pitch-list li { padding:6px 0;font-size:0.88rem;border-bottom:1px solid var(--border);line-height:1.5; }
+.pitch-list li:last-child { border-bottom:none; }
+.pitch-cols { display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:12px;margin-top:8px; }
+.pitch-col { background:var(--surface);border-radius:10px;padding:14px;text-align:center; }
+.pitch-col p { font-size:0.8rem;color:var(--text2);margin-top:4px; }
+.traction-stat .t-num { font-size:2rem;font-weight:800;color:var(--green); }
+.traction-stat .t-label { font-size:0.75rem;color:var(--text2); }
+.pitch-market-row { display:flex;gap:14px;justify-content:center;flex-wrap:wrap;margin-top:12px; }
+.pm-ring { display:flex;flex-direction:column;align-items:center;gap:4px;border:1px solid var(--border);border-radius:50%;width:110px;height:110px;justify-content:center; }
+.pitch-team { display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:12px; }
+.team-card { background:var(--surface);border-radius:12px;padding:14px;text-align:center; }
+.team-avatar { width:44px;height:44px;border-radius:50%;background:var(--green);color:#000;font-weight:800;display:flex;align-items:center;justify-content:center;margin:0 auto 8px;font-size:1rem; }
+.team-card span { font-size:0.78rem;color:var(--green);display:block;margin-bottom:4px; }
+.team-card p { font-size:0.78rem;color:var(--text2); }
+.pitch-ask { border:2px solid var(--green); }
+.tech-badge { background:var(--surface);border:1px solid var(--border);border-radius:20px;padding:5px 12px;font-size:0.78rem;color:var(--text2); }
+
+/* ── COMMUNITY ── */
+.comm-post { display:flex;gap:12px;padding:14px 0;border-bottom:1px solid var(--border); }
+.comm-avatar { width:38px;height:38px;border-radius:50%;background:var(--green);color:#000;font-weight:800;display:flex;align-items:center;justify-content:center;font-size:0.9rem;flex-shrink:0; }
+.comm-body { flex:1;min-width:0; }
+.comm-author { font-size:0.82rem;font-weight:700;margin-bottom:4px; }
+.comm-time { color:var(--text2);font-weight:400;font-size:0.75rem;margin-left:6px; }
+.comm-body p { font-size:0.88rem;color:var(--text2);line-height:1.5;margin-bottom:8px; }
+.comm-actions { display:flex;gap:8px; }
+.comm-actions button { background:var(--surface);border:1px solid var(--border);border-radius:20px;padding:3px 10px;font-size:0.78rem;cursor:pointer;color:var(--text2); }
+.comm-actions button:hover { color:var(--green);border-color:var(--green); }
+.comm-tab { margin-right:0 !important; }
+
 /* ── HOW IT WORKS 3-COL — responsive ── */
 @media(max-width:520px) {
   .hiw-grid { grid-template-columns: 1fr !important; }
@@ -698,9 +813,11 @@ select option { background:var(--bg2); }
   </div>
   <!-- Mobile search toggle (shown only on small screens) -->
   <button class="mob-search-btn" onclick="toggleMobSearch()" aria-label="Search">🔍</button>
+  <button class="notif-bell" onclick="toggleNotifPanel()" title="Notifications" id="notifBell">🔔<span class="notif-badge" id="notifCount" style="display:none">0</span></button>
+  <button id="langPickerBtn" class="btn-sm outline" onclick="openModal('langModal')" style="font-size:0.8rem;padding:5px 10px" title="Change Language">🌐 EN</button>
   <div class="nav-btns">
-    <button class="btn-sm outline" onclick="openModal('loginModal')">Log In</button>
-    <button class="btn-sm" onclick="openModal('registerModal')">Join Free</button>
+    <button class="btn-sm outline" onclick="openModal('loginModal')" data-i18n="btn_login">Log In</button>
+    <button class="btn-sm" onclick="openModal('registerModal')" data-i18n="btn_register">Join Free</button>
   </div>
 </nav>
 <!-- Mobile search bar (drops down when toggled) -->
@@ -733,8 +850,8 @@ select option { background:var(--bg2); }
       <h1>Farm <em>Smarter</em>,<br>Earn Better</h1>
       <p>Connecting Uganda's smallholder farmers directly to buyers, markets, and expert training — no middlemen, fair prices, mobile money payments.</p>
       <div class="hero-cta">
-        <button class="btn-primary" onclick="showPage('market')">Browse Marketplace</button>
-        <button class="btn-outline" onclick="openModal('registerModal')">Join as Farmer</button>
+        <button class="btn-primary" onclick="showPage('market')" data-i18n="btn_browse">Browse Marketplace</button>
+        <button class="btn-outline" onclick="openModal('registerModal')" data-i18n="btn_join_farmer">Join as Farmer</button>
       </div>
       <div class="hero-stats">
         <div class="hero-stat"><div class="num" id="h-farmers">5,000+</div><div class="lbl">Registered Farmers</div></div>
@@ -756,6 +873,9 @@ select option { background:var(--bg2); }
       <div class="quick-btn" onclick="showPage('ussd')"><div class="icon">📱</div><div class="label">USSD *789#</div></div>
       <div class="quick-btn" onclick="showPage('doctor')"><div class="icon">🩺</div><div class="label">AI Doctor</div></div>
       <div class="quick-btn" onclick="showPage('supply')"><div class="icon">🏪</div><div class="label">Agri Supply</div></div>
+      <div class="quick-btn" onclick="showPage('dashboard');closeModal('moreModal')"><div class="icon">📊</div><div class="label">My Account</div></div>
+      <div class="quick-btn" onclick="showPage('community');closeModal('moreModal')"><div class="icon">🌱</div><div class="label">Community</div></div>
+      <div class="quick-btn" onclick="showPage('pitch');closeModal('moreModal')"><div class="icon">📈</div><div class="label">Investor Pitch</div></div>
       <div class="quick-btn" onclick="showPage('about')"><div class="icon">💡</div><div class="label">About</div></div>
       <div class="quick-btn" onclick="showPage('contact')"><div class="icon">✉️</div><div class="label">Contact</div></div>
     </div>
@@ -832,7 +952,33 @@ select option { background:var(--bg2); }
     <div style="text-align:center;margin-top:16px">
       <button class="btn-outline" onclick="showPage('market')" style="padding:10px 28px">View All Listings →</button>
     </div>
+  
+  <!-- TESTIMONIALS -->
+  <div class="section">
+    <div class="section-title">What <span>Farmers Say</span> <small style="font-size:0.65rem;color:var(--text2)">/ Abagamba</small></div>
+    <div class="testimonials-grid">
+      <div class="testimonial-card">
+        <div class="t-stars">★★★★★</div>
+        <div class="t-body">Before AgriBridge I sold my matooke for UGX 600 per bunch to a middleman. Now I sell directly to a hotel in Kampala for UGX 1,200. My income doubled in three months.</div>
+        <div class="t-name">Grace Nakato</div>
+        <div class="t-role">🌾 Matooke Farmer · Mbarara District</div>
+      </div>
+      <div class="testimonial-card">
+        <div class="t-stars">★★★★★</div>
+        <div class="t-body">The AI Doctor saved my entire tomato crop. I described the wilting and got the diagnosis immediately — Bacterial Wilt. I removed the infected plants before it spread. AgriBridge saved me UGX 800,000.</div>
+        <div class="t-name">John Okello</div>
+        <div class="t-role">🍅 Tomato Farmer · Gulu District</div>
+      </div>
+      <div class="testimonial-card">
+        <div class="t-stars">★★★★★</div>
+        <div class="t-body">I have no smartphone but I use *789# every morning to check Kampala prices before I sell. Last season I earned 35% more just because I knew the right price to ask. Webale nyo AgriBridge!</div>
+        <div class="t-name">Sarah Nabirye</div>
+        <div class="t-role">🫘 Beans Farmer · Iganga District · Basic phone user</div>
+      </div>
+    </div>
   </div>
+
+</div>
 </div>
 
 <!-- ══════════════════════════════════════ -->
@@ -1009,6 +1155,45 @@ select option { background:var(--bg2); }
         <button class="btn-track" onclick="trackDelivery()">Track 🔍</button>
       </div>
       <div id="trackingResult" style="margin-top:16px"></div>
+    </div>
+
+    
+    <!-- PRICE ALERT SETUP -->
+    <div class="alert-setup-card">
+      <div style="font-weight:700;font-size:1rem;margin-bottom:4px">🔔 <span data-i18n="alert_setup">Set Price Alert</span></div>
+      <div style="font-size:0.82rem;color:var(--text2);margin-bottom:14px">Get notified on SMS when a crop price reaches your target in any district</div>
+      <div class="form-row">
+        <div class="form-group">
+          <label data-i18n="doc_crop">Crop</label>
+          <select id="alertCrop">
+            <option value="" data-i18n="alert_crop">Select crop…</option>
+            <option>Maize</option><option>Matooke</option><option>Tomatoes</option>
+            <option>Cassava</option><option>Coffee</option><option>Beans</option>
+            <option>Irish Potato</option><option>Onions</option><option>Avocado</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label data-i18n="doc_district">District</label>
+          <select id="alertDistrict">
+            <option>Kampala</option><option>Wakiso</option><option>Mbarara</option>
+            <option>Gulu</option><option>Jinja</option><option>Mbale</option><option>Lira</option>
+          </select>
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label data-i18n="alert_price">Notify me when price reaches (UGX/kg)</label>
+          <input type="number" id="alertPrice" placeholder="e.g. 1500" min="100">
+        </div>
+        <div class="form-group">
+          <label>Alert Direction</label>
+          <select id="alertDir">
+            <option value="above">When price RISES above target</option>
+            <option value="below">When price FALLS below target</option>
+          </select>
+        </div>
+      </div>
+      <button class="btn-submit" onclick="saveAlert()"><span data-i18n="alert_btn">Set Alert</span></button>
     </div>
 
     <h3 style="margin-bottom:14px;font-size:1rem;font-weight:700;">Live Alerts</h3>
@@ -1562,6 +1747,46 @@ AgriBridge service</div>
 <!-- PAGE: CONTACT -->
 <!-- ══════════════════════════════════════ -->
 <div id="page-contact" class="page">
+
+  <!-- FAQ SECTION -->
+  <div class="section">
+    <div class="section-title">Frequently Asked <span>Questions</span></div>
+    <div id="faqContainer">
+      <div class="faq-item">
+        <div class="faq-q" onclick="toggleFaq(this)">How do I register as a farmer? <span class="faq-chevron">▼</span></div>
+        <div class="faq-a">Click "Join Free" in the top right corner, fill in your name, phone number and district — it takes under 2 minutes. You can also register by dialling <strong>*789#</strong> from any MTN or Airtel phone without internet.</div>
+      </div>
+      <div class="faq-item">
+        <div class="faq-q" onclick="toggleFaq(this)">Is AgriBridge free for farmers? <span class="faq-chevron">▼</span></div>
+        <div class="faq-a">Yes — listing your produce is always free. We charge a small 2.5% commission only when a transaction is completed successfully. You pay nothing until you earn.</div>
+      </div>
+      <div class="faq-item">
+        <div class="faq-q" onclick="toggleFaq(this)">How does the *789# USSD work? <span class="faq-chevron">▼</span></div>
+        <div class="faq-a">Dial <strong>*789#</strong> from any MTN or Airtel phone — even a basic Nokia or Tecno with no internet. The menu will appear on your screen. You can check prices, list produce, find buyers, and get farming tips all without data. It works in English and Luganda.</div>
+      </div>
+      <div class="faq-item">
+        <div class="faq-q" onclick="toggleFaq(this)">How does payment work? <span class="faq-chevron">▼</span></div>
+        <div class="faq-a">Buyers pay via MTN Mobile Money or Airtel Money. Funds are held securely until delivery is confirmed, then released directly to the farmer's mobile money account. No bank account needed.</div>
+      </div>
+      <div class="faq-item">
+        <div class="faq-q" onclick="toggleFaq(this)">Who delivers the produce? <span class="faq-chevron">▼</span></div>
+        <div class="faq-a">AgriBridge has a network of vetted and GPS-tracked delivery drivers. Once an order is placed, the nearest available driver is assigned. Delivery times: same-day in Kampala, 1–2 days to other districts. Full insurance on every delivery.</div>
+      </div>
+      <div class="faq-item">
+        <div class="faq-q" onclick="toggleFaq(this)">Is the AI Crop Doctor accurate? <span class="faq-chevron">▼</span></div>
+        <div class="faq-a">The AI Doctor is trained on crop disease data specific to Uganda and East Africa. It gives high-confidence diagnoses for the most common diseases affecting maize, tomatoes, cassava, beans, and coffee. For rare or uncertain cases, it recommends contacting your nearest NAADS extension officer. It is free and available 24/7.</div>
+      </div>
+      <div class="faq-item">
+        <div class="faq-q" onclick="toggleFaq(this)">What districts does AgriBridge cover? <span class="faq-chevron">▼</span></div>
+        <div class="faq-a">The marketplace accepts listings from all 135 districts of Uganda. Delivery service is currently active in Wakiso, Kampala, Mukono, Mbarara, and Jinja — expanding to all districts by end of 2026.</div>
+      </div>
+      <div class="faq-item">
+        <div class="faq-q" onclick="toggleFaq(this)">How do I contact AgriBridge for support? <span class="faq-chevron">▼</span></div>
+        <div class="faq-a">📞 Call/WhatsApp: <strong>+256 755 966 690</strong><br>📧 Email: <strong>hello@agribridge.ug</strong><br>📱 USSD: Dial *789# → Option 6 → Support<br>📍 Office: Kampala, Uganda (by appointment)</div>
+      </div>
+    </div>
+  </div>
+
   <div class="page-header">
     <h2>✉️ Get In Touch</h2>
     <p>We'd love to hear from you — farmers, buyers, investors, and partners welcome</p>
@@ -1687,17 +1912,17 @@ AgriBridge service</div>
 
 <!-- ══ BOTTOM NAV ══ -->
 <nav class="bottom-nav">
-  <button class="nav-item active" id="nav-home" onclick="showPage('home')"><span class="nav-icon">🏠</span>Home</button>
-  <button class="nav-item" id="nav-market" onclick="showPage('market')"><span class="nav-icon">🛒</span>Market</button>
-  <button class="nav-item" id="nav-prices" onclick="showPage('prices')"><span class="nav-icon">📊</span>Prices</button>
-  <button class="nav-item" id="nav-crops" onclick="showPage('crops')"><span class="nav-icon">🌿</span>Crops</button>
-  <button class="nav-item" id="nav-training" onclick="showPage('training')"><span class="nav-icon">🎓</span>Learn</button>
-  <button class="nav-item" id="nav-delivery" onclick="showPage('delivery')"><span class="nav-icon">🚚</span>Track</button>
-  <button class="nav-item" id="nav-ussd" onclick="showPage('ussd')"><span class="nav-icon">📱</span>USSD</button>
-  <button class="nav-item" id="nav-doctor" onclick="showPage('doctor')"><span class="nav-icon">🩺</span>AI Doc</button>
-  <button class="nav-item" id="nav-supply" onclick="showPage('supply')"><span class="nav-icon">🏪</span>Supply</button>
-  <button class="nav-item" id="nav-about" onclick="showPage('about')"><span class="nav-icon">💡</span>About</button>
-  <button class="nav-item" id="nav-contact" onclick="showPage('contact')"><span class="nav-icon">✉️</span>Contact</button>
+  <button class="nav-item active" id="nav-home" onclick="showPage('home')"><span class="nav-icon">🏠</span><span data-i18n="nav_home">Home</span></button>
+  <button class="nav-item" id="nav-market" onclick="showPage('market')"><span class="nav-icon">🛒</span><span data-i18n="nav_market">Market</span></button>
+  <button class="nav-item" id="nav-prices" onclick="showPage('prices')"><span class="nav-icon">📊</span><span data-i18n="nav_prices">Prices</span></button>
+  <button class="nav-item" id="nav-crops" onclick="showPage('crops')"><span class="nav-icon">🌿</span><span data-i18n="nav_crops">Crops</span></button>
+  <button class="nav-item" id="nav-training" onclick="showPage('training')"><span class="nav-icon">🎓</span><span data-i18n="nav_learn">Learn</span></button>
+  <button class="nav-item" id="nav-delivery" onclick="showPage('delivery')"><span class="nav-icon">🚚</span><span data-i18n="nav_track">Track</span></button>
+  <button class="nav-item" id="nav-ussd" onclick="showPage('ussd')"><span class="nav-icon">📱</span><span data-i18n="nav_ussd">USSD</span></button>
+  <button class="nav-item" id="nav-doctor" onclick="showPage('doctor')"><span class="nav-icon">🩺</span><span data-i18n="nav_doctor">AI Doc</span></button>
+  <button class="nav-item" id="nav-supply" onclick="showPage('supply')"><span class="nav-icon">🏪</span><span data-i18n="nav_supply">Supply</span></button>
+  <button class="nav-item" id="nav-about" onclick="showPage('about')"><span class="nav-icon">💡</span><span data-i18n="nav_about">About</span></button>
+  <button class="nav-item" id="nav-contact" onclick="showPage('contact')"><span class="nav-icon">✉️</span><span data-i18n="nav_contact">Contact</span></button>
 </nav>
 
 <!-- ══ VIDEO MODAL ══ -->
@@ -1767,6 +1992,63 @@ AgriBridge service</div>
       <select id="orderPayment"><option value="momo">MTN Mobile Money</option><option value="airtel">Airtel Money</option><option value="cash">Cash on Delivery</option></select>
     </div>
     <button class="btn-submit" onclick="submitOrder()">Confirm Order 🛒</button>
+  </div>
+</div>
+
+
+
+<!-- ══ COOKIE CONSENT ══ -->
+<div class="cookie-banner" id="cookieBanner" style="display:none">
+  <p>🍪 AgriBridge uses cookies to improve your experience and comply with the Uganda Data Protection Act 2019. We never sell your data.</p>
+  <div class="cb-btns">
+    <button class="btn-sm" onclick="acceptCookies()">Accept</button>
+    <button class="btn-sm outline" onclick="document.getElementById('cookieBanner').style.display='none'">Decline</button>
+  </div>
+</div>
+
+<!-- ══ NOTIFICATION PANEL ══ -->
+<div class="notif-panel" id="notifPanel">
+  <div style="padding:12px 16px;border-bottom:1px solid var(--border);font-weight:700;font-size:0.9rem;display:flex;justify-content:space-between;align-items:center">
+    <span id="notif-panel-title">🔔 Notifications</span>
+    <button onclick="toggleNotifPanel()" style="background:none;border:none;color:var(--text2);cursor:pointer">✕</button>
+  </div>
+  <div id="notifList">
+    <div class="notif-item">📦 <strong>New order</strong> for your maize listing<div class="notif-time">2 min ago</div></div>
+    <div class="notif-item">💰 <strong>Payment confirmed</strong> — UGX 450,000 sent to your MTN<div class="notif-time">1 hr ago</div></div>
+    <div class="notif-item">🚚 <strong>Delivery DEL-2026-001</strong> arriving today at 3PM<div class="notif-time">3 hrs ago</div></div>
+    <div class="notif-item">🌾 <strong>Price alert</strong>: Tomatoes in Kampala now UGX 2,200/kg<div class="notif-time">Yesterday</div></div>
+  </div>
+</div>
+
+<!-- ══ LANGUAGE MODAL ══ -->
+<div class="modal-overlay" id="langModal" onclick="handleOverlay(event,'langModal')">
+  <div class="modal-box" style="max-width:340px">
+    <button class="modal-close" onclick="closeModal('langModal')">✕</button>
+    <h3>🌐 Choose Language / Londa Olulimi</h3>
+    <p style="font-size:0.82rem;color:var(--text2);margin-bottom:18px">Select your preferred language for the AgriBridge platform</p>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+      <button onclick="setLang('en')" class="lang-opt-btn" id="lbtn-en">
+        <div style="font-size:1.6rem">🇬🇧</div>
+        <div style="font-weight:700;font-size:0.9rem">English</div>
+        <div style="font-size:0.75rem;color:var(--text2)">Official · National</div>
+      </button>
+      <button onclick="setLang('lg')" class="lang-opt-btn" id="lbtn-lg">
+        <div style="font-size:1.6rem">🇺🇬</div>
+        <div style="font-weight:700;font-size:0.9rem">Luganda</div>
+        <div style="font-size:0.75rem;color:var(--text2)">Central Uganda</div>
+      </button>
+      <button onclick="setLang('rn')" class="lang-opt-btn" id="lbtn-rn">
+        <div style="font-size:1.6rem">🌄</div>
+        <div style="font-weight:700;font-size:0.9rem">Runyankole</div>
+        <div style="font-size:0.75rem;color:var(--text2)">Western Uganda</div>
+      </button>
+      <button onclick="setLang('ac')" class="lang-opt-btn" id="lbtn-ac">
+        <div style="font-size:1.6rem">🌾</div>
+        <div style="font-weight:700;font-size:0.9rem">Acholi / Luo</div>
+        <div style="font-size:0.75rem;color:var(--text2)">Northern Uganda</div>
+      </button>
+    </div>
+    <p style="font-size:0.75rem;color:var(--text2);margin-top:14px;text-align:center">More languages coming: Lusoga · Ateso · Lugbara · Swahili</p>
   </div>
 </div>
 
@@ -1923,6 +2205,8 @@ function showPage(name) {
   const nb = document.getElementById('nav-' + name);
   if (nb) nb.classList.add('active');
   window.scrollTo(0, 0);
+  // Page-specific data loaders
+  if (name === 'dashboard') loadDashboard();
   // Lazy load page data
   if (name === 'market')   loadListings();
   if (name === 'prices')   loadPrices();
@@ -2045,7 +2329,8 @@ function listingCard(l) {
         <div><div class="card-price">UGX ${Number(price).toLocaleString()}</div><div class="card-unit">per kg</div></div>
         <div style="display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end">
           <a href="https://wa.me/256755966690?text=${waMsg}" target="_blank" class="btn-card" style="background:#25D366;font-size:0.78rem;padding:6px 10px" title="WhatsApp Farmer">💬</a>
-          <button class="btn-card" onclick="openOrderModal(${l.id||0},${JSON.stringify(name)},${JSON.stringify(farmer)},${price})" style="font-size:0.82rem">Order</button>
+          <button class="btn-card" onclick="openOrderModal(${l.id||0},${JSON.stringify(name)},${JSON.stringify(farmer)},${price})" style="font-size:0.82rem" data-i18n="order_now">Order</button>
+          <button class="btn-share" onclick="shareListing('${name}','${district}',${price})" title="Share listing">📤</button>
         </div>
       </div>
     </div>
@@ -2659,7 +2944,7 @@ function logOut() {
   localStorage.removeItem('ab_user');
   closeModal('myAccountModal');
   document.querySelectorAll('.nav-btns').forEach(el => {
-    el.innerHTML = `<button class="btn-sm outline" onclick="openModal('loginModal')">Log In</button><button class="btn-sm" onclick="openModal('registerModal')">Join Free</button>`;
+    el.innerHTML = `<button class="btn-sm outline" onclick="openModal('loginModal')" data-i18n="btn_login">Log In</button><button class="btn-sm" onclick="openModal('registerModal')" data-i18n="btn_register">Join Free</button>`;
   });
   showToast('Logged out. See you soon! 🌾');
 }
@@ -3066,6 +3351,354 @@ document.addEventListener('keydown', e => {
   }
 });
 
+
+// ═══════════════════════════════════════════════════════
+// LANGUAGE / i18n SYSTEM
+// ═══════════════════════════════════════════════════════
+const LANGS = {
+  en: {
+    // NAV
+    nav_home:'Home', nav_market:'Market', nav_prices:'Prices', nav_crops:'Crops',
+    nav_learn:'Learn', nav_track:'Track', nav_ussd:'USSD *789#', nav_doctor:'AI Doctor',
+    nav_supply:'Supply', nav_about:'About', nav_contact:'Contact',
+    btn_login:'Log In', btn_register:'Join Free', btn_browse:'Browse Marketplace',
+    btn_join_farmer:'Join as Farmer',
+    // HERO
+    hero_badge:"Uganda's #1 AgriTech Platform",
+    hero_title:"Farm <em>Smarter</em>,<br>Earn Better",
+    hero_sub:"Connecting Uganda's smallholder farmers directly to buyers, markets, and expert training — no middlemen, fair prices, mobile money payments.",
+    stat_farmers:'Registered Farmers', stat_listings:'Active Listings',
+    stat_districts:'Districts Served', stat_ussd:'USSD Access',
+    // HOW IT WORKS
+    hiw_title:'How It Works', hiw_s1_title:'1. Register Free',
+    hiw_s1_body:'Sign up online or dial <strong style="color:var(--green)">*789#</strong> from any phone — even without internet',
+    hiw_s2_title:'2. List or Browse', hiw_s2_body:'Farmers post produce. Buyers find fresh, fair-priced crops directly from the farm',
+    hiw_s3_title:'3. Pay & Deliver', hiw_s3_body:'MTN MoMo or Airtel Money. GPS-tracked delivery from farm gate to your door',
+    // WHY
+    why_title:'Why AgriBridge?',
+    why_1_title:'Fair Prices, Always', why_1_body:"See live market rates before you sell. No more being cheated by middlemen.",
+    why_2_title:'Works Without Internet', why_2_body:"Dial *789# from any MTN or Airtel phone. No data, no smartphone needed.",
+    why_3_title:'Delivery to Your Door', why_3_body:"Vetted drivers take produce from farm gate to buyer. GPS tracked, fully insured.",
+    why_4_title:'Free AI Crop Doctor', why_4_body:"Describe your crop problem, get expert treatment advice instantly — for free.",
+    // USSD BANNER
+    ussd_banner_title:'No Smartphone? No Problem!',
+    ussd_banner_body:'Dial <strong>*789#</strong> from any MTN or Airtel phone to access all AgriBridge features without internet — in English or Luganda',
+    ussd_banner_btn:'Try USSD Simulator ▶',
+    // SECTIONS
+    featured_title:'Featured Listings', view_all:'View All Listings →',
+    // MARKET
+    mkt_header:'🛒 Marketplace', mkt_sub:'Fresh produce direct from Ugandan farms — zero middlemen',
+    mkt_list_btn:'+ List Produce', mkt_refresh:'🔄 Refresh',
+    mkt_save_pct:'Buy Direct — Save Up to 40%',
+    mkt_save_sub:'AgriBridge removes middlemen. Farmers get paid more. You pay less.',
+    mkt_view_prices:'View live market prices →',
+    // PRICES
+    prices_header:'📊 Market Prices', prices_sub:'Live prices from Kampala, Jinja & Mbarara markets',
+    // CROPS
+    crops_header:"🌿 Uganda's Farm Produce", crops_sub:"35+ crops grown across Uganda's fertile regions — prices, seasons & districts",
+    // TRAINING
+    train_header:'🎓 Farmer Training', train_sub:'Expert video guides to boost your yields and income',
+    // DELIVERY
+    del_header:'🚚 Delivery Tracker', del_sub:'Real-time tracking from farm to destination',
+    del_placeholder:'Enter order ref e.g. DEL-2026-001', del_btn:'Track 🔍',
+    del_alerts:'Live Alerts',
+    // USSD PAGE
+    ussd_header:'📱 USSD Simulator', ussd_sub:'Works on any phone — even without internet',
+    // DOCTOR
+    doc_header:'🩺 AI Crop Doctor', doc_sub:'Describe your crop problem — get expert advice instantly, free',
+    doc_crop:'Crop Type', doc_part:'Part Affected', doc_symptom:'Symptoms Visible',
+    doc_duration:'How long?', doc_district:'Your District', doc_weather:'Recent rainfall?',
+    doc_desc:'Additional description (optional)', doc_btn:'🔍 Diagnose My Crop',
+    doc_buy_treat:'🏪 Buy Treatments', doc_call:'📞 Call Expert', doc_report:'📋 Report to Extension Officer',
+    // SUPPLY
+    supply_header:'🏪 Agriculture Supply', supply_sub:'Quality seeds, fertilizers and tools delivered to your farm',
+    // ABOUT
+    about_header:'💡 About AgriBridge',
+    // CONTACT
+    contact_header:'📬 Contact Us', contact_sub:"We'd love to hear from you — farmers, buyers, investors, and partners welcome",
+    // AUTH
+    login_title:'Welcome Back', login_phone:'Phone Number', login_pwd:'Password',
+    login_btn:'Log In', login_no_acct:'No account?', login_join:'Join Free',
+    reg_title:'Join AgriBridge Free', reg_name:'Full Name', reg_phone:'Phone (MTN or Airtel)',
+    reg_iam:'I am a…', reg_district:'District', reg_pwd:'Password', reg_btn:'Create Account',
+    reg_farmer:'Farmer 🌾', reg_vendor:'Vendor / Buyer 🛒', reg_hotel:'Hotel / Restaurant 🏨',
+    // ORDER
+    order_title:'Place Order', order_qty:'Quantity (kg)', order_addr:'Delivery Address',
+    order_payment:'Payment Method', order_btn:'Confirm Order 🛒',
+    order_momo:'MTN Mobile Money', order_airtel:'Airtel Money', order_cash:'Cash on Delivery',
+    // GENERAL
+    search_ph:'Search crops, farmers…', mob_search_ph:'Search crops, farmers, districts…',
+    loading:'Loading…', no_match:'No listings match your filter.',
+    watch_now:'Watch Now ▶', order_now:'Order', share:'Share',
+    // SEASON BADGE
+    in_season:'🟢 In Season', off_season:'Off Season',
+    // ALERTS
+    alert_setup:'Set Price Alert', alert_crop:'Select crop…', alert_price:'Notify me when price reaches (UGX)',
+    alert_btn:'Set Alert',
+    // TOAST
+    toast_welcome:'🌾 Welcome to AgriBridge! Browse fresh produce or dial *789# on any phone.',
+    toast_list_success:'✅ Listing posted! Buyers can now find you.',
+    toast_order_success:'🎉 Order placed! Farmer will confirm via SMS.',
+    // FOOTER
+    footer_tagline:"Uganda's Farm-to-Table Platform",
+    footer_links:'Quick Links', footer_legal:'Legal', footer_social:'Connect',
+    footer_terms:'Terms of Service', footer_privacy:'Privacy Policy',
+    footer_copy:'© 2026 AgriBridge Ltd. Kampala, Uganda.',
+    // MISC
+    notify_bell_title:'Notifications',
+  },
+
+  lg: { // ── LUGANDA ──
+    nav_home:'Engo', nav_market:'Ssuko', nav_prices:'Bbeeyi', nav_crops:'Ebibala',
+    nav_learn:'Kuyiga', nav_track:'Kugoberera', nav_ussd:'USSD *789#', nav_doctor:'Omusawo',
+    nav_supply:'Ebintu', nav_about:'Ebikwata ku', nav_contact:'Tukwate',
+    btn_login:'Yingira', btn_register:'Wandiika Bwereere', btn_browse:'Laba Ssuko',
+    btn_join_farmer:'Yingira ng\'Omulimi',
+    hero_badge:"Platform #1 y'Obulimi mu Uganda",
+    hero_title:"Lima <em>Obwegendereza</em>,<br>Nufune Obungi",
+    hero_sub:"Tukulagganisa abalimi ab'e Uganda n'abanunuzi, emisoome, n'entereeza ya bayigirize — weewaayi wamawulire mu bbeeyi, ssente z'esimu.",
+    stat_farmers:'Abalimi Abawandiisiddwa', stat_listings:'Ebintu Ebiriwo',
+    stat_districts:'Amassaza Agobekezeddwa', stat_ussd:'USSD Bulijjo',
+    hiw_title:'Engamba Otya', hiw_s1_title:'1. Wandiika Bwereere',
+    hiw_s1_body:'Wandiika ku simu oba yita <strong style="color:var(--green)">*789#</strong> ku simu oba wonna — n\'obulungi n\'obutali na data',
+    hiw_s2_title:'2. Tereeza oba Noonya', hiw_s2_body:'Abalimi bateeka ebibala byabwe. Abanunuzi balaba ebibala eby\'omusenyi okuva ku ggulo',
+    hiw_s3_title:'3. Saba era Waŋŋala', hiw_s3_body:'MTN MoMo oba Airtel Money. Okutwalibwa kweyolekera okuva ku ggulo okuja enyumba yo',
+    why_title:'Lwaki AgriBridge?',
+    why_1_title:'Bbeeyi Etuufu, Bulijjo', why_1_body:"Laba bbeeyi za ssuko nga tonnajja kuguza. Tolongosebwa mukuutu nannyini.",
+    why_2_title:'Ekolera Nga Tolina Data', why_2_body:"Yita *789# ku simu yonna ya MTN oba Airtel. Tobulizibwa data wala simu entono.",
+    why_3_title:'Okutwalibwa Enyumba Yo', why_3_body:"Abasomesa abeesigwa batwalira ebibala okuva ku ggulo okuja gy\'oli. GPS ekagirira.",
+    why_4_title:'Omusawo wa AI Bwereere', why_4_body:"Nyumya ebikuuma ekibala kyo, ofune obuyambi bw'omusawo omutangafu — bwereere.",
+    ussd_banner_title:'Tolina Simu Ntono? Tewali Kizibu!',
+    ussd_banner_body:'Yita <strong>*789#</strong> ku simu yonna ya MTN oba Airtel ufune ebintu byonna bya AgriBridge nga tolina data — mu Olungereza oba Luganda',
+    ussd_banner_btn:'Gezako Simulator ya USSD ▶',
+    featured_title:'Ebibala Ebiyongooseddwa', view_all:'Laba Ebibala Byona →',
+    mkt_header:'🛒 Ssuko', mkt_sub:'Ebibala bifiriirwe okuva ku ggulo w\'e Uganda',
+    mkt_list_btn:'+ Tereeza Ebibala', mkt_refresh:'🔄 Yeeyongerayo',
+    mkt_save_pct:'Gula Butereevu — Laba Okutegekawo 40%',
+    mkt_save_sub:'AgriBridge ekuuma abakuumi. Abalimi bafuna obungi. Ggwe osaasaanya butono.',
+    mkt_view_prices:'Laba bbeeyi za ssuko →',
+    prices_header:'📊 Bbeeyi za Ssuko', prices_sub:'Bbeeyi ez\'ennaku ez\'e Kampala, Jinja ne Mbarara',
+    crops_header:'🌿 Ebibala by\'e Uganda', crops_sub:'Ebibala 35+ ebimerirwa mu ttaka ery\'e Uganda',
+    train_header:'🎓 Kuyigiriza kw\'Abalimi', train_sub:'Amateeka ag\'abataalifu agakuyamba okukola obulungi era ofune obungi',
+    del_header:'🚚 Kugoberera Okutwalibwa', del_sub:'Okugoberera kwa bulijjo bulijjo okuva ku ggulo okuja gy\'oli',
+    del_placeholder:'Yingiza namba ya DEL-2026-001', del_btn:'Goberera 🔍',
+    del_alerts:'Obubaka Obumatidde',
+    ussd_header:'📱 Simulator ya USSD', ussd_sub:'Ekolera ku simu yonna — n\'obulungi n\'obutali na neti',
+    doc_header:'🩺 Omusawo wa AI w\'Ebibala', doc_sub:'Nyumya ekizibu ky\'ekibala kyo — ofune obuyambi bwa mutangafu bulibulijjo, bwereere',
+    doc_crop:'Ekibala Ekimu', doc_part:'Ekitundu Ekiyumiiddwa', doc_symptom:'Obubonero Obulabika',
+    doc_duration:'Okuva ddala?', doc_district:'Essaza Lyo', doc_weather:'Enkuba ey\'amalunzi?',
+    doc_desc:'Okunyumya okusingayo (si ky\'okutereka)', doc_btn:'🔍 Kengerera Ekibala Kyange',
+    doc_buy_treat:'🏪 Gula Eddagala', doc_call:'📞 Yita Omusawo', doc_report:'📋 Mbuulira Extension Officer',
+    supply_header:'🏪 Ebintu by\'Obulimi', supply_sub:'Mbuto ez\'amanfu, obuleesi ne bikoozobwawo ebitwalarwa ku ggulo lyo',
+    about_header:'💡 Ebikwata ku AgriBridge',
+    contact_header:'📬 Tukwate Obukolagana', contact_sub:"Tukusanyukira — abalimi, abanunuzi, abatekera ensimbi, n\'ab\'omukwano mwatukwatako",
+    login_title:'Tukusembeza Nate', login_phone:'Namba ya Simu', login_pwd:'Kigambo',
+    login_btn:'Yingira', login_no_acct:'Tolina akawunti?', login_join:'Wandiika Bwereere',
+    reg_title:'Yingira mu AgriBridge Bwereere', reg_name:'Erinnya Lyonna', reg_phone:'Simu (MTN oba Airtel)',
+    reg_iam:'Nze…', reg_district:'Essaza', reg_pwd:'Kigambo', reg_btn:'Tondawo Akawunti',
+    reg_farmer:'Omulimi 🌾', reg_vendor:'Omutunzi / Omugulaguzi 🛒', reg_hotel:'Ootel / Leesitolanti 🏨',
+    order_title:'Saba Omulimu', order_qty:'Bungi (kg)', order_addr:'Endagiriro y\'Okutwala',
+    order_payment:'Engeri y\'Okusasula', order_btn:'Kakasa Omulimu 🛒',
+    order_momo:'MTN Mobile Money', order_airtel:'Airtel Money', order_cash:'Ssente ku Kuweebwa',
+    search_ph:'Noonya ebibala, abalimi…', mob_search_ph:'Noonya ebibala, abalimi, amassaza…',
+    loading:'Kujjula…', no_match:'Tewali bintu bikwatagana ne filter yo.',
+    watch_now:'Laba Kakaati ▶', order_now:'Saba', share:'Gaba',
+    in_season:'🟢 Mu Mulembe', off_season:'Ebanga Ery\'ekirenga',
+    alert_setup:'Teeka Obubaka bwa Bbeeyi', alert_crop:'Londa ekibala…',
+    alert_price:'Mbuulira bbeeyi nayingira (UGX)', alert_btn:'Teeka Obubaka',
+    toast_welcome:'🌾 Tukusembeza ku AgriBridge! Noonya ebibala oba yita *789# ku simu yonna.',
+    toast_list_success:'✅ Ebibala biteekeddwa! Abanunuzi balabika ku nkola yo.',
+    toast_order_success:'🎉 Omulimu gusabiddwa! Omulimi yakakasa ku SMS.',
+    footer_tagline:"Platform y'Obulimi bw'e Uganda",
+    footer_links:'Enkolagana Enchangu', footer_legal:'Amateeka', footer_social:'Twegatte',
+    footer_terms:'Empisa z\'Okukozesa', footer_privacy:'Mmwe ku Bwama',
+    footer_copy:'© 2026 AgriBridge Ltd. Kampala, Uganda.',
+    notify_bell_title:'Obubaka',
+  },
+
+  rn: { // ── RUNYANKOLE / RUKIGA (Western Uganda) ──
+    nav_home:'Kaya', nav_market:'Ssoko', nav_prices:'Omuwendo', nav_crops:'Ebibaro',
+    nav_learn:'Kwegyesa', nav_track:'Kurikurikirira', nav_ussd:'USSD *789#', nav_doctor:'Omusaizi',
+    nav_supply:'Ebirikukozesa', nav_about:'Ebikwata kuri', nav_contact:'Obuganiriire',
+    btn_login:'Ingira', btn_register:'Wandiika Bwereere', btn_browse:'Reba Ssoko',
+    btn_join_farmer:"Ingira ng'Omurimi",
+    hero_badge:"Platform #1 y'Oburimi mu Uganda",
+    hero_title:"Lima <em>Obugyenyi</em>,<br>Nufuna Ebingi",
+    hero_sub:"Tuhuriganisa abarimi b'e Uganda n'abagurizi, omusozi, n'okushoma — nta batungatungi, omuwendo otuufu, ssente z'esimu.",
+    stat_farmers:"Abarimi Bawandiikwe", stat_listings:'Ebintu Ebirikuhari',
+    stat_districts:'Amazinda Gakirikiraniizibwe', stat_ussd:'USSD Buri Kiro',
+    hiw_title:'Engabirano Ehe Etaahayo', hiw_s1_title:'1. Wandiika Bwereere',
+    hiw_s1_body:"Wandiika ku neti oba yita <strong style='color:var(--green)'>*789#</strong> ku esimu yoona — n'obutari na data",
+    hiw_s2_title:'2. Tereeza oba Noonya', hiw_s2_body:"Abarimi batereka ebibaro byabo. Abagurizi baareba ebibaro by'omuwendo gutooro okuva oku murima",
+    hiw_s3_title:'3. Sasula era Tegurwa', hiw_s3_body:"MTN MoMo oba Airtel Money. Okutegyereza kw'enkoragana okuva oku murima okuja kwa we",
+    why_title:'Kiki Ekirimu AgriBridge?',
+    why_1_title:'Omuwendo Otuufu, Buri Kiro', why_1_body:"Reba omuwendo gwa ssoko ojire kushitisa. Tiganyisibwa batungatungi nawe.",
+    why_2_title:"Ekoraho Nta Data", why_2_body:"Yita *789# ku esimu yoona ya MTN oba Airtel. Tikukweekera data oba esimu entono.",
+    why_3_title:'Okutegurwa Nawe Aho Weeri', why_3_body:"Abasomesa bakukirikiriire bategyereza ebibaro okuva omu murima okuja kwa we.",
+    why_4_title:'Omusaizi wa AI Bwereere', why_4_body:"Bwira ekizooba ky'ekibaro kyo, ufune okuyamba kw'omusaizi — bwereere.",
+    ussd_banner_title:"Nta Esimu Entono? Tihakirimu Kizibu!",
+    ussd_banner_body:"Yita <strong>*789#</strong> ku esimu yoona ya MTN oba Airtel ufune ebintu byoona bya AgriBridge nta data — mu Kingereza oba Runyankole",
+    ussd_banner_btn:'Gezaho Simulator ya USSD ▶',
+    featured_title:'Ebibaro Ebirikutsindwa', view_all:'Reba Ebibaro Byoona →',
+    mkt_header:'🛒 Ssoko', mkt_sub:"Ebibaro bifiriirwe okuva omu murima gw'e Uganda",
+    mkt_list_btn:'+ Tereka Ebibaro', mkt_refresh:'🔄 Ruhururaho',
+    mkt_save_pct:'Gura Butereevu — Junda okukura 40%',
+    mkt_save_sub:'AgriBridge ikemba batungatungi. Abarimi bafuna ebingi. Iwe osaasanya bukuru butono.',
+    mkt_view_prices:'Reba omuwendo gwa ssoko →',
+    prices_header:'📊 Omuwendo gwa Ssoko', prices_sub:"Omuwendo gw'emiingo gy'e Kampala, Jinja na Mbarara",
+    crops_header:"🌿 Ebibaro by'e Uganda", crops_sub:"Ebibaro 35+ ebirimirwa mu ttaka ry'e Uganda",
+    train_header:"🎓 Kwegyesa kw'Abarimi", train_sub:"Amagezaho ag'abataalifu gakumaraho okukolera bulungi",
+    del_header:'🚚 Kurikirira Okutegurwa', del_sub:'Kurikirira kwenkoragana okuva omu murima okuja nawe',
+    del_placeholder:'Yingiza namba ya DEL-2026-001', del_btn:'Rikirira 🔍',
+    del_alerts:'Amakuru Mashya',
+    ussd_header:'📱 Simulator ya USSD', ussd_sub:'Ekoraho ku esimu yoona — nawe n\'obutari na neti',
+    doc_header:'🩺 Omusaizi wa AI w\'Ebibaro', doc_sub:'Bwira ekizooba ky\'ekibaro kyo — ufune okuyamba kw\'omusaizi aho handiho, bwereere',
+    doc_crop:'Ekibaro Kimwe', doc_part:'Ekitundu Ekinoomerye', doc_symptom:'Obubonero Ebirababika',
+    doc_duration:'Okuva ryari?', doc_district:'Omazinda Go', doc_weather:'Enkuba ey\'amalunzi?',
+    doc_desc:'Kureeba okwongyera (tikiteekwa)', doc_btn:'🔍 Teebya Ekibaro Kyange',
+    doc_buy_treat:'🏪 Gura Eddagala', doc_call:'📞 Yita Omusaizi', doc_report:'📋 Mburiira Extension Officer',
+    supply_header:"🏪 Ebirikukozesa by'Oburimi", supply_sub:'Mbuto nziza, obuleesi na bikoozobwawo ebitegurwa omu murima gwo',
+    about_header:'💡 Ebikwata kuri AgriBridge',
+    contact_header:'📬 Tuganiriire', contact_sub:"Tukusanyukira — abarimi, abagurizi, ababumba, n'ab'obuteekateeka mwatuganiira",
+    login_title:'Tukureetibaho Nate', login_phone:'Namba y\'Esimu', login_pwd:'Ekigambo',
+    login_btn:'Ingira', login_no_acct:"Nta konte?", login_join:'Wandiika Bwereere',
+    reg_title:'Ingira mu AgriBridge Bwereere', reg_name:'Eizina Ryoona', reg_phone:'Esimu (MTN oba Airtel)',
+    reg_iam:'Ndi…', reg_district:'Omazinda', reg_pwd:'Ekigambo', reg_btn:'Tondaho Konte',
+    reg_farmer:'Omurimi 🌾', reg_vendor:'Omutunzi / Omugurizi 🛒', reg_hotel:'Hooteri / Leesitolanti 🏨',
+    order_title:'Saba Omulimu', order_qty:'Bungi (kg)', order_addr:'Endagiriro y\'Okutegurwa',
+    order_payment:'Engeri y\'Okusasula', order_btn:'Kakasa Omulimu 🛒',
+    order_momo:'MTN Mobile Money', order_airtel:'Airtel Money', order_cash:'Ssente kw\'Okutegurwa',
+    search_ph:'Noonya ebibaro, abarimi…', mob_search_ph:'Noonya ebibaro, abarimi, amazinda…',
+    loading:'Kukikurika…', no_match:'Tihari bintu bikwatagana na filter yo.',
+    watch_now:'Reba Kakaati ▶', order_now:'Saba', share:'Gaba',
+    in_season:'🟢 Omu Kiro', off_season:'Eby\'ebanga Ery\'ekirenga',
+    alert_setup:'Teeka Amakuru ga Omuwendo', alert_crop:'Soorolora ekibaro…',
+    alert_price:'Mburiira omuwendo gwingira (UGX)', alert_btn:'Teeka Amakuru',
+    toast_welcome:"🌾 Tukureetibaho kuri AgriBridge! Noonya ebibaro oba yita *789# ku esimu yoona.",
+    toast_list_success:'✅ Ebibaro biterekeddwa! Abagurizi bareba omu nkoragana yo.',
+    toast_order_success:'🎉 Omulimu gusabiddwe! Omurimi yakakasa ku SMS.',
+    footer_tagline:"Platform y'Oburimi bw'e Uganda",
+    footer_links:'Enkoragana Enshongore', footer_legal:'Amateeka', footer_social:'Tuhuriganye',
+    footer_terms:"Empisa z'Okukozesa", footer_privacy:'Bwama bwo',
+    footer_copy:'© 2026 AgriBridge Ltd. Kampala, Uganda.',
+    notify_bell_title:'Amakuru',
+  },
+
+  ac: { // ── ACHOLI / LUO (Northern Uganda) ──
+    nav_home:'Ot', nav_market:'Cuk', nav_prices:'Wel', nav_crops:'Bel',
+    nav_learn:'Pwony', nav_track:'Lubo', nav_ussd:'USSD *789#', nav_doctor:'Lakeny',
+    nav_supply:'Jami', nav_about:'Kom', nav_contact:'Mak',
+    btn_login:'Donyo', btn_register:'Cono Kwere', btn_browse:'Neno Cuk',
+    btn_join_farmer:"Don ki Lapwoyo",
+    hero_badge:"Platform Maber Tutwal pi Tec pa Latim i Uganda",
+    hero_title:"Tim <em>Maber</em>,<br>Nyang Lim Madit",
+    hero_sub:"Wamoko lupur me Uganda kacel ki lukato, cen, ki pwonyo ma ladit — pe ki lukato lulok, wel ma tir, lim ki simu.",
+    stat_farmers:'Lupur Ma Gicoyo', stat_listings:'Gin Ma Tye',
+    stat_districts:'Ceng Ma Girwako', stat_ussd:'USSD Jwinyo Dyeceŋ',
+    hiw_title:'Tiyo Nining', hiw_s1_title:'1. Cono Kwere',
+    hiw_s1_body:"Coŋ i net onyo pwoyo <strong style='color:var(--green)'>*789#</strong> i simu mo keken — ka pe data bene",
+    hiw_s2_title:'2. Keto onyo Yeny', hiw_s2_body:"Lupur giketo gin ma gi nong. Lukato gineno bel ma wel tir ki i poto ki tuŋ lapwoyo.",
+    hiw_s3_title:'3. Cul ki Keli', hiw_s3_body:"MTN MoMo onyo Airtel Money. Lubo ki GPS nia ki i poto nio i ot beni.",
+    why_title:'Piŋo AgriBridge?',
+    why_1_title:'Wel Tir, Jwinyo', why_1_body:"Neno wel pa cuk nia pe i cato. Pe gicwalo wi i lukato lulok.",
+    why_2_title:'Tic Ka Pe Net', why_2_body:"Pwoyo *789# i simu mo keken pa MTN onyo Airtel. Data pe mite.",
+    why_3_title:'Kelo i Ot Beni', why_3_body:"Luwot ma gigenyo gukelo bel nia ki i poto nio i ot beni. GPS lubo juki.",
+    why_4_title:'Lakeny pa AI Kwere', why_4_body:"Nyut tam pa bel, nyang ribo pa lakeny oyot — kwere.",
+    ussd_banner_title:"Pe Nying Simu Matino? Pe Peko!",
+    ussd_banner_body:"Pwoyo <strong>*789#</strong> i simu mo keken pa MTN onyo Airtel iyot gin ducu pa AgriBridge ka pe data — i Leb Ingere onyo Luo",
+    ussd_banner_btn:'Tem Simulator pa USSD ▶',
+    featured_title:'Gin Ma Giyero', view_all:'Neno Gin Ducu →',
+    mkt_header:'🛒 Cuk', mkt_sub:"Bel nia ki i poto pa Uganda — pe ki lukato lulok",
+    mkt_list_btn:'+ Keto Gin', mkt_refresh:'🔄 Doki',
+    mkt_save_pct:'Cato Tito — Lim 40% Makato',
+    mkt_save_sub:'AgriBridge kwanyo lukato lulok. Lupur ginyang lim madit. In i cul manok.',
+    mkt_view_prices:'Neno wel pa cuk →',
+    prices_header:'📊 Wel pa Cuk', prices_sub:"Wel pa nino nie pa Kampala, Jinja ki Mbarara",
+    crops_header:"🌿 Bel pa Uganda", crops_sub:'Bel 35+ ma gilim i ŋom maber pa Uganda',
+    train_header:"🎓 Pwonyo pa Lupur", train_sub:'Vidiyo ma layeny gimiyo wek ilim maber ki inyang lim madit',
+    del_header:'🚚 Lubo Kelo', del_sub:'Lubo ma dyeceŋ nia ki i poto nio i ot',
+    del_placeholder:'Ket namba pa DEL-2026-001', del_btn:'Lubo 🔍',
+    del_alerts:'Keno Ma Gukelo',
+    ussd_header:'📱 Simulator pa USSD', ussd_sub:"Tic i simu mo keken — ka pe net bene",
+    doc_header:"🩺 Lakeny pa AI pa Bel", doc_sub:'Nyut tam pa bel — nyang ribo pa lakeny oyot, kwere',
+    doc_crop:'Bel Mene', doc_part:'Dul Ma Neko', doc_symptom:'Gin Ma Gineno',
+    doc_duration:'Nia onoŋo maka nino adi?', doc_district:'Ceng Beni', doc_weather:'Kot pa nino macon?',
+    doc_desc:'Nyut makato (pe mite)', doc_btn:'🔍 Yeny Tam pa Bel Mera',
+    doc_buy_treat:'🏪 Cato Yat', doc_call:'📞 Pwoyo Lakeny', doc_report:'📋 Ciko Extension Officer',
+    supply_header:"🏪 Jami pa Tec Latim", supply_sub:'Kodi maber, obuleesi ki jami gikelo i poto beni',
+    about_header:'💡 Kom AgriBridge',
+    contact_header:'📬 Mak Kwanyo', contact_sub:"Wamiyo ber — lupur, lukato, lukeno, ki lumok wa",
+    login_title:'Wamoko Kacel Doki', login_phone:'Namba pa Simu', login_pwd:'Gamo',
+    login_btn:'Donyo', login_no_acct:"Pe nying account?", login_join:'Cono Kwere',
+    reg_title:'Donyo i AgriBridge Kwere', reg_name:'Nyinggi Ducu', reg_phone:'Simu (MTN onyo Airtel)',
+    reg_iam:'An…', reg_district:'Ceng', reg_pwd:'Gamo', reg_btn:'Gur Account',
+    reg_farmer:'Lapwoyo 🌾', reg_vendor:'Lakato / Lukato 🛒', reg_hotel:'Hotel / Leesitolanti 🏨',
+    order_title:'Peny Gin', order_qty:'Dite (kg)', order_addr:'Kabedo pa Kelo',
+    order_payment:'Yo pa Cul', order_btn:'Mak Gin 🛒',
+    order_momo:'MTN Mobile Money', order_airtel:'Airtel Money', order_cash:'Lim i Kelo',
+    search_ph:'Yeny bel, lupur…', mob_search_ph:'Yeny bel, lupur, ceng…',
+    loading:'Keno tye…', no_match:'Gin mo pe yee ki filter beni.',
+    watch_now:'Neno Vidiyo ▶', order_now:'Peny', share:'Gabo',
+    in_season:'🟢 I Kare', off_season:'Kare ma okato',
+    alert_setup:'Keto Keno pa Wel', alert_crop:'Yer bel…',
+    alert_price:'Maka pi wel (UGX)', alert_btn:'Keto Keno',
+    toast_welcome:'🌾 Wamoko i AgriBridge! Yeny bel onyo pwoyo *789# i simu mo keken.',
+    toast_list_success:'✅ Gin giketoni! Lukato ginoŋo in i jami.',
+    toast_order_success:'🎉 Gin gipenyoni! Lapwoyo giciko ki SMS.',
+    footer_tagline:"Platform pa Tec Latim pa Uganda",
+    footer_links:'Gamo Oyot', footer_legal:'Cik', footer_social:'Mako Kacel',
+    footer_terms:'Cik pa Tic', footer_privacy:'Ngom Beni',
+    footer_copy:'© 2026 AgriBridge Ltd. Kampala, Uganda.',
+    notify_bell_title:'Keno',
+  }
+};
+
+let currentLang = localStorage.getItem('ab_lang') || 'en';
+
+function t(key) {
+  return (LANGS[currentLang] && LANGS[currentLang][key]) || LANGS['en'][key] || key;
+}
+
+function setLang(code) {
+  currentLang = code;
+  localStorage.setItem('ab_lang', code);
+  // Update all data-i18n elements
+  document.querySelectorAll('[data-i18n]').forEach(el => {
+    const k = el.getAttribute('data-i18n');
+    const val = t(k);
+    if (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA') {
+      el.placeholder = val;
+    } else {
+      el.innerHTML = val;
+    }
+  });
+  // Update data-i18n-ph (placeholder only)
+  document.querySelectorAll('[data-i18n-ph]').forEach(el => {
+    el.placeholder = t(el.getAttribute('data-i18n-ph'));
+  });
+  // Update lang picker button label
+  const langBtn = document.getElementById('langPickerBtn');
+  if (langBtn) langBtn.textContent = { en:'🌐 EN', lg:'🌐 LG', rn:'🌐 RN', ac:'🌐 AC' }[code] || '🌐';
+  // Update page direction (all LTR for these languages)
+  document.documentElement.lang = code === 'en' ? 'en' : code === 'lg' ? 'lg' : code === 'rn' ? 'rn' : 'ac';
+  // Update USSD hint text
+  updateUssdHint();
+  // Close lang modal
+  closeModal('langModal');
+  showToast('Language changed / Olulimi olusanyusiddwa ✓');
+}
+
+function updateUssdHint() {
+  const hints = {
+    en: 'Press * 7 8 9 # then tap Send',
+    lg: 'Nyiga * 7 8 9 # olwo onyige Tuma',
+    rn: 'Nyiga * 7 8 9 # orugaho nyiga Tuma',
+    ac: 'Nyono * 7 8 9 # ka nyono Cwal'
+  };
+  const h = document.querySelector('.ussd-hint');
+  if (h) h.innerHTML = hints[currentLang] || hints.en;
+}
+
 // ═══════════════════════════════════════════════════════
 // INIT
 // ═══════════════════════════════════════════════════════
@@ -3073,18 +3706,562 @@ document.addEventListener('DOMContentLoaded', () => {
   loadHomeStats();
   renderCrops();
   renderSupply();
+  loadPitchStats();
+  // Apply saved language
+  setLang(currentLang);
   // Restore logged-in user state from localStorage
   if (currentUser?.name) {
     updateNavUser(currentUser.name, currentUser.role || 'farmer');
+    showNotifBadge(4); // demo: 4 unread notifications
   }
+  // Cookie consent
+  checkCookieBanner();
   // First-time visitor welcome
   if (!localStorage.getItem('ab_visited')) {
     setTimeout(() => {
-      showToast('🌾 Welcome to AgriBridge! Browse fresh produce or dial *789# on any phone.');
+      showToast(t('toast_welcome'));
       localStorage.setItem('ab_visited', '1');
     }, 1500);
   }
 });
+
+// ═══════════════════════════════════════════════════════
+// COOKIE CONSENT
+// ═══════════════════════════════════════════════════════
+function acceptCookies() {
+  localStorage.setItem('ab_cookies', '1');
+  const b = document.getElementById('cookieBanner');
+  if (b) b.style.display = 'none';
+}
+function checkCookieBanner() {
+  if (!localStorage.getItem('ab_cookies')) {
+    setTimeout(() => {
+      const b = document.getElementById('cookieBanner');
+      if (b) b.style.display = 'flex';
+    }, 3000);
+  }
+}
+
+// ═══════════════════════════════════════════════════════
+// NOTIFICATION PANEL
+// ═══════════════════════════════════════════════════════
+let notifOpen = false;
+function toggleNotifPanel() {
+  notifOpen = !notifOpen;
+  const p = document.getElementById('notifPanel');
+  if (p) p.classList.toggle('open', notifOpen);
+  if (notifOpen) {
+    const badge = document.getElementById('notifCount');
+    if (badge) badge.style.display = 'none';
+  }
+}
+function showNotifBadge(count) {
+  const badge = document.getElementById('notifCount');
+  if (badge) { badge.textContent = count; badge.style.display = 'flex'; }
+}
+document.addEventListener('click', e => {
+  const panel = document.getElementById('notifPanel');
+  const bell  = document.getElementById('notifBell');
+  if (notifOpen && panel && bell && !panel.contains(e.target) && !bell.contains(e.target)) {
+    notifOpen = false;
+    panel.classList.remove('open');
+  }
+});
+
+// ═══════════════════════════════════════════════════════
+// FAQ TOGGLE
+// ═══════════════════════════════════════════════════════
+function toggleFaq(qEl) {
+  const aEl = qEl.nextElementSibling;
+  const isOpen = aEl.classList.contains('open');
+  document.querySelectorAll('.faq-a.open').forEach(a => {
+    a.classList.remove('open');
+    if (a.previousElementSibling) a.previousElementSibling.classList.remove('open');
+  });
+  if (!isOpen) { aEl.classList.add('open'); qEl.classList.add('open'); }
+}
+
+// ═══════════════════════════════════════════════════════
+// PRICE ALERT SAVE
+// ═══════════════════════════════════════════════════════
+async function saveAlert() {
+  const crop     = document.getElementById('alertCrop')?.value;
+  const district = document.getElementById('alertDistrict')?.value;
+  const price    = parseFloat(document.getElementById('alertPrice')?.value || '0');
+  const dir      = document.getElementById('alertDir')?.value || 'above';
+  if (!crop || !price) { showToast('Select a crop and enter a target price'); return; }
+  if (!currentUser) { showToast('Please log in to set price alerts'); openModal('loginModal'); return; }
+  await sbInsert('price_alerts', {
+    farmer_phone: currentUser.phone,
+    crop_name: crop, district,
+    target_price: price, direction: dir, is_active: true
+  });
+  showToast('🔔 Alert set! We\u2019ll SMS you when ' + crop + ' in ' + district + ' ' + (dir==='above'?'rises above':'falls below') + ' UGX ' + price.toLocaleString() + '/kg');
+  if (document.getElementById('alertCrop')) document.getElementById('alertCrop').value = '';
+  if (document.getElementById('alertPrice')) document.getElementById('alertPrice').value = '';
+}
+
+// ═══════════════════════════════════════════════════════
+// SHARE LISTING
+// ═══════════════════════════════════════════════════════
+function shareListing(name, district, price) {
+  const text = '🌾 Fresh ' + name + ' available from ' + district + ' at UGX ' + Number(price).toLocaleString() + '/kg on AgriBridge!\n\nOrder now: https://agribridge.zealmugumya.workers.dev\nOr dial *789# on any phone 📱';
+  if (navigator.share) {
+    navigator.share({ title: name + ' on AgriBridge', text, url: 'https://agribridge.zealmugumya.workers.dev' }).catch(() => {});
+  } else {
+    window.open('https://wa.me/?text=' + encodeURIComponent(text), '_blank');
+  }
+}
+
+// ═══════════════════════════════════════════════════════
+// DASHBOARD (Farmer/Buyer)
+// ═══════════════════════════════════════════════════════
+async function loadDashboard() {
+  if (!currentUser) {
+    document.getElementById('dash-content').innerHTML = '<div style="text-align:center;padding:40px"><div style="font-size:3rem">🔐</div><p style="color:var(--text2);margin:12px 0">Log in to see your dashboard</p><button class="btn-primary" onclick="openModal(\'loginModal\')">Log In</button></div>';
+    return;
+  }
+  const isFarmer = currentUser.role === 'farmer';
+  document.getElementById('dash-content').innerHTML = '<div class="loading-spinner" style="margin:40px auto"></div>';
+  if (isFarmer) {
+    // Load farmer's listings
+    const listings = await sb('listings', { farmer_phone: 'eq.' + currentUser.phone + '&order=created_at.desc&limit=20' });
+    const orders   = await sb('orders',   { seller_phone: 'eq.' + currentUser.phone + '&order=created_at.desc&limit=10' });
+    let html = '<div style="margin-bottom:20px"><h3 style="font-size:1rem;font-weight:700;margin-bottom:12px">📦 My Listings (' + (listings?.length||0) + ')</h3>';
+    if (listings?.length) {
+      html += listings.map(l => '<div class="dash-row"><span>' + escHtml(l.produce_name||l.crop_name||'Item') + '</span><span style="color:var(--green)">UGX ' + (l.price_per_kg||0).toLocaleString() + '/kg</span><span style="color:var(--text2);font-size:0.8rem">' + (l.quantity_kg||0) + ' kg</span></div>').join('');
+    } else {
+      html += '<p style="color:var(--text2);font-size:0.9rem">No listings yet. <button class="btn-sm" onclick="openListProduceModal()">List Produce</button></p>';
+    }
+    html += '</div><div><h3 style="font-size:1rem;font-weight:700;margin-bottom:12px">🛒 Recent Orders (' + (orders?.length||0) + ')</h3>';
+    if (orders?.length) {
+      html += orders.map(o => '<div class="dash-row"><span>' + escHtml(o.crop_name||o.produce_name||'Item') + '</span><span style="color:var(--green)">UGX ' + (o.total_price||0).toLocaleString() + '</span><span class="status-badge ' + (o.status||'pending') + '">' + (o.status||'Pending') + '</span></div>').join('');
+    } else {
+      html += '<p style="color:var(--text2);font-size:0.9rem">No orders received yet.</p>';
+    }
+    html += '</div>';
+    document.getElementById('dash-content').innerHTML = html;
+  } else {
+    // Buyer dashboard
+    const orders = await sb('orders', { buyer_phone: 'eq.' + currentUser.phone + '&order=created_at.desc&limit=20' });
+    let html = '<h3 style="font-size:1rem;font-weight:700;margin-bottom:12px">🛒 My Orders (' + (orders?.length||0) + ')</h3>';
+    if (orders?.length) {
+      html += orders.map(o => '<div class="dash-row"><span>' + escHtml(o.crop_name||'Item') + '</span><span style="color:var(--green)">UGX ' + (o.total_price||0).toLocaleString() + '</span><span class="status-badge ' + (o.status||'pending') + '">' + (o.status||'Pending') + '</span></div>').join('');
+    } else {
+      html += '<p style="color:var(--text2);font-size:0.9rem">No orders placed yet. <button class="btn-sm" onclick=\"showPage(\'market\')\">Browse Market</button></p>';
+    }
+    document.getElementById('dash-content').innerHTML = html;
+  }
+}
+
+// ═══════════════════════════════════════════════════════
+// PITCH DECK LIVE STATS
+// ═══════════════════════════════════════════════════════
+async function loadPitchStats() {
+  const [farmers, listings] = await Promise.all([
+    sb('farmers', 'select=count', true),
+    sb('listings', 'select=count&is_available=eq.true', true)
+  ]);
+  const fEl = document.getElementById('p-farmers');
+  const lEl = document.getElementById('p-listings');
+  if (fEl && farmers) fEl.textContent = (farmers[0]?.count || '—').toLocaleString();
+  if (lEl && listings) lEl.textContent = (listings[0]?.count || '—').toLocaleString();
+}
+
+// ═══════════════════════════════════════════════════════
+// SERVICE WORKER REGISTRATION
+// ═══════════════════════════════════════════════════════
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('/sw.js')
+      .then(reg => console.log('AgriBridge SW registered:', reg.scope))
+      .catch(err => console.log('SW registration failed:', err));
+  });
+}
+
+
+// ═══════════════════════════════════════════════════════
+// COMMUNITY
+// ═══════════════════════════════════════════════════════
+function switchCommTab(tab) {
+  document.querySelectorAll('.comm-tab').forEach(b => b.classList.remove('active'));
+  event.target.classList.add('active');
+  // In a full build, filter posts by tab. For now, just show the feed.
+}
+function commLike(btn) {
+  const count = parseInt(btn.textContent.replace(/[^0-9]/g,'')) + 1;
+  btn.textContent = '👍 ' + count;
+}
+function commReply(btn) {
+  const text = document.getElementById('commText');
+  text.focus();
+  text.placeholder = 'Replying to post...';
+  text.scrollIntoView({ behavior:'smooth', block:'center' });
+}
+async function submitCommPost() {
+  const text = document.getElementById('commText').value.trim();
+  if (!text) { showToast('Write something first'); return; }
+  if (!currentUser) { showToast('Please log in to post'); openModal('loginModal'); return; }
+  // Insert into community_posts table
+  await sbInsert('community_posts', {
+    author_phone: currentUser.phone,
+    author_name: currentUser.name,
+    content: text,
+    category: 'general'
+  });
+  showToast('✅ Post shared with the community!');
+  document.getElementById('commText').value = '';
+  // Prepend optimistically
+  const feed = document.getElementById('comm-feed');
+  const initials = (currentUser.name||'U').split(' ').map(w=>w[0]).join('').toUpperCase().slice(0,2);
+  const div = document.createElement('div');
+  div.className = 'comm-post';
+  div.innerHTML = '<div class="comm-avatar">' + initials + '</div><div class="comm-body"><div class="comm-author">' + escHtml(currentUser.name||'You') + ' · Just now</div><p>' + escHtml(text) + '</p><div class="comm-actions"><button onclick="commLike(this)">👍 0</button></div></div>';
+  feed.insertBefore(div, feed.firstChild);
+}
+
 </script>
+
+
+<!-- ══════════════════════════════════════ -->
+<!-- PAGE: DASHBOARD                        -->
+<!-- ══════════════════════════════════════ -->
+<div id="page-dashboard" class="page">
+  <div class="page-header">
+    <h2 data-i18n="nav_dashboard">My Dashboard</h2>
+    <p data-i18n="dash_sub">Track your listings, orders & earnings</p>
+  </div>
+  <div class="page-body">
+    <!-- Stats row -->
+    <div class="stats-row" style="display:flex;gap:12px;margin-bottom:20px;flex-wrap:wrap">
+      <div class="stat-mini" id="d-stat-listings" style="flex:1;min-width:100px;background:var(--card);border-radius:12px;padding:14px;text-align:center">
+        <div style="font-size:1.6rem;font-weight:800;color:var(--green)">—</div>
+        <div style="font-size:0.75rem;color:var(--text2)" data-i18n="dash_listings">Listings</div>
+      </div>
+      <div class="stat-mini" id="d-stat-orders" style="flex:1;min-width:100px;background:var(--card);border-radius:12px;padding:14px;text-align:center">
+        <div style="font-size:1.6rem;font-weight:800;color:var(--yellow)">—</div>
+        <div style="font-size:0.75rem;color:var(--text2)" data-i18n="dash_orders">Orders</div>
+      </div>
+      <div class="stat-mini" id="d-stat-earned" style="flex:1;min-width:100px;background:var(--card);border-radius:12px;padding:14px;text-align:center">
+        <div style="font-size:1.6rem;font-weight:800;color:var(--green)">—</div>
+        <div style="font-size:0.75rem;color:var(--text2)" data-i18n="dash_earned">Earned (UGX)</div>
+      </div>
+    </div>
+    <!-- Dynamic content -->
+    <div id="dash-content" style="min-height:200px"></div>
+    <!-- Quick actions -->
+    <div style="margin-top:20px;display:flex;gap:10px;flex-wrap:wrap">
+      <button class="btn-primary" onclick="openListProduceModal()" data-i18n="btn_list_produce">+ List Produce</button>
+      <button class="btn-outline" onclick="showPage('market')" data-i18n="btn_browse">Browse Market</button>
+      <button class="btn-outline" onclick="showPage('prices')" data-i18n="nav_prices">Check Prices</button>
+    </div>
+  </div>
+</div>
+
+
+
+<!-- ══════════════════════════════════════ -->
+<!-- PAGE: PITCH DECK                       -->
+<!-- ══════════════════════════════════════ -->
+<div id="page-pitch" class="page">
+  <div class="page-header">
+    <h2>🌾 AgriBridge · Investor Pitch</h2>
+    <p>Uganda's Farm-to-Table Platform — Series Pre-Seed 2026</p>
+  </div>
+  <div class="page-body" style="padding-bottom:40px">
+
+    <!-- Slide 1: Problem -->
+    <div class="pitch-slide">
+      <div class="pitch-slide-label">01 · THE PROBLEM</div>
+      <h3>Uganda's farmers lose <span style="color:var(--green)">30–40%</span> of income to middlemen</h3>
+      <ul class="pitch-list">
+        <li>🧑‍🌾 5.4M smallholder farmers with no direct market access</li>
+        <li>📉 Maize bought at UGX 800/kg, sold in Kampala at UGX 2,200/kg</li>
+        <li>🏨 Hotels &amp; restaurants waste 2–3 hrs/day sourcing fresh produce</li>
+        <li>📵 70% of farmers have no internet — SMS/USSD is their only option</li>
+      </ul>
+    </div>
+
+    <!-- Slide 2: Solution -->
+    <div class="pitch-slide">
+      <div class="pitch-slide-label">02 · THE SOLUTION</div>
+      <h3>AgriBridge: <span style="color:var(--green)">Direct Farm-to-Table</span> for every Ugandan</h3>
+      <div class="pitch-cols">
+        <div class="pitch-col">
+          <div style="font-size:2rem">📱</div>
+          <strong>Web App</strong>
+          <p>Marketplace, live prices, AI crop doctor, training videos</p>
+        </div>
+        <div class="pitch-col">
+          <div style="font-size:2rem">📟</div>
+          <strong>USSD *789#</strong>
+          <p>Works on any phone, any network, zero data needed</p>
+        </div>
+        <div class="pitch-col">
+          <div style="font-size:2rem">💬</div>
+          <strong>WhatsApp Bot</strong>
+          <p>Order confirmation, price alerts, delivery updates</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- Slide 3: Traction -->
+    <div class="pitch-slide">
+      <div class="pitch-slide-label">03 · TRACTION</div>
+      <h3>Built &amp; Live — <span style="color:var(--green)">Real Users, Real Data</span></h3>
+      <div class="pitch-cols">
+        <div class="pitch-col traction-stat">
+          <div class="t-num" id="p-farmers">—</div>
+          <div class="t-label">Registered Farmers</div>
+        </div>
+        <div class="pitch-col traction-stat">
+          <div class="t-num" id="p-listings">—</div>
+          <div class="t-label">Active Listings</div>
+        </div>
+        <div class="pitch-col traction-stat">
+          <div class="t-num">134</div>
+          <div class="t-label">Districts Covered</div>
+        </div>
+        <div class="pitch-col traction-stat">
+          <div class="t-num">4</div>
+          <div class="t-label">Languages Supported</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Slide 4: Market -->
+    <div class="pitch-slide">
+      <div class="pitch-slide-label">04 · MARKET OPPORTUNITY</div>
+      <h3>Uganda Agri-Tech: <span style="color:var(--green)">$2.1B</span> addressable market</h3>
+      <div class="pitch-market-row">
+        <div class="pm-ring" style="border-color:#1a3a2a"><span style="color:var(--text2);font-size:0.8rem">TAM</span><strong style="color:var(--green)">$2.1B</strong><span style="font-size:0.75rem;color:var(--text2)">Uganda Agri GDP</span></div>
+        <div class="pm-ring" style="border-color:#1e4a2e"><span style="color:var(--text2);font-size:0.8rem">SAM</span><strong style="color:var(--green)">$420M</strong><span style="font-size:0.75rem;color:var(--text2)">Digital agri services</span></div>
+        <div class="pm-ring" style="border-color:#00c853;border-width:2px"><span style="color:var(--text2);font-size:0.8rem">SOM</span><strong style="color:var(--green)">$42M</strong><span style="font-size:0.75rem;color:var(--text2)">3yr reachable</span></div>
+      </div>
+    </div>
+
+    <!-- Slide 5: Business model -->
+    <div class="pitch-slide">
+      <div class="pitch-slide-label">05 · BUSINESS MODEL</div>
+      <h3>4 Revenue Streams — <span style="color:var(--green)">Transaction-first</span></h3>
+      <ul class="pitch-list">
+        <li>💰 <strong>2% transaction fee</strong> on every marketplace order</li>
+        <li>🌟 <strong>Premium listings</strong> — UGX 15,000/month (featured &amp; verified badge)</li>
+        <li>📊 <strong>Market data API</strong> — $99–$499/month for NGOs, banks, govt</li>
+        <li>🚜 <strong>Logistics margin</strong> — 5% on assisted cold-chain deliveries (Y2)</li>
+      </ul>
+      <div style="background:var(--surface);border-radius:10px;padding:14px;margin-top:14px;font-size:0.85rem">
+        <strong style="color:var(--green)">Projections:</strong> $23K ARR (Y1) → $326K (Y2) → $1.8M (Y3)
+      </div>
+    </div>
+
+    <!-- Slide 6: Team -->
+    <div class="pitch-slide">
+      <div class="pitch-slide-label">06 · TEAM</div>
+      <h3>Built by <span style="color:var(--green)">Ugandans, for Uganda</span></h3>
+      <div class="pitch-team">
+        <div class="team-card">
+          <div class="team-avatar">ZM</div>
+          <strong>Zeal Mugumya</strong>
+          <span>Founder &amp; CEO</span>
+          <p>Full-stack engineer · Uganda market expert</p>
+        </div>
+        <div class="team-card">
+          <div class="team-avatar">AG</div>
+          <strong>Agri Operations</strong>
+          <span>Co-Founder · COO</span>
+          <p>10+ yrs agricultural supply chain · Wakiso pilot lead</p>
+        </div>
+        <div class="team-card">
+          <div class="team-avatar">TA</div>
+          <strong>Tech &amp; AI</strong>
+          <span>CTO</span>
+          <p>AI/ML engineer · Mobile-first architect</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- Slide 7: Ask -->
+    <div class="pitch-slide pitch-ask">
+      <div class="pitch-slide-label">07 · THE ASK</div>
+      <h3>Raising <span style="color:var(--green)">$150,000</span> Pre-Seed</h3>
+      <div class="pitch-cols">
+        <div class="pitch-col">
+          <strong>40% — Engineering</strong>
+          <p>Mobile app, USSD scale, AI improvements</p>
+        </div>
+        <div class="pitch-col">
+          <strong>30% — Farmer Acquisition</strong>
+          <p>50 districts rollout, field agents</p>
+        </div>
+        <div class="pitch-col">
+          <strong>20% — Operations</strong>
+          <p>Team, office, logistics partnerships</p>
+        </div>
+        <div class="pitch-col">
+          <strong>10% — Legal &amp; Compliance</strong>
+          <p>URSB, BoU licensing, data protection</p>
+        </div>
+      </div>
+      <div style="text-align:center;margin-top:24px">
+        <a href="mailto:zealmugumya@gmail.com" class="btn-primary" style="text-decoration:none;display:inline-block">📧 Contact: zealmugumya@gmail.com</a>
+      </div>
+    </div>
+
+    <!-- Tech Stack -->
+    <div class="pitch-slide">
+      <div class="pitch-slide-label">TECH STACK</div>
+      <h3>Modern, Scalable, <span style="color:var(--green)">Africa-Ready</span></h3>
+      <div style="display:flex;flex-wrap:wrap;gap:10px;margin-top:12px">
+        <span class="tech-badge">Supabase PostgreSQL</span>
+        <span class="tech-badge">Cloudflare Pages CDN</span>
+        <span class="tech-badge">Africa's Talking USSD</span>
+        <span class="tech-badge">PWA (Offline-first)</span>
+        <span class="tech-badge">MTN MoMo Payments</span>
+        <span class="tech-badge">AI Crop Diagnosis</span>
+        <span class="tech-badge">4-Language i18n</span>
+        <span class="tech-badge">Service Worker</span>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+
+
+<!-- ══════════════════════════════════════ -->
+<!-- PAGE: COMMUNITY                        -->
+<!-- ══════════════════════════════════════ -->
+<div id="page-community" class="page">
+  <div class="page-header">
+    <h2 data-i18n="nav_community">Community</h2>
+    <p data-i18n="comm_sub">Connect with farmers, buyers & agri experts</p>
+  </div>
+  <div class="page-body">
+    <!-- Community channels -->
+    <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:20px">
+      <button class="btn-sm comm-tab active" onclick="switchCommTab('tips')" data-i18n="comm_tips">Farming Tips</button>
+      <button class="btn-sm comm-tab outline" onclick="switchCommTab('prices')" data-i18n="comm_prices">Price Reports</button>
+      <button class="btn-sm comm-tab outline" onclick="switchCommTab('help')" data-i18n="comm_help">Ask for Help</button>
+    </div>
+    <!-- Community posts -->
+    <div id="comm-feed">
+      <!-- Static starter posts -->
+      <div class="comm-post">
+        <div class="comm-avatar">GN</div>
+        <div class="comm-body">
+          <div class="comm-author">Grace Nakato · Mbarara <span class="comm-time">2h ago</span></div>
+          <p>Matooke price in Mbarara dropped to UGX 1,200/bunch this week. Central market still at 1,800. Buy from source!</p>
+          <div class="comm-actions"><button onclick="commLike(this)">👍 12</button> <button onclick="commReply(this)">💬 Reply</button></div>
+        </div>
+      </div>
+      <div class="comm-post">
+        <div class="comm-avatar">JO</div>
+        <div class="comm-body">
+          <div class="comm-author">John Okello · Gulu <span class="comm-time">5h ago</span></div>
+          <p>Best season for sesame planting in Acholi is starting. Soil moisture good after last rains. Any buyers interested in bulk sesame from Northern Uganda?</p>
+          <div class="comm-actions"><button onclick="commLike(this)">👍 8</button> <button onclick="commReply(this)">💬 Reply</button></div>
+        </div>
+      </div>
+      <div class="comm-post">
+        <div class="comm-avatar">DR</div>
+        <div class="comm-body">
+          <div class="comm-author">Dr. Ronald Agri-Extension · MAAIF <span class="comm-time">1d ago</span></div>
+          <p>⚠️ Alert: Fall Armyworm spotted in Eastern Uganda maize farms. Apply approved pesticides early. See AI Doctor for diagnosis help.</p>
+          <div class="comm-actions"><button onclick="commLike(this)">👍 47</button> <button class="btn-sm" onclick="showPage('doctor')">AI Doctor</button></div>
+        </div>
+      </div>
+    </div>
+    <!-- Post form -->
+    <div class="comm-compose" style="margin-top:20px;background:var(--card);border-radius:14px;padding:16px">
+      <textarea id="commText" placeholder="Share a farming tip, price update or question..." style="width:100%;background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:12px;color:var(--text);font-size:0.9rem;resize:vertical;min-height:80px"></textarea>
+      <div style="display:flex;gap:8px;margin-top:10px;justify-content:flex-end">
+        <button class="btn-sm outline" onclick="document.getElementById('commText').value=''">Clear</button>
+        <button class="btn-primary" onclick="submitCommPost()">Post to Community</button>
+      </div>
+    </div>
+    <p style="color:var(--text2);font-size:0.78rem;margin-top:12px;text-align:center">Join 1,200+ farmers &amp; buyers sharing knowledge daily</p>
+  </div>
+</div>
+
+
+<!-- ══ SITE FOOTER ══ -->
+<footer class="site-footer" id="siteFooter">
+  <div class="footer-grid">
+    <div class="footer-col">
+      <h4>🌾 AgriBridge</h4>
+      <p data-i18n="footer_tagline">Uganda's Farm-to-Table Platform</p>
+      <p style="margin-top:8px">📞 +256 755 966 690</p>
+      <p>📧 hello@agribridge.ug</p>
+      <p>📱 *789# (any phone)</p>
+    </div>
+    <div class="footer-col">
+      <h4 data-i18n="footer_links">Quick Links</h4>
+      <a href="#" onclick="showPage('market');return false" data-i18n="nav_market">Market</a>
+      <a href="#" onclick="showPage('prices');return false" data-i18n="nav_prices">Prices</a>
+      <a href="#" onclick="showPage('doctor');return false" data-i18n="nav_doctor">AI Doctor</a>
+      <a href="#" onclick="showPage('supply');return false" data-i18n="nav_supply">Supply Store</a>
+      <a href="#" onclick="showPage('training');return false" data-i18n="nav_learn">Training</a>
+    </div>
+    <div class="footer-col">
+      <h4 data-i18n="footer_legal">Legal</h4>
+      <a href="#" onclick="openModal('termsModal');return false" data-i18n="footer_terms">Terms of Service</a>
+      <a href="#" onclick="openModal('privacyModal');return false" data-i18n="footer_privacy">Privacy Policy</a>
+      <a href="#" onclick="showPage('about');return false">Pitch Deck</a>
+      <a href="#" onclick="showPage('contact');return false">FAQ</a>
+    </div>
+    <div class="footer-col">
+      <h4 data-i18n="footer_social">Connect</h4>
+      <a href="https://wa.me/256755966690" target="_blank">💬 WhatsApp</a>
+      <a href="https://twitter.com/agribridgeug" target="_blank">🐦 Twitter / X</a>
+      <a href="https://facebook.com/agribridgeug" target="_blank">📘 Facebook</a>
+      <a href="https://www.youtube.com/@agribridge" target="_blank">▶️ YouTube</a>
+      <a href="https://github.com/zealmugumya-creator/agribridge" target="_blank">💻 GitHub</a>
+    </div>
+  </div>
+  <div class="footer-bottom">
+    <span data-i18n="footer_copy">© 2026 AgriBridge Ltd. Kampala, Uganda.</span>
+    &nbsp;·&nbsp; Built with ❤️ for Uganda's 5M farmers
+    &nbsp;·&nbsp; <a href="#" onclick="openModal('langModal');return false">🌐 Change Language</a>
+  </div>
+</footer>
+
+<!-- ══ TERMS MODAL ══ -->
+<div class="modal-overlay" id="termsModal" onclick="handleOverlay(event,'termsModal')">
+  <div class="modal-box" style="max-width:600px;max-height:80vh;overflow-y:auto">
+    <button class="modal-close" onclick="closeModal('termsModal')">✕</button>
+    <h3>Terms of Service</h3>
+    <div style="font-size:0.85rem;color:var(--text2);line-height:1.8">
+      <p><strong>Effective Date:</strong> April 2026</p>
+      <p><strong>1. Acceptance.</strong> By using AgriBridge, you agree to these terms. AgriBridge is operated by AgriBridge Ltd, registered in Uganda.</p>
+      <p><strong>2. Eligibility.</strong> You must be 18 or older to register. Farmers and buyers in Uganda are welcome.</p>
+      <p><strong>3. Listings.</strong> Farmers are responsible for the accuracy of their produce listings. AgriBridge is not liable for quality disputes but will mediate.</p>
+      <p><strong>4. Payments.</strong> Transactions processed via MTN Mobile Money and Airtel Money. AgriBridge charges 2.5% commission on completed sales.</p>
+      <p><strong>5. Disputes.</strong> Contact us at hello@agribridge.ug within 48 hours of delivery for any dispute.</p>
+      <p><strong>6. Data.</strong> We collect only what is necessary to operate the platform. We do not sell your data. See our Privacy Policy.</p>
+      <p><strong>7. Termination.</strong> We may suspend accounts that violate these terms, post false listings, or engage in fraud.</p>
+      <p>For questions: <strong>+256 755 966 690</strong> or hello@agribridge.ug</p>
+    </div>
+  </div>
+</div>
+
+<!-- ══ PRIVACY MODAL ══ -->
+<div class="modal-overlay" id="privacyModal" onclick="handleOverlay(event,'privacyModal')">
+  <div class="modal-box" style="max-width:600px;max-height:80vh;overflow-y:auto">
+    <button class="modal-close" onclick="closeModal('privacyModal')">✕</button>
+    <h3>Privacy Policy</h3>
+    <div style="font-size:0.85rem;color:var(--text2);line-height:1.8">
+      <p><strong>Effective Date:</strong> April 2026 | Compliant with Uganda Data Protection Act 2019</p>
+      <p><strong>What we collect:</strong> Name, phone number, district, and transaction data to operate the platform. Location only for delivery tracking.</p>
+      <p><strong>How we use it:</strong> To connect farmers with buyers, process payments, send price alerts via SMS, and provide AI crop diagnosis.</p>
+      <p><strong>Who we share it with:</strong> We do NOT sell your data. We share only what is necessary with MTN/Airtel for payment processing and Africa's Talking for SMS delivery.</p>
+      <p><strong>USSD data:</strong> USSD session data is stored only to complete your session and is not retained longer than 30 days.</p>
+      <p><strong>Your rights:</strong> You may request to view, correct, or delete your data at any time by contacting hello@agribridge.ug or calling +256 755 966 690.</p>
+      <p><strong>Retention:</strong> Transaction records kept for 7 years (Uganda tax law). Other data deleted on account closure request.</p>
+      <p><strong>Contact our Data Controller:</strong> Zeal Mugumya, AgriBridge Ltd, Kampala. privacy@agribridge.ug</p>
+    </div>
+  </div>
+</div>
+
 </body>
 </html>
