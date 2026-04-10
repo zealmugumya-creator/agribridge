@@ -2,7 +2,12 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="robots" content="index, follow">
+  <link rel="canonical" href="https://agribridge.zealmugumya.workers.dev">
+  <meta property="og:image" content="https://agribridge.zealmugumya.workers.dev/og-image.png">
+  <meta property="og:image:width" content="1200">
+  <meta property="og:image:height" content="630">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <meta name="theme-color" content="#060f09">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
@@ -800,9 +805,38 @@ select option { background:var(--bg2); }
 
 /* ── WA BUTTON — keep above nav ── */
 .wa-btn { bottom:calc(var(--bot-h) + 12px); }
+
+/* ── PITCH GATE ── */
+#page-pitch { position:relative; }
+#pitchLockOverlay { display:flex; }
+.pitch-unlocked #pitchLockOverlay { display:none !important; }
+.pitch-unlocked .page-header, .pitch-unlocked .page-body { display:block; }
+#page-pitch:not(.pitch-unlocked) .page-header { visibility:hidden; }
+#page-pitch:not(.pitch-unlocked) .page-body { visibility:hidden; }
+
+
+/* ── PRINT (Pitch Deck export) ── */
+@media print {
+  body { background:#fff !important; color:#111 !important; }
+  .bottom-nav, .top-nav, .site-footer, #pitchLockOverlay, #pitchGateModal,
+  .notif-bell, #langPickerBtn, #notifPanel, .cookie-banner { display:none !important; }
+  #page-pitch { display:block !important; position:static !important; padding:0; }
+  #page-pitch * { visibility:visible !important; }
+  .pitch-slide { break-inside:avoid; border:1px solid #ccc !important; background:#f9f9f9 !important; }
+  .pitch-slide h3, .pitch-slide-label { color:#111 !important; }
+  a { color:#111 !important; }
+}
+
 </style>
 </head>
 <body>
+<a href="#page-home" class="skip-link" style="position:absolute;left:-999px;top:4px;z-index:99999;background:var(--green);color:#000;padding:6px 12px;border-radius:6px;font-weight:700;text-decoration:none;font-size:0.85rem" onfocus="this.style.left='8px'" onblur="this.style.left='-999px'">Skip to main content</a>
+
+<!-- ══ OFFLINE BANNER ══ -->
+<div id="offlineBanner" style="display:none;position:fixed;top:0;left:0;right:0;z-index:9999;background:#b71c1c;color:#fff;text-align:center;padding:8px 16px;font-size:0.85rem;font-weight:600">
+  📡 You are offline · Some features may be unavailable
+</div>
+
 
 <!-- ══ NAVBAR ══ -->
 <nav class="navbar">
@@ -875,7 +909,7 @@ select option { background:var(--bg2); }
       <div class="quick-btn" onclick="showPage('supply')"><div class="icon">🏪</div><div class="label">Agri Supply</div></div>
       <div class="quick-btn" onclick="showPage('dashboard');closeModal('moreModal')"><div class="icon">📊</div><div class="label">My Account</div></div>
       <div class="quick-btn" onclick="showPage('community');closeModal('moreModal')"><div class="icon">🌱</div><div class="label">Community</div></div>
-      <div class="quick-btn" onclick="showPage('pitch');closeModal('moreModal')"><div class="icon">📈</div><div class="label">Investor Pitch</div></div>
+      <div class="quick-btn" onclick="closeModal('moreModal');showPage('pitch');guardPitch()"><div class="icon">📈</div><div class="label">Investor Pitch</div></div>
       <div class="quick-btn" onclick="showPage('about')"><div class="icon">💡</div><div class="label">About</div></div>
       <div class="quick-btn" onclick="showPage('contact')"><div class="icon">✉️</div><div class="label">Contact</div></div>
     </div>
@@ -1912,10 +1946,10 @@ AgriBridge service</div>
 
 <!-- ══ BOTTOM NAV ══ -->
 <nav class="bottom-nav">
-  <button class="nav-item active" id="nav-home" onclick="showPage('home')"><span class="nav-icon">🏠</span><span data-i18n="nav_home">Home</span></button>
-  <button class="nav-item" id="nav-market" onclick="showPage('market')"><span class="nav-icon">🛒</span><span data-i18n="nav_market">Market</span></button>
-  <button class="nav-item" id="nav-prices" onclick="showPage('prices')"><span class="nav-icon">📊</span><span data-i18n="nav_prices">Prices</span></button>
-  <button class="nav-item" id="nav-crops" onclick="showPage('crops')"><span class="nav-icon">🌿</span><span data-i18n="nav_crops">Crops</span></button>
+  <button class="nav-item active" id="nav-home" aria-label="Home" onclick="showPage('home')"><span class="nav-icon">🏠</span><span data-i18n="nav_home">Home</span></button>
+  <button class="nav-item" id="nav-market" aria-label="Marketplace" onclick="showPage('market')"><span class="nav-icon">🛒</span><span data-i18n="nav_market">Market</span></button>
+  <button class="nav-item" id="nav-prices" aria-label="Live Prices" onclick="showPage('prices')"><span class="nav-icon">📊</span><span data-i18n="nav_prices">Prices</span></button>
+  <button class="nav-item" id="nav-crops" aria-label="Crops Calendar" onclick="showPage('crops')"><span class="nav-icon">🌿</span><span data-i18n="nav_crops">Crops</span></button>
   <button class="nav-item" id="nav-training" onclick="showPage('training')"><span class="nav-icon">🎓</span><span data-i18n="nav_learn">Learn</span></button>
   <button class="nav-item" id="nav-delivery" onclick="showPage('delivery')"><span class="nav-icon">🚚</span><span data-i18n="nav_track">Track</span></button>
   <button class="nav-item" id="nav-ussd" onclick="showPage('ussd')"><span class="nav-icon">📱</span><span data-i18n="nav_ussd">USSD</span></button>
@@ -2207,6 +2241,7 @@ function showPage(name) {
   window.scrollTo(0, 0);
   // Page-specific data loaders
   if (name === 'dashboard') loadDashboard();
+  if (name === 'pitch') guardPitch();
   // Lazy load page data
   if (name === 'market')   loadListings();
   if (name === 'prices')   loadPrices();
@@ -3868,6 +3903,122 @@ async function loadPitchStats() {
   if (lEl && listings) lEl.textContent = (listings[0]?.count || '—').toLocaleString();
 }
 
+
+// ═══════════════════════════════════════════════════════
+// PITCH DECK PASSWORD GATE
+// SHA-256 of "AgriPitch2026" — change this to update pwd
+// ═══════════════════════════════════════════════════════
+const PITCH_HASH = 'bbfdac999f1977bfe61c9fdbf98d378fa1b4aa0238d2781514b7b172ecf8e36c';
+
+async function sha256(str) {
+  const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(str));
+  return Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2,'0')).join('');
+}
+
+function openPitchGate() {
+  document.getElementById('pitchPwdInput').value = '';
+  document.getElementById('pitchPwdError').style.display = 'none';
+  document.getElementById('pitchGateModal').style.display = 'flex';
+  setTimeout(() => document.getElementById('pitchPwdInput').focus(), 100);
+}
+
+function closePitchGate() {
+  document.getElementById('pitchGateModal').style.display = 'none';
+}
+
+function togglePwdVis() {
+  const inp = document.getElementById('pitchPwdInput');
+  inp.type = inp.type === 'password' ? 'text' : 'password';
+}
+
+async function verifyPitchPwd() {
+  const pwd = document.getElementById('pitchPwdInput').value;
+  const hash = await sha256(pwd);
+  if (hash === PITCH_HASH) {
+    // Grant access — store in sessionStorage so it lasts the session
+    sessionStorage.setItem('ab_pitch_auth', '1');
+    closePitchGate();
+    unlockPitchDeck();
+    showToast('🔓 Pitch deck unlocked. Welcome, Zeal!');
+  } else {
+    document.getElementById('pitchPwdError').style.display = 'block';
+    document.getElementById('pitchPwdInput').value = '';
+    document.getElementById('pitchPwdInput').focus();
+    // Shake animation
+    const inp = document.getElementById('pitchPwdInput');
+    inp.style.animation = 'shake 0.4s';
+    setTimeout(() => inp.style.animation = '', 400);
+  }
+}
+
+function unlockPitchDeck() {
+  const page = document.getElementById('page-pitch');
+  if (page) page.classList.add('pitch-unlocked');
+  loadPitchStats();
+}
+
+function lockPitchDeck() {
+  sessionStorage.removeItem('ab_pitch_auth');
+  const page = document.getElementById('page-pitch');
+  if (page) page.classList.remove('pitch-unlocked');
+  showPage('home');
+  showToast('🔒 Pitch deck locked.');
+}
+
+// Check auth when navigating to pitch
+function guardPitch() {
+  if (sessionStorage.getItem('ab_pitch_auth') === '1') {
+    unlockPitchDeck();
+  } else {
+    openPitchGate();
+  }
+}
+
+// Shake keyframe — inject once
+(function() {
+  const style = document.createElement('style');
+  style.textContent = '@keyframes shake{0%,100%{transform:translateX(0)}20%,60%{transform:translateX(-6px)}40%,80%{transform:translateX(6px)}}';
+  document.head.appendChild(style);
+})();
+
+
+// ═══════════════════════════════════════════════════════
+// ONLINE / OFFLINE STATUS
+// ═══════════════════════════════════════════════════════
+function updateOnlineStatus() {
+  const banner = document.getElementById('offlineBanner');
+  if (!banner) return;
+  if (!navigator.onLine) {
+    banner.style.display = 'block';
+  } else {
+    banner.style.display = 'none';
+  }
+}
+window.addEventListener('online',  updateOnlineStatus);
+window.addEventListener('offline', updateOnlineStatus);
+
+
+// ═══════════════════════════════════════════════════════
+// MOBILE BACK NAVIGATION (Android hardware back button)
+// ═══════════════════════════════════════════════════════
+let navHistory = ['home'];
+const _origShowPage = showPage;
+function showPage(name) {
+  // Push to history only if different from current
+  if (navHistory[navHistory.length-1] !== name) navHistory.push(name);
+  _origShowPage(name);
+}
+window.addEventListener('popstate', () => {
+  // Go back in our history stack
+  if (navHistory.length > 1) {
+    navHistory.pop();
+    const prev = navHistory[navHistory.length-1];
+    _origShowPage(prev);
+  }
+});
+// Push a state so popstate fires on back press
+history.pushState({}, '', window.location.href);
+
 // ═══════════════════════════════════════════════════════
 // SERVICE WORKER REGISTRATION
 // ═══════════════════════════════════════════════════════
@@ -3967,6 +4118,7 @@ async function submitCommPost() {
   <div class="page-header">
     <h2>🌾 AgriBridge · Investor Pitch</h2>
     <p>Uganda's Farm-to-Table Platform — Series Pre-Seed 2026</p>
+    <button onclick="lockPitchDeck()" class="btn-sm outline" style="margin-top:10px;font-size:0.75rem">🔒 Lock & Exit</button>
   </div>
   <div class="page-body" style="padding-bottom:40px">
 
@@ -4103,8 +4255,9 @@ async function submitCommPost() {
           <p>URSB, BoU licensing, data protection</p>
         </div>
       </div>
-      <div style="text-align:center;margin-top:24px">
+      <div style="text-align:center;margin-top:24px;display:flex;gap:10px;flex-wrap:wrap;justify-content:center">
         <a href="mailto:zealmugumya@gmail.com" class="btn-primary" style="text-decoration:none;display:inline-block">📧 Contact: zealmugumya@gmail.com</a>
+        <button class="btn-outline" onclick="window.print()" style="display:inline-block">🖨️ Print / Export PDF</button>
       </div>
     </div>
 
@@ -4145,7 +4298,7 @@ async function submitCommPost() {
       <button class="btn-sm comm-tab outline" onclick="switchCommTab('help')" data-i18n="comm_help">Ask for Help</button>
     </div>
     <!-- Community posts -->
-    <div id="comm-feed">
+    <div id="comm-feed" aria-live="polite">
       <!-- Static starter posts -->
       <div class="comm-post">
         <div class="comm-avatar">GN</div>
@@ -4261,6 +4414,43 @@ async function submitCommPost() {
       <p><strong>Contact our Data Controller:</strong> Zeal Mugumya, AgriBridge Ltd, Kampala. privacy@agribridge.ug</p>
     </div>
   </div>
+</div>
+
+
+<!-- ══ PITCH DECK AUTH MODAL ══ -->
+<div class="modal-overlay" id="pitchGateModal" onclick="if(event.target===this)closePitchGate()">
+  <div class="modal-box" style="max-width:380px;text-align:center">
+    <div style="font-size:3rem;margin-bottom:8px">🔐</div>
+    <h3 style="font-size:1.2rem;font-weight:800;margin-bottom:6px">Investor Pitch Deck</h3>
+    <p style="color:var(--text2);font-size:0.88rem;margin-bottom:24px">This section is private. Enter your access password to continue.</p>
+    <div class="form-group" style="text-align:left;margin-bottom:16px">
+      <label style="font-size:0.8rem;color:var(--text2)">Password</label>
+      <div style="position:relative">
+        <input type="password" id="pitchPwdInput" placeholder="Enter pitch deck password" 
+               style="width:100%;padding-right:44px" 
+               onkeydown="if(event.key==='Enter')verifyPitchPwd()"
+               autocomplete="off">
+        <button onclick="togglePwdVis()" title="Show/hide" 
+                style="position:absolute;right:10px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;color:var(--text2);font-size:1.1rem">👁</button>
+      </div>
+    </div>
+    <div id="pitchPwdError" style="color:#ff5252;font-size:0.82rem;margin-bottom:12px;display:none">
+      ❌ Incorrect password. Please try again.
+    </div>
+    <button class="btn-primary" style="width:100%" onclick="verifyPitchPwd()">Unlock Pitch Deck →</button>
+    <button class="btn-outline" style="width:100%;margin-top:10px" onclick="closePitchGate()">Cancel</button>
+    <p style="font-size:0.72rem;color:var(--text2);margin-top:18px;opacity:0.6">
+      Only authorised users can view this content · AgriBridge Confidential
+    </p>
+  </div>
+</div>
+
+<!-- ══ PITCH LOCKED OVERLAY ══ -->
+<div id="pitchLockOverlay" style="display:none;position:absolute;inset:0;z-index:10;background:var(--bg);border-radius:16px;flex-direction:column;align-items:center;justify-content:center;min-height:300px;text-align:center;padding:40px">
+  <div style="font-size:3rem">🔒</div>
+  <h3 style="margin:12px 0 6px;font-weight:800">Private Content</h3>
+  <p style="color:var(--text2);font-size:0.88rem;margin-bottom:20px">The Investor Pitch Deck is password-protected.</p>
+  <button class="btn-primary" onclick="openPitchGate()">Unlock with Password</button>
 </div>
 
 </body>
