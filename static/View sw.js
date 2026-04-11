@@ -1,36 +1,26 @@
-// ═══════════════════════════════════════════════════════
-// AgriBridge Service Worker v2
-// Bump CACHE_NAME version whenever index.html changes
-// ═══════════════════════════════════════════════════════
-const CACHE_NAME = 'agribridge-v2';
+// AgriBridge Uganda — Service Worker v3
+// Handles offline caching, smart fetch strategies, and SPA navigation
 
-// App shell — files that make the app work offline
-const SHELL_URLS = [
+const CACHE_NAME = 'agribridge-v3';
+const STATIC_ASSETS = [
   '/',
   '/index.html',
-  '/manifest.json',
-  'https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap'
+  'https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Sans:wght@300;400;500;600&display=swap',
+  'https://cdn.jsdelivr.net/npm/chart.js',
 ];
 
-// ── INSTALL: cache the app shell ────────────────────────
+// ── INSTALL: Pre-cache static assets ──
 self.addEventListener('install', event => {
   event.waitUntil(
     caches.open(CACHE_NAME).then(cache => {
-      return Promise.allSettled(
-        SHELL_URLS.map(url =>
-          cache.add(url).catch(err => {
-            console.warn('AgriBridge SW: could not cache', url, err);
-          })
-        )
-      );
-    }).then(() => {
-      console.log('AgriBridge SW v2 installed');
-      return self.skipWaiting(); // activate immediately
-    })
+      return cache.addAll(STATIC_ASSETS).catch(err => {
+        console.warn('[SW] Some assets failed to pre-cache:', err);
+      });
+    }).then(() => self.skipWaiting())
   );
 });
 
-// ── ACTIVATE: remove old caches ─────────────────────────
+// ── ACTIVATE: Delete old caches ──
 self.addEventListener('activate', event => {
   event.waitUntil(
     caches.keys().then(keys =>
@@ -38,53 +28,39 @@ self.addEventListener('activate', event => {
         keys
           .filter(key => key !== CACHE_NAME)
           .map(key => {
-            console.log('AgriBridge SW: deleting old cache', key);
+            console.log('[SW] Deleting old cache:', key);
             return caches.delete(key);
           })
       )
-    ).then(() => {
-      console.log('AgriBridge SW v2 activated');
-      return self.clients.claim(); // take control of all tabs
-    })
+    ).then(() => self.clients.claim())
   );
 });
 
-// ── FETCH: smart caching strategy ───────────────────────
+// ── FETCH: Smart caching strategy ──
 self.addEventListener('fetch', event => {
   const url = new URL(event.request.url);
 
-  // 1. Supabase & backend API — always network-first, no caching
-  if (
-    url.hostname.includes('supabase.co') ||
-    url.hostname.includes('onrender.com') ||
-    url.pathname.includes('/rest/') ||
-    url.pathname.includes('/auth/')
-  ) {
+  // 1. Always network-first for API calls (never cache live data)
+  if (url.hostname.includes('onrender.com') || url.pathname.startsWith('/api/')) {
     event.respondWith(
-      fetch(event.request).catch(() => {
-        // Offline fallback for API: return empty result so UI degrades gracefully
-        return new Response(
-          JSON.stringify({ error: 'offline', data: [], count: 0 }),
+      fetch(event.request).catch(() =>
+        new Response(
+          JSON.stringify({ success: false, error: 'You appear to be offline. Please check your connection.' }),
           { headers: { 'Content-Type': 'application/json' } }
-        );
-      })
+        )
+      )
     );
     return;
   }
 
-  // 2. Google Fonts — cache-first (they rarely change)
-  if (
-    url.hostname.includes('fonts.googleapis.com') ||
-    url.hostname.includes('fonts.gstatic.com')
-  ) {
+  // 2. Cache-first for Google Fonts (they change rarely)
+  if (url.hostname.includes('fonts.googleapis.com') || url.hostname.includes('fonts.gstatic.com')) {
     event.respondWith(
       caches.match(event.request).then(cached => {
         if (cached) return cached;
         return fetch(event.request).then(response => {
-          if (response.ok) {
-            const clone = response.clone();
-            caches.open(CACHE_NAME).then(c => c.put(event.request, clone));
-          }
+          const clone = response.clone();
+          caches.open(CACHE_NAME).then(cache => cache.put(event.request, clone));
           return response;
         });
       })
@@ -92,45 +68,61 @@ self.addEventListener('fetch', event => {
     return;
   }
 
-  // 3. Own origin (index.html, manifest.json, sw.js) — stale-while-revalidate
-  //    Serve from cache immediately, update cache in background
-  if (url.origin === self.location.origin) {
+  // 3. Cache-first for CDN assets (Chart.js, etc.)
+  if (url.hostname.includes('cdn.jsdelivr.net') || url.hostname.includes('cdnjs.cloudflare.com')) {
+    event.respondWith(
+      caches.match(event.request).then(cached => {
+        if (cached) return cached;
+        return fetch(event.request).then(response => {
+          const clone = response.clone();
+          caches.open(CACHE_NAME).then(cache => cache.put(event.request, clone));
+          return response;
+        }).catch(() => cached || new Response('', { status: 503 }));
+      })
+    );
+    return;
+  }
+
+  // 4. Network-first with cache fallback for Unsplash images
+  if (url.hostname.includes('unsplash.com') || url.hostname.includes('images.unsplash.com')) {
+    event.respondWith(
+      fetch(event.request).then(response => {
+        const clone = response.clone();
+        caches.open(CACHE_NAME).then(cache => cache.put(event.request, clone));
+        return response;
+      }).catch(() => caches.match(event.request))
+    );
+    return;
+  }
+
+  // 5. Stale-while-revalidate for the app shell (index.html + same-origin)
+  if (url.origin === self.location.origin || event.request.mode === 'navigate') {
     event.respondWith(
       caches.open(CACHE_NAME).then(cache =>
-        cache.match(event.request).then(cached => {
-          const networkFetch = fetch(event.request).then(response => {
-            if (response.ok && event.request.method === 'GET') {
-              cache.put(event.request, response.clone());
-            }
+        cache.match('/index.html').then(cached => {
+          const fetchPromise = fetch(event.request).then(response => {
+            cache.put(event.request.url === '/' ? '/index.html' : event.request, response.clone());
             return response;
-          }).catch(() => {
-            // Network failed — fall back to cache
-            if (cached) return cached;
-            // Navigation requests: serve index.html as SPA fallback
-            if (event.request.mode === 'navigate') {
-              return cache.match('/index.html');
-            }
-            return new Response('Offline', { status: 503, statusText: 'Service Unavailable' });
-          });
-
-          // Return cached version immediately if available, otherwise wait for network
-          return cached || networkFetch;
+          }).catch(() => cached || new Response('AgriBridge is offline', { status: 503 }));
+          // Return cached immediately, update in background
+          return cached || fetchPromise;
         })
       )
     );
     return;
   }
 
-  // 4. Everything else — network only
-  event.respondWith(fetch(event.request));
+  // 6. Default: try network, fall back to cache
+  event.respondWith(
+    fetch(event.request).catch(() => caches.match(event.request))
+  );
 });
 
-// ── MESSAGE: handle skip-waiting from app ───────────────
+// ── MESSAGE: Handle skip-waiting from app ──
 self.addEventListener('message', event => {
   if (event.data && event.data.type === 'SKIP_WAITING') {
     self.skipWaiting();
   }
-  // Allow app to check SW version
   if (event.data && event.data.type === 'GET_VERSION') {
     event.ports[0].postMessage({ version: CACHE_NAME });
   }
