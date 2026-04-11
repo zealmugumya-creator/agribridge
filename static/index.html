@@ -3,7 +3,42 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1.0">
-<meta name="description" content="AgriBridge — Uganda's Farm-to-Table Intelligence Platform connecting 2,700+ farmers with vendors, hotels and buyers across 135 districts.">
+<meta name="description" content="AgriBridge — Uganda's #1 Farm-to-Table platform. Buy fresh produce directly from 2,700+ verified farmers. Fair prices, no middlemen. USSD *789# works on any phone.">
+<meta name="keywords" content="Uganda agriculture, buy fresh produce Uganda, farmers market Uganda, Kampala vegetables, matooke price Uganda, maize price Uganda, farm to table Uganda, agri-tech Uganda">
+<meta name="robots" content="index, follow">
+<meta name="author" content="AgriBridge Uganda">
+<link rel="canonical" href="https://agribridge.zealmugumya.workers.dev/">
+
+<!-- Open Graph (Facebook, WhatsApp previews) -->
+<meta property="og:type" content="website">
+<meta property="og:title" content="AgriBridge — Uganda's Farm-to-Table Intelligence Platform">
+<meta property="og:description" content="Buy fresh produce directly from 2,700+ verified Ugandan farmers. Fair prices, no middlemen. Works on any phone via USSD *789#.">
+<meta property="og:image" content="https://images.unsplash.com/photo-1625246333195-78d9c38ad449?w=1200&h=630&fit=crop&q=80">
+<meta property="og:url" content="https://agribridge.zealmugumya.workers.dev/">
+<meta property="og:site_name" content="AgriBridge Uganda">
+<meta property="og:locale" content="en_UG">
+
+<!-- Twitter Card -->
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="AgriBridge — Uganda's Farm-to-Table Platform">
+<meta name="twitter:description" content="Connect directly with 2,700+ verified Ugandan farmers. Fair prices, no middlemen.">
+<meta name="twitter:image" content="https://images.unsplash.com/photo-1625246333195-78d9c38ad449?w=1200&h=630&fit=crop&q=80">
+
+<!-- Structured Data (Google rich results) -->
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "WebApplication",
+  "name": "AgriBridge Uganda",
+  "url": "https://agribridge.zealmugumya.workers.dev/",
+  "description": "Uganda's farm-to-table intelligence platform connecting farmers, vendors, hotels and buyers.",
+  "applicationCategory": "BusinessApplication",
+  "operatingSystem": "Web, Android, iOS",
+  "offers": { "@type": "Offer", "price": "0", "priceCurrency": "UGX" },
+  "author": { "@type": "Organization", "name": "AgriBridge Uganda", "url": "https://agribridge.zealmugumya.workers.dev/" },
+  "aggregateRating": { "@type": "AggregateRating", "ratingValue": "4.8", "reviewCount": "247" }
+}
+</script>
 <title>AgriBridge · Uganda Farm-to-Table Intelligence Platform</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
@@ -857,6 +892,36 @@ h1.page-title{font-family:'Syne',sans-serif;font-size:clamp(1.8rem,4vw,2.8rem);f
 }
 .wa-btn:hover{transform:scale(1.1)}
 @keyframes wapulse{0%,100%{box-shadow:0 4px 20px rgba(37,211,102,.4)}50%{box-shadow:0 4px 30px rgba(37,211,102,.65)}}
+
+/* ══════════════════════════════════════
+   FAQ ACCORDION
+══════════════════════════════════════ */
+.faq-item{
+  background:var(--bg2);border:1px solid var(--border);
+  border-radius:var(--radius);margin-bottom:10px;overflow:hidden;
+  transition:.2s;
+}
+.faq-item:hover{border-color:var(--border2)}
+.faq-q{
+  width:100%;background:none;border:none;padding:18px 20px;
+  display:flex;justify-content:space-between;align-items:center;
+  color:#fff;font-size:.88rem;font-weight:600;cursor:pointer;
+  font-family:inherit;text-align:left;gap:12px;
+}
+.faq-q span:first-child{flex:1;line-height:1.5}
+.faq-chevron{color:var(--leaf);font-size:.7rem;flex-shrink:0;transition:transform .3s}
+.faq-a{
+  padding:0 20px 18px;font-size:.84rem;color:var(--text2);
+  line-height:1.7;border-top:1px solid var(--border);
+}
+
+/* ══════════════════════════════════════
+   PULSE ANIMATION (live ticker dot)
+══════════════════════════════════════ */
+@keyframes pulse{
+  0%,100%{opacity:1;transform:scale(1)}
+  50%{opacity:.4;transform:scale(1.4)}
+}
 </style>
 </head>
 <body>
@@ -906,7 +971,25 @@ h1.page-title{font-family:'Syne',sans-serif;font-size:clamp(1.8rem,4vw,2.8rem);f
 
 <!-- ━━━━━━ HOME ━━━━━━ -->
 <div class="page active" id="page-home">
-  <section class="hero">
+  <!-- ── FIRST VISIT ONBOARDING BANNER ── -->
+<div id="onboardBanner" style="display:none;background:linear-gradient(135deg,#00e676,#00b85a);padding:14px 5%;position:relative;z-index:800">
+  <div style="max-width:1240px;margin:0 auto;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px">
+    <div style="display:flex;align-items:center;gap:14px">
+      <span style="font-size:2rem">👋</span>
+      <div>
+        <div style="font-family:'Syne',sans-serif;font-weight:800;color:#000;font-size:.95rem">Welcome to AgriBridge Uganda!</div>
+        <div style="font-size:.78rem;color:rgba(0,0,0,.7)">Buy directly from 2,700+ verified farmers · No middlemen · Fair prices guaranteed</div>
+      </div>
+    </div>
+    <div style="display:flex;gap:8px;align-items:center">
+      <button onclick="showPage('marketplace');dismissOnboard()" style="background:#000;color:#00e676;border:none;border-radius:8px;padding:9px 18px;font-size:.82rem;font-weight:700;cursor:pointer;font-family:inherit">🛒 Browse Produce</button>
+      <button onclick="openModal();dismissOnboard()" style="background:rgba(0,0,0,.15);color:#000;border:none;border-radius:8px;padding:9px 14px;font-size:.82rem;font-weight:700;cursor:pointer;font-family:inherit">Join Free</button>
+      <button onclick="dismissOnboard()" style="background:none;border:none;color:rgba(0,0,0,.5);font-size:1.2rem;cursor:pointer;padding:4px 8px">✕</button>
+    </div>
+  </div>
+</div>
+
+<section class="hero">
     <div class="hero-photo"></div>
     <div class="hero-content">
       <div class="hero-eyebrow">🇺🇬 Made for Uganda <span>LIVE</span></div>
@@ -916,12 +999,18 @@ h1.page-title{font-family:'Syne',sans-serif;font-size:clamp(1.8rem,4vw,2.8rem);f
         <button class="btn btn-green" onclick="openModal()">🌱 Join Free — It's Quick</button>
         <button class="btn btn-outline" onclick="showPage('marketplace')">🛒 Browse Produce</button>
         <button class="btn btn-ghost" onclick="openPitch()">📊 Investor Deck</button>
+        <button class="btn btn-ghost" onclick="shareApp()" style="gap:6px">📤 Share AgriBridge</button>
       </div>
       <div class="hero-stats">
         <div class="hstat"><span class="hstat-val" id="stat-farmers">2,772</span><div class="hstat-label">Verified Farmers</div></div>
         <div class="hstat"><span class="hstat-val" id="stat-listings">6</span><div class="hstat-label">Active Listings</div></div>
         <div class="hstat"><span class="hstat-val">135</span><div class="hstat-label">Districts Covered</div></div>
         <div class="hstat"><span class="hstat-val">UGX 847M</span><div class="hstat-label">Revenue Facilitated</div></div>
+      </div>
+      <!-- LIVE ACTIVITY SOCIAL PROOF TICKER -->
+      <div id="activityTicker" style="margin-top:20px;display:flex;align-items:center;gap:10px;font-size:.78rem;color:var(--text2)">
+        <span style="width:8px;height:8px;background:var(--leaf);border-radius:50%;animation:pulse 1.5s infinite;flex-shrink:0"></span>
+        <span id="tickerText">🌾 Farmer in Mbarara just listed 200kg of Matooke</span>
       </div>
     </div>
     <!-- Right side floating card -->
@@ -1216,6 +1305,7 @@ h1.page-title{font-family:'Syne',sans-serif;font-size:clamp(1.8rem,4vw,2.8rem);f
     <button class="about-tab" onclick="switchAbout('compare',this)">⚔️ vs Competitors</button>
     <button class="about-tab" style="border-color:rgba(245,158,11,.3);color:var(--gold)" onclick="openPitchProtected()">🔐 Investors</button>
     <button class="about-tab" onclick="switchAbout('gaps',this)">🔧 Roadmap</button>
+    <button class="about-tab" onclick="switchAbout('faq',this)">❓ FAQ</button>
   </div>
 
   <div class="about-pane active" id="about-problem">
@@ -1479,6 +1569,13 @@ h1.page-title{font-family:'Syne',sans-serif;font-size:clamp(1.8rem,4vw,2.8rem);f
     </div>
   </div>
 </div>
+
+  <!-- FAQ TAB PANE -->
+  <div class="about-pane" id="about-faq">
+    <h2 style="font-family:'Syne',sans-serif;color:#fff;margin-bottom:6px">Frequently Asked Questions</h2>
+    <p style="color:var(--text2);font-size:.88rem;margin-bottom:24px">Everything you need to know about AgriBridge.</p>
+    <div id="faqList"></div>
+  </div>
 <!-- ━━━━━━ CROPS CATALOGUE ━━━━━━ -->
 <div class="page" id="page-crops">
   <div class="ph">
@@ -1953,47 +2050,47 @@ function animateCount(id,target){
 // ── COMPLETE UGANDA CROPS DATABASE ──
 const CROPS = {
   // Vegetables
-  'Tomatoes':      {icon:'🍅', img:'https://images.unsplash.com/photo-1546094096-0df4bcaaa337?w=400&q=80&fit=crop', cat:'Vegetables'},
-  'Onions':        {icon:'🧅', img:'https://images.unsplash.com/photo-1618512496248-a07fe83aa8cb?w=400&q=80&fit=crop', cat:'Vegetables'},
-  'Cabbages':      {icon:'🥬', img:'https://images.unsplash.com/photo-1597362925123-77861d3fbac7?w=400&q=80&fit=crop', cat:'Vegetables'},
-  'Carrots':       {icon:'🥕', img:'https://images.unsplash.com/photo-1598170845058-32b9d6a5da37?w=400&q=80&fit=crop', cat:'Vegetables'},
-  'Pepper':        {icon:'🌶️', img:'https://images.unsplash.com/photo-1583119022894-919a68a3d0e3?w=400&q=80&fit=crop', cat:'Vegetables'},
-  'Eggplant':      {icon:'🍆', img:'https://images.unsplash.com/photo-1604130258765-97e7a9c5e54a?w=400&q=80&fit=crop', cat:'Vegetables'},
+  'Tomatoes':      {icon:'🍅', img:'https://images.unsplash.com/photo-1561136594-7f68413baa99?w=400&q=80&fit=crop', cat:'Vegetables'},
+  'Onions':        {icon:'🧅', img:'https://images.unsplash.com/photo-1508747703725-719777637510?w=400&q=80&fit=crop', cat:'Vegetables'},
+  'Cabbages':      {icon:'🥬', img:'https://images.unsplash.com/photo-1594282418426-c6e8b7f04aaa?w=400&q=80&fit=crop', cat:'Vegetables'},
+  'Carrots':       {icon:'🥕', img:'https://images.unsplash.com/photo-1447175008436-054170c2e979?w=400&q=80&fit=crop', cat:'Vegetables'},
+  'Pepper':        {icon:'🌶️', img:'https://images.unsplash.com/photo-1526346698789-22fd84314424?w=400&q=80&fit=crop', cat:'Vegetables'},
+  'Eggplant':      {icon:'🍆', img:'https://images.unsplash.com/photo-1615484477778-ca3b77940c25?w=400&q=80&fit=crop', cat:'Vegetables'},
   'Spinach':       {icon:'🥬', img:'https://images.unsplash.com/photo-1576045057995-568f588f82fb?w=400&q=80&fit=crop', cat:'Vegetables'},
-  'Kale':          {icon:'🥦', img:'https://images.unsplash.com/photo-1611575619048-db0c5e18e2ac?w=400&q=80&fit=crop', cat:'Vegetables'},
-  'Cucumber':      {icon:'🥒', img:'https://images.unsplash.com/photo-1604977042946-1eecc30f269e?w=400&q=80&fit=crop', cat:'Vegetables'},
+  'Kale':          {icon:'🥦', img:'https://images.unsplash.com/photo-1613743983303-b3e89f8a2b80?w=400&q=80&fit=crop', cat:'Vegetables'},
+  'Cucumber':      {icon:'🥒', img:'https://images.unsplash.com/photo-1449300079323-02e209d9d3a6?w=400&q=80&fit=crop', cat:'Vegetables'},
   'Pumpkin':       {icon:'🎃', img:'https://images.unsplash.com/photo-1570586437263-ab629fccc818?w=400&q=80&fit=crop', cat:'Vegetables'},
-  'Garlic':        {icon:'🧄', img:'https://images.unsplash.com/photo-1587049352846-4a222e784d38?w=400&q=80&fit=crop', cat:'Vegetables'},
-  'Ginger':        {icon:'🫚', img:'https://images.unsplash.com/photo-1615485500834-bc10199bc727?w=400&q=80&fit=crop', cat:'Vegetables'},
+  'Garlic':        {icon:'🧄', img:'https://images.unsplash.com/photo-1540148426945-6cf22a6b2383?w=400&q=80&fit=crop', cat:'Vegetables'},
+  'Ginger':        {icon:'🫚', img:'https://images.unsplash.com/photo-1615485500704-8e990f9900f7?w=400&q=80&fit=crop', cat:'Vegetables'},
   // Staples
-  'Matooke':       {icon:'🍌', img:'https://images.unsplash.com/photo-1603833665858-e61d17a86224?w=400&q=80&fit=crop', cat:'Staples'},
-  'Maize':         {icon:'🌽', img:'https://images.unsplash.com/photo-1551754655-cd27e38d2076?w=400&q=80&fit=crop', cat:'Staples'},
-  'Cassava':       {icon:'🌿', img:'https://images.unsplash.com/photo-1573246123716-6b1782bfc499?w=400&q=80&fit=crop', cat:'Staples'},
+  'Matooke':       {icon:'🍌', img:'https://images.unsplash.com/photo-1528825871115-3581a5387919?w=400&q=80&fit=crop', cat:'Staples'},
+  'Maize':         {icon:'🌽', img:'https://images.unsplash.com/photo-1601593346740-925612772716?w=400&q=80&fit=crop', cat:'Staples'},
+  'Cassava':       {icon:'🌿', img:'https://images.unsplash.com/photo-1631210990769-5d7ac30af0d8?w=400&q=80&fit=crop', cat:'Staples'},
   'Sweet Potatoes':{icon:'🍠', img:'https://images.unsplash.com/photo-1596560548464-f010549b84d7?w=400&q=80&fit=crop', cat:'Staples'},
   'Potatoes':      {icon:'🥔', img:'https://images.unsplash.com/photo-1518977676601-b53f82aba655?w=400&q=80&fit=crop', cat:'Staples'},
-  'Beans':         {icon:'🫘', img:'https://images.unsplash.com/photo-1628773822503-930a7eaecf80?w=400&q=80&fit=crop', cat:'Staples'},
-  'Groundnuts':    {icon:'🥜', img:'https://images.unsplash.com/photo-1567892737950-30c4db37cd89?w=400&q=80&fit=crop', cat:'Staples'},
+  'Beans':         {icon:'🫘', img:'https://images.unsplash.com/photo-1509358271058-acd22cc93898?w=400&q=80&fit=crop', cat:'Staples'},
+  'Groundnuts':    {icon:'🥜', img:'https://images.unsplash.com/photo-1567292737950-30c4db37cd89?w=400&q=80&fit=crop', cat:'Staples'},
   'Sorghum':       {icon:'🌾', img:'https://images.unsplash.com/photo-1591280063444-d3c514eb6e13?w=400&q=80&fit=crop', cat:'Staples'},
   'Millet':        {icon:'🌾', img:'https://images.unsplash.com/photo-1607305387299-a3d9611cd469?w=400&q=80&fit=crop', cat:'Staples'},
-  'Rice':          {icon:'🍚', img:'https://images.unsplash.com/photo-1586201375761-83865001e31c?w=400&q=80&fit=crop', cat:'Staples'},
+  'Rice':          {icon:'🍚', img:'https://images.unsplash.com/photo-1536304993881-ff86e0c9b1b5?w=400&q=80&fit=crop', cat:'Staples'},
   // Fruits
   'Bananas':       {icon:'🍌', img:'https://images.unsplash.com/photo-1571771894821-ce9b6c11b08e?w=400&q=80&fit=crop', cat:'Fruits'},
   'Mangoes':       {icon:'🥭', img:'https://images.unsplash.com/photo-1553279768-865429fa0078?w=400&q=80&fit=crop', cat:'Fruits'},
-  'Avocados':      {icon:'🥑', img:'https://images.unsplash.com/photo-1523049673857-eb18f1d7b578?w=400&q=80&fit=crop', cat:'Fruits'},
-  'Pineapples':    {icon:'🍍', img:'https://images.unsplash.com/photo-1589820296156-2454bb8a6ad1?w=400&q=80&fit=crop', cat:'Fruits'},
-  'Passion Fruit': {icon:'🍊', img:'https://images.unsplash.com/photo-1604335399105-a0c585fd81a1?w=400&q=80&fit=crop', cat:'Fruits'},
-  'Watermelon':    {icon:'🍉', img:'https://images.unsplash.com/photo-1587049633312-d628ae50a8ae?w=400&q=80&fit=crop', cat:'Fruits'},
+  'Avocados':      {icon:'🥑', img:'https://images.unsplash.com/photo-1601039641847-7857b994d704?w=400&q=80&fit=crop', cat:'Fruits'},
+  'Pineapples':    {icon:'🍍', img:'https://images.unsplash.com/photo-1550258987-190a2d41a8ba?w=400&q=80&fit=crop', cat:'Fruits'},
+  'Passion Fruit': {icon:'🍊', img:'https://images.unsplash.com/photo-1604495772376-9657f0035a0a?w=400&q=80&fit=crop', cat:'Fruits'},
+  'Watermelon':    {icon:'🍉', img:'https://images.unsplash.com/photo-1582281298055-e25b84a30b0b?w=400&q=80&fit=crop', cat:'Fruits'},
   'Papaya':        {icon:'🍈', img:'https://images.unsplash.com/photo-1526318896980-cf78c088247c?w=400&q=80&fit=crop', cat:'Fruits'},
   'Oranges':       {icon:'🍊', img:'https://images.unsplash.com/photo-1547514701-42782101795e?w=400&q=80&fit=crop', cat:'Fruits'},
-  'Jackfruit':     {icon:'🍈', img:'https://images.unsplash.com/photo-1600984575359-310ae7b6bdf2?w=400&q=80&fit=crop', cat:'Fruits'},
+  'Jackfruit':     {icon:'🍈', img:'https://images.unsplash.com/photo-1546039907-7fa05f864c02?w=400&q=80&fit=crop', cat:'Fruits'},
   // Cash Crops
-  'Coffee':        {icon:'☕', img:'https://images.unsplash.com/photo-1447933601403-0c6688de566e?w=400&q=80&fit=crop', cat:'Cash Crops'},
+  'Coffee':        {icon:'☕', img:'https://images.unsplash.com/photo-1498804103079-a6351b050096?w=400&q=80&fit=crop', cat:'Cash Crops'},
   'Tea':           {icon:'🍵', img:'https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=400&q=80&fit=crop', cat:'Cash Crops'},
-  'Sugarcane':     {icon:'🌿', img:'https://images.unsplash.com/photo-1598512752271-33f913a5af13?w=400&q=80&fit=crop', cat:'Cash Crops'},
-  'Cotton':        {icon:'🌸', img:'https://images.unsplash.com/photo-1594750852563-5ed8c2221082?w=400&q=80&fit=crop', cat:'Cash Crops'},
-  'Sunflower':     {icon:'🌻', img:'https://images.unsplash.com/photo-1597848212624-a19eb35e2651?w=400&q=80&fit=crop', cat:'Cash Crops'},
-  'Vanilla':       {icon:'🌿', img:'https://images.unsplash.com/photo-1615485290382-441e4d049cb5?w=400&q=80&fit=crop', cat:'Cash Crops'},
-  'Cocoa':         {icon:'🍫', img:'https://images.unsplash.com/photo-1612535080837-46e3b9e97938?w=400&q=80&fit=crop', cat:'Cash Crops'},
+  'Sugarcane':     {icon:'🌿', img:'https://images.unsplash.com/photo-1598857222751-b3f5cfb47c25?w=400&q=80&fit=crop', cat:'Cash Crops'},
+  'Cotton':        {icon:'🌸', img:'https://images.unsplash.com/photo-1567306301408-9b74779a11af?w=400&q=80&fit=crop', cat:'Cash Crops'},
+  'Sunflower':     {icon:'🌻', img:'https://images.unsplash.com/photo-1597533007078-72b4a8875cb7?w=400&q=80&fit=crop', cat:'Cash Crops'},
+  'Vanilla':       {icon:'🌿', img:'https://images.unsplash.com/photo-1584360167821-3b9fea40e2e0?w=400&q=80&fit=crop', cat:'Cash Crops'},
+  'Cocoa':         {icon:'🍫', img:'https://images.unsplash.com/photo-1599599810769-bcde5a160d32?w=400&q=80&fit=crop', cat:'Cash Crops'},
 };
 const CROP_ICONS = Object.fromEntries(Object.entries(CROPS).map(([k,v])=>[k,v.icon]));
 
@@ -2032,7 +2129,10 @@ async function loadListings(){
           </div>
         </div>
         <div class="lc-price">UGX ${Number(l.price_per_kg).toLocaleString()} <span>per kg</span></div>
-        <button class="btn btn-green btn-full" onclick="orderListing(${l.id},'${l.crop}',${l.price_per_kg})">🛒 Order Now</button>
+        <div style="display:grid;grid-template-columns:1fr auto;gap:8px">
+          <button class="btn btn-green btn-full" onclick="orderListing(${l.id},'${l.crop}',${l.price_per_kg})">🛒 Order Now</button>
+          <button class="btn btn-outline" style="padding:12px 14px" title="Share on WhatsApp" onclick="shareListing('${l.crop}',${l.price_per_kg},'${l.district}')">📤</button>
+        </div>
       </div>
     </div>`;
   }).join('');
@@ -2308,6 +2408,74 @@ async function loadDistricts(){
 }
 
 // ── ABOUT TABS ──
+
+// ── FAQ DATA ──
+const FAQS = [
+  {q:"How do I buy produce on AgriBridge?", a:"Simply go to Marketplace, browse listings from verified farmers, and click 'Order Now'. You can pay via MTN MoMo or Airtel Money. Delivery can be arranged directly with the farmer or through our logistics partners."},
+  {q:"Do I need a smartphone to use AgriBridge?", a:"No! AgriBridge works on any phone via USSD *789#. Farmers and buyers in remote areas can check prices, list produce, and place orders using only a basic phone and a SIM card."},
+  {q:"How are farmers verified?", a:"Every farmer on AgriBridge goes through a verification process including phone OTP confirmation, district registration, and a rating system. Verified farmers display a ✅ badge on their listings."},
+  {q:"What happens if I receive bad quality produce?", a:"AgriBridge has a quality guarantee. If produce doesn't match the listing grade, report it within 24 hours via the app or call +256 755 966 690. We will arrange a refund or replacement."},
+  {q:"What payment methods are accepted?", a:"We accept MTN Mobile Money, Airtel Money, and cash on delivery for local orders. Online payments are secured through our payment gateway with end-to-end encryption."},
+  {q:"How does the AI Matching Engine work?", a:"Our AI matches buyers with the right farmers based on 5 factors: crop type, quality grade, location (proximity), price range, and delivery availability. It considers past ratings to surface the best options first."},
+  {q:"Can hotels and restaurants use AgriBridge?", a:"Yes! Hotels, restaurants and caterers get bulk pricing, regular delivery schedules, and dedicated account management. Register as 'Hotel/Restaurant' to unlock B2B features."},
+  {q:"Is my personal data safe?", a:"Yes. All data is encrypted in transit (HTTPS) and at rest. We never sell personal data to third parties. You can request data deletion at any time by contacting hello@agribridge.ug."},
+  {q:"How do I become a listed farmer?", a:"Register for free using the 'Join Free' button. Choose the 'Farmer' role, add your crops, quantity and price. Your listing goes live immediately after OTP verification of your phone number."},
+  {q:"What districts does AgriBridge cover?", a:"We currently serve 6 districts actively (Kampala, Wakiso, Mbarara, Gulu, Jinja, Mbale) with listings visible across all 135 Uganda districts. We're expanding rapidly — contact us to bring AgriBridge to your area."},
+];
+
+function loadFAQs(){
+  const el=document.getElementById('faqList');
+  if(!el) return;
+  el.innerHTML=FAQS.map((f,i)=>`
+    <div class="faq-item" id="faq-${i}">
+      <button class="faq-q" onclick="toggleFAQ(${i})">
+        <span>${f.q}</span>
+        <span class="faq-chevron" id="faq-chevron-${i}">▼</span>
+      </button>
+      <div class="faq-a" id="faq-a-${i}" style="display:none">${f.a}</div>
+    </div>`).join('');
+}
+function toggleFAQ(i){
+  const a=document.getElementById('faq-a-'+i);
+  const c=document.getElementById('faq-chevron-'+i);
+  const open=a.style.display==='block';
+  // Close all
+  FAQS.forEach((_,j)=>{
+    document.getElementById('faq-a-'+j).style.display='none';
+    document.getElementById('faq-chevron-'+j).style.transform='rotate(0deg)';
+  });
+  if(!open){ a.style.display='block'; c.style.transform='rotate(180deg)'; }
+}
+
+// ── LIVE ACTIVITY TICKER ──
+const ACTIVITIES=[
+  '🌾 Farmer in Mbarara just listed 200kg of Matooke',
+  '🛒 Hotel in Kampala ordered 50kg of Tomatoes',
+  '✅ New farmer verified in Gulu district',
+  '📈 Coffee prices up 5% in Mbale today',
+  '🚚 Delivery completed — 150kg Kale to Serena Hotel',
+  '👨‍🌾 Farmer in Jinja listed fresh Pineapples at UGX 600/kg',
+  '🤝 AI matched buyer in Wakiso with farmer in Mukono',
+  '🌽 Fresh Maize harvest available in Lira — 500kg',
+  '⭐ Farmer Nakato rated 5 stars by Kampala vendor',
+  '📱 New user registered via USSD *789# in Hoima',
+];
+let tickerIdx=0;
+function startActivityTicker(){
+  const el=document.getElementById('tickerText');
+  if(!el) return;
+  setInterval(()=>{
+    el.style.opacity='0';
+    setTimeout(()=>{
+      tickerIdx=(tickerIdx+1)%ACTIVITIES.length;
+      el.textContent=ACTIVITIES[tickerIdx];
+      el.style.transition='opacity .5s';
+      el.style.opacity='1';
+    },400);
+  },4000);
+}
+
+// ── SHOW PAGE with history push ──
 function switchAbout(n,btn){
   document.querySelectorAll('.about-tab').forEach(b=>b.classList.remove('active'));
   document.querySelectorAll('.about-pane').forEach(p=>p.classList.remove('active'));
@@ -2607,6 +2775,49 @@ function initNetworkWatcher(){
 }
 
 // ── INIT ──
+
+// ── SOCIAL SHARING ──
+function shareListing(crop, price, district){
+  const text = `🌿 Fresh ${crop} available in ${district} at UGX ${Number(price).toLocaleString()}/kg on AgriBridge Uganda! Visit: https://agribridge.zealmugumya.workers.dev`;
+  if(navigator.share){
+    navigator.share({title:'AgriBridge Listing', text, url:'https://agribridge.zealmugumya.workers.dev'})
+      .catch(()=>shareViaWhatsApp(text));
+  } else { shareViaWhatsApp(text); }
+}
+function shareViaWhatsApp(text){
+  window.open('https://wa.me/?text='+encodeURIComponent(text),'_blank');
+}
+function shareApp(){
+  const text = '🌾 AgriBridge Uganda — Buy fresh produce directly from verified farmers! No middlemen, fair prices. Works on any phone via USSD *789#. Try it: https://agribridge.zealmugumya.workers.dev';
+  if(navigator.share){
+    navigator.share({title:'AgriBridge Uganda', text, url:'https://agribridge.zealmugumya.workers.dev'})
+      .catch(()=>shareViaWhatsApp(text));
+  } else { shareViaWhatsApp(text); }
+}
+
+// ── ONBOARDING ──
+function initOnboarding(){
+  if(!localStorage.getItem('ab_visited')){
+    const b=document.getElementById('onboardBanner');
+    if(b) setTimeout(()=>{ b.style.display='block'; },600);
+  }
+}
+function dismissOnboard(){
+  localStorage.setItem('ab_visited','true');
+  const b=document.getElementById('onboardBanner');
+  if(b){ b.style.transition='opacity .4s,max-height .4s'; b.style.opacity='0'; 
+    setTimeout(()=>{ b.style.display='none'; },400); }
+}
+
+// ── ANDROID BACK BUTTON ──
+function initBackButton(){
+  window.addEventListener('popstate', e => {
+    const prev = e.state && e.state.page;
+    if(prev) showPage(prev, false);
+    else showPage('home', false);
+  });
+}
+
 document.addEventListener('DOMContentLoaded',()=>{
   loadStats();
   loadListings();
@@ -2615,6 +2826,9 @@ document.addEventListener('DOMContentLoaded',()=>{
   registerSW();
   initCookieBanner();
   initNetworkWatcher();
+  initOnboarding();
+  startActivityTicker();
+  initBackButton();
   // Restore login state
   const token=localStorage.getItem('ab_token');
   if(token){
