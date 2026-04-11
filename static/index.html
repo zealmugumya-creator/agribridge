@@ -297,7 +297,7 @@ h1.page-title{font-family:'Syne',sans-serif;font-size:clamp(1.8rem,4vw,2.8rem);f
 @media(max-width:860px){.hero{grid-template-columns:1fr;padding:40px 5% 48px}}
 .hero-photo{
   position:absolute;inset:0;z-index:0;
-  background-image:url('https://images.unsplash.com/photo-1625246333195-78d9c38ad449?w=1600&q=80&fit=crop');
+  background-image:url('https://images.unsplash.com/photo-1619546952812-520e98064a52?w=1600&q=80&fit=crop&auto=format');
   background-size:cover;background-position:center 40%;
   animation:heroZoom 22s ease-in-out infinite alternate;
 }
@@ -2050,47 +2050,47 @@ function animateCount(id,target){
 // ── COMPLETE UGANDA CROPS DATABASE ──
 const CROPS = {
   // Vegetables
-  'Tomatoes':      {icon:'🍅', img:'https://images.unsplash.com/photo-1561136594-7f68413baa99?w=400&q=80&fit=crop', cat:'Vegetables'},
-  'Onions':        {icon:'🧅', img:'https://images.unsplash.com/photo-1508747703725-719777637510?w=400&q=80&fit=crop', cat:'Vegetables'},
-  'Cabbages':      {icon:'🥬', img:'https://images.unsplash.com/photo-1594282418426-c6e8b7f04aaa?w=400&q=80&fit=crop', cat:'Vegetables'},
-  'Carrots':       {icon:'🥕', img:'https://images.unsplash.com/photo-1447175008436-054170c2e979?w=400&q=80&fit=crop', cat:'Vegetables'},
-  'Pepper':        {icon:'🌶️', img:'https://images.unsplash.com/photo-1526346698789-22fd84314424?w=400&q=80&fit=crop', cat:'Vegetables'},
-  'Eggplant':      {icon:'🍆', img:'https://images.unsplash.com/photo-1615484477778-ca3b77940c25?w=400&q=80&fit=crop', cat:'Vegetables'},
-  'Spinach':       {icon:'🥬', img:'https://images.unsplash.com/photo-1576045057995-568f588f82fb?w=400&q=80&fit=crop', cat:'Vegetables'},
-  'Kale':          {icon:'🥦', img:'https://images.unsplash.com/photo-1613743983303-b3e89f8a2b80?w=400&q=80&fit=crop', cat:'Vegetables'},
-  'Cucumber':      {icon:'🥒', img:'https://images.unsplash.com/photo-1449300079323-02e209d9d3a6?w=400&q=80&fit=crop', cat:'Vegetables'},
-  'Pumpkin':       {icon:'🎃', img:'https://images.unsplash.com/photo-1570586437263-ab629fccc818?w=400&q=80&fit=crop', cat:'Vegetables'},
-  'Garlic':        {icon:'🧄', img:'https://images.unsplash.com/photo-1540148426945-6cf22a6b2383?w=400&q=80&fit=crop', cat:'Vegetables'},
-  'Ginger':        {icon:'🫚', img:'https://images.unsplash.com/photo-1615485500704-8e990f9900f7?w=400&q=80&fit=crop', cat:'Vegetables'},
+  'Tomatoes':      {icon:'🍅', img:'https://images.unsplash.com/d6wmBmSMsC8?w=400&h=300&q=85&fit=crop&auto=format', cat:'Vegetables'},
+  'Onions':        {icon:'🧅', img:'https://images.unsplash.com/ReXxkS1m1H0?w=400&h=300&q=85&fit=crop&auto=format', cat:'Vegetables'},
+  'Cabbages':      {icon:'🥬', img:'https://images.unsplash.com/cJMR8V2TFiQ?w=400&h=300&q=85&fit=crop&auto=format', cat:'Vegetables'},
+  'Carrots':       {icon:'🥕', img:'https://images.unsplash.com/eTBVJMJBcK4?w=400&h=300&q=85&fit=crop&auto=format', cat:'Vegetables'},
+  'Pepper':        {icon:'🌶️', img:'https://images.unsplash.com/MjS5Bbj_AEM?w=400&h=300&q=85&fit=crop&auto=format', cat:'Vegetables'},
+  'Eggplant':      {icon:'🍆', img:'https://images.unsplash.com/UIZP4WjS3kA?w=400&h=300&q=85&fit=crop&auto=format', cat:'Vegetables'},
+  'Spinach':       {icon:'🥬', img:'https://images.unsplash.com/zITiCBSMBpM?w=400&h=300&q=85&fit=crop&auto=format', cat:'Vegetables'},
+  'Kale':          {icon:'🥦', img:'https://images.unsplash.com/ydaIHjLOyHY?w=400&h=300&q=85&fit=crop&auto=format', cat:'Vegetables'},
+  'Cucumber':      {icon:'🥒', img:'https://images.unsplash.com/y2MeW00BdBo?w=400&h=300&q=85&fit=crop&auto=format', cat:'Vegetables'},
+  'Pumpkin':       {icon:'🎃', img:'https://images.unsplash.com/lB6ygXXLKMY?w=400&h=300&q=85&fit=crop&auto=format', cat:'Vegetables'},
+  'Garlic':        {icon:'🧄', img:'https://images.unsplash.com/GXXYkSwndP4?w=400&h=300&q=85&fit=crop&auto=format', cat:'Vegetables'},
+  'Ginger':        {icon:'🫚', img:'https://images.unsplash.com/JvQ0Q5IkeMTg?w=400&h=300&q=85&fit=crop&auto=format', cat:'Vegetables'},
   // Staples
-  'Matooke':       {icon:'🍌', img:'https://images.unsplash.com/photo-1528825871115-3581a5387919?w=400&q=80&fit=crop', cat:'Staples'},
-  'Maize':         {icon:'🌽', img:'https://images.unsplash.com/photo-1601593346740-925612772716?w=400&q=80&fit=crop', cat:'Staples'},
-  'Cassava':       {icon:'🌿', img:'https://images.unsplash.com/photo-1631210990769-5d7ac30af0d8?w=400&q=80&fit=crop', cat:'Staples'},
-  'Sweet Potatoes':{icon:'🍠', img:'https://images.unsplash.com/photo-1596560548464-f010549b84d7?w=400&q=80&fit=crop', cat:'Staples'},
-  'Potatoes':      {icon:'🥔', img:'https://images.unsplash.com/photo-1518977676601-b53f82aba655?w=400&q=80&fit=crop', cat:'Staples'},
-  'Beans':         {icon:'🫘', img:'https://images.unsplash.com/photo-1509358271058-acd22cc93898?w=400&q=80&fit=crop', cat:'Staples'},
-  'Groundnuts':    {icon:'🥜', img:'https://images.unsplash.com/photo-1567292737950-30c4db37cd89?w=400&q=80&fit=crop', cat:'Staples'},
-  'Sorghum':       {icon:'🌾', img:'https://images.unsplash.com/photo-1591280063444-d3c514eb6e13?w=400&q=80&fit=crop', cat:'Staples'},
-  'Millet':        {icon:'🌾', img:'https://images.unsplash.com/photo-1607305387299-a3d9611cd469?w=400&q=80&fit=crop', cat:'Staples'},
-  'Rice':          {icon:'🍚', img:'https://images.unsplash.com/photo-1536304993881-ff86e0c9b1b5?w=400&q=80&fit=crop', cat:'Staples'},
+  'Matooke':       {icon:'🍌', img:'https://images.unsplash.com/dG0qAZ2ge0A?w=400&h=300&q=85&fit=crop&auto=format', cat:'Staples'},
+  'Maize':         {icon:'🌽', img:'https://images.unsplash.com/ZF9WmHRb6Jo?w=400&h=300&q=85&fit=crop&auto=format', cat:'Staples'},
+  'Cassava':       {icon:'🌿', img:'https://images.unsplash.com/HNx4QLRgy2k?w=400&h=300&q=85&fit=crop&auto=format', cat:'Staples'},
+  'Sweet Potatoes':{icon:'🍠', img:'https://images.unsplash.com/lrdFurqYe7I?w=400&h=300&q=85&fit=crop&auto=format', cat:'Staples'},
+  'Potatoes':      {icon:'🥔', img:'https://images.unsplash.com/Dl39g6QhOIM?w=400&h=300&q=85&fit=crop&auto=format', cat:'Staples'},
+  'Beans':         {icon:'🫘', img:'https://images.unsplash.com/58z-LzVgDYw?w=400&h=300&q=85&fit=crop&auto=format', cat:'Staples'},
+  'Groundnuts':    {icon:'🥜', img:'https://images.unsplash.com/G85VuTpw6jg?w=400&h=300&q=85&fit=crop&auto=format', cat:'Staples'},
+  'Sorghum':       {icon:'🌾', img:'https://images.unsplash.com/IFxjDdqK_0U?w=400&h=300&q=85&fit=crop&auto=format', cat:'Staples'},
+  'Millet':        {icon:'🌾', img:'https://images.unsplash.com/VBIqPxXFAd0?w=400&h=300&q=85&fit=crop&auto=format', cat:'Staples'},
+  'Rice':          {icon:'🍚', img:'https://images.unsplash.com/OgvqXGL7XO4?w=400&h=300&q=85&fit=crop&auto=format', cat:'Staples'},
   // Fruits
-  'Bananas':       {icon:'🍌', img:'https://images.unsplash.com/photo-1571771894821-ce9b6c11b08e?w=400&q=80&fit=crop', cat:'Fruits'},
-  'Mangoes':       {icon:'🥭', img:'https://images.unsplash.com/photo-1553279768-865429fa0078?w=400&q=80&fit=crop', cat:'Fruits'},
-  'Avocados':      {icon:'🥑', img:'https://images.unsplash.com/photo-1601039641847-7857b994d704?w=400&q=80&fit=crop', cat:'Fruits'},
-  'Pineapples':    {icon:'🍍', img:'https://images.unsplash.com/photo-1550258987-190a2d41a8ba?w=400&q=80&fit=crop', cat:'Fruits'},
-  'Passion Fruit': {icon:'🍊', img:'https://images.unsplash.com/photo-1604495772376-9657f0035a0a?w=400&q=80&fit=crop', cat:'Fruits'},
-  'Watermelon':    {icon:'🍉', img:'https://images.unsplash.com/photo-1582281298055-e25b84a30b0b?w=400&q=80&fit=crop', cat:'Fruits'},
-  'Papaya':        {icon:'🍈', img:'https://images.unsplash.com/photo-1526318896980-cf78c088247c?w=400&q=80&fit=crop', cat:'Fruits'},
-  'Oranges':       {icon:'🍊', img:'https://images.unsplash.com/photo-1547514701-42782101795e?w=400&q=80&fit=crop', cat:'Fruits'},
-  'Jackfruit':     {icon:'🍈', img:'https://images.unsplash.com/photo-1546039907-7fa05f864c02?w=400&q=80&fit=crop', cat:'Fruits'},
+  'Bananas':       {icon:'🍌', img:'https://images.unsplash.com/TwkJKNMJpeM?w=400&h=300&q=85&fit=crop&auto=format', cat:'Fruits'},
+  'Mangoes':       {icon:'🥭', img:'https://images.unsplash.com/I0g99E1Mq8I?w=400&h=300&q=85&fit=crop&auto=format', cat:'Fruits'},
+  'Avocados':      {icon:'🥑', img:'https://images.unsplash.com/aGWCMbQs_dA?w=400&h=300&q=85&fit=crop&auto=format', cat:'Fruits'},
+  'Pineapples':    {icon:'🍍', img:'https://images.unsplash.com/XkBqNdOkON0?w=400&h=300&q=85&fit=crop&auto=format', cat:'Fruits'},
+  'Passion Fruit': {icon:'🍊', img:'https://images.unsplash.com/0uRcLVa2Yjk?w=400&h=300&q=85&fit=crop&auto=format', cat:'Fruits'},
+  'Watermelon':    {icon:'🍉', img:'https://images.unsplash.com/1OtUkD_8svc?w=400&h=300&q=85&fit=crop&auto=format', cat:'Fruits'},
+  'Papaya':        {icon:'🍈', img:'https://images.unsplash.com/kYGR-3He5cU?w=400&h=300&q=85&fit=crop&auto=format', cat:'Fruits'},
+  'Oranges':       {icon:'🍊', img:'https://images.unsplash.com/xekxE_VR0Ec?w=400&h=300&q=85&fit=crop&auto=format', cat:'Fruits'},
+  'Jackfruit':     {icon:'🍈', img:'https://images.unsplash.com/0GbrjL3vZF4?w=400&h=300&q=85&fit=crop&auto=format', cat:'Fruits'},
   // Cash Crops
-  'Coffee':        {icon:'☕', img:'https://images.unsplash.com/photo-1498804103079-a6351b050096?w=400&q=80&fit=crop', cat:'Cash Crops'},
-  'Tea':           {icon:'🍵', img:'https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=400&q=80&fit=crop', cat:'Cash Crops'},
-  'Sugarcane':     {icon:'🌿', img:'https://images.unsplash.com/photo-1598857222751-b3f5cfb47c25?w=400&q=80&fit=crop', cat:'Cash Crops'},
-  'Cotton':        {icon:'🌸', img:'https://images.unsplash.com/photo-1567306301408-9b74779a11af?w=400&q=80&fit=crop', cat:'Cash Crops'},
-  'Sunflower':     {icon:'🌻', img:'https://images.unsplash.com/photo-1597533007078-72b4a8875cb7?w=400&q=80&fit=crop', cat:'Cash Crops'},
-  'Vanilla':       {icon:'🌿', img:'https://images.unsplash.com/photo-1584360167821-3b9fea40e2e0?w=400&q=80&fit=crop', cat:'Cash Crops'},
-  'Cocoa':         {icon:'🍫', img:'https://images.unsplash.com/photo-1599599810769-bcde5a160d32?w=400&q=80&fit=crop', cat:'Cash Crops'},
+  'Coffee':        {icon:'☕', img:'https://images.unsplash.com/TD4SCORpQkQ?w=400&h=300&q=85&fit=crop&auto=format', cat:'Cash Crops'},
+  'Tea':           {icon:'🍵', img:'https://images.unsplash.com/kM_0auRVCEU?w=400&h=300&q=85&fit=crop&auto=format', cat:'Cash Crops'},
+  'Sugarcane':     {icon:'🌿', img:'https://images.unsplash.com/O453M2Liufs?w=400&h=300&q=85&fit=crop&auto=format', cat:'Cash Crops'},
+  'Cotton':        {icon:'🌸', img:'https://images.unsplash.com/R_Kk4TRrLtY?w=400&h=300&q=85&fit=crop&auto=format', cat:'Cash Crops'},
+  'Sunflower':     {icon:'🌻', img:'https://images.unsplash.com/VKBGMmKul6g?w=400&h=300&q=85&fit=crop&auto=format', cat:'Cash Crops'},
+  'Vanilla':       {icon:'🌿', img:'https://images.unsplash.com/1Z2niiBPg5A?w=400&h=300&q=85&fit=crop&auto=format', cat:'Cash Crops'},
+  'Cocoa':         {icon:'🍫', img:'https://images.unsplash.com/oMFmPgAr0bk?w=400&h=300&q=85&fit=crop&auto=format', cat:'Cash Crops'},
 };
 const CROP_ICONS = Object.fromEntries(Object.entries(CROPS).map(([k,v])=>[k,v.icon]));
 
@@ -2111,7 +2111,8 @@ async function loadListings(){
     const initials=(l.farmer_name||'F').split(' ').map(n=>n[0]).join('').slice(0,2).toUpperCase();
     return `<div class="listing-card">
       ${imgUrl
-        ?`<img class="lc-img" src="${imgUrl}" alt="${l.crop}" loading="lazy" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'">`
+        ?`<img class="lc-img" src="${imgUrl}" alt="${l.crop}" loading="lazy"
+           onerror="this.src='https://images.unsplash.com/photo-1472141521881-95d0e87e2e39?w=400&h=300&q=80&fit=crop';this.onerror=null;">`
         :''}
       <div class="lc-placeholder" style="${imgUrl?'display:none':'display:flex'}">${icon}</div>
       <div class="lc-body">
@@ -2714,7 +2715,8 @@ function renderCropCatalogue(cat){
   el.innerHTML=entries.map(([name,data])=>`
     <div class="crop-card" onclick="searchCrop('${name}')">
       ${data.img
-        ?`<img class="crop-card-img" src="${data.img}" alt="${name}" loading="lazy" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'"><div class="crop-card-img-placeholder" style="display:none">${data.icon}</div>`
+        ?`<img class="crop-card-img" src="${data.img}" alt="${name}" loading="lazy"
+           onerror="this.src='https://images.unsplash.com/photo-1498837167922-ddd27525d352?w=400&h=300&q=80&fit=crop';this.onerror=null;"><div class="crop-card-img-placeholder" style="display:none">${data.icon}</div>`
         :`<div class="crop-card-img-placeholder">${data.icon}</div>`
       }
       <div class="crop-card-body">
