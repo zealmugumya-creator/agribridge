@@ -1,66 +1,68 @@
 {
-  "name": "AgriBridge · Uganda Farm-to-Table",
+  "name": "AgriBridge Uganda",
   "short_name": "AgriBridge",
-  "description": "Uganda's #1 agri-tech platform. Buy/sell fresh produce, check live prices, AI crop doctor — works on any phone via USSD *789#",
+  "description": "Uganda's Farm-to-Table Intelligence Platform — connecting farmers, vendors, hotels and buyers.",
   "start_url": "/",
   "scope": "/",
   "display": "standalone",
-  "background_color": "#060f09",
-  "theme_color": "#00c853",
   "orientation": "portrait-primary",
-  "lang": "en-UG",
+  "background_color": "#060d0a",
+  "theme_color": "#00e676",
+  "lang": "en",
   "dir": "ltr",
-  "categories": ["food", "shopping", "utilities", "productivity"],
+  "prefer_related_applications": false,
   "icons": [
     {
-      "src": "data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 192 192'><rect width='192' height='192' rx='24' fill='%23060f09'/><text y='148' x='20' font-size='140'>🌾</text></svg>",
+      "src": "https://images.unsplash.com/photo-1625246333195-78d9c38ad449?w=192&h=192&fit=crop&q=80",
       "sizes": "192x192",
-      "type": "image/svg+xml",
+      "type": "image/png",
       "purpose": "any"
     },
     {
-      "src": "data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 512 512'><rect width='512' height='512' rx='64' fill='%23060f09'/><text y='400' x='52' font-size='380'>🌾</text></svg>",
+      "src": "https://images.unsplash.com/photo-1625246333195-78d9c38ad449?w=512&h=512&fit=crop&q=80",
       "sizes": "512x512",
-      "type": "image/svg+xml",
-      "purpose": "maskable"
-    }
-  ],
-  "screenshots": [
-    {
-      "label": "AgriBridge Marketplace — fresh produce from Ugandan farmers",
-      "form_factor": "narrow"
+      "type": "image/png",
+      "purpose": "any maskable"
     }
   ],
   "shortcuts": [
     {
       "name": "Marketplace",
       "short_name": "Market",
-      "url": "/?page=market",
-      "description": "Browse fresh produce from farmers across Uganda",
-      "icons": [{ "src": "data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 96 96'><text y='80' font-size='80'>🛒</text></svg>", "sizes": "96x96" }]
+      "description": "Browse fresh Uganda produce listings",
+      "url": "/?page=marketplace",
+      "icons": [{ "src": "https://img.icons8.com/emoji/96/shopping-cart.png", "sizes": "96x96" }]
     },
     {
-      "name": "Live Prices",
+      "name": "Market Prices",
       "short_name": "Prices",
+      "description": "Live Uganda commodity prices",
       "url": "/?page=prices",
-      "description": "Check today's market prices for crops across Uganda",
-      "icons": [{ "src": "data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 96 96'><text y='80' font-size='80'>📊</text></svg>", "sizes": "96x96" }]
+      "icons": [{ "src": "https://img.icons8.com/emoji/96/bar-chart.png", "sizes": "96x96" }]
     },
     {
-      "name": "AI Crop Doctor",
-      "short_name": "AI Doctor",
-      "url": "/?page=doctor",
-      "description": "Diagnose crop diseases with AI — free for all farmers",
-      "icons": [{ "src": "data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 96 96'><text y='80' font-size='80'>🩺</text></svg>", "sizes": "96x96" }]
+      "name": "Crop Catalogue",
+      "short_name": "Crops",
+      "description": "All Uganda crops with farm images",
+      "url": "/?page=crops",
+      "icons": [{ "src": "https://img.icons8.com/emoji/96/herb.png", "sizes": "96x96" }]
     },
     {
       "name": "My Dashboard",
       "short_name": "Dashboard",
-      "url": "/?page=dashboard",
-      "description": "View your listings, orders and earnings",
-      "icons": [{ "src": "data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 96 96'><text y='80' font-size='80'>📈</text></svg>", "sizes": "96x96" }]
+      "description": "Your orders, listings and training",
+      "url": "/?page=home",
+      "icons": [{ "src": "https://img.icons8.com/emoji/96/clipboard.png", "sizes": "96x96" }]
     }
   ],
-  "prefer_related_applications": false,
-  "related_applications": []
+  "categories": ["food", "business", "productivity"],
+  "screenshots": [
+    {
+      "src": "https://images.unsplash.com/photo-1625246333195-78d9c38ad449?w=390&h=844&fit=crop&q=80",
+      "sizes": "390x844",
+      "type": "image/png",
+      "platform": "narrow",
+      "label": "AgriBridge Marketplace"
+    }
+  ]
 }
