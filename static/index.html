@@ -1989,4 +1989,91 @@ window.addEventListener('popstate',e=>{const prev=e.state&&e.state.page;if(prev)
 
 document.addEventListener('DOMContentLoaded',()=>{
   loadStats();
-  l
+  loadListings();
+  loadWeather('Kampala');
+  loadChart('Tomatoes', document.querySelector('.ptab'));
+  registerSW();
+  initCookieBanner();
+  initNetworkWatcher();
+  initOnboarding();
+  startActivityTicker();
+  loadFAQs();
+
+  // Close modals on overlay click
+  ['regModal','loginModal','videoModal'].forEach(id=>{
+    const el=document.getElementById(id);
+    if(el) el.addEventListener('click',e=>{
+      if(e.target===el){closeModal();closeLoginModal();closeVideo();}
+    });
+  });
+  document.getElementById('pitchGateOverlay')?.addEventListener('click',e=>{
+    if(e.target===document.getElementById('pitchGateOverlay')) closePitchGate();
+  });
+  document.getElementById('pitchModal')?.addEventListener('click',e=>{
+    if(e.target===document.getElementById('pitchModal')) closePitch();
+  });
+  document.getElementById('dashModal')?.addEventListener('click',e=>{
+    if(e.target===document.getElementById('dashModal')) closeDashboard();
+  });
+
+  // ESC key closes all modals
+  document.addEventListener('keydown',e=>{
+    if(e.key==='Escape'){
+      closeModal();closeLoginModal();closeVideo();
+      closePitchGate();closePitch();closeDashboard();
+    }
+  });
+
+  // Restore login state from token
+  const token=localStorage.getItem('ab_token');
+  if(token){
+    try{
+      const payload=JSON.parse(atob(token.split('.')[1]));
+      currentUser={token, name:payload.name||'User', role:payload.role||'farmer'};
+    }catch(e){ localStorage.removeItem('ab_token'); }
+  }
+});
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+const ACTIVITIES=[
+  '🌾 Farmer in Mbarara just listed 200kg of Matooke',
+  '🛒 Hotel in Kampala ordered 50kg of Tomatoes',
+  '✅ New farmer verified in Gulu district',
+  '📈 Coffee prices up 5% in Mbale today',
+  '🚚 Delivery completed — 150kg Kale to Serena Hotel',
+  '👨‍🌾 Farmer in Jinja listed fresh Pineapples at UGX 600/kg',
+  '🤝 AI matched buyer in Wakiso with farmer in Mukono',
+  '🌽 Fresh Maize harvest available in Lira — 500kg',
+  '⭐ Farmer Nakato rated 5 stars by Kampala vendor',
+  '📱 New user registered via USSD *789# in Hoima',
+];
+let tickerIdx=0;
+
+
+
+
+function shareListing(crop, price, district){
+  const text='🌿 Fresh '+crop+' available in '+district+' at UGX '+Number(price).toLocaleString()+'/kg on AgriBridge Uganda! Visit: https://agribrige.com';
+  if(navigator.share){
+    navigator.share({title:'AgriBridge Listing', text, url:'https://agribrige.com'})
+      .catch(()=>window.open('https://wa.me/?text='+encodeURIComponent(text),'_blank'));
+  } else {
+    window.open('https://wa.me/?text='+encodeURIComponent(text),'_blank');
+  }
+}
+</script>
+</body>
+</html>
