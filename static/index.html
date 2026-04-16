@@ -3,8 +3,8 @@
 <head>
 <meta charset="UTF-8">
 <meta name="robots" content="index, follow">
-  <link rel="canonical" href="https://agribridge.zealmugumya.workers.dev">
-  <meta property="og:image" content="https://agribridge.zealmugumya.workers.dev/og-image.png">
+  <link rel="canonical" href="https://agribrige.com">
+  <meta property="og:image" content="https://agribrige.com/og-image.png">
   <meta property="og:image:width" content="1200">
   <meta property="og:image:height" content="630">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
@@ -19,7 +19,7 @@
 <meta property="og:title" content="AgriBridge · Uganda's Farm-to-Table Platform">
 <meta property="og:description" content="Connecting Uganda's farmers to buyers with fair prices, mobile money, and zero middlemen. Works on any phone via *789#.">
 <meta property="og:type" content="website">
-<meta property="og:url" content="https://agribridge.zealmugumya.workers.dev">
+<meta property="og:url" content="https://agribrige.com">
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🌾</text></svg>">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
@@ -3864,9 +3864,9 @@ async function saveAlert() {
 // SHARE LISTING
 // ═══════════════════════════════════════════════════════
 function shareListing(name, district, price) {
-  const text = '🌾 Fresh ' + name + ' available from ' + district + ' at UGX ' + Number(price).toLocaleString() + '/kg on AgriBridge!\n\nOrder now: https://agribridge.zealmugumya.workers.dev\nOr dial *789# on any phone 📱';
+  const text = '🌾 Fresh ' + name + ' available from ' + district + ' at UGX ' + Number(price).toLocaleString() + '/kg on AgriBridge!\n\nOrder now: https://agribrige.com\nOr dial *789# on any phone 📱';
   if (navigator.share) {
-    navigator.share({ title: name + ' on AgriBridge', text, url: 'https://agribridge.zealmugumya.workers.dev' }).catch(() => {});
+    navigator.share({ title: name + ' on AgriBridge', text, url: 'https://agribrige.com' }).catch(() => {});
   } else {
     window.open('https://wa.me/?text=' + encodeURIComponent(text), '_blank');
   }
