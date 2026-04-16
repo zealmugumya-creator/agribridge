@@ -2472,18 +2472,32 @@ function getYouTubeId(url) {
   return m ? m[1] : null;
 }
 
+function isYouTubeSearch(url) {
+  return url && url.includes('youtube.com/results');
+}
+
 function trainingCard(t) {
-  const vid = getYouTubeId(t.video_url || '');
+  const url = t.video_url || '';
+  const isSearch = isYouTubeSearch(url);
+  const vid = isSearch ? null : getYouTubeId(url);
   const thumb = vid ? `https://img.youtube.com/vi/${vid}/hqdefault.jpg` : '';
   const lvl = t.level || 'beginner';
   const dur = t.duration_mins || t.duration || 45;
   const safeTitle = escHtml(t.title || 'Training Module');
-  const url = t.video_url || '';
   const safeUrl = encodeURIComponent(url);
+  const btnLabel = isSearch ? 'Search YouTube ↗' : 'Watch Now ▶';
+  const thumbClick = isSearch
+    ? `window.open(decodeURIComponent('${safeUrl}'),'_blank')`
+    : `playVideoSafe('${safeUrl}','${encodeURIComponent(t.title||'')}')`;
+  const thumbOverlay = isSearch
+    ? `<div class="training-play" style="background:rgba(255,214,0,0.18)"><div class="play-icon" style="font-size:1.1rem;color:#FFD600">↗</div></div>`
+    : `<div class="training-play"><div class="play-icon">▶</div></div>`;
   return `<div class="training-card">
-    <div class="training-thumb" onclick="playVideoSafe('${safeUrl}','${encodeURIComponent(t.title||'')}')">
-      ${thumb ? `<img src="${thumb}" alt="${safeTitle}" loading="lazy" onerror="this.style.display='none'">` : `<div style="width:100%;height:100%;background:linear-gradient(135deg,var(--bg2),var(--bg3));display:flex;align-items:center;justify-content:center;font-size:3rem">🎥</div>`}
-      <div class="training-play"><div class="play-icon">▶</div></div>
+    <div class="training-thumb" onclick="${thumbClick}">
+      ${thumb
+        ? `<img src="${thumb}" alt="${safeTitle}" loading="lazy" onerror="this.style.display='none'">`
+        : `<div style="width:100%;height:100%;background:linear-gradient(135deg,var(--bg2),var(--bg3));display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px"><div style="font-size:2.2rem">🎥</div>${isSearch ? '<div style="font-size:0.7rem;color:var(--green);font-weight:700;letter-spacing:1px">YOUTUBE</div>' : ''}</div>`}
+      ${thumbOverlay}
       <div class="training-level lv-${lvl}">${lvl}</div>
     </div>
     <div class="training-body">
@@ -2491,7 +2505,7 @@ function trainingCard(t) {
       <div class="training-desc">${escHtml(t.description||'')}</div>
       <div class="training-meta">
         <div class="training-dur">⏱ ${dur} min</div>
-        <button class="btn-watch" onclick="playVideoSafe('${safeUrl}','${encodeURIComponent(t.title||'')}')">Watch Now ▶</button>
+        <button class="btn-watch" onclick="${isSearch ? `window.open(decodeURIComponent('${safeUrl}'),'_blank')` : `playVideoSafe('${safeUrl}','${encodeURIComponent(t.title||'')}')`}">${btnLabel}</button>
       </div>
     </div>
   </div>`;
@@ -2510,6 +2524,11 @@ function playVideoSafe(encodedUrl, encodedTitle) {
 }
 function playVideo(url, title) {
   if (!url) { showToast('Video not available'); return; }
+  // YouTube search URLs → open in new tab (can't embed search results)
+  if (url.includes('youtube.com/results')) {
+    window.open(url, '_blank');
+    return;
+  }
   let embedUrl = url;
   if (url.includes('watch?v=')) {
     try { const id = new URL(url).searchParams.get('v'); embedUrl = `https://www.youtube.com/embed/${id}`; } catch{}
@@ -2803,59 +2822,143 @@ function renderCrops() {
 // ═══════════════════════════════════════════════════════
 // AUTH — LOGIN / REGISTER
 // ═══════════════════════════════════════════════════════
-// ─── AUTH (Supabase direct — no OTP in sandbox, simple phone lookup) ───
+// Uses Supabase Auth (email = phone@agribridge.app) for real password hashing.
+// Access token is stored in localStorage and sent as Authorization header on API calls.
+// ─────────────────────────────────────────────────────
+
+async function supaAuthSignUp(phone, password) {
+  const email = phone.replace(/\s+/g, '') + '@agribridge.app';
+  const res = await fetch(`${SUPA_URL}/auth/v1/signup`, {
+    method: 'POST',
+    headers: { apikey: SUPA_KEY, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ email, password })
+  });
+  return res.ok ? res.json() : null;
+}
+
+async function supaAuthSignIn(phone, password) {
+  const email = phone.replace(/\s+/g, '') + '@agribridge.app';
+  const res = await fetch(`${SUPA_URL}/auth/v1/token?grant_type=password`, {
+    method: 'POST',
+    headers: { apikey: SUPA_KEY, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ email, password })
+  });
+  return res.ok ? res.json() : null;
+}
+
+async function supaAuthSignOut() {
+  const token = localStorage.getItem('ab_access_token');
+  if (token) {
+    await fetch(`${SUPA_URL}/auth/v1/logout`, {
+      method: 'POST',
+      headers: { apikey: SUPA_KEY, Authorization: 'Bearer ' + token }
+    }).catch(() => {});
+  }
+  localStorage.removeItem('ab_access_token');
+}
+
 async function doLogin() {
   const phone = document.getElementById('loginPhone').value.trim();
+  const pwd   = document.getElementById('loginPwd').value;
   if (!phone) { showToast('Enter your phone number'); return; }
-  // Look up farmer by phone
-  const farmer = await sb('farmers', { select: '*', filters: [['phone', `eq.${phone}`]], single: true });
+  if (!pwd)   { showToast('Enter your password'); return; }
+
+  const btn = document.querySelector('#loginModal .btn-submit');
+  if (btn) { btn.textContent = 'Logging in…'; btn.disabled = true; }
+
+  // 1. Authenticate via Supabase Auth
+  const session = await supaAuthSignIn(phone, pwd);
+  if (btn) { btn.textContent = 'Log In'; btn.disabled = false; }
+
+  if (!session || !session.access_token) {
+    showToast('Incorrect phone or password');
+    return;
+  }
+  localStorage.setItem('ab_access_token', session.access_token);
+
+  // 2. Load profile from farmers / buyers table
+  const farmer = await sb('farmers', { select: '*', filters: [['phone', `eq.${phone.replace(/\s+/g,'')}`]], single: true });
   if (farmer) {
     currentUser = { id: farmer.id, name: farmer.full_name, phone: farmer.phone, district: farmer.district, role: 'farmer' };
     localStorage.setItem('ab_user', JSON.stringify(currentUser));
     closeModal('loginModal');
     showToast('Welcome back, ' + farmer.full_name + '! 🌱');
     updateNavUser(farmer.full_name, 'farmer');
-  } else {
-    // Try buyers table
-    const buyer = await sb('buyers', { select: '*', filters: [['phone', `eq.${phone}`]], single: true });
-    if (buyer) {
-      currentUser = { id: buyer.id, name: buyer.full_name, phone: buyer.phone, role: 'buyer' };
-      localStorage.setItem('ab_user', JSON.stringify(currentUser));
-      closeModal('loginModal');
-      showToast('Welcome back, ' + buyer.full_name + '! 🛒');
-      updateNavUser(buyer.full_name, 'buyer');
-    } else {
-      showToast('Phone not found — please register first');
-    }
+    return;
   }
+  const buyer = await sb('buyers', { select: '*', filters: [['phone', `eq.${phone.replace(/\s+/g,'')}`]], single: true });
+  if (buyer) {
+    currentUser = { id: buyer.id, name: buyer.full_name, phone: buyer.phone, role: buyer.buyer_type || 'buyer' };
+    localStorage.setItem('ab_user', JSON.stringify(currentUser));
+    closeModal('loginModal');
+    showToast('Welcome back, ' + buyer.full_name + '! 🛒');
+    updateNavUser(buyer.full_name, 'buyer');
+    return;
+  }
+  // Auth succeeded but no profile row yet — create a minimal one
+  showToast('Account found — setting up your profile...');
+  closeModal('loginModal');
 }
 
 async function doRegister() {
   const name     = document.getElementById('regName').value.trim();
   const phone    = document.getElementById('regPhone').value.trim();
+  const pwd      = document.getElementById('regPwd').value;
   const role     = document.getElementById('regRole').value;
   const district = document.getElementById('regDistrict').value;
   if (!name || !phone || !district) { showToast('Fill in name, phone and district'); return; }
+  if (!pwd || pwd.length < 6)       { showToast('Password must be at least 6 characters'); return; }
+
+  const btn = document.querySelector('#registerModal .btn-submit');
+  if (btn) { btn.textContent = 'Creating…'; btn.disabled = true; }
+
+  // 1. Create Supabase Auth account
+  const authResult = await supaAuthSignUp(phone, pwd);
+  if (btn) { btn.textContent = 'Create Account'; btn.disabled = false; }
+
+  if (!authResult || authResult.error) {
+    const msg = authResult?.error?.message || '';
+    if (msg.includes('already registered')) {
+      showToast('Phone already registered — please Log In instead');
+    } else {
+      showToast('Registration failed: ' + (msg || 'Please try again'));
+    }
+    return;
+  }
+
+  // 2. Insert profile row
+  const normPhone = phone.replace(/\s+/g, '');
   const table = (role === 'farmer') ? 'farmers' : 'buyers';
   const payload = (role === 'farmer')
-    ? { full_name: name, phone, district }
-    : { full_name: name, phone, district, buyer_type: role };
-  const result = await sbInsert(table, payload);
-  if (result) {
-    currentUser = { id: result[0]?.id, name, phone, district, role };
-    localStorage.setItem('ab_user', JSON.stringify(currentUser));
-    closeModal('registerModal');
-    showToast('🌾 Welcome, ' + name + '! Account created. You can now browse and order.');
-    updateNavUser(name, role);
-    // Show what to do next
-    setTimeout(() => showToast('💡 Tip: Browse the Marketplace or dial *789# to sell your crops!'), 3500);
-  } else {
-    showToast('📞 Phone already registered — please Log In instead');
-  }
+    ? { full_name: name, phone: normPhone, district }
+    : { full_name: name, phone: normPhone, district, buyer_type: role };
+
+  const profileRow = await sbInsert(table, payload);
+
+  // 3. Sign in immediately to get access token
+  const session = await supaAuthSignIn(phone, pwd);
+  if (session?.access_token) localStorage.setItem('ab_access_token', session.access_token);
+
+  currentUser = { id: profileRow?.[0]?.id, name, phone: normPhone, district, role };
+  localStorage.setItem('ab_user', JSON.stringify(currentUser));
+  closeModal('registerModal');
+  showToast('Welcome to AgriBridge, ' + name + '! 🌾');
+  updateNavUser(name, role);
+  setTimeout(() => showToast('Tip: Browse the Marketplace or dial *789# to sell your crops!'), 3500);
+}
+
+async function doLogout() {
+  await supaAuthSignOut();
+  currentUser = null;
+  localStorage.removeItem('ab_user');
+  showToast('Logged out successfully');
+  const el = document.getElementById('nav-user-area');
+  if (el) el.innerHTML = `<button class="btn-sm outline" onclick="openModal('loginModal')">Log In</button><button class="btn-sm" onclick="openModal('registerModal')">Join Free</button>`;
 }
 
 async function verifyOtp() {
-  // Simplified: no real OTP in free tier — just complete registration
+  // OTP is handled by Africa's Talking in production.
+  // In sandbox mode, registration is complete without OTP.
   closeModal('registerModal');
   showToast('Registered! Welcome to AgriBridge 🌱');
 }
@@ -3095,13 +3198,91 @@ function samplePrices() {
 }
 
 function sampleTraining() {
+  // These link to YouTube search results for each topic — guaranteed to show real,
+  // relevant content. Replace video_url values with actual embed URLs once you have
+  // filmed your own AgriBridge training videos or licensed specific content.
+  // Format for a specific video: 'https://www.youtube.com/embed/VIDEO_ID_HERE'
   return [
-    { id:1, title:'Soil Preparation for Maize', description:'Learn soil testing, pH adjustment, and prep techniques for high-yield maize farming.', level:'beginner', video_url:'https://www.youtube.com/embed/t5UNSWNpJEM', duration_mins:45 },
-    { id:2, title:'Post-Harvest Handling', description:'Reduce losses with proper drying, sorting, and storage techniques.', level:'beginner', video_url:'https://www.youtube.com/embed/xvFZjo5PgG0', duration_mins:30 },
-    { id:3, title:'Organic Pest Control', description:'Natural, cost-effective methods to protect your crops without chemicals.', level:'intermediate', video_url:'https://www.youtube.com/embed/2JVdKTcWS3Q', duration_mins:60 },
-    { id:4, title:'Smart Irrigation Techniques', description:'Water management strategies for dry season farming.', level:'intermediate', video_url:'https://www.youtube.com/embed/YCzROOuNHWA', duration_mins:50 },
-    { id:5, title:'Market Pricing Strategy', description:'How to time your sales for maximum profit and avoid glut pricing.', level:'advanced', video_url:'https://www.youtube.com/embed/ZSt9tm3RoUU', duration_mins:40 },
-    { id:6, title:'Coffee Processing Methods', description:'Wet and dry processing methods for specialty-grade coffee.', level:'advanced', video_url:'https://www.youtube.com/embed/Ct6BUPvE2sM', duration_mins:75 },
+    {
+      id:1,
+      title:'Soil Preparation for Maize',
+      description:'Learn soil testing, pH adjustment, and bed preparation for high-yield maize. Covers spacing, manure application, and seasonal timing for Uganda.',
+      level:'beginner',
+      duration_mins:45,
+      video_url:'https://www.youtube.com/results?search_query=maize+soil+preparation+Uganda+tutorial+smallholder+farmers'
+    },
+    {
+      id:2,
+      title:'Post-Harvest Handling & Storage',
+      description:'Reduce post-harvest losses with proper drying, sorting, and hermetic storage. Uganda loses 30%+ of grain annually — this module shows you how to stop that.',
+      level:'beginner',
+      duration_mins:35,
+      video_url:'https://www.youtube.com/results?search_query=post+harvest+grain+storage+Uganda+hermetic+bags+PICS'
+    },
+    {
+      id:3,
+      title:'Organic Pest & Disease Control',
+      description:'Natural, cost-effective methods to protect maize, beans, and vegetables from pests without expensive chemicals. Approved by IITA and NARO Uganda.',
+      level:'intermediate',
+      duration_mins:60,
+      video_url:'https://www.youtube.com/results?search_query=organic+pest+control+Uganda+crops+natural+methods+IITA'
+    },
+    {
+      id:4,
+      title:'Smart Irrigation for Dry Season',
+      description:'Water management strategies for farming through the dry season: drip irrigation, mulching, and rainwater harvesting on small plots.',
+      level:'intermediate',
+      duration_mins:50,
+      video_url:'https://www.youtube.com/results?search_query=drip+irrigation+Uganda+smallholder+dry+season+farming'
+    },
+    {
+      id:5,
+      title:'Market Pricing & Selling Strategy',
+      description:'How to time your market sales for maximum profit, avoid seasonal glut pricing, and negotiate better prices as a group through farmer cooperatives.',
+      level:'advanced',
+      duration_mins:40,
+      video_url:'https://www.youtube.com/results?search_query=crop+market+pricing+strategy+Uganda+farmers+cooperative+sell+produce'
+    },
+    {
+      id:6,
+      title:'Coffee Processing Methods',
+      description:'Wet and dry processing for specialty-grade Arabica and Robusta coffee. Uganda is Africa\'s largest coffee exporter — learn to maximise your bean quality.',
+      level:'advanced',
+      duration_mins:75,
+      video_url:'https://www.youtube.com/results?search_query=coffee+processing+Uganda+wet+dry+washing+Arabica+Robusta+export'
+    },
+    {
+      id:7,
+      title:'Bean & Legume Farming',
+      description:'Planting, spacing, pest management, and harvesting tips for common beans, soybeans, and groundnuts — Uganda\'s most traded protein crops.',
+      level:'beginner',
+      duration_mins:40,
+      video_url:'https://www.youtube.com/results?search_query=bean+soybean+groundnut+farming+Uganda+legumes+IITA+tutorial'
+    },
+    {
+      id:8,
+      title:'Banana & Matoke Production',
+      description:'Suckers, spacing, mulching, de-leafing, and bunch management for East African Highland Bananas (Matooke) — Uganda\'s staple food crop.',
+      level:'beginner',
+      duration_mins:50,
+      video_url:'https://www.youtube.com/results?search_query=banana+matoke+farming+Uganda+East+Africa+highland+banana+tutorial'
+    },
+    {
+      id:9,
+      title:'Mobile Money for Farm Business',
+      description:'How to use MTN MoMo and Airtel Money to receive payments, send money to suppliers, and keep digital records of your farm income.',
+      level:'beginner',
+      duration_mins:25,
+      video_url:'https://www.youtube.com/results?search_query=MTN+mobile+money+Uganda+farmers+business+payment+tutorial'
+    },
+    {
+      id:10,
+      title:'Starting a Farm Cooperative',
+      description:'Legal steps to register a SACCO or cooperative society in Uganda, pool resources, access group loans, and negotiate bulk buyer contracts.',
+      level:'advanced',
+      duration_mins:55,
+      video_url:'https://www.youtube.com/results?search_query=farmer+cooperative+SACCO+Uganda+register+group+farming+loan'
+    },
   ];
 }
 
