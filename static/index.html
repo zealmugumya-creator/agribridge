@@ -1186,11 +1186,16 @@ AgriBridge service</div>
   <button class="nav-item active" id="nav-home" onclick="showPage('home')"><span class="nav-icon">🏠</span>Home</button>
   <button class="nav-item" id="nav-market" onclick="showPage('market')"><span class="nav-icon">🛒</span>Market</button>
   <button class="nav-item" id="nav-prices" onclick="showPage('prices')"><span class="nav-icon">📊</span>Prices</button>
-  <button class="nav-item" id="nav-farmer-dash" onclick="goToDashboard()"><span class="nav-icon">📋</span>Dashboard</button>
+  <button class="nav-item" id="nav-crops" onclick="showPage('crops');renderCrops();renderCalendar()"><span class="nav-icon">🌿</span>Crops</button>
+  <button class="nav-item" id="nav-dashboard" onclick="goToDashboard()"><span class="nav-icon">📋</span>Dashboard</button>
   <button class="nav-item" id="nav-training" onclick="showPage('training')"><span class="nav-icon">🎓</span>Learn</button>
   <button class="nav-item" id="nav-delivery" onclick="showPage('delivery')"><span class="nav-icon">🚚</span>Track</button>
   <button class="nav-item" id="nav-ussd" onclick="showPage('ussd')"><span class="nav-icon">📱</span>USSD</button>
   <button class="nav-item" id="nav-doctor" onclick="showPage('doctor')"><span class="nav-icon">🩺</span>AI Doc</button>
+  <button class="nav-item" id="nav-supply" onclick="showPage('supply');renderSupply()"><span class="nav-icon">🏪</span>Supply</button>
+  <button class="nav-item" id="nav-community" onclick="showPage('community')"><span class="nav-icon">🌱</span>Community</button>
+  <button class="nav-item" id="nav-about" onclick="showPage('about')"><span class="nav-icon">💡</span>About</button>
+  <button class="nav-item" id="nav-pitch" onclick="showPage('pitch');guardPitch()"><span class="nav-icon">📈</span>Pitch</button>
   <button class="nav-item" id="nav-contact" onclick="showPage('contact')"><span class="nav-icon">✉️</span>Contact</button>
 </nav>
 
@@ -2294,7 +2299,7 @@ async function callUssd(text){
     const raw=await r.text();
     const isEnd=raw.startsWith('END'); const msg=raw.replace(/^(CON|END)\s*/,'');
     ussdCurrentScreen=msg; updateUssdScreen(msg+(isEnd?'\n─────\n[Session ended]':''));
-    if(isEnd){ ussdInSession=false; setTimeout(()={updateUssdScreen('Session ended.\nDial *789# again.'); resetUssdState();},3500); }
+    if(isEnd){ ussdInSession=false; setTimeout(()=>{updateUssdScreen('Session ended.\nDial *789# again.'); resetUssdState();},3500); }
   } catch { localUssd(text); }
 }
 function localUssd(text){
@@ -2480,6 +2485,486 @@ document.addEventListener('DOMContentLoaded',()=>{
 if('serviceWorker' in navigator){
   window.addEventListener('load',()=>navigator.serviceWorker.register('/sw.js').catch(()=>{}));
 }
+
+// ═══════════════════════════════════════════════════════
+// CROPS PAGE
+// ═══════════════════════════════════════════════════════
+const UGANDA_CROPS = [
+  {name:'Matooke',emoji:'🍌',cat:'staple',price:'800–1,500',unit:'bunch',season:'Year-round',districts:'Mbarara, Bushenyi, Kabale',desc:"Uganda's beloved cooking banana — the national staple food"},
+  {name:'Maize',emoji:'🌽',cat:'staple',price:'600–900',unit:'kg',season:'Mar–Jun, Aug–Nov',districts:'Eastern & Northern Uganda',desc:'Main cereal crop; used for posho and animal feed'},
+  {name:'Cassava',emoji:'🥔',cat:'staple',price:'400–700',unit:'kg',season:'Year-round',districts:'Lango, Northern Uganda',desc:'Drought-resistant root crop; second most important staple'},
+  {name:'Sweet Potato',emoji:'🍠',cat:'staple',price:'500–800',unit:'kg',season:'Year-round',districts:'Southwestern Uganda',desc:'Nutritious orange-fleshed varieties rich in Vitamin A'},
+  {name:'Irish Potato',emoji:'🥔',cat:'staple',price:'800–1,200',unit:'kg',season:'Mar–Jun, Sep–Dec',districts:'Kabale, Kisoro, Mbale',desc:"Highland potato grown in Uganda's cool mountainous regions"},
+  {name:'Millet',emoji:'🌾',cat:'staple',price:'1,200–1,800',unit:'kg',season:'Apr–Aug',districts:'Northern & Eastern Uganda',desc:'Used for atap (millet bread) and local waragi brew'},
+  {name:'Rice',emoji:'🍚',cat:'staple',price:'2,500–3,500',unit:'kg',season:'Mar–Jul, Sep–Jan',districts:'Bugiri, Iganga, Pallisa',desc:'Grown in wetlands; increasingly popular urban food'},
+  {name:'Tomatoes',emoji:'🍅',cat:'vegetable',price:'1,000–2,500',unit:'kg',season:'Jan–Mar, Jun–Sep',districts:'Mpigi, Buikwe, Kayunga',desc:'Most widely traded vegetable in Ugandan markets'},
+  {name:'Cabbage',emoji:'🥬',cat:'vegetable',price:'500–1,000',unit:'head',season:'Year-round',districts:'Kabale, Kisoro, Ntungamo',desc:"Cool-season vegetable from Uganda's highland areas"},
+  {name:'Onions',emoji:'🧅',cat:'vegetable',price:'1,500–3,000',unit:'kg',season:'Dec–Mar',districts:'Kasese, Kabarole, Kabale',desc:'Essential kitchen ingredient with high year-round demand'},
+  {name:'Carrots',emoji:'🥕',cat:'vegetable',price:'800–1,500',unit:'kg',season:'Year-round (highlands)',districts:'Kisoro, Kabale',desc:'Highland vegetable with growing urban demand'},
+  {name:'Sukuma Wiki',emoji:'🥬',cat:'vegetable',price:'300–600',unit:'bunch',season:'Year-round',districts:'Nationwide',desc:'Kale / collard greens — most consumed leafy vegetable'},
+  {name:'Mango',emoji:'🥭',cat:'fruit',price:'200–500',unit:'kg',season:'Oct–Jan',districts:'Soroti, Kumi, Butaleja',desc:'Uganda has 20+ mango varieties; high export potential'},
+  {name:'Pineapple',emoji:'🍍',cat:'fruit',price:'800–1,500',unit:'piece',season:'Year-round',districts:'Kayunga, Mukono, Luwero',desc:'Smooth Cayenne variety dominates; processed for juice export'},
+  {name:'Avocado',emoji:'🥑',cat:'fruit',price:'500–1,200',unit:'kg',season:'Feb–May, Jul–Oct',districts:'Western Uganda, Buganda',desc:'Fast-growing export crop with high European demand'},
+  {name:'Passion Fruit',emoji:'🟣',cat:'fruit',price:'3,000–5,000',unit:'kg',season:'Year-round',districts:'Kabale, Kisoro, Mbarara',desc:'Purple & yellow varieties; major juice export product'},
+  {name:'Watermelon',emoji:'🍉',cat:'fruit',price:'800–1,500',unit:'piece',season:'Dry season',districts:'Mbarara, Kiruhura, Sembabule',desc:'Fast-growing; high water content; popular urban product'},
+  {name:'Coffee',emoji:'☕',cat:'cash',price:'8,000–15,000',unit:'kg',season:'Oct–Feb',districts:'Bugisu, Rwenzori, Masaka',desc:"Uganda's #1 export — Robusta & Arabica for world markets"},
+  {name:'Vanilla',emoji:'🌿',cat:'cash',price:'50,000–200,000',unit:'kg',season:'Jun–Aug',districts:'Mbarara, Kasese, Mukono',desc:"Premium spice — Uganda is world's top 3 vanilla exporter"},
+  {name:'Cocoa',emoji:'🍫',cat:'cash',price:'5,000–8,000',unit:'kg',season:'Mar–Jun, Oct–Feb',districts:'Bundibugyo, Masindi',desc:'Fast-growing export crop with premium organic potential'},
+  {name:'Sunflower',emoji:'🌻',cat:'cash',price:'1,200–2,000',unit:'kg',season:'Mar–Aug',districts:'Lira, Gulu, Apac',desc:'Processed into cooking oil; major northern Uganda crop'},
+  {name:'Groundnuts',emoji:'🥜',cat:'cash',price:'3,000–5,000',unit:'kg',season:'Mar–Jul, Sep–Dec',districts:'Eastern & Northern Uganda',desc:'Important protein source and oil crop; widely traded'},
+  {name:'Sesame (Simsim)',emoji:'🌿',cat:'cash',price:'4,000–7,000',unit:'kg',season:'Apr–Sep',districts:'Northern Uganda (Acholi)',desc:'Export crop; sesame oil and seeds for export'},
+  {name:'Sugarcane',emoji:'🎋',cat:'cash',price:'50,000–80,000',unit:'tonne',season:'Year-round',districts:'Jinja, Iganga, Lugazi',desc:'Processed into sugar at major mills; byproducts for ethanol'},
+];
+
+const PLANTING_CAL = [
+  {crop:'Maize',months:['P','P','G','G','H','H','P','G','G','H','H','_']},
+  {crop:'Beans',months:['_','P','P','G','H','_','P','P','G','H','_','_']},
+  {crop:'Cassava',months:['P','P','P','G','G','G','G','G','G','G','H','H']},
+  {crop:'Tomatoes',months:['P','G','H','H','_','P','G','H','H','_','_','_']},
+  {crop:'Irish Potato',months:['_','_','P','G','H','_','_','P','G','H','_','_']},
+  {crop:'Coffee',months:['_','_','_','_','_','_','_','_','G','H','H','H']},
+  {crop:'Vanilla',months:['_','_','_','_','_','H','H','_','_','_','_','_']},
+  {crop:'Groundnuts',months:['_','_','P','G','G','H','P','G','G','H','_','_']},
+];
+const CAL_COLOR={P:'#1a7a3a',G:'#8a6a00',H:'#c0392b',_:'transparent'};
+const CAL_TEXT={P:'🟢',G:'🟡',H:'🔴','_':''};
+let cropFilter='all';
+
+function renderCalendar(){
+  const tb=document.getElementById('calendarBody'); if(!tb)return;
+  tb.innerHTML=PLANTING_CAL.map(row=>`<tr><td style="padding:6px 10px;border:1px solid var(--border);font-weight:600;white-space:nowrap;font-size:0.8rem">${row.crop}</td>${row.months.map(m=>`<td style="padding:5px;border:1px solid var(--border);text-align:center;font-size:0.8rem;background:${CAL_COLOR[m]}22">${CAL_TEXT[m]}</td>`).join('')}</tr>`).join('');
+}
+
+function setCropFilter(f,btn){
+  cropFilter=f;
+  document.querySelectorAll('#cropFilters .filter-btn').forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active');
+  renderCrops();
+}
+
+function renderCrops(){
+  const el=document.getElementById('cropsGrid'); if(!el)return;
+  const catLabel={staple:'Staple',vegetable:'Vegetable',fruit:'Fruit',cash:'Cash Crop'};
+  const catCls={staple:'badge-green',vegetable:'badge-gold',fruit:'badge-gray',cash:'badge-gold'};
+  const list=cropFilter==='all'?UGANDA_CROPS:UGANDA_CROPS.filter(c=>c.cat===cropFilter);
+  el.innerHTML=list.map(c=>`
+    <div class="card" onclick="openOrderModal(0,${JSON.stringify(c.name)},'Farm Direct',parseInt((c.price||'0-0').split('-')[0].replace(/[^0-9]/g,'')),0)">
+      <div class="card-img-placeholder" style="font-size:3.5rem;height:140px">${c.emoji}</div>
+      <div class="card-body">
+        <span class="badge ${catCls[c.cat]||'badge-gray'}">${catLabel[c.cat]||c.cat}</span>
+        <div class="card-title" style="margin-top:6px">${escHtml(c.name)}</div>
+        <div class="card-desc">${escHtml(c.desc)}</div>
+        <div class="card-price">UGX ${escHtml(c.price)}<span class="card-unit"> / ${escHtml(c.unit)}</span></div>
+        <div style="font-size:0.75rem;color:var(--text2);margin-top:4px">📍 ${escHtml(c.districts)}</div>
+        <div style="font-size:0.73rem;color:var(--text2)">🗓️ ${escHtml(c.season)}</div>
+      </div>
+    </div>`).join('');
+}
+
+// ═══════════════════════════════════════════════════════
+// SUPPLY STORE
+// ═══════════════════════════════════════════════════════
+const SUPPLY_ITEMS = [
+  {cat:'seeds',name:'Longe 5H Maize Seed',brand:'NASECO',price:45000,unit:'2kg bag',emoji:'🌽',badge:'Best Seller',desc:'High-yielding NARO-released hybrid maize. 8-9 tonnes/ha potential. MLN tolerant.'},
+  {cat:'seeds',name:'Tomato Seedlings (F1 Hybrid)',brand:'AgroWays UG',price:12000,unit:'tray of 50',emoji:'🍅',badge:'Organic',desc:'Roma F1 hybrid. Disease resistant. Ready for transplanting at 3-4 weeks.'},
+  {cat:'seeds',name:'NAROCAS 1 Cassava Cuttings',brand:'NaCRRI',price:8000,unit:'bundle (50 stakes)',emoji:'🥔',badge:'CMD Resistant',desc:'CMD and CBSD resistant. Certified planting material from NaCRRI.'},
+  {cat:'seeds',name:'Robusta Coffee Seedlings',brand:'UCDA Nurseries',price:3500,unit:'per seedling',emoji:'☕',badge:'Certified',desc:'Clonal CWD-resistant Robusta seedlings. Ready to plant at 6 months.'},
+  {cat:'seeds',name:'Hass Avocado Grafted Seedlings',brand:'Green Gold Nursery',price:25000,unit:'per plant',emoji:'🥑',badge:'Export Grade',desc:'Grafted on local rootstock. Fruiting starts at 3-4 years. High European demand.'},
+  {cat:'fertilizer',name:'CAN 26% Nitrogen Fertilizer',brand:'Yara / Balton',price:125000,unit:'50kg bag',emoji:'🧪',badge:'Top-dress',desc:'Calcium Ammonium Nitrate. Best top-dressing for maize, vegetables & coffee.'},
+  {cat:'fertilizer',name:'NPK 17:17:17 Basal Fertilizer',brand:'Yara',price:140000,unit:'50kg bag',emoji:'🧪',badge:'Best for Planting',desc:'Balanced fertilizer for planting time. Ideal for maize, beans, vegetables.'},
+  {cat:'fertilizer',name:'Organic Compost Fertilizer',brand:'AgriBridge Certified',price:35000,unit:'50kg bag',emoji:'🌿',badge:'🌱 Organic',desc:'Certified composted farmyard manure. Improves soil structure and water retention.'},
+  {cat:'pesticide',name:'Emamectin Benzoate (Proclaim)',brand:'Syngenta',price:28000,unit:'100ml bottle',emoji:'🛡️',badge:'Fall Armyworm',desc:'Most effective insecticide for Fall Armyworm in maize. Apply at first sign.'},
+  {cat:'pesticide',name:'Ridomil Gold MZ 68WP',brand:'Syngenta',price:45000,unit:'100g sachet',emoji:'🛡️',badge:'Fungicide',desc:'Controls early and late blight in tomatoes and potatoes. Systemic + contact action.'},
+  {cat:'pesticide',name:'Neem Oil Extract (Organic)',brand:'AgriBridge Organic',price:22000,unit:'500ml bottle',emoji:'🌿',badge:'🌱 Organic',desc:'Cold-pressed neem oil. Controls aphids, whitefly, spider mites. Safe for bees.'},
+  {cat:'tool',name:'Hand Pump Sprayer 16L',brand:'Solo',price:85000,unit:'unit',emoji:'🔧',badge:'Best Seller',desc:'Solo backpack sprayer. 16L capacity. Adjustable nozzle. 3-year warranty.'},
+  {cat:'tool',name:'Digital Soil pH Tester',brand:'Kelway',price:120000,unit:'unit',emoji:'🔬',badge:'New',desc:'Test soil pH in 60 seconds. Know exactly what lime or fertilizer your soil needs.'},
+  {cat:'tool',name:'Motorized Knapsack Sprayer 20L',brand:'Jacto',price:380000,unit:'unit',emoji:'🔧',badge:'Pro Farmer',desc:'Engine-powered sprayer. Covers 2 acres/hour. 20L tank. Ideal for large farms.'},
+];
+let supplyFilter='all', supplySearch='', supplyCatFilter='';
+
+function setSupplyFilter(f,btn){ supplyFilter=f; document.querySelectorAll('#supplyFilters .filter-btn').forEach(b=>b.classList.remove('active')); btn.classList.add('active'); renderSupply(); }
+function filterSupply(q){ supplySearch=(q||'').toLowerCase(); renderSupply(); }
+function filterSupplyCat(cat){ supplyCatFilter=cat||''; renderSupply(); }
+
+function renderSupply(){
+  const el=document.getElementById('supplyGrid'); if(!el)return;
+  let items=[...SUPPLY_ITEMS];
+  if(supplyFilter!=='all') items=items.filter(i=>i.cat===supplyFilter);
+  if(supplyCatFilter) items=items.filter(i=>i.cat===supplyCatFilter);
+  if(supplySearch) items=items.filter(i=>i.name.toLowerCase().includes(supplySearch)||i.brand.toLowerCase().includes(supplySearch)||i.desc.toLowerCase().includes(supplySearch));
+  el.innerHTML=items.map(item=>`
+    <div class="card">
+      <div class="card-img-placeholder" style="font-size:3rem;height:120px">${item.emoji}</div>
+      <div class="card-body">
+        ${item.badge?`<span class="card-tag">${escHtml(item.badge)}</span>`:``}
+        <div class="card-title">${escHtml(item.name)}</div>
+        <div class="card-desc">${escHtml(item.desc)}</div>
+        <div style="font-size:0.78rem;color:var(--text2);margin-bottom:10px">🏷️ ${escHtml(item.brand)} · Per ${escHtml(item.unit)}</div>
+        <div class="card-footer">
+          <div><div class="card-price">UGX ${Number(item.price).toLocaleString()}</div><div class="card-unit">/ ${escHtml(item.unit)}</div></div>
+          <button class="btn-card" onclick="orderSupply('${escHtml(item.name)}',${item.price})">🛒 Order</button>
+        </div>
+      </div>
+    </div>`).join('');
+}
+
+function orderSupply(name,price){
+  if(!currentUser){ showToast('Please log in to order'); openModal('loginModal'); return; }
+  sbInsert('supply_orders',{buyer_phone:currentUser.phone,product_name:name,unit_price:price,status:'pending'});
+  showToast(`✅ Order placed: ${name}! We'll confirm via SMS.`);
+  addNotification('🏪 Supply Order','Your order for '+name+' has been submitted.','success');
+}
+
+// ═══════════════════════════════════════════════════════
+// ABOUT TABS
+// ═══════════════════════════════════════════════════════
+function switchAboutTab(tab,btn){
+  document.querySelectorAll('.about-tab-btn').forEach(b=>{ b.style.borderBottomColor='transparent'; b.style.color='var(--text2)'; });
+  btn.style.borderBottomColor='var(--green)'; btn.style.color='var(--green)';
+  ['problem','solution','revenue','team','roadmap'].forEach(t=>{ const el=document.getElementById('atab-'+t); if(el) el.style.display=t===tab?'block':'none'; });
+}
+
+// ═══════════════════════════════════════════════════════
+// COMMUNITY
+// ═══════════════════════════════════════════════════════
+function setCommTab(tab,btn){ document.querySelectorAll('#page-community .filter-btn').forEach(b=>b.classList.remove('active')); btn.classList.add('active'); }
+
+function submitCommPost(){
+  const text=document.getElementById('commText').value.trim();
+  if(!text){ showToast('Write something first'); return; }
+  if(!currentUser){ showToast('Please log in to post'); openModal('loginModal'); return; }
+  const initials=(currentUser.name||'U').split(' ').map(w=>w[0]).join('').toUpperCase().slice(0,2);
+  const feed=document.getElementById('commFeed');
+  const div=document.createElement('div');
+  div.style.cssText='background:var(--card);border:1px solid var(--green);border-radius:12px;padding:14px;margin-bottom:10px;display:flex;gap:10px;animation:fadeUp 0.3s ease';
+  div.innerHTML=`<div style="width:36px;height:36px;border-radius:50%;background:var(--green);color:#000;font-weight:800;display:flex;align-items:center;justify-content:center;font-size:0.82rem;flex-shrink:0">${initials}</div><div><div style="font-weight:700;font-size:0.85rem">${escHtml(currentUser.name||'You')} <span style="color:var(--text2);font-weight:400;font-size:0.75rem">Just now</span></div><p style="font-size:0.85rem;color:var(--text2);margin:5px 0 8px">${escHtml(text)}</p><div style="display:flex;gap:8px"><button onclick="this.textContent='👍 '+(parseInt(this.textContent.replace(/[^0-9]/g,''))+1)" style="background:var(--bg3);border:1px solid var(--border);border-radius:20px;padding:3px 10px;font-size:0.75rem;color:var(--text2);cursor:pointer">👍 0</button></div></div>`;
+  feed.insertBefore(div, feed.firstChild);
+  document.getElementById('commText').value='';
+  showToast('✅ Post shared with the community!');
+  sbInsert('community_posts',{author_phone:currentUser.phone,author_name:currentUser.name,content:text});
+}
+
+// ═══════════════════════════════════════════════════════
+// PITCH DECK GATE
+// ═══════════════════════════════════════════════════════
+// SHA-256 of "AgriPitch2026"
+const PITCH_HASH='bbfdac999f1977bfe61c9fdbf98d378fa1b4aa0238d2781514b7b172ecf8e36c';
+
+async function sha256(str){
+  const buf=await crypto.subtle.digest('SHA-256',new TextEncoder().encode(str));
+  return Array.from(new Uint8Array(buf)).map(b=>b.toString(16).padStart(2,'0')).join('');
+}
+
+function guardPitch(){
+  const lock=document.getElementById('pitchLockOverlay');
+  const content=document.getElementById('pitchContent');
+  if(sessionStorage.getItem('ab_pitch_auth')==='1'){
+    if(lock) lock.style.display='none';
+    if(content) content.style.display='block';
+  } else {
+    if(lock) lock.style.display='flex';
+    if(content) content.style.display='none';
+    setTimeout(()=>{ const inp=document.getElementById('pitchPwdInput'); if(inp) inp.focus(); },200);
+  }
+}
+
+async function verifyPitchPwd(){
+  const inp=document.getElementById('pitchPwdInput');
+  const err=document.getElementById('pitchPwdError');
+  const pwd=inp.value;
+  const hash=await sha256(pwd);
+  if(hash===PITCH_HASH){
+    sessionStorage.setItem('ab_pitch_auth','1');
+    const lock=document.getElementById('pitchLockOverlay');
+    const content=document.getElementById('pitchContent');
+    if(lock) lock.style.display='none';
+    if(content) content.style.display='block';
+    showToast('🔓 Pitch deck unlocked!');
+  } else {
+    if(err){ err.style.display='block'; }
+    inp.value='';
+    inp.style.animation='shake 0.4s';
+    setTimeout(()=>inp.style.animation='',400);
+  }
+}
+
+function lockPitch(){
+  sessionStorage.removeItem('ab_pitch_auth');
+  showPage('about');
+  showToast('🔒 Pitch deck locked.');
+}
+
+function openPitchDeck(){
+  showPage('pitch');
+  guardPitch();
+}
+
+// ═══════════════════════════════════════════════════════
+// MISSING PAGE LOADERS — fix showPage to handle new pages
+// ═══════════════════════════════════════════════════════
+// Override showPage to handle all pages including new ones
+const _origShowPage = showPage;
+function showPage(name){
+  document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
+  document.querySelectorAll('.nav-item').forEach(n=>n.classList.remove('active'));
+  const pg=document.getElementById('page-'+name);
+  if(pg) pg.classList.add('active');
+  const nb=document.getElementById('nav-'+name);
+  if(nb) nb.classList.add('active');
+  // Also highlight dashboard button
+  if(name==='farmer-dash'||name==='buyer-dash'){ const db=document.getElementById('nav-dashboard'); if(db) db.classList.add('active'); }
+  window.scrollTo(0,0);
+  if(name==='market') loadListings();
+  if(name==='prices'){ loadPrices(); startPriceRefresh(); }
+  if(name==='training') loadTraining();
+  if(name==='home') loadHomeStats();
+  if(name==='farmer-dash') loadFarmerDash();
+  if(name==='buyer-dash') loadBuyerDash();
+  if(name==='crops'){ renderCrops(); renderCalendar(); }
+  if(name==='supply') renderSupply();
+  if(name==='pitch') guardPitch();
+  if(name==='delivery') loadAlerts();
+}
+
+function loadAlerts(){
+  // already loaded sample in HTML, just a stub
+}
+
+// ═══════════════════════════════════════════════════════
+// QUICK ACCESS FROM HOME PAGE
+// ═══════════════════════════════════════════════════════
+// Make home quick-access grid work
+document.addEventListener('click', function(e){
+  const t=e.target.closest('[data-page]');
+  if(t){ showPage(t.getAttribute('data-page')); }
+});
+
 </script>
+
+<!-- ══ CROPS PAGE ══ -->
+<div id="page-crops" class="page">
+  <div class="page-header">
+    <h2>&#127807; Uganda's Farm Produce</h2>
+    <p>35+ crops grown across Uganda — prices, seasons &amp; districts</p>
+  </div>
+  <div class="section">
+    <div class="filters" id="cropFilters">
+      <button class="filter-btn active" onclick="setCropFilter('all',this)">All Crops</button>
+      <button class="filter-btn" onclick="setCropFilter('staple',this)">Staples</button>
+      <button class="filter-btn" onclick="setCropFilter('vegetable',this)">Vegetables</button>
+      <button class="filter-btn" onclick="setCropFilter('fruit',this)">Fruits</button>
+      <button class="filter-btn" onclick="setCropFilter('cash',this)">Cash Crops</button>
+    </div>
+    <div class="cards-grid" id="cropsGrid"></div>
+    <div style="background:var(--card);border:1px solid var(--border);border-radius:14px;padding:18px;margin-top:24px">
+      <div style="font-weight:800;font-size:0.95rem;margin-bottom:4px">&#128197; Uganda Planting Calendar</div>
+      <div style="font-size:0.78rem;color:var(--text2);margin-bottom:14px">Season A: March-May · Season B: August-October</div>
+      <div style="overflow-x:auto">
+        <table style="width:100%;min-width:540px;border-collapse:collapse;font-size:0.78rem">
+          <thead><tr style="background:var(--bg3)">
+            <th style="padding:7px 10px;text-align:left;border:1px solid var(--border)">Crop</th>
+            <th style="padding:7px 5px;border:1px solid var(--border)">Jan</th><th style="padding:7px 5px;border:1px solid var(--border)">Feb</th><th style="padding:7px 5px;border:1px solid var(--border)">Mar</th><th style="padding:7px 5px;border:1px solid var(--border)">Apr</th><th style="padding:7px 5px;border:1px solid var(--border)">May</th><th style="padding:7px 5px;border:1px solid var(--border)">Jun</th><th style="padding:7px 5px;border:1px solid var(--border)">Jul</th><th style="padding:7px 5px;border:1px solid var(--border)">Aug</th><th style="padding:7px 5px;border:1px solid var(--border)">Sep</th><th style="padding:7px 5px;border:1px solid var(--border)">Oct</th><th style="padding:7px 5px;border:1px solid var(--border)">Nov</th><th style="padding:7px 5px;border:1px solid var(--border)">Dec</th>
+          </tr></thead>
+          <tbody id="calendarBody"></tbody>
+        </table>
+      </div>
+      <div style="display:flex;gap:14px;margin-top:10px;font-size:0.73rem;flex-wrap:wrap">
+        <span>&#129001; Planting</span><span>&#129000; Growing</span><span>&#128308; Harvest</span><span style="color:var(--text2)">&#11036; Off Season</span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══ SUPPLY PAGE ══ -->
+<div id="page-supply" class="page">
+  <div class="page-header">
+    <h2>&#127978; Agriculture Supply Store</h2>
+    <p>Seeds, fertilizers, tools &amp; pesticides — delivered to your farm</p>
+  </div>
+  <div class="section">
+    <div class="market-controls">
+      <input class="market-search" type="text" placeholder="Search seeds, fertilizer, tools..." oninput="filterSupply(this.value)">
+      <select class="market-sort" onchange="filterSupplyCat(this.value)">
+        <option value="">All Categories</option>
+        <option value="seeds">Seeds</option>
+        <option value="fertilizer">Fertilizers</option>
+        <option value="pesticide">Pesticides</option>
+        <option value="tool">Tools</option>
+      </select>
+    </div>
+    <div class="filters" id="supplyFilters">
+      <button class="filter-btn active" onclick="setSupplyFilter('all',this)">All</button>
+      <button class="filter-btn" onclick="setSupplyFilter('seeds',this)">&#127807; Seeds</button>
+      <button class="filter-btn" onclick="setSupplyFilter('fertilizer',this)">&#129514; Fertilizer</button>
+      <button class="filter-btn" onclick="setSupplyFilter('pesticide',this)">&#128737; Pesticides</button>
+      <button class="filter-btn" onclick="setSupplyFilter('tool',this)">&#128295; Tools</button>
+    </div>
+    <div class="cards-grid" id="supplyGrid"></div>
+  </div>
+</div>
+
+<!-- ══ ABOUT PAGE ══ -->
+<div id="page-about" class="page">
+  <div style="min-height:180px;position:relative;background:linear-gradient(to right,rgba(6,15,9,0.92),rgba(6,15,9,0.5)),url('https://images.unsplash.com/photo-1530836369250-ef72a3f5cda8?auto=format&fit=crop&w=1200&q=80') center/cover;display:flex;align-items:center;padding:36px 20px">
+    <div style="max-width:600px">
+      <div style="display:inline-block;background:var(--green-dim);border:1px solid var(--green);color:var(--green);padding:3px 12px;border-radius:20px;font-size:0.75rem;font-weight:700;margin-bottom:12px">&#127482;&#127468; SEED ROUND OPEN</div>
+      <h2 style="font-size:clamp(1.4rem,4vw,2rem);font-weight:800">Transforming Uganda's Agriculture</h2>
+      <p style="color:rgba(255,255,255,0.75);margin-top:8px;font-size:0.88rem">AgriBridge connects 5M+ smallholder farmers directly to buyers, cutting middlemen and reducing 40% post-harvest losses.</p>
+      <div style="display:flex;gap:10px;margin-top:16px;flex-wrap:wrap">
+        <button class="btn-primary" onclick="showPage('pitch');guardPitch()" style="font-size:0.88rem;padding:10px 20px">&#128202; View Pitch Deck</button>
+        <a href="mailto:invest@agribridge.ug" class="btn-outline" style="font-size:0.88rem;padding:10px 20px;display:inline-block">&#9993;&#65039; Contact Investors</a>
+      </div>
+    </div>
+  </div>
+  <div class="section">
+    <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:12px;margin-bottom:24px">
+      <div class="kpi-card"><div class="kpi-num">5M+</div><div class="kpi-label">Farmers Addressable</div></div>
+      <div class="kpi-card"><div class="kpi-num">UGX 8T</div><div class="kpi-label">Annual Farm GDP</div></div>
+      <div class="kpi-card"><div class="kpi-num">40%</div><div class="kpi-label">Post-Harvest Loss</div></div>
+      <div class="kpi-card"><div class="kpi-num">3.2x</div><div class="kpi-label">Markup Removed</div></div>
+      <div class="kpi-card"><div class="kpi-num">35+</div><div class="kpi-label">Crops Listed</div></div>
+      <div class="kpi-card"><div class="kpi-num">$1.5M</div><div class="kpi-label">Seed Round Target</div></div>
+    </div>
+    <div style="display:flex;gap:0;border-bottom:1px solid var(--border);overflow-x:auto;margin-bottom:20px;scrollbar-width:none">
+      <button class="about-tab-btn active" data-tab="problem" onclick="switchAboutTab('problem',this)" style="padding:10px 16px;background:transparent;border:none;border-bottom:2px solid var(--green);color:var(--green);font-size:0.82rem;font-weight:700;cursor:pointer;white-space:nowrap">&#128200; Problem</button>
+      <button class="about-tab-btn" data-tab="solution" onclick="switchAboutTab('solution',this)" style="padding:10px 16px;background:transparent;border:none;border-bottom:2px solid transparent;color:var(--text2);font-size:0.82rem;font-weight:600;cursor:pointer;white-space:nowrap">&#9989; Solution</button>
+      <button class="about-tab-btn" data-tab="revenue" onclick="switchAboutTab('revenue',this)" style="padding:10px 16px;background:transparent;border:none;border-bottom:2px solid transparent;color:var(--text2);font-size:0.82rem;font-weight:600;cursor:pointer;white-space:nowrap">&#128176; Business Model</button>
+      <button class="about-tab-btn" data-tab="team" onclick="switchAboutTab('team',this)" style="padding:10px 16px;background:transparent;border:none;border-bottom:2px solid transparent;color:var(--text2);font-size:0.82rem;font-weight:600;cursor:pointer;white-space:nowrap">&#128101; Team</button>
+      <button class="about-tab-btn" data-tab="roadmap" onclick="switchAboutTab('roadmap',this)" style="padding:10px 16px;background:transparent;border:none;border-bottom:2px solid transparent;color:var(--text2);font-size:0.82rem;font-weight:600;cursor:pointer;white-space:nowrap">&#128295; Roadmap</button>
+    </div>
+    <div id="atab-problem">
+      <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:12px">
+        <div style="background:var(--card);border:1px solid var(--border);border-radius:12px;padding:16px"><div style="font-size:1.8rem;margin-bottom:8px">&#128184;</div><h4 style="font-size:0.9rem;font-weight:700;margin-bottom:5px">Middlemen Take 60%+</h4><p style="font-size:0.8rem;color:var(--text2)">Farm-gate prices are 3x lower than Kampala market prices. Brokers capture the entire value chain.</p></div>
+        <div style="background:var(--card);border:1px solid var(--border);border-radius:12px;padding:16px"><div style="font-size:1.8rem;margin-bottom:8px">&#128201;</div><h4 style="font-size:0.9rem;font-weight:700;margin-bottom:5px">Zero Price Transparency</h4><p style="font-size:0.8rem;color:var(--text2)">Farmers sell without knowing market rates, often at 40-60% discount to what buyers pay in town.</p></div>
+        <div style="background:var(--card);border:1px solid var(--border);border-radius:12px;padding:16px"><div style="font-size:1.8rem;margin-bottom:8px">&#128465;&#65039;</div><h4 style="font-size:0.9rem;font-weight:700;margin-bottom:5px">40% Post-Harvest Waste</h4><p style="font-size:0.8rem;color:var(--text2)">No cold chain, no storage, no buyers lined up — produce rots in the field after harvest.</p></div>
+        <div style="background:var(--card);border:1px solid var(--border);border-radius:12px;padding:16px"><div style="font-size:1.8rem;margin-bottom:8px">&#128535;</div><h4 style="font-size:0.9rem;font-weight:700;margin-bottom:5px">Digital Divide</h4><p style="font-size:0.8rem;color:var(--text2)">70% of farmers only own basic feature phones. Most agri apps require smartphones and data.</p></div>
+      </div>
+    </div>
+    <div id="atab-solution" style="display:none">
+      <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:12px">
+        <div style="background:var(--card);border:1px solid var(--green);border-radius:12px;padding:16px"><div style="font-size:1.8rem;margin-bottom:8px">&#127760;</div><h4 style="font-size:0.9rem;font-weight:700;margin-bottom:5px">Direct Marketplace</h4><p style="font-size:0.8rem;color:var(--text2)">Farmers list produce. Buyers order directly. No middleman. Both sides earn more.</p></div>
+        <div style="background:var(--card);border:1px solid var(--green);border-radius:12px;padding:16px"><div style="font-size:1.8rem;margin-bottom:8px">&#128241;</div><h4 style="font-size:0.9rem;font-weight:700;margin-bottom:5px">USSD *789# for All Phones</h4><p style="font-size:0.8rem;color:var(--text2)">Any basic phone, any network (MTN, Airtel), zero data. Rural farmers fully included.</p></div>
+        <div style="background:var(--card);border:1px solid var(--green);border-radius:12px;padding:16px"><div style="font-size:1.8rem;margin-bottom:8px">&#128666;</div><h4 style="font-size:0.9rem;font-weight:700;margin-bottom:5px">GPS-Tracked Delivery</h4><p style="font-size:0.8rem;color:var(--text2)">Vetted drivers take produce from farm gate to buyer. GPS-tracked, fully insured.</p></div>
+        <div style="background:var(--card);border:1px solid var(--green);border-radius:12px;padding:16px"><div style="font-size:1.8rem;margin-bottom:8px">&#129302;</div><h4 style="font-size:0.9rem;font-weight:700;margin-bottom:5px">AI Crop Doctor</h4><p style="font-size:0.8rem;color:var(--text2)">Describe your crop problem, get expert treatment advice instantly — for free.</p></div>
+      </div>
+    </div>
+    <div id="atab-revenue" style="display:none">
+      <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:12px">
+        <div style="background:var(--card);border-left:3px solid var(--green);border-radius:12px;padding:16px"><div style="font-size:1.8rem;margin-bottom:8px">&#128185;</div><h4 style="font-size:0.9rem;font-weight:700;margin-bottom:5px">2.5% Transaction Fee</h4><p style="font-size:0.8rem;color:var(--text2)">On every marketplace transaction. Primary revenue driver at scale.</p></div>
+        <div style="background:var(--card);border-left:3px solid var(--green);border-radius:12px;padding:16px"><div style="font-size:1.8rem;margin-bottom:8px">&#128666;</div><h4 style="font-size:0.9rem;font-weight:700;margin-bottom:5px">Delivery Margin</h4><p style="font-size:0.8rem;color:var(--text2)">10-15% margin on logistics fees charged to buyers. Drivers earn, we earn the spread.</p></div>
+        <div style="background:var(--card);border-left:3px solid #ff9800;border-radius:12px;padding:16px"><div style="font-size:1.8rem;margin-bottom:8px">&#11088;</div><h4 style="font-size:0.9rem;font-weight:700;margin-bottom:5px">Premium Subscriptions</h4><p style="font-size:0.8rem;color:var(--text2)">UGX 5,000/month for verified badge, priority listing, AI buyer match.</p></div>
+        <div style="background:var(--card);border-left:3px solid #9c27b0;border-radius:12px;padding:16px"><div style="font-size:1.8rem;margin-bottom:8px">&#128202;</div><h4 style="font-size:0.9rem;font-weight:700;margin-bottom:5px">Market Data API</h4><p style="font-size:0.8rem;color:var(--text2)">Sell anonymised price data to MAAIF, WFP, NGOs and commodity traders.</p></div>
+      </div>
+    </div>
+    <div id="atab-team" style="display:none">
+      <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:12px">
+        <div style="background:var(--card);border:1px solid var(--border);border-radius:12px;padding:20px;text-align:center"><div style="font-size:2.2rem;margin-bottom:8px">&#128104;&#8205;&#128187;</div><h4>Zeal Mugumya</h4><div style="font-size:0.78rem;color:var(--green);font-weight:700;margin:4px 0">Founder &amp; CEO</div><p style="font-size:0.8rem;color:var(--text2)">Full-stack developer &amp; agri-tech entrepreneur with deep Uganda market knowledge.</p></div>
+        <div style="background:var(--card);border:1px solid var(--border);border-radius:12px;padding:20px;text-align:center"><div style="font-size:2.2rem;margin-bottom:8px">&#129309;</div><h4>Hiring: CTO</h4><div style="font-size:0.78rem;color:#ff9800;font-weight:700;margin:4px 0">Open Role</div><p style="font-size:0.8rem;color:var(--text2)">Backend/infra engineer for PostgreSQL, Redis, DevOps and scaling the API to 100K users.</p></div>
+        <div style="background:var(--card);border:1px solid var(--border);border-radius:12px;padding:20px;text-align:center"><div style="font-size:2.2rem;margin-bottom:8px">&#127806;</div><h4>Hiring: Field Director</h4><div style="font-size:0.78rem;color:#ff9800;font-weight:700;margin:4px 0">Open Role</div><p style="font-size:0.8rem;color:var(--text2)">On-the-ground farmer onboarding, district expansion and price coordination across Uganda.</p></div>
+      </div>
+    </div>
+    <div id="atab-roadmap" style="display:none">
+      <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:12px">
+        <div style="background:var(--card);border-left:3px solid var(--red);border-radius:12px;padding:16px"><div style="font-size:0.7rem;font-weight:800;color:var(--red);margin-bottom:6px">CRITICAL — Fix First</div><h4 style="font-size:0.88rem;margin-bottom:6px">&#128452;&#65039; Database: SQLite → PostgreSQL</h4><p style="font-size:0.8rem;color:var(--text2)">SQLite resets on every Render redeploy. Migrate to PostgreSQL to keep data permanently. Effort: 1 day · Cost: $7/mo</p></div>
+        <div style="background:var(--card);border-left:3px solid var(--red);border-radius:12px;padding:16px"><div style="font-size:0.7rem;font-weight:800;color:var(--red);margin-bottom:6px">CRITICAL — Fix First</div><h4 style="font-size:0.88rem;margin-bottom:6px">&#128179; Live Mobile Money Payments</h4><p style="font-size:0.8rem;color:var(--text2)">MTN MoMo + Airtel Money are sandbox-only. Apply for production API keys. Effort: 2 weeks</p></div>
+        <div style="background:var(--card);border-left:3px solid #ff9800;border-radius:12px;padding:16px"><div style="font-size:0.7rem;font-weight:800;color:#ff9800;margin-bottom:6px">NEXT SPRINT</div><h4 style="font-size:0.88rem;margin-bottom:6px">&#128247; Farmer Photo Uploads</h4><p style="font-size:0.8rem;color:var(--text2)">Allow farmers to upload real produce photos. Use Cloudinary free tier (10GB). Effort: 3 days</p></div>
+        <div style="background:var(--card);border-left:3px solid var(--green);border-radius:12px;padding:16px"><div style="font-size:0.7rem;font-weight:800;color:var(--green);margin-bottom:6px">WITH FUNDING</div><h4 style="font-size:0.88rem;margin-bottom:6px">&#128241; Native Android App</h4><p style="font-size:0.8rem;color:var(--text2)">React Native or Flutter app for farmers. Push notifications for price alerts and buyer messages.</p></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══ COMMUNITY PAGE ══ -->
+<div id="page-community" class="page">
+  <div class="page-header"><h2>&#127807; Community</h2><p>Connect with farmers, buyers &amp; agri experts across Uganda</p></div>
+  <div class="section">
+    <div class="filters">
+      <button class="filter-btn active" onclick="setCommTab('tips',this)">&#127806; Farming Tips</button>
+      <button class="filter-btn" onclick="setCommTab('prices',this)">&#128202; Price Reports</button>
+      <button class="filter-btn" onclick="setCommTab('help',this)">&#128682; Ask for Help</button>
+    </div>
+    <div id="commFeed">
+      <div style="background:var(--card);border:1px solid var(--border);border-radius:12px;padding:14px;margin-bottom:10px;display:flex;gap:10px">
+        <div style="width:36px;height:36px;border-radius:50%;background:var(--green);color:#000;font-weight:800;display:flex;align-items:center;justify-content:center;font-size:0.82rem;flex-shrink:0">GN</div>
+        <div><div style="font-weight:700;font-size:0.85rem">Grace Nakato · Mbarara <span style="color:var(--text2);font-weight:400;font-size:0.75rem">2h ago</span></div><p style="font-size:0.85rem;color:var(--text2);margin:5px 0 8px">Matooke price in Mbarara dropped to UGX 1,200/bunch this week. Central market still at 1,800. Buy from source!</p><div style="display:flex;gap:8px"><button onclick="this.textContent='&#128077; '+(parseInt(this.textContent.replace(/[^0-9]/g,''))+1)" style="background:var(--bg3);border:1px solid var(--border);border-radius:20px;padding:3px 10px;font-size:0.75rem;color:var(--text2);cursor:pointer">&#128077; 12</button><button onclick="document.getElementById('commText').focus()" style="background:var(--bg3);border:1px solid var(--border);border-radius:20px;padding:3px 10px;font-size:0.75rem;color:var(--text2);cursor:pointer">&#128172; Reply</button></div></div>
+      </div>
+      <div style="background:var(--card);border:1px solid var(--border);border-radius:12px;padding:14px;margin-bottom:10px;display:flex;gap:10px">
+        <div style="width:36px;height:36px;border-radius:50%;background:#2196f3;color:#fff;font-weight:800;display:flex;align-items:center;justify-content:center;font-size:0.82rem;flex-shrink:0">DR</div>
+        <div><div style="font-weight:700;font-size:0.85rem">Dr. Ronald · MAAIF Extension <span style="color:var(--text2);font-weight:400;font-size:0.75rem">1d ago</span></div><p style="font-size:0.85rem;color:var(--text2);margin:5px 0 8px">&#9888;&#65039; Alert: Fall Armyworm spotted in Eastern Uganda maize farms. Apply approved pesticides early. See AI Doctor for diagnosis help.</p><div style="display:flex;gap:8px"><button onclick="this.textContent='&#128077; '+(parseInt(this.textContent.replace(/[^0-9]/g,''))+1)" style="background:var(--bg3);border:1px solid var(--border);border-radius:20px;padding:3px 10px;font-size:0.75rem;color:var(--text2);cursor:pointer">&#128077; 47</button><button class="btn-sm" onclick="showPage('doctor')" style="font-size:0.72rem;padding:3px 10px">AI Doctor</button></div></div>
+      </div>
+    </div>
+    <div style="background:var(--card);border:1px solid var(--border);border-radius:12px;padding:14px;margin-top:16px">
+      <textarea id="commText" placeholder="Share a farming tip, price update or question..." style="width:100%;background:var(--bg3);border:1px solid var(--border);border-radius:8px;padding:10px;color:var(--text);font-size:0.88rem;resize:vertical;min-height:70px;font-family:inherit;outline:none"></textarea>
+      <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:8px">
+        <button class="btn-sm outline" onclick="document.getElementById('commText').value=''">Clear</button>
+        <button class="btn-sm" onclick="submitCommPost()">Post to Community</button>
+      </div>
+    </div>
+    <p style="font-size:0.75rem;color:var(--text2);text-align:center;margin-top:10px">Join 1,200+ farmers sharing knowledge daily</p>
+  </div>
+</div>
+
+<!-- ══ PITCH PAGE ══ -->
+<div id="page-pitch" class="page" style="position:relative;min-height:80vh">
+  <div id="pitchLockOverlay" style="position:absolute;inset:0;z-index:10;background:var(--bg);display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:32px;min-height:80vh">
+    <div style="font-size:3rem;margin-bottom:12px">&#128274;</div>
+    <h3 style="font-size:1.2rem;font-weight:800;margin-bottom:8px">Investor Pitch Deck</h3>
+    <p style="color:var(--text2);font-size:0.88rem;margin-bottom:22px;max-width:340px">This section is password-protected. Enter your access code to continue.</p>
+    <div style="width:100%;max-width:320px">
+      <input type="password" id="pitchPwdInput" placeholder="Enter pitch deck password" style="width:100%;padding:11px 14px;background:var(--bg2);border:1px solid var(--border);border-radius:8px;color:var(--text);font-size:0.9rem;margin-bottom:10px;outline:none;font-family:inherit" onkeydown="if(event.key==='Enter')verifyPitchPwd()">
+      <div id="pitchPwdError" style="color:var(--red);font-size:0.8rem;margin-bottom:8px;display:none">Incorrect password. Please try again.</div>
+      <button class="btn-submit" onclick="verifyPitchPwd()">Unlock Pitch Deck</button>
+      <button class="btn-sm outline" onclick="showPage('about')" style="width:100%;margin-top:8px">Back to About</button>
+    </div>
+  </div>
+  <div id="pitchContent" style="display:none">
+    <div class="page-header">
+      <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px">
+        <div><h2>&#127806; AgriBridge Investor Pitch</h2><p>Uganda Farm-to-Table Platform · Pre-Seed 2026</p></div>
+        <div style="display:flex;gap:8px"><button class="btn-sm" onclick="window.print()">&#128424;&#65039; Print PDF</button><button class="btn-sm red" onclick="lockPitch()">&#128274; Lock</button></div>
+      </div>
+    </div>
+    <div class="section">
+      <div style="background:var(--card);border:1px solid var(--border);border-radius:14px;padding:20px;margin-bottom:14px">
+        <div style="font-size:0.68rem;font-weight:800;color:var(--green);text-transform:uppercase;letter-spacing:0.1em;margin-bottom:6px">01 · THE PROBLEM</div>
+        <h3 style="font-size:1.05rem;font-weight:800;margin-bottom:10px">Uganda farmers lose 30-40% income to middlemen</h3>
+        <ul style="list-style:none;padding:0">
+          <li style="padding:5px 0;border-bottom:1px solid var(--border);font-size:0.86rem">5.4M smallholder farmers with no direct market access</li>
+          <li style="padding:5px 0;border-bottom:1px solid var(--border);font-size:0.86rem">Maize bought at UGX 800/kg — sold in Kampala at UGX 2,200/kg</li>
+          <li style="padding:5px 0;border-bottom:1px solid var(--border);font-size:0.86rem">70% of farmers have no internet — USSD is their only option</li>
+          <li style="padding:5px 0;font-size:0.86rem">40% post-harvest loss due to lack of buyers and cold chain</li>
+        </ul>
+      </div>
+      <div style="background:var(--card);border:1px solid var(--border);border-radius:14px;padding:20px;margin-bottom:14px">
+        <div style="font-size:0.68rem;font-weight:800;color:var(--green);text-transform:uppercase;letter-spacing:0.1em;margin-bottom:6px">02 · TRACTION</div>
+        <h3 style="font-size:1.05rem;font-weight:800;margin-bottom:12px">Built and Live — Real Users, Real Data</h3>
+        <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(110px,1fr));gap:10px">
+          <div class="kpi-card"><div class="kpi-num">35+</div><div class="kpi-label">Crops</div></div>
+          <div class="kpi-card"><div class="kpi-num">*789#</div><div class="kpi-label">USSD Live</div></div>
+          <div class="kpi-card"><div class="kpi-num">4</div><div class="kpi-label">Languages</div></div>
+          <div class="kpi-card"><div class="kpi-num">134</div><div class="kpi-label">Districts</div></div>
+        </div>
+      </div>
+      <div style="background:var(--card);border:1px solid var(--border);border-radius:14px;padding:20px;margin-bottom:14px">
+        <div style="font-size:0.68rem;font-weight:800;color:var(--green);text-transform:uppercase;letter-spacing:0.1em;margin-bottom:6px">03 · REVENUE PROJECTIONS</div>
+        <h3 style="font-size:1.05rem;font-weight:800;margin-bottom:12px">Transaction-First Model · 6 Revenue Streams</h3>
+        <div style="overflow-x:auto"><table class="price-table" style="min-width:400px"><thead><tr><th>Metric</th><th>Year 1</th><th>Year 2</th><th>Year 3</th></tr></thead><tbody>
+          <tr><td>Registered Farmers</td><td>2,500</td><td>25,000</td><td>150,000</td></tr>
+          <tr><td>Monthly Transactions</td><td>800</td><td>12,000</td><td>80,000</td></tr>
+          <tr><td>Net Revenue (USD)</td><td>~$23K</td><td>~$385K</td><td>~$2.8M</td></tr>
+          <tr><td>Gross Margin</td><td>58%</td><td>65%</td><td>72%</td></tr>
+        </tbody></table></div>
+      </div>
+      <div style="background:var(--card);border:2px solid var(--green);border-radius:14px;padding:20px;text-align:center">
+        <div style="font-size:0.68rem;font-weight:800;color:var(--green);text-transform:uppercase;letter-spacing:0.1em;margin-bottom:6px">THE ASK</div>
+        <h3 style="font-size:1.3rem;font-weight:800;margin-bottom:8px">Raising <span style="color:var(--green)">$1.5M</span> Seed Round</h3>
+        <p style="color:var(--text2);font-size:0.88rem;margin-bottom:6px">40% Engineering · 30% Field Ops · 20% Marketing · 10% Legal</p>
+        <p style="color:var(--text2);font-size:0.82rem;margin-bottom:16px">Equity + convertible note options available · SAFE instrument preferred</p>
+        <a href="mailto:invest@agribridge.ug" class="btn-primary" style="display:inline-block;text-decoration:none">&#9993;&#65039; invest@agribridge.ug</a>
+      </div>
+    </div>
+  </div>
+</div>
+
 </body>
 </html>
