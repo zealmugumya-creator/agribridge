@@ -1036,6 +1036,54 @@ select option { background:var(--bg2); }
 .ai-overlay.show { opacity: 1; pointer-events: all; }
 
 /* ══════════════════════════════════════════════════
+   ROLE-BASED HOME PANEL
+══════════════════════════════════════════════════ */
+.role-panel { padding: 0 16px 8px; }
+.role-welcome {
+  display: flex; align-items: center; gap: 14px;
+  background: linear-gradient(135deg, var(--bg3), var(--bg2));
+  border: 1px solid var(--border); border-radius: 16px;
+  padding: 16px 18px; margin-bottom: 14px;
+}
+.role-avatar {
+  width: 54px; height: 54px; border-radius: 50%;
+  background: var(--green-dim); border: 2px solid var(--green);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 1.6rem; flex-shrink: 0;
+}
+.role-info h3 { font-size: 1.05rem; font-weight: 800; margin-bottom: 2px; }
+.role-info p  { font-size: 0.78rem; color: var(--text2); }
+.role-kpis {
+  display: grid; gap: 10px; margin-bottom: 14px;
+  grid-template-columns: repeat(3, 1fr);
+}
+.role-kpi {
+  background: var(--bg3); border: 1px solid var(--border);
+  border-radius: 12px; padding: 12px 10px; text-align: center;
+}
+.role-kpi .rk-num { font-size: 1.3rem; font-weight: 800; color: var(--green); }
+.role-kpi .rk-lbl { font-size: 0.68rem; color: var(--text2); margin-top: 2px; }
+.role-actions {
+  display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 4px;
+}
+.role-action-btn {
+  flex: 1; min-width: 120px; padding: 11px 10px;
+  border-radius: 10px; font-size: 0.82rem; font-weight: 700;
+  border: 1px solid var(--border); background: var(--bg3); color: var(--text);
+  display: flex; align-items: center; gap: 6px; justify-content: center;
+  transition: all 0.2s;
+}
+.role-action-btn:hover { border-color: var(--green); background: var(--green-dim); color: var(--green); }
+.role-action-btn.primary { background: var(--green); color: #000; border-color: var(--green); }
+.role-action-btn.primary:hover { opacity: 0.85; }
+.role-section-title { font-size: 0.88rem; font-weight: 800; margin: 12px 0 8px; color: var(--text2); text-transform: uppercase; letter-spacing: 0.5px; }
+.role-order-row {
+  background: var(--bg3); border: 1px solid var(--border); border-radius: 10px;
+  padding: 10px 12px; margin-bottom: 8px; display: flex;
+  align-items: center; justify-content: space-between; gap: 8px;
+}
+
+/* ══════════════════════════════════════════════════
    ADD TO BASKET button on listing cards
 ══════════════════════════════════════════════════ */
 .listing-actions { display: flex; gap: 8px; margin-top: 10px; }
@@ -1113,6 +1161,9 @@ select option { background:var(--bg2); }
       </div>
     </div>
   </div>
+
+  <!-- ROLE-BASED PERSONAL DASHBOARD STRIP (shown when logged in) -->
+  <div id="roleHomePanel" style="display:none"></div>
 
   <div class="section">
     <div class="section-title">Quick <span>Access</span></div>
@@ -2485,7 +2536,7 @@ function showPage(name) {
   if (name === 'training') loadTraining();
   if (name === 'delivery') { loadAlerts(); loadMyOrders(); }
   if (name === 'crops')    { renderCrops(); renderCalendar(); }
-  if (name === 'home')     { loadHomeStats(); renderRecommendations && renderRecommendations(); }
+  if (name === 'home')     { loadHomeStats(); renderRoleHome(); if(typeof renderRecommendations==='function') renderRecommendations(); }
 }
 
 // ═══════════════════════════════════════════════════════
@@ -2570,39 +2621,66 @@ function renderListings() {
 }
 
 function listingCard(l) {
-  const name = l.crop_name || l.title || 'Produce';
-  const farmer = l.farmer_name || l.name || 'Farmer';
+  const name     = l.crop_name || l.title || 'Produce';
+  const farmer   = l.farmer_name || l.name || 'Farmer';
   const district = l.district || 'Uganda';
-  const qty = l.quantity_kg || l.quantity || '?';
-  const price = l.price_per_kg || l.price || '?';
+  const qty      = l.quantity_kg || l.quantity || 0;
+  const price    = Number(l.price_per_kg || l.price || 0);
+  const emoji    = getCropEmoji(name);
   const initials = (farmer||'F').split(' ').map(w=>w[0]||'').join('').slice(0,2).toUpperCase() || 'FA';
-  const organic = l.is_organic ? '<span class="card-tag">🌱 Organic</span>' : '';
-  const verified = l.is_verified ? '<span style="color:var(--green);font-size:0.78rem;font-weight:700"> ✅ Verified</span>' : '';
-  // WhatsApp message for quick contact
-  const waMsg = encodeURIComponent(`Hi! I saw your ${name} listing on AgriBridge. I want to buy ${qty}kg from ${district}. Is it still available?`);
-  const totalEst = Number(qty) > 0 && Number(price) > 0 ? `~UGX ${(Number(qty)*Number(price)).toLocaleString()} total` : '';
-  return `<div class="card">
-    <div class="card-img-placeholder" style="background:linear-gradient(135deg,var(--bg2),var(--bg3));font-size:3.5rem;position:relative">
-      ${getCropEmoji(name)}
-      ${l.is_organic ? '<div style="position:absolute;top:8px;left:8px;background:#007a33;color:#fff;font-size:0.65rem;font-weight:700;padding:2px 7px;border-radius:20px">ORGANIC</div>' : ''}
+  const verified = l.is_verified ? ' ✅' : '';
+  const waMsg    = encodeURIComponent(`Hi! I saw your ${name} listing on AgriBridge. I want to buy. Is it still available?`);
+
+  // Flash sale support
+  const flash    = l.discount_pct > 0;
+  const salePrice = flash ? Math.round(price * (1 - l.discount_pct / 100)) : price;
+  const priceHtml = flash
+    ? `<div class="card-price" style="color:#f44336">UGX ${salePrice.toLocaleString()}<span style="text-decoration:line-through;color:var(--text2);font-size:0.72rem;margin-left:6px">${price.toLocaleString()}</span></div><div class="card-unit">per kg · 🔥${l.discount_pct}% OFF</div>`
+    : `<div class="card-price">UGX ${price.toLocaleString()}</div><div class="card-unit">per kg</div>`;
+
+  // Unsplash photo by crop keyword
+  const cropPhotos = {
+    maize:'photo-1551754655-9e95b9a0c3e3',tomatoes:'photo-1546094096-0df4bcaaa337',
+    cassava:'photo-1612257999756-2d43c78397ee',matooke:'photo-1603833665858-e61d17a86224',
+    coffee:'photo-1447933601403-0c6688de566e',avocado:'photo-1601039641847-7857b994d704',
+    pineapple:'photo-1490474418585-ba9bad8fd0ea',onion:'photo-1618512496248-a07fe83aa8cb',
+    banana:'photo-1571771894821-ce9b6c11b08e',mango:'photo-1553279768-865429fa0078',
+    potato:'photo-1518977676601-b53f82aba655',beans:'photo-1628771065518-0d82f1938462',
+    groundnut:'photo-1567892514-e441cdad1c9c',cabbage:'photo-1551754655-9e95b9a0c3e3',
+    rice:'photo-1586201375761-83865001e31c',sorghum:'photo-1574945526073-1d5c4c44cadf',
+    vanilla:'photo-1617634975995-b2fa8bcf2f20',cocoa:'photo-1606312619070-d48b4c652a52',
+    sunflower:'photo-1470509037663-253afd7f0f51',passion:'photo-1544735716-392fe2489ffa',
+    sweet:'photo-1598170845058-32b9d6a5da37',pepper:'photo-1583119022894-919a68a3d0e3',
+    watermelon:'photo-1587049352846-4a222e784d38',jackfruit:'photo-1627483297886-49710ae1fc22',
+    orange:'photo-1547514701-42782101795e',papaya:'photo-1590502160462-58edd4ea5d80',
+  };
+  const photoKey = Object.keys(cropPhotos).find(k => name.toLowerCase().includes(k));
+  const photoId  = cropPhotos[photoKey] || 'photo-1560472354-b33ff0c44a43';
+  const imgUrl   = `https://images.unsplash.com/${photoId}?auto=format&fit=crop&w=400&h=220&q=70`;
+
+  return `<div class="card" onclick="trackInterest('${name}')">
+    <div style="position:relative;overflow:hidden;border-radius:12px 12px 0 0;height:140px;background:var(--bg3)">
+      <img src="${imgUrl}" alt="${escHtml(name)}" style="width:100%;height:100%;object-fit:cover"
+           onerror="this.style.display='none';this.nextElementSibling.style.display='flex'">
+      <div style="display:none;width:100%;height:100%;align-items:center;justify-content:center;font-size:4rem">${emoji}</div>
+      ${flash ? `<div style="position:absolute;top:8px;left:8px;background:#f44336;color:#fff;font-size:0.68rem;font-weight:800;padding:3px 8px;border-radius:20px">🔥 FLASH SALE</div>` : ''}
+      ${l.is_organic ? `<div style="position:absolute;top:8px;right:8px;background:#007a33;color:#fff;font-size:0.65rem;font-weight:700;padding:2px 7px;border-radius:20px">🌱 ORGANIC</div>` : ''}
     </div>
     <div class="card-body">
-      ${organic}
-      <div class="card-title">${escHtml(name)}</div>
+      <div class="card-title">${escHtml(name)}${verified}</div>
       <div class="card-desc">
-        <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
-          <div style="width:30px;height:30px;border-radius:50%;background:var(--green-dim);display:flex;align-items:center;justify-content:center;font-size:0.72rem;font-weight:700;color:var(--green);flex-shrink:0">${initials}</div>
-          <span style="font-size:0.88rem">${escHtml(farmer)}${verified}</span>
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px">
+          <div style="width:26px;height:26px;border-radius:50%;background:var(--green-dim);display:flex;align-items:center;justify-content:center;font-size:0.68rem;font-weight:700;color:var(--green);flex-shrink:0">${initials}</div>
+          <span style="font-size:0.82rem">${escHtml(farmer)}</span>
         </div>
-        <div style="font-size:0.82rem;color:var(--text2)">📍 ${escHtml(district)} · 📦 ${Number(qty).toLocaleString()} kg available</div>
-        ${totalEst ? `<div style="font-size:0.78rem;color:var(--green);margin-top:3px">💰 ${totalEst}</div>` : ''}
+        <div style="font-size:0.8rem;color:var(--text2)">📍 ${escHtml(district)} · 📦 ${Number(qty).toLocaleString()} kg</div>
       </div>
       <div class="card-footer">
-        <div><div class="card-price">UGX ${Number(price).toLocaleString()}</div><div class="card-unit">per kg</div></div>
-        <div style="display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end">
-          <a href="https://wa.me/256755966690?text=${waMsg}" target="_blank" class="btn-card" style="background:#25D366;font-size:0.78rem;padding:6px 10px" title="WhatsApp Farmer">💬</a>
-          <button class="btn-card" onclick="openOrderModal(${l.id||0},${JSON.stringify(name)},${JSON.stringify(farmer)},${price})" style="font-size:0.82rem" data-i18n="order_now">Order</button>
-          <button class="btn-share" onclick="shareListing('${name}','${district}',${price})" title="Share listing">📤</button>
+        <div>${priceHtml}</div>
+        <div style="display:flex;gap:5px;flex-wrap:wrap;justify-content:flex-end">
+          <a href="https://wa.me/256755966690?text=${waMsg}" target="_blank" class="btn-card" style="background:#25D366;font-size:0.75rem;padding:5px 8px">💬</a>
+          <button class="btn-card" onclick="event.stopPropagation();addToBasket(${JSON.stringify(l.id||''+Date.now())},${JSON.stringify(name)},${salePrice},'kg','${emoji}')" style="background:var(--green-dim);color:var(--green);border:1px solid var(--green);font-size:0.78rem">🛒 Basket</button>
+          <button class="btn-card" onclick="event.stopPropagation();openOrderModal(${l.id||0},${JSON.stringify(name)},${JSON.stringify(farmer)},${price})" style="font-size:0.78rem">Order</button>
         </div>
       </div>
     </div>
@@ -3114,6 +3192,7 @@ async function doLogin() {
     closeModal('loginModal');
     showToast('Welcome back, ' + farmer.full_name + '! 🌱');
     updateNavUser(farmer.full_name, 'farmer');
+    setTimeout(renderRoleHome, 400);
     return;
   }
   const buyer = await sb('buyers', { select: '*', filters: [['phone', `eq.${phone.replace(/\s+/g,'')}`]], single: true });
@@ -3123,6 +3202,7 @@ async function doLogin() {
     closeModal('loginModal');
     showToast('Welcome back, ' + buyer.full_name + '! 🛒');
     updateNavUser(buyer.full_name, 'buyer');
+    setTimeout(renderRoleHome, 400);
     return;
   }
   // Auth succeeded but no profile row yet — create a minimal one
@@ -3174,6 +3254,7 @@ async function doRegister() {
   closeModal('registerModal');
   showToast('Welcome to AgriBridge, ' + name + '! 🌾');
   updateNavUser(name, role);
+  setTimeout(() => { renderRoleHome(); }, 500);
   setTimeout(() => showToast('Tip: Browse the Marketplace or dial *789# to sell your crops!'), 3500);
 }
 
@@ -3181,6 +3262,9 @@ async function doLogout() {
   await supaAuthSignOut();
   currentUser = null;
   localStorage.removeItem('ab_user');
+  // Hide role panel on logout
+  const rp = document.getElementById('roleHomePanel');
+  if (rp) { rp.style.display = 'none'; rp.innerHTML = ''; }
   showToast('Logged out successfully');
   const el = document.getElementById('nav-user-area');
   if (el) el.innerHTML = `<button class="btn-sm outline" onclick="openModal('loginModal')">Log In</button><button class="btn-sm" onclick="openModal('registerModal')">Join Free</button>`;
@@ -4166,6 +4250,7 @@ document.addEventListener('DOMContentLoaded', () => {
   if (currentUser?.name) {
     updateNavUser(currentUser.name, currentUser.role || 'farmer');
     showNotifBadge(4); // demo: 4 unread notifications
+    setTimeout(renderRoleHome, 600); // show personalized home panel
   }
   // Show personalized recommendations if user has interests
   setTimeout(() => {
@@ -5008,61 +5093,195 @@ Be concise (2-3 sentences max). Respond in English. For prices, use UGX.`;
 }
 
 function localAIResponse(prompt) {
-  const p = prompt.toLowerCase();
-  if (p.includes('price') || p.includes('cost') || p.includes('ugx'))
-    return 'Current prices: Maize UGX 750/kg · Matooke UGX 950/bunch · Tomatoes UGX 1,800/kg · Coffee UGX 12,000/kg. Check the Prices page for all crops. [NAVIGATE:prices]';
-  if (p.includes('market') || p.includes('buy') || p.includes('listing'))
-    return 'Browse fresh produce directly from Uganda\'s farmers on our Marketplace — no middlemen, fair prices guaranteed. [NAVIGATE:market]';
-  if (p.includes('basket') || p.includes('cart') || p.includes('order'))
-    return 'You have ' + basketItems.length + ' item(s) in your basket. [OPEN_BASKET]';
-  if (p.includes('track') || p.includes('deliver') || p.includes('shipment'))
-    return 'Track your delivery using your order reference code on the Track page. [TRACK_ORDERS]';
-  if (p.includes('disease') || p.includes('pest') || p.includes('leaf') || p.includes('yellow') || p.includes('brown') || p.includes('wilt'))
-    return 'Use our free AI Crop Doctor to diagnose crop diseases! Describe your symptoms and get instant advice. [NAVIGATE:doctor]';
-  if (p.includes('weather') || p.includes('rain') || p.includes('drought'))
-    return 'For Uganda agricultural weather: Uganda currently has two rainy seasons — March–May and October–December. Dry spells suit maize and sorghum harvesting.';
-  if (p.includes('register') || p.includes('sign up') || p.includes('join') || p.includes('account'))
-    return 'Join AgriBridge free! Tap "Join Free" in the top navigation. You\'ll need your MTN or Airtel phone number. Registration takes under 2 minutes.';
-  if (p.includes('ussd') || p.includes('basic phone') || p.includes('feature phone'))
-    return 'On any phone, dial *789# to access AgriBridge via USSD — no internet needed! Works on MTN and Airtel Uganda. [NAVIGATE:ussd]';
-  if (p.includes('list') || p.includes('sell') || p.includes('farmer'))
-    return 'Farmers can list produce in under 60 seconds — just tap "List Produce" from the Marketplace page. Your listing goes live instantly. [NAVIGATE:market]';
-  if (p.includes('hello') || p.includes('hi') || p.includes('help'))
-    return 'Hello! 👋 I can help you browse produce, check live prices, diagnose crop diseases, or track your orders. What would you like to do?';
-  return 'I\'m your AgriBridge assistant! I can help you find fresh produce, check crop prices, diagnose plant diseases, or navigate the platform. Try asking: "What crops are available?" or "Show me today\'s prices".';
+  const p = prompt.toLowerCase().trim();
+
+  // ── Greetings & Identity ──────────────────────────────
+  if (/^(hi|hello|hey|good (morning|afternoon|evening)|howdy|ola|sawa|oba|munda)/i.test(p))
+    return 'Hello! 👋 Welcome to AgriBridge. I can help you buy produce, check live prices, diagnose crop problems, list your harvest, or track an order. What would you like to do today?';
+
+  if (/who are you|what are you|your name|agribridge ai/i.test(p))
+    return 'I\'m the AgriBridge AI Assistant 🤖 — your smart farming companion for Uganda\'s farm-to-table platform. I can answer crop questions, show prices, navigate the app, and even add items to your basket. Ask me anything!';
+
+  // ── Specific crop prices ──────────────────────────────
+  if (/\bmaize\b|posho|corn/i.test(p))
+    return 'Current Maize price: UGX 700–800/kg. Best selling months: June–August after harvest. Kampala market price is highest. Want to see all maize listings? [NAVIGATE:market]';
+  if (/\bmatooke\b|matoke|cooking banana/i.test(p))
+    return 'Matooke (cooking banana): UGX 900–1,500/bunch. Mbarara and Bushenyi farmers get the best prices. High demand all year round in Kampala. [NAVIGATE:market]';
+  if (/\btomato|tomatoes/i.test(p))
+    return 'Tomatoes: UGX 1,500–2,500/kg. Prices peak Dec–Feb (dry season) and drop June–August. Mpigi and Kayunga are top districts. [NAVIGATE:market]';
+  if (/\bcoffee\b/i.test(p))
+    return 'Ugandan Coffee: Robusta UGX 8,000–10,000/kg · Arabica UGX 12,000–15,000/kg. Uganda is Africa\'s #1 coffee exporter. Best harvest Oct–Feb in Bugisu and Rwenzori. [NAVIGATE:prices]';
+  if (/\bavocado/i.test(p))
+    return 'Avocado: UGX 500–1,200/kg. Peak season Feb–May and July–Oct. High export demand to Europe. Hass variety commands premium prices. [NAVIGATE:market]';
+  if (/\bonion|onions/i.test(p))
+    return 'Onions: UGX 1,500–3,000/kg. Kasese and Kabarole are top growing districts. Imported onions raise local prices Dec–Feb. Check listings now. [NAVIGATE:market]';
+  if (/\bcassava/i.test(p))
+    return 'Cassava: UGX 400–700/kg — drought-resistant and grows year-round in northern Uganda. High demand for cassava flour. Good for smallholder income. [NAVIGATE:market]';
+  if (/\bvanilla/i.test(p))
+    return 'Vanilla: UGX 50,000–200,000/kg — Uganda\'s most valuable export crop! Grown in Kasese and Mbarara. Takes 3 years to produce. Premium prices for cured vanilla beans.';
+  if (/\bbean|beans\b/i.test(p))
+    return 'Beans (dry): UGX 2,500–4,000/kg. Two harvests per year. Eastern Uganda (Mbale, Sironko) leads production. High protein demand drives consistent pricing.';
+  if (/\bpineapple/i.test(p))
+    return 'Pineapple: UGX 800–1,500/piece. Kayunga and Luwero are top districts. Processed into juice exports. Demand peaks in December and school holidays.';
+  if (/\bsweet potato|sweetpotato/i.test(p))
+    return 'Sweet Potato: UGX 500–800/kg. Orange-fleshed varieties rich in Vitamin A. Year-round in southwestern Uganda. Growing demand from urban schools and hospitals.';
+  if (/\bgroundnut|groundnuts|peanut/i.test(p))
+    return 'Groundnuts: UGX 3,000–5,000/kg. Eastern and Northern Uganda dominate. Used for simsim paste, cooking oil. Prices spike during school terms.';
+
+  // ── Basket & Orders ───────────────────────────────────
+  if (/my basket|show basket|view basket|open basket|what.*in.*basket/i.test(p)) {
+    if (basketItems.length === 0) return 'Your basket is empty. Browse the Marketplace to add fresh produce! [NAVIGATE:market]';
+    return `You have ${basketItems.length} item(s) in your basket: ${basketItems.map(i=>i.name+' ×'+i.qty).join(', ')}. Total: UGX ${getBasketTotals().total.toLocaleString()}. Ready to checkout? [OPEN_BASKET]`;
+  }
+  if (/checkout|place order|pay now|buy now/i.test(p))
+    return basketItems.length ? 'Taking you to checkout! ' + basketItems.length + ' item(s) ready. [CHECKOUT]' : 'Your basket is empty. Add items from the Marketplace first. [NAVIGATE:market]';
+  if (/clear basket|empty basket|remove all/i.test(p))
+    return 'Clearing your basket now. [CLEAR_BASKET] Browse fresh produce to start again. [NAVIGATE:market]';
+  if (/track|my order|order status|where is my|delivery status/i.test(p))
+    return 'Check your order status on the Delivery Tracker page. You\'ll need your order reference (e.g. AB-XXXXX) or tracking code (TRK-XXXXX). [TRACK_ORDERS]';
+  if (/promo|discount|coupon|voucher|code/i.test(p))
+    return 'Current promo codes: FRESH10 (10% off) · FARM20 (20% off) · AGRI15 (15% off) · ZEAL50 (50% off) · AB2026 (12% off). Enter code in your basket before checkout! [OPEN_BASKET]';
+
+  // ── Diseases & Crop Doctor ────────────────────────────
+  if (/yellow.*leaf|leaf.*yellow|chlorosis/i.test(p))
+    return 'Yellow leaves can mean nitrogen deficiency, overwatering, or mosaic virus. Check the AI Crop Doctor for a precise diagnosis with photos. [NAVIGATE:doctor]';
+  if (/brown.*spot|spot.*brown|blight/i.test(p))
+    return 'Brown spots may indicate fungal blight, bacterial leaf spot, or drought stress. Apply copper-based fungicide as first response. Use AI Crop Doctor for details. [NAVIGATE:doctor]';
+  if (/wilt|wilting|drooping/i.test(p))
+    return 'Wilting can be Fusarium wilt (fungal) or bacterial wilt. Fusarium: remove affected plants. Bacterial: check for milky ooze in stem. Get a full diagnosis: [NAVIGATE:doctor]';
+  if (/pest|insect|bug|worm|aphid|weevil|caterpillar/i.test(p))
+    return 'For pest control: Neem oil spray works for aphids and whiteflies. Fall Armyworm: use recommended pesticides (e.g. Emamectin). Get AI diagnosis: [NAVIGATE:doctor]';
+  if (/disease|sick crop|my crop|treatment|diagnose|doctor/i.test(p))
+    return 'Our AI Crop Doctor is free for all farmers! Describe your symptoms or take a photo. Get instant expert advice. [NAVIGATE:doctor]';
+
+  // ── Platform Navigation ───────────────────────────────
+  if (/marketplace|browse|shop|buy|purchase|find produce/i.test(p))
+    return 'Taking you to the Marketplace — fresh produce directly from Uganda\'s farms! [NAVIGATE:market]';
+  if (/price|prices|live price|market price|how much/i.test(p))
+    return 'Current prices: Maize UGX 750/kg · Matooke UGX 950/bunch · Tomatoes UGX 1,800/kg · Coffee UGX 12,000/kg · Beans UGX 3,000/kg · Vanilla UGX 100,000/kg. See all prices: [NAVIGATE:prices]';
+  if (/training|learn|video|course|tutorial|farming tips|how to grow/i.test(p))
+    return 'We have free farming training videos — post-harvest, soil health, pest management, market access, and more. [NAVIGATE:training]';
+  if (/ussd|\*789|basic phone|no internet|feature phone/i.test(p))
+    return 'Dial *789# on ANY phone (MTN or Airtel Uganda) to access AgriBridge without internet. Check prices, list produce, find buyers — all via USSD! [NAVIGATE:ussd]';
+  if (/list.*produce|sell.*crop|post.*listing|farmer.*sell|i am a farmer|i want to sell/i.test(p))
+    return 'Listing your produce is free and takes under 60 seconds! Tap + List Produce on the Marketplace page. Buyers contact you directly — no middlemen. [NAVIGATE:market]';
+  if (/dashboard|my account|my stats|my profile/i.test(p))
+    return 'Your personal dashboard shows your listings, orders, and earnings. [NAVIGATE:dashboard]';
+  if (/supply|seeds|fertilizer|tools|equipment|agro-input/i.test(p))
+    return 'Browse our Agro-Input Supply section for certified seeds, fertilizers, and farming tools at competitive prices. [NAVIGATE:supply]';
+  if (/community|forum|ask farmer|other farmer/i.test(p))
+    return 'Join the AgriBridge Community to ask questions, share experiences, and get advice from 10,000+ Ugandan farmers. [NAVIGATE:community]';
+  if (/about|who.*agribridge|what.*platform/i.test(p))
+    return 'AgriBridge is Uganda\'s #1 farm-to-table platform — connecting farmers directly to buyers with live prices, mobile money, AI tools, and USSD access on any phone. [NAVIGATE:about]';
+  if (/contact|phone number|email|support|help desk/i.test(p))
+    return 'Contact AgriBridge: 📞 +256 755 966 690 · ✉️ hello@agribridge.ug · WhatsApp same number. Office hours: Mon–Sat 7am–9pm. [NAVIGATE:contact]';
+  if (/register|sign up|join|create account/i.test(p))
+    return 'Join AgriBridge free! You\'ll need your MTN or Airtel phone number. Registration takes under 2 minutes. Tap "Join Free" at the top of the screen.';
+  if (/log in|login|sign in/i.test(p))
+    return 'Tap "Log In" at the top right. Use your phone number and password. Forgot password? Contact support at +256 755 966 690.';
+
+  // ── Weather & Seasons ─────────────────────────────────
+  if (/weather|rain|season|drought|when to plant|planting time/i.test(p))
+    return 'Uganda has 2 main rain seasons: ① March–May (long rains) — plant maize, beans, tomatoes. ② Oct–Dec (short rains) — plant quick-maturing varieties. Current month is April 2026 — excellent planting season!';
+  if (/best crop|which crop|what to grow|most profitable|high value/i.test(p))
+    return 'Most profitable crops in Uganda right now: ① Vanilla (UGX 100,000+/kg) ② Avocado (high export demand) ③ Coffee (consistent price) ④ Passion fruit ⑤ Tomatoes (high demand). What\'s your district?';
+
+  // ── Payment & Money ───────────────────────────────────
+  if (/mtn|mobile money|momo|payment|pay|airtel money/i.test(p))
+    return 'AgriBridge supports MTN Mobile Money (*165#), Airtel Money (*185#), Cash on Delivery, and Bank Transfer. All payments are secure and farmers receive funds within 24 hours.';
+  if (/delivery|transport|how.*(deliver|ship)|delivery fee/i.test(p))
+    return 'AgriBridge delivery: farm pickup → your door. Delivery fee UGX 5,000 within Kampala. Upcountry rates vary. Estimated 1–3 days. GPS tracking on every order. [TRACK_ORDERS]';
+
+  // ── Help fallback ─────────────────────────────────────
+  if (/thank|thanks|ok|okay|great|perfect|good/i.test(p))
+    return 'You\'re welcome! 🌱 Is there anything else I can help you with — prices, listings, crop advice, or tracking your order?';
+  if (/help|what can you|what do you do/i.test(p))
+    return 'I can help you: 🌾 Find fresh produce · 📊 Check live prices · 🩺 Diagnose crop diseases · 🛒 Add items to basket · 📦 Track your order · 📤 List your harvest for sale. Just ask!';
+
+  // Default
+  return `I heard: "${prompt}". I can help with crop prices, marketplace listings, disease diagnosis, orders, delivery tracking, or farming advice. Try asking "What\'s the price of maize?" or "Show me tomato listings".`;
 }
 
 // ─── VOICE COMMANDS ─────────────────────────────────────
 function toggleVoice() {
-  if (voiceActive) { stopVoice(); } else { startVoice(); }
+  if (voiceActive) {
+    // Tap again while listening = commit what was captured so far
+    const inp = document.getElementById('aiInput');
+    const current = inp ? inp.value.trim() : '';
+    if (current) { commitVoice(current); } else { stopVoice(); }
+  } else {
+    startVoice();
+  }
 }
+
+let voiceTimeout = null;
 
 function startVoice() {
   const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
-  if (!SR) { showToast('Voice not supported on this browser'); return; }
+  if (!SR) { showToast('Voice not supported on this browser. Try Chrome.'); return; }
   voiceRecognizer = new SR();
   voiceRecognizer.lang = 'en-UG';
-  voiceRecognizer.interimResults = false;
-  voiceRecognizer.maxAlternatives = 1;
+  voiceRecognizer.continuous = true;        // keep listening until user stops
+  voiceRecognizer.interimResults = true;    // show text as you speak
+  voiceRecognizer.maxAlternatives = 3;
+  let finalTranscript = '';
+
   voiceRecognizer.onstart = () => {
     voiceActive = true;
+    finalTranscript = '';
     const btn = document.getElementById('aiVoiceBtn');
-    if (btn) { btn.classList.add('listening'); btn.title = 'Listening…'; }
+    if (btn) { btn.classList.add('listening'); btn.title = 'Tap to stop'; }
     const status = document.getElementById('aiStatus');
-    if (status) status.textContent = '🎤 Listening…';
-    showToast('🎤 Listening — speak now…');
+    if (status) status.textContent = '🎤 Listening — speak freely…';
+    showToast('🎤 Listening — speak your question, then tap 🎤 to send');
+    // Auto-stop after 15 seconds if user hasn't stopped
+    voiceTimeout = setTimeout(() => {
+      if (voiceActive && finalTranscript) {
+        commitVoice(finalTranscript);
+      } else {
+        stopVoice();
+      }
+    }, 15000);
   };
+
   voiceRecognizer.onresult = e => {
-    const transcript = e.results[0][0].transcript;
+    let interim = '';
+    for (let i = e.resultIndex; i < e.results.length; i++) {
+      if (e.results[i].isFinal) {
+        finalTranscript += e.results[i][0].transcript + ' ';
+      } else {
+        interim = e.results[i][0].transcript;
+      }
+    }
+    // Show interim text in input box as live preview
     const inp = document.getElementById('aiInput');
-    if (inp) inp.value = transcript;
-    stopVoice();
-    setTimeout(sendAIMsg, 200);
+    if (inp) inp.value = (finalTranscript + interim).trim();
   };
-  voiceRecognizer.onerror = () => stopVoice();
-  voiceRecognizer.onend   = () => stopVoice();
+
+  voiceRecognizer.onerror = e => {
+    if (e.error !== 'no-speech') showToast('Voice error: ' + e.error);
+    stopVoice();
+  };
+  voiceRecognizer.onend = () => {
+    // If we have a transcript, commit it; else clean up
+    if (voiceActive && finalTranscript.trim()) {
+      commitVoice(finalTranscript.trim());
+    } else if (voiceActive) {
+      stopVoice();
+    }
+  };
   voiceRecognizer.start();
 }
+
+function commitVoice(text) {
+  if (voiceTimeout) { clearTimeout(voiceTimeout); voiceTimeout = null; }
+  const inp = document.getElementById('aiInput');
+  if (inp) inp.value = text;
+  stopVoice();
+  setTimeout(sendAIMsg, 300);
+}
+
+// toggleVoice logic is defined above — no override needed
 
 function stopVoice() {
   voiceActive = false;
@@ -5144,25 +5363,10 @@ function buildListingCard(l) {
   </div>`;
 }
 
-// ─── PATCH: use buildListingCard in renderListings ───────
-// We monkey-patch renderListings to use the new card format with basket button
-(function patchRenderListings() {
-  const _orig = window.renderListings;
-  window.renderListings = function() {
-    const search  = (document.querySelector('.market-search')?.value || '').toLowerCase();
-    const active  = document.querySelector('#marketFilters .filter-btn.active')?.dataset?.filter || 'all';
-    let list = allListings.filter(l => l.is_available !== false);
-    if (active !== 'all') list = list.filter(l => (l.category || '').toLowerCase() === active);
-    if (search) list = list.filter(l => (l.crop_name || '').toLowerCase().includes(search) || (l.district || '').toLowerCase().includes(search));
-    const grid = document.getElementById('listingsGrid');
-    if (!grid) return;
-    if (!list.length) {
-      grid.innerHTML = '<div class="empty-state"><div class="e-icon">🌾</div><p>No listings found. <button class="btn-sm" onclick="openListProduceModal()">Be the first to list!</button></p></div>';
-      return;
-    }
-    grid.innerHTML = list.map(buildListingCard).join('');
-  };
-})();
+// ─── NOTE: renderListings already exists above and renders to #marketListings ──
+// buildListingCard is used by homeFeatured recommendations only.
+// The existing listingCard() function has been upgraded in-place (see below).
+// No patch needed — the upgrade is applied directly to listingCard().
 
 // ─── RECOMMENDATIONS ON HOME ────────────────────────────
 function renderRecommendations() {
@@ -5217,6 +5421,187 @@ function loadMyOrders() {
       <div style="font-size:0.72rem;color:var(--text2);margin-top:4px">Track code: <span style="color:var(--yellow);font-family:monospace">${o.track}</span> · ${new Date(o.date).toLocaleDateString('en-UG')}</div>
     </div>`;
   }).join('');
+}
+
+// ═══════════════════════════════════════════════════════
+// ROLE-BASED PERSONALIZED HOME PAGE
+// ═══════════════════════════════════════════════════════
+async function renderRoleHome() {
+  const panel = document.getElementById('roleHomePanel');
+  if (!panel || !currentUser) return;
+  panel.style.display = 'block';
+
+  const role = currentUser.role || 'buyer';
+  const name = currentUser.name || 'there';
+  const firstName = name.split(' ')[0];
+  const hour = new Date().getHours();
+  const greeting = hour < 12 ? 'Good morning' : hour < 17 ? 'Good afternoon' : 'Good evening';
+
+  // ── FARMER LAYOUT ─────────────────────────────────────
+  if (role === 'farmer') {
+    panel.innerHTML = `<div class="role-panel">
+      <div class="role-welcome">
+        <div class="role-avatar">🌾</div>
+        <div class="role-info">
+          <h3>${greeting}, ${firstName}! 👨‍🌾</h3>
+          <p>Farmer · ${currentUser.district || 'Uganda'} · Today: ${new Date().toLocaleDateString('en-UG',{weekday:'long',day:'numeric',month:'short'})}</p>
+        </div>
+      </div>
+      <div class="role-kpis" id="farmerKpis">
+        <div class="role-kpi"><div class="rk-num" id="fk-listings">–</div><div class="rk-lbl">My Listings</div></div>
+        <div class="role-kpi"><div class="rk-num" id="fk-orders">–</div><div class="rk-lbl">Orders Received</div></div>
+        <div class="role-kpi"><div class="rk-num" id="fk-earned">–</div><div class="rk-lbl">Total Earned</div></div>
+      </div>
+      <div class="role-actions">
+        <button class="role-action-btn primary" onclick="openListProduceModal()">📤 List Produce</button>
+        <button class="role-action-btn" onclick="showPage('prices')">📊 Check Prices</button>
+        <button class="role-action-btn" onclick="showPage('doctor')">🩺 Crop Doctor</button>
+      </div>
+      <div class="role-actions">
+        <button class="role-action-btn" onclick="showPage('training')">🎓 Training Videos</button>
+        <button class="role-action-btn" onclick="showPage('dashboard')">📈 Full Dashboard</button>
+      </div>
+      <div class="role-section-title">📦 Recent Orders for You</div>
+      <div id="farmerOrdersQuick"><div style="color:var(--text2);font-size:0.85rem;padding:8px 0">Loading orders…</div></div>
+      <div style="margin-top:4px">
+        <button class="btn-sm outline" onclick="showPage('dashboard')" style="width:100%;padding:10px">View All Orders & Listings →</button>
+      </div>
+    </div>`;
+    // Load farmer KPIs
+    loadFarmerKpis();
+
+  // ── VENDOR / BUYER LAYOUT ─────────────────────────────
+  } else if (role === 'vendor' || role === 'buyer') {
+    const recentOrders = JSON.parse(localStorage.getItem('ab_orders') || '[]').slice(0, 2);
+    const basketCount  = basketItems.reduce((s, i) => s + i.qty, 0);
+    panel.innerHTML = `<div class="role-panel">
+      <div class="role-welcome">
+        <div class="role-avatar">🛒</div>
+        <div class="role-info">
+          <h3>${greeting}, ${firstName}! 🛒</h3>
+          <p>Buyer · ${basketCount} item${basketCount !== 1 ? 's' : ''} in basket · ${recentOrders.length} recent order${recentOrders.length !== 1 ? 's' : ''}</p>
+        </div>
+      </div>
+      <div class="role-kpis">
+        <div class="role-kpi"><div class="rk-num">${basketCount}</div><div class="rk-lbl">In Basket</div></div>
+        <div class="role-kpi"><div class="rk-num">${recentOrders.length}</div><div class="rk-lbl">Orders Made</div></div>
+        <div class="role-kpi"><div class="rk-num">UGX ${(getBasketTotals().total || 0).toLocaleString()}</div><div class="rk-lbl">Basket Value</div></div>
+      </div>
+      <div class="role-actions">
+        <button class="role-action-btn primary" onclick="showPage('market')">🌾 Browse Fresh Produce</button>
+        <button class="role-action-btn" onclick="toggleBasket()">🛒 My Basket ${basketCount > 0 ? '('+basketCount+')' : ''}</button>
+      </div>
+      <div class="role-actions">
+        <button class="role-action-btn" onclick="showPage('delivery');loadMyOrders()">📦 Track Orders</button>
+        <button class="role-action-btn" onclick="showPage('prices')">📊 Live Prices</button>
+        <button class="role-action-btn" onclick="showPage('doctor')">🩺 Crop Doctor</button>
+      </div>
+      ${recentOrders.length ? `
+      <div class="role-section-title">🕐 Recent Orders</div>
+      ${recentOrders.map(o => `
+        <div class="role-order-row">
+          <div>
+            <div style="font-weight:700;font-size:0.85rem">${o.ref}</div>
+            <div style="font-size:0.75rem;color:var(--text2)">${o.items.map(i=>i.name).join(', ')}</div>
+          </div>
+          <div style="text-align:right">
+            <div style="font-size:0.8rem;font-weight:700;color:var(--green)">UGX ${Number(o.total).toLocaleString()}</div>
+            <button class="btn-sm" onclick="document.getElementById('trackingInput').value='${o.track}';showPage('delivery');trackDelivery()" style="font-size:0.7rem;padding:3px 8px;margin-top:3px">Track</button>
+          </div>
+        </div>`).join('')}
+      ` : ''}
+      ${getTopInterests(1).length ? `
+        <div class="role-section-title">⭐ Based on Your Interests</div>
+        <div id="recommendedCrops2" style="display:flex;gap:10px;overflow-x:auto;padding-bottom:8px"></div>
+      ` : ''}
+    </div>`;
+    // Render personalized recommendations
+    setTimeout(() => renderRecsInto('recommendedCrops2'), 600);
+
+  // ── HOTEL / RESTAURANT LAYOUT ─────────────────────────
+  } else if (role === 'hotel') {
+    panel.innerHTML = `<div class="role-panel">
+      <div class="role-welcome">
+        <div class="role-avatar">🏨</div>
+        <div class="role-info">
+          <h3>${greeting}, ${firstName}! 🍽️</h3>
+          <p>Hotel/Restaurant · Bulk ordering · Fresh daily supply</p>
+        </div>
+      </div>
+      <div class="role-kpis">
+        <div class="role-kpi"><div class="rk-num">${basketItems.length}</div><div class="rk-lbl">Basket Items</div></div>
+        <div class="role-kpi"><div class="rk-num">${JSON.parse(localStorage.getItem('ab_orders')||'[]').length}</div><div class="rk-lbl">Orders Placed</div></div>
+        <div class="role-kpi"><div class="rk-num">BULK</div><div class="rk-lbl">Pricing Mode</div></div>
+      </div>
+      <div class="role-actions">
+        <button class="role-action-btn primary" onclick="showPage('market')">🌾 Browse Fresh Produce</button>
+        <button class="role-action-btn" onclick="showPage('supply')">🏪 Agro Supply Store</button>
+      </div>
+      <div class="role-actions">
+        <button class="role-action-btn" onclick="toggleBasket()">🛒 My Order Basket</button>
+        <button class="role-action-btn" onclick="showPage('delivery')">🚚 Track Deliveries</button>
+        <button class="role-action-btn" onclick="showPage('prices')">📊 Today's Prices</button>
+      </div>
+      <div style="background:var(--green-dim);border:1px solid var(--green);border-radius:10px;padding:12px;margin-top:8px">
+        <div style="font-weight:700;font-size:0.88rem;color:var(--green);margin-bottom:4px">🏨 Hotel/Restaurant Special</div>
+        <div style="font-size:0.8rem;color:var(--text2)">Order 50kg+ of any produce for <strong style="color:var(--green)">5% bulk discount</strong>. Contact us for weekly standing orders: <strong>+256 755 966 690</strong></div>
+      </div>
+    </div>`;
+  }
+}
+
+async function loadFarmerKpis() {
+  if (!currentUser) return;
+  const [listings, orders] = await Promise.all([
+    sb('listings', { select: 'id,price_per_kg,quantity_kg', filters: [['farmer_phone', 'eq.' + (currentUser.phone||'')]] }),
+    sb('orders',   { select: 'id,total_price,total_amount,quantity_kg,price_per_kg,status', filters: currentUser.id ? [['farmer_id','eq.'+currentUser.id]] : [['limit','eq.0']] })
+  ]);
+  const lCount = listings?.length || 0;
+  const oCount = orders?.length   || 0;
+  const earned = orders?.reduce((s, o) => s + Number(o.total_price || o.total_amount || (o.quantity_kg * o.price_per_kg) || 0), 0) || 0;
+
+  const kEl = id => document.getElementById(id);
+  if (kEl('fk-listings')) kEl('fk-listings').textContent = lCount;
+  if (kEl('fk-orders'))   kEl('fk-orders').textContent   = oCount;
+  if (kEl('fk-earned'))   kEl('fk-earned').textContent   = earned > 0 ? 'UGX ' + Math.round(earned/1000) + 'k' : 'UGX 0';
+
+  // Recent orders quick view
+  const qEl = document.getElementById('farmerOrdersQuick');
+  if (qEl) {
+    if (!orders?.length) {
+      qEl.innerHTML = '<div style="color:var(--text2);font-size:0.85rem;padding:8px 0">No orders yet. List your produce to get started!</div>';
+    } else {
+      qEl.innerHTML = orders.slice(0,3).map(o => {
+        const amt = o.total_price || o.total_amount || (o.quantity_kg * o.price_per_kg) || 0;
+        const statusColor = o.status === 'delivered' ? 'var(--green)' : o.status === 'confirmed' ? 'var(--yellow)' : 'var(--text2)';
+        return `<div class="role-order-row">
+          <div style="font-size:0.82rem">${o.quantity_kg || '?'} kg ordered</div>
+          <div style="text-align:right">
+            <div style="font-size:0.82rem;font-weight:700;color:var(--green)">UGX ${Number(amt).toLocaleString()}</div>
+            <div style="font-size:0.7rem;color:${statusColor};font-weight:700;text-transform:uppercase">${o.status || 'pending'}</div>
+          </div>
+        </div>`;
+      }).join('');
+    }
+  }
+}
+
+function renderRecsInto(elId) {
+  const el = document.getElementById(elId);
+  if (!el) return;
+  const tops = getTopInterests(4);
+  if (!tops.length || !allListings.length) { el.innerHTML = '<div style="color:var(--text2);font-size:0.82rem">Browse the marketplace to get recommendations!</div>'; return; }
+  const recs = allListings.filter(l => tops.some(t => (l.crop_name||'').toLowerCase().includes(t.toLowerCase())));
+  if (!recs.length) { el.innerHTML = ''; return; }
+  el.innerHTML = recs.slice(0,4).map(l => `
+    <div style="min-width:150px;background:var(--bg3);border:1px solid var(--border);border-radius:12px;padding:12px;flex-shrink:0">
+      <div style="font-size:2rem;margin-bottom:4px">${getCropEmoji(l.crop_name||'')}</div>
+      <div style="font-weight:700;font-size:0.85rem">${escHtml(l.crop_name||'Produce')}</div>
+      <div style="color:var(--green);font-size:0.8rem;margin:3px 0">UGX ${Number(l.price_per_kg||0).toLocaleString()}/kg</div>
+      <button style="width:100%;margin-top:6px;padding:6px;background:var(--green);color:#000;border:none;border-radius:7px;font-size:0.75rem;font-weight:700;cursor:pointer"
+        onclick="addToBasket(${JSON.stringify(l.id||'')},${JSON.stringify(l.crop_name||'')},${l.price_per_kg||0},'kg','${getCropEmoji(l.crop_name||'')}')">🛒 Add</button>
+    </div>
+  `).join('');
 }
 
 </script>
