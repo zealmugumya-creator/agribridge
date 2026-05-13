@@ -1,6 +1,37 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
+
+<!-- ══ SUPABASE CLIENT ══════════════════════════════════════ -->
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script>
+// ── Supabase connection ──────────────────────────────────────
+const SUPABASE_URL  = 'https://vyrctsiyaihsysgpozdm.supabase.co';
+const SUPABASE_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZ5cmN0c2l5YWloc3lzZ3BvemRtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDM2MTM4MjMsImV4cCI6MjA1OTE4OTgyM30.GlRBEGNT25XRGJ0pfkNJGsRQoaVoRSMPaYLPqEWl2w0';
+const sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON);
+
+// ── Auth state listener ──────────────────────────────────────
+sb.auth.onAuthStateChange((event, session) => {
+  if (session?.user) {
+    currentUser = session.user;
+    updateNavUser(session.user);
+  } else {
+    currentUser = null;
+    updateNavUser(null);
+  }
+});
+
+// ── Restore session on page load ────────────────────────────
+(async () => {
+  const { data:{ session } } = await sb.auth.getSession();
+  if (session?.user) {
+    currentUser = session.user;
+    updateNavUser(session.user);
+    syncCloudBasket();
+  }
+})();
+</script>
+
 <meta charset="UTF-8">
 <meta name="robots" content="index, follow">
   <link rel="canonical" href="https://agribrige.com">
@@ -3479,6 +3510,545 @@ document.addEventListener('DOMContentLoaded', function() {
   if(document.getElementById('coldStorageList')) renderColdChain();
 });
 
+
+// ════════════════════════════════════════════════════════════════
+// AUTH SYSTEM — Supabase powered, full error handling
+// ════════════════════════════════════════════════════════════════
+
+// ── Login attempt tracking ───────────────────────────────────
+let loginAttempts   = parseInt(localStorage.getItem('ab_login_attempts') || '0');
+let lockoutUntil    = parseInt(localStorage.getItem('ab_lockout_until')  || '0');
+const MAX_ATTEMPTS  = 5;
+const LOCKOUT_MS    = 5 * 60 * 1000; // 5 minutes
+let lockCountdownInterval = null;
+
+function isLockedOut() {
+  return lockoutUntil > Date.now();
+}
+function getRemainingLockout() {
+  return Math.max(0, lockoutUntil - Date.now());
+}
+function recordFailedAttempt() {
+  loginAttempts++;
+  localStorage.setItem('ab_login_attempts', loginAttempts);
+  if (loginAttempts >= MAX_ATTEMPTS) {
+    lockoutUntil = Date.now() + LOCKOUT_MS;
+    localStorage.setItem('ab_lockout_until', lockoutUntil);
+    showLockoutUI();
+  } else {
+    const remaining = MAX_ATTEMPTS - loginAttempts;
+    const msg = document.getElementById('loginAttemptsMsg');
+    if (msg) msg.textContent = remaining + ' attempt' + (remaining===1?'':'s') + ' remaining';
+  }
+}
+function clearAttempts() {
+  loginAttempts = 0;
+  lockoutUntil  = 0;
+  localStorage.removeItem('ab_login_attempts');
+  localStorage.removeItem('ab_lockout_until');
+  const msg = document.getElementById('loginAttemptsMsg');
+  if (msg) msg.textContent = '';
+}
+function showLockoutUI() {
+  const lockMsg = document.getElementById('loginLockMsg');
+  const loginBtn = document.getElementById('loginBtn');
+  if (lockMsg) lockMsg.style.display = 'block';
+  if (loginBtn) loginBtn.disabled = true;
+  startLockCountdown();
+}
+function startLockCountdown() {
+  if (lockCountdownInterval) clearInterval(lockCountdownInterval);
+  lockCountdownInterval = setInterval(() => {
+    const rem = getRemainingLockout();
+    const cd  = document.getElementById('lockCountdown');
+    if (rem <= 0) {
+      clearInterval(lockCountdownInterval);
+      clearAttempts();
+      const lockMsg = document.getElementById('loginLockMsg');
+      const loginBtn = document.getElementById('loginBtn');
+      if (lockMsg) lockMsg.style.display = 'none';
+      if (loginBtn) loginBtn.disabled = false;
+    } else if (cd) {
+      const m = Math.floor(rem / 60000);
+      const s = Math.floor((rem % 60000) / 1000);
+      cd.textContent = m + ':' + String(s).padStart(2,'0');
+    }
+  }, 1000);
+}
+
+// Show login error message
+function showLoginErr(msg) {
+  const el = document.getElementById('loginErrMsg');
+  if (el) { el.textContent = '❌ ' + msg; el.style.display = 'block'; }
+}
+function clearLoginErr() {
+  const el = document.getElementById('loginErrMsg');
+  if (el) el.style.display = 'none';
+}
+function showRegErr(msg) {
+  const el = document.getElementById('regErrMsg');
+  if (el) { el.textContent = '❌ ' + msg; el.style.display = 'block'; }
+}
+function clearRegErr() {
+  const el = document.getElementById('regErrMsg');
+  if (el) el.style.display = 'none';
+}
+
+// ── Password show / hide toggle ──────────────────────────────
+function togglePwdVis(inputId, btnId) {
+  const inp = document.getElementById(inputId);
+  const btn = document.getElementById(btnId);
+  if (!inp) return;
+  if (inp.type === 'password') {
+    inp.type = 'text';
+    if (btn) btn.textContent = '🙈';
+  } else {
+    inp.type = 'password';
+    if (btn) btn.textContent = '👁';
+  }
+}
+
+// ── Password strength indicator ──────────────────────────────
+function checkPwdStrength(pwd) {
+  const bar   = document.getElementById('pwdStrengthBar');
+  const label = document.getElementById('pwdStrengthLabel');
+  if (!bar || !label) return;
+  let score = 0;
+  if (pwd.length >= 8)              score++;
+  if (/[A-Z]/.test(pwd))           score++;
+  if (/[0-9]/.test(pwd))           score++;
+  if (/[^A-Za-z0-9]/.test(pwd))    score++;
+  if (pwd.length >= 12)             score++;
+  const levels = [
+    { pct:0,   color:'#f44336', text:'' },
+    { pct:20,  color:'#f44336', text:'Weak — add numbers or symbols' },
+    { pct:40,  color:'#ff9800', text:'Fair — try a longer password' },
+    { pct:60,  color:'#ffc107', text:'Good — almost there' },
+    { pct:80,  color:'#00c853', text:'Strong ✅' },
+    { pct:100, color:'#00c853', text:'Very strong ✅✅' },
+  ];
+  const lv = levels[score] || levels[0];
+  bar.style.width = lv.pct + '%';
+  bar.style.background = lv.color;
+  label.textContent = lv.text;
+  label.style.color  = lv.color;
+}
+
+// ── Password match checker ───────────────────────────────────
+function checkPwdMatch() {
+  const pwd     = document.getElementById('regPwd')?.value || '';
+  const confirm = document.getElementById('regPwdConfirm')?.value || '';
+  const msg     = document.getElementById('pwdMatchMsg');
+  if (!msg || !confirm) return;
+  if (confirm === pwd) {
+    msg.textContent = '✅ Passwords match';
+    msg.style.color = 'var(--green)';
+  } else {
+    msg.textContent = '❌ Passwords do not match';
+    msg.style.color = '#f44336';
+  }
+}
+
+// ── Helper: phone → email format for Supabase auth ──────────
+function toAuthEmail(input) {
+  input = input.trim();
+  // If it already looks like an email, use as-is
+  if (input.includes('@')) return input;
+  // Convert phone to virtual email
+  const digits = input.replace(/\D/g,'');
+  return 'phone_' + digits + '@agribridge.ug';
+}
+
+// ────────────────────────────────────────────────────────────
+// DO LOGIN
+// ────────────────────────────────────────────────────────────
+async function doLogin() {
+  clearLoginErr();
+
+  // Check lockout first
+  if (isLockedOut()) { showLockoutUI(); return; }
+
+  const rawInput = document.getElementById('loginPhone')?.value.trim() || '';
+  const pwd      = document.getElementById('loginPwd')?.value || '';
+
+  if (!rawInput) { showLoginErr('Please enter your phone number or email.'); return; }
+  if (!pwd)      { showLoginErr('Please enter your password.'); return; }
+
+  const loginBtn = document.getElementById('loginBtn');
+  if (loginBtn) { loginBtn.disabled = true; loginBtn.textContent = 'Logging in…'; }
+
+  try {
+    const email = toAuthEmail(rawInput);
+    const { data, error } = await sb.auth.signInWithPassword({ email, password: pwd });
+
+    if (error) {
+      recordFailedAttempt();
+      let msg = 'Wrong phone/email or password. Please try again.';
+      if (error.message?.includes('Email not confirmed')) msg = 'Please confirm your email first. Check your inbox.';
+      if (error.message?.includes('Invalid login'))       msg = 'Wrong phone number or password.';
+      if (error.message?.includes('too many requests'))   msg = 'Too many attempts. Please wait a few minutes.';
+      showLoginErr(msg);
+    } else {
+      // Success
+      clearAttempts();
+      currentUser = data.user;
+      updateNavUser(data.user);
+      closeModal('loginModal');
+      showToast('✅ Welcome back, ' + (data.user.user_metadata?.name || 'farmer') + '!');
+      syncCloudBasket();
+      loadUserDashboard();
+    }
+  } catch (e) {
+    showLoginErr('Connection error. Check your internet and try again.');
+  } finally {
+    if (loginBtn && !isLockedOut()) {
+      loginBtn.disabled = false;
+      loginBtn.textContent = 'Log In';
+    }
+  }
+}
+
+// ────────────────────────────────────────────────────────────
+// DO REGISTER
+// ────────────────────────────────────────────────────────────
+async function doRegister() {
+  clearRegErr();
+
+  const name     = document.getElementById('regName')?.value.trim() || '';
+  const phone    = document.getElementById('regPhone')?.value.trim() || '';
+  const email    = document.getElementById('regEmail')?.value.trim() || '';
+  const role     = document.getElementById('regRole')?.value || 'farmer';
+  const district = document.getElementById('regDistrict')?.value || '';
+  const pwd      = document.getElementById('regPwd')?.value || '';
+  const confirm  = document.getElementById('regPwdConfirm')?.value || '';
+
+  // Validation
+  if (!name)             { showRegErr('Please enter your full name.'); return; }
+  if (!phone && !email)  { showRegErr('Please enter your phone number or email.'); return; }
+  if (!pwd)              { showRegErr('Please create a password.'); return; }
+  if (pwd.length < 8)    { showRegErr('Password must be at least 8 characters.'); return; }
+  if (pwd !== confirm)   { showRegErr('Passwords do not match. Please check and try again.'); return; }
+
+  const authEmail = email || toAuthEmail(phone);
+
+  const regBtn = document.querySelector('#regStep1 .btn-submit');
+  if (regBtn) { regBtn.disabled = true; regBtn.textContent = 'Creating account…'; }
+
+  try {
+    const { data, error } = await sb.auth.signUp({
+      email: authEmail,
+      password: pwd,
+      options: {
+        data: { name, phone, role, district, email: authEmail }
+      }
+    });
+
+    if (error) {
+      let msg = error.message || 'Registration failed. Please try again.';
+      if (msg.includes('already registered')) msg = 'An account with this email/phone already exists. Try logging in.';
+      if (msg.includes('weak_password'))      msg = 'Password is too weak. Use at least 8 characters with numbers.';
+      showRegErr(msg);
+    } else {
+      // Also save to farmers table
+      try {
+        await sb.from('farmers').upsert({
+          phone, name, role, district,
+          email: authEmail,
+          created_at: new Date().toISOString()
+        }, { onConflict: 'phone' });
+      } catch(e2) { /* non-fatal */ }
+
+      // Show step 2 (check email)
+      document.getElementById('regStep1').style.display = 'none';
+      document.getElementById('regStep2').style.display = 'block';
+      const sentEl = document.getElementById('regEmailSent');
+      if (sentEl) sentEl.textContent = authEmail;
+    }
+  } catch(e) {
+    showRegErr('Connection error. Check your internet and try again.');
+  } finally {
+    if (regBtn) { regBtn.disabled = false; regBtn.textContent = 'Create Account 🌾'; }
+  }
+}
+
+// ────────────────────────────────────────────────────────────
+// FORGOT PASSWORD
+// ────────────────────────────────────────────────────────────
+function openForgotPassword() {
+  closeModal('loginModal');
+  openModal('forgotPwdModal');
+  document.getElementById('forgotStep1').style.display = 'block';
+  document.getElementById('forgotStep2').style.display = 'none';
+  const errEl = document.getElementById('forgotErrMsg');
+  if (errEl) errEl.style.display = 'none';
+}
+
+async function sendPasswordReset() {
+  const emailInput = document.getElementById('forgotEmail');
+  const errEl      = document.getElementById('forgotErrMsg');
+  if (!emailInput?.value.trim()) {
+    if (errEl) { errEl.textContent = '❌ Please enter your email address.'; errEl.style.display = 'block'; }
+    return;
+  }
+  const btn = document.querySelector('#forgotStep1 .btn-submit');
+  if (btn) { btn.disabled = true; btn.textContent = 'Sending…'; }
+
+  try {
+    const { error } = await sb.auth.resetPasswordForEmail(emailInput.value.trim(), {
+      redirectTo: window.location.origin + '/?reset=true'
+    });
+    if (error) {
+      if (errEl) { errEl.textContent = '❌ ' + (error.message || 'Failed to send reset email.'); errEl.style.display = 'block'; }
+    } else {
+      document.getElementById('forgotStep1').style.display = 'none';
+      document.getElementById('forgotStep2').style.display = 'block';
+    }
+  } catch(e) {
+    if (errEl) { errEl.textContent = '❌ Connection error. Check your internet.'; errEl.style.display = 'block'; }
+  } finally {
+    if (btn) { btn.disabled = false; btn.textContent = 'Send Reset Link 📧'; }
+  }
+}
+
+// ────────────────────────────────────────────────────────────
+// LOG OUT
+// ────────────────────────────────────────────────────────────
+async function logOut() {
+  await sb.auth.signOut();
+  currentUser = null;
+  updateNavUser(null);
+  closeModal('myAccountModal');
+  showToast('👋 Logged out successfully');
+  // Reset basket
+  basketItems   = [];
+  appliedPromo  = null;
+  localStorage.removeItem('ab_basket');
+  localStorage.removeItem('ab_promo');
+  renderBasket();
+  updateBasketBadge();
+}
+
+// ────────────────────────────────────────────────────────────
+// RESEND CONFIRMATION EMAIL
+// ────────────────────────────────────────────────────────────
+async function resendConfirmEmail() {
+  const emailEl = document.getElementById('regEmailSent');
+  if (!emailEl?.textContent) { showToast('No email to resend to'); return; }
+  await sb.auth.resend({ type:'signup', email: emailEl.textContent });
+  showToast('📧 Confirmation email resent!');
+}
+
+// ────────────────────────────────────────────────────────────
+// UPDATE NAV UI WHEN USER LOGS IN / OUT
+// ────────────────────────────────────────────────────────────
+function updateNavUser(user) {
+  const btns = document.querySelector('.nav-btns');
+  if (!btns) return;
+  if (user) {
+    const name = user.user_metadata?.name || user.email?.split('@')[0] || 'Farmer';
+    const initial = name.charAt(0).toUpperCase();
+    btns.innerHTML = `
+      <div style="width:34px;height:34px;border-radius:50%;background:var(--green);color:#000;
+        font-weight:800;font-size:0.9rem;display:flex;align-items:center;justify-content:center;
+        cursor:pointer" onclick="openModal('myAccountModal')" title="My Account">${initial}</div>
+      <button class="btn-sm outline" onclick="openModal('myAccountModal')" style="font-size:0.8rem">${name.split(' ')[0]}</button>
+    `;
+  } else {
+    btns.innerHTML = `
+      <button class="btn-sm outline" onclick="openModal('loginModal')">Log In</button>
+      <button class="btn-sm" onclick="openModal('registerModal')">Join Free</button>
+    `;
+  }
+}
+
+// ────────────────────────────────────────────────────────────
+// SUPABASE DATA FUNCTIONS — Listings, Animals, Orders
+// ────────────────────────────────────────────────────────────
+async function loadListingsFromSupabase() {
+  try {
+    const { data, error } = await sb.from('listings')
+      .select('*').eq('status','active').order('created_at',{ascending:false}).limit(50);
+    if (error) throw error;
+    return data || [];
+  } catch(e) { console.warn('Listings load failed, using sample data:', e.message); return null; }
+}
+
+async function loadAnimalsFromSupabase() {
+  try {
+    const { data, error } = await sb.from('animal_listings')
+      .select('*').eq('status','active').order('created_at',{ascending:false}).limit(50);
+    if (error) throw error;
+    return data || [];
+  } catch(e) { console.warn('Animals load failed, using sample data:', e.message); return null; }
+}
+
+async function submitListingToSupabase(listing) {
+  if (!currentUser) { showToast('Please log in to list produce'); openModal('loginModal'); return false; }
+  try {
+    const { error } = await sb.from('listings').insert({
+      ...listing,
+      farmer_id: currentUser.id,
+      farmer_name: currentUser.user_metadata?.name || 'Farmer',
+      farmer_phone: currentUser.user_metadata?.phone || '',
+      status: 'active',
+      created_at: new Date().toISOString()
+    });
+    if (error) throw error;
+    return true;
+  } catch(e) { showToast('❌ Failed to save listing: ' + e.message); return false; }
+}
+
+async function submitAnimalListingToSupabase(listing) {
+  if (!currentUser) { showToast('Please log in to list animals'); openModal('loginModal'); return false; }
+  try {
+    const { error } = await sb.from('animal_listings').insert({
+      ...listing,
+      farmer_id: currentUser.id,
+      farmer_name: currentUser.user_metadata?.name || 'Farmer',
+      farmer_phone: currentUser.user_metadata?.phone || '',
+      status: 'active',
+      created_at: new Date().toISOString()
+    });
+    if (error) throw error;
+    return true;
+  } catch(e) { showToast('❌ Failed to save animal listing: ' + e.message); return false; }
+}
+
+async function placeOrderInSupabase(orderData) {
+  try {
+    const { data, error } = await sb.from('orders').insert({
+      ...orderData,
+      buyer_id: currentUser?.id || null,
+      buyer_name: currentUser?.user_metadata?.name || 'Guest',
+      status: 'pending',
+      created_at: new Date().toISOString()
+    }).select().single();
+    if (error) throw error;
+    return data;
+  } catch(e) { console.warn('Order save failed:', e.message); return null; }
+}
+
+async function syncCloudBasket() {
+  if (!currentUser) return;
+  try {
+    // Pull cloud basket
+    const { data } = await sb.from('cart_sessions')
+      .select('cart_data').eq('user_phone', currentUser.user_metadata?.phone || currentUser.email).single();
+    if (data?.cart_data?.length) {
+      // Merge local + cloud
+      const cloud = data.cart_data;
+      cloud.forEach(ci => {
+        if (!basketItems.find(b => b.id === ci.id)) basketItems.push(ci);
+      });
+      saveBasket();
+    }
+  } catch(e) { /* non-fatal */ }
+}
+
+async function pushBasketToCloud() {
+  if (!currentUser || !basketItems.length) return;
+  try {
+    await sb.from('cart_sessions').upsert({
+      user_phone: currentUser.user_metadata?.phone || currentUser.email,
+      cart_data: basketItems,
+      updated_at: new Date().toISOString()
+    }, { onConflict: 'user_phone' });
+  } catch(e) { /* non-fatal */ }
+}
+
+async function loadPricesFromSupabase() {
+  try {
+    const { data, error } = await sb.from('market_prices')
+      .select('*').order('date',{ascending:false}).limit(80);
+    if (error) throw error;
+    return data || [];
+  } catch(e) { return null; }
+}
+
+async function saveContactMessage(msg) {
+  try {
+    await sb.from('contact_messages').insert({
+      ...msg, created_at: new Date().toISOString()
+    });
+  } catch(e) { /* non-fatal */ }
+}
+
+async function loadUserDashboard() {
+  if (!currentUser) return;
+  try {
+    // Load farmer's own listings
+    const { data: myListings } = await sb.from('listings')
+      .select('*').eq('farmer_id', currentUser.id).order('created_at',{ascending:false}).limit(20);
+    // Load farmer's own animal listings
+    const { data: myAnimals } = await sb.from('animal_listings')
+      .select('*').eq('farmer_id', currentUser.id).order('created_at',{ascending:false}).limit(20);
+    // Load farmer's orders (as buyer)
+    const { data: myOrders } = await sb.from('orders')
+      .select('*').eq('buyer_id', currentUser.id).order('created_at',{ascending:false}).limit(20);
+
+    const dash = document.getElementById('dash-content');
+    if (!dash) return;
+    const listings = (myListings||[]).length + (myAnimals||[]).length;
+    const orders   = (myOrders||[]).length;
+    dash.innerHTML = `
+      <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:12px;margin-bottom:20px">
+        <div style="background:var(--card);border:1px solid var(--border);border-radius:12px;padding:16px;text-align:center">
+          <div style="font-size:1.8rem;font-weight:800;color:var(--green)">${listings}</div>
+          <div style="font-size:0.78rem;color:var(--text2)">Active Listings</div>
+        </div>
+        <div style="background:var(--card);border:1px solid var(--border);border-radius:12px;padding:16px;text-align:center">
+          <div style="font-size:1.8rem;font-weight:800;color:var(--amber)">${orders}</div>
+          <div style="font-size:0.78rem;color:var(--text2)">Orders Made</div>
+        </div>
+        <div style="background:var(--card);border:1px solid var(--border);border-radius:12px;padding:16px;text-align:center">
+          <div style="font-size:1.8rem;font-weight:800;color:var(--green)">72</div>
+          <div style="font-size:0.78rem;color:var(--text2)">Credit Score</div>
+        </div>
+      </div>
+      <h3 style="font-size:0.95rem;margin-bottom:12px">Your Recent Listings</h3>
+      ${(myListings||[]).slice(0,3).map(l=>`
+        <div style="background:var(--bg3);border-radius:10px;padding:12px;margin-bottom:8px;display:flex;justify-content:space-between;align-items:center">
+          <div><div style="font-weight:700">${l.crop||l.name||'Listing'}</div><div style="font-size:0.78rem;color:var(--text2)">${l.qty||l.quantity||0}kg · UGX ${(l.price||0).toLocaleString()}/kg</div></div>
+          <span style="font-size:0.75rem;color:var(--green);font-weight:700">● Active</span>
+        </div>`).join('')}
+      ${listings===0?'<div style="color:var(--text2);font-size:0.9rem;padding:16px 0">No listings yet. <a href='#' onclick='openListProduceModal()'>List your first crop →</a></div>':''}
+    `;
+  } catch(e) { console.warn('Dashboard load failed:', e.message); }
+}
+
+// ── Handle password reset redirect ──────────────────────────
+if (window.location.search.includes('reset=true') || window.location.hash.includes('type=recovery')) {
+  // Open a simple new password modal after Supabase redirects back
+  window.addEventListener('load', () => {
+    setTimeout(() => {
+      const newPwd = prompt('Enter your new password (min 8 characters):');
+      if (newPwd && newPwd.length >= 8) {
+        sb.auth.updateUser({ password: newPwd }).then(({ error }) => {
+          if (error) showToast('❌ Password update failed: ' + error.message);
+          else showToast('✅ Password updated! You are now logged in.');
+        });
+      }
+    }, 1000);
+  });
+}
+
+// ── On page load: restore lockout state if needed ───────────
+if (isLockedOut()) {
+  window.addEventListener('DOMContentLoaded', () => {
+    // Will show lockout UI when login modal is opened
+    startLockCountdown();
+  });
+}
+
+// ── Push basket to cloud on every change ────────────────────
+const _origSaveBasket = window.saveBasket;
+if (_origSaveBasket) {
+  window.saveBasket = function() {
+    _origSaveBasket();
+    pushBasketToCloud();
+  };
+}
+
 </script>
 
 <!-- ══════════════════════════════════════════════════════
@@ -3935,29 +4505,150 @@ document.addEventListener('DOMContentLoaded', function() {
   </div>
 </div>
 
-<!-- ══ LOGIN MODAL ══ -->
+<!-- ══ LOGIN MODAL ══════════════════════════════════════════ -->
 <div class="modal-overlay" id="loginModal" onclick="handleOverlay(event,'loginModal')" role="dialog" aria-label="Login">
   <div class="modal-box">
     <button class="modal-close" onclick="closeModal('loginModal')">✕</button>
-    <h3>Welcome Back</h3>
-    <div class="form-group"><label>Phone Number</label><input type="tel" id="loginPhone" placeholder="+256 7xx xxx xxx"></div>
-    <div class="form-group"><label>Password</label><input type="password" id="loginPwd" placeholder="Your password" onkeydown="if(event.key==='Enter')doLogin()"></div>
+    <h3>Welcome Back 👋</h3>
+    <p style="font-size:0.83rem;color:var(--text2);margin-bottom:18px">Log in to manage your listings, orders and animals</p>
+
+    <div id="loginLockMsg" style="display:none;background:#b71c1c22;border:1px solid #b71c1c;border-radius:8px;padding:10px 14px;margin-bottom:14px;font-size:0.83rem;color:#ff5252">
+      🔒 Account temporarily locked after 5 failed attempts. Try again in <strong id="lockCountdown">5:00</strong> or <a href="#" onclick="openForgotPassword();return false" style="color:var(--amber)">reset your password</a>.
+    </div>
+
+    <div id="loginErrMsg" style="display:none;background:#b71c1c22;border:1px solid #b71c1c;border-radius:8px;padding:10px 14px;margin-bottom:14px;font-size:0.83rem;color:#ff5252" id="loginErr"></div>
+
+    <div class="form-group">
+      <label>Phone Number or Email</label>
+      <input type="text" id="loginPhone" placeholder="+256 7xx xxx xxx or email@example.com" autocomplete="username">
+    </div>
+
+    <div class="form-group">
+      <label>Password</label>
+      <div style="position:relative">
+        <input type="password" id="loginPwd" placeholder="Your password"
+          autocomplete="current-password"
+          onkeydown="if(event.key==='Enter')doLogin()"
+          style="padding-right:44px;width:100%">
+        <button type="button" onclick="togglePwdVis('loginPwd','loginPwdEye')"
+          style="position:absolute;right:10px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;color:var(--text2);font-size:1.1rem;line-height:1"
+          title="Show / hide password" id="loginPwdEye">👁</button>
+      </div>
+      <div style="margin-top:5px;display:flex;justify-content:space-between;align-items:center">
+        <span id="loginAttemptsMsg" style="font-size:0.76rem;color:var(--amber)"></span>
+        <a href="#" onclick="openForgotPassword();return false" style="font-size:0.78rem;color:var(--green)">Forgot password?</a>
+      </div>
+    </div>
+
+    <button class="btn-submit" id="loginBtn" onclick="doLogin()">Log In</button>
+
+    <p style="text-align:center;margin-top:14px;font-size:0.85rem;color:var(--text2)">
+      No account? <a href="#" onclick="closeModal('loginModal');openModal('registerModal')">Join Free</a>
+    </p>
+  </div>
+</div>
+
     <button class="btn-submit" onclick="doLogin()">Log In</button>
     <p style="text-align:center;margin-top:14px;font-size:0.85rem;color:var(--text2)">No account? <a href="#" onclick="closeModal('loginModal');openModal('registerModal')">Join Free</a></p>
   </div>
 </div>
 
-<!-- ══ REGISTER MODAL ══ -->
+<!-- ══ REGISTER MODAL ════════════════════════════════════════ -->
 <div class="modal-overlay" id="registerModal" onclick="handleOverlay(event,'registerModal')" role="dialog" aria-label="Register">
   <div class="modal-box">
     <button class="modal-close" onclick="closeModal('registerModal')">✕</button>
-    <h3>Join AgriBridge Free</h3>
+    <h3>Join AgriBridge Free 🌾</h3>
+    <p style="font-size:0.83rem;color:var(--text2);margin-bottom:18px">Create your account in 2 minutes — no credit card needed</p>
+
+    <div id="regErrMsg" style="display:none;background:#b71c1c22;border:1px solid #b71c1c;border-radius:8px;padding:10px 14px;margin-bottom:14px;font-size:0.83rem;color:#ff5252"></div>
+
     <div id="regStep1">
-      <div class="form-group"><label>Full Name</label><input type="text" id="regName" placeholder="e.g. Grace Nakato"></div>
-      <div class="form-group"><label>Phone (MTN or Airtel)</label><input type="tel" id="regPhone" placeholder="+256 7xx xxx xxx"></div>
-      <div class="form-group"><label>I am a…</label>
-        <select id="regRole"><option value="farmer">Farmer 🌾</option><option value="vendor">Vendor / Buyer 🛒</option><option value="hotel">Hotel / Restaurant 🏨</option></select>
+      <div class="form-row">
+        <div class="form-group">
+          <label>Full Name</label>
+          <input type="text" id="regName" placeholder="e.g. Grace Nakato" autocomplete="name">
+        </div>
+        <div class="form-group">
+          <label>Phone (MTN or Airtel)</label>
+          <input type="tel" id="regPhone" placeholder="+256 7xx xxx xxx" autocomplete="tel">
+        </div>
       </div>
+      <div class="form-group">
+        <label>Email Address</label>
+        <input type="email" id="regEmail" placeholder="your@email.com" autocomplete="email">
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label>I am a…</label>
+          <select id="regRole">
+            <option value="farmer">Farmer 🌾</option>
+            <option value="vendor">Vendor / Buyer 🛒</option>
+            <option value="hotel">Hotel / Restaurant 🏨</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>District</label>
+          <select id="regDistrict">
+            <option>Kampala</option><option>Wakiso</option><option>Mukono</option>
+            <option>Jinja</option><option>Mbarara</option><option>Bushenyi</option>
+            <option>Kabale</option><option>Kisoro</option><option>Gulu</option>
+            <option>Lira</option><option>Soroti</option><option>Mbale</option>
+            <option>Kasese</option><option>Hoima</option><option>Masaka</option>
+            <option>Kiruhura</option><option>Arua</option><option>Other</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label>Password</label>
+        <div style="position:relative">
+          <input type="password" id="regPwd" placeholder="Create a password (min 8 chars)"
+            oninput="checkPwdStrength(this.value)"
+            autocomplete="new-password" style="padding-right:44px;width:100%">
+          <button type="button" onclick="togglePwdVis('regPwd','regPwdEye')"
+            style="position:absolute;right:10px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;color:var(--text2);font-size:1.1rem;line-height:1"
+            title="Show / hide password" id="regPwdEye">👁</button>
+        </div>
+        <!-- Strength bar -->
+        <div style="margin-top:6px">
+          <div style="height:4px;background:var(--border);border-radius:2px;overflow:hidden">
+            <div id="pwdStrengthBar" style="height:100%;width:0%;border-radius:2px;transition:all 0.3s"></div>
+          </div>
+          <div id="pwdStrengthLabel" style="font-size:0.72rem;color:var(--text2);margin-top:3px"></div>
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label>Confirm Password</label>
+        <div style="position:relative">
+          <input type="password" id="regPwdConfirm" placeholder="Re-enter your password"
+            oninput="checkPwdMatch()"
+            autocomplete="new-password" style="padding-right:44px;width:100%"
+            onkeydown="if(event.key==='Enter')doRegister()">
+          <button type="button" onclick="togglePwdVis('regPwdConfirm','regPwdConfirmEye')"
+            style="position:absolute;right:10px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;color:var(--text2);font-size:1.1rem;line-height:1"
+            title="Show / hide password" id="regPwdConfirmEye">👁</button>
+        </div>
+        <div id="pwdMatchMsg" style="font-size:0.76rem;margin-top:4px"></div>
+      </div>
+
+      <button class="btn-submit" onclick="doRegister()">Create Account 🌾</button>
+    </div>
+
+    <div id="regStep2" style="display:none">
+      <div style="text-align:center;margin-bottom:20px">
+        <div style="font-size:3rem;margin-bottom:8px">📧</div>
+        <div style="font-weight:700;font-size:1rem;margin-bottom:6px">Check your email!</div>
+        <p style="font-size:0.85rem;color:var(--text2)">We sent a confirmation link to <strong id="regEmailSent" style="color:var(--green)"></strong>. Click the link to activate your account, then log in.</p>
+      </div>
+      <button class="btn-submit" onclick="closeModal('registerModal');openModal('loginModal')">Go to Login</button>
+      <p style="text-align:center;margin-top:10px;font-size:0.8rem;color:var(--text2)">
+        Didn't get the email? <a href="#" onclick="resendConfirmEmail()">Resend</a>
+      </p>
+    </div>
+  </div>
+</div>
+
       <div class="form-group"><label>District</label>
         <select id="regDistrict"><option>Kampala</option><option>Wakiso</option><option>Mukono</option><option>Jinja</option><option>Mbarara</option><option>Bushenyi</option><option>Kabale</option><option>Kisoro</option><option>Gulu</option><option>Lira</option><option>Soroti</option><option>Mbale</option><option>Kasese</option><option>Hoima</option><option>Masaka</option><option>Kiruhura</option><option>Other</option></select>
       </div>
@@ -4135,5 +4826,38 @@ document.addEventListener('DOMContentLoaded', function() {
 <div class="modal-overlay" id="termsModal" onclick="handleOverlay(event,'termsModal')"><div class="modal-box" style="max-width:600px;max-height:80vh;overflow-y:auto"><button class="modal-close" onclick="closeModal('termsModal')">✕</button><h3>Terms of Service</h3><div style="font-size:0.85rem;color:var(--text2);line-height:1.8"><p><strong>Effective:</strong> April 2026</p><p><strong>1. Acceptance.</strong> By using AgriBridge, you agree to these terms.</p><p><strong>2. Eligibility.</strong> Must be 18+ to register.</p><p><strong>3. Listings.</strong> Farmers are responsible for accuracy of produce and animal listings.</p><p><strong>4. Payments.</strong> 2.5% commission on completed sales via MTN MoMo / Airtel Money.</p><p><strong>5. Animals.</strong> All animal listings must comply with MAAIF regulations. Health certificates required for livestock over UGX 500,000.</p><p><strong>6. Data.</strong> We do not sell your data. See Privacy Policy.</p><p><strong>7. Support:</strong> +256 755 966 690 · hello@agribridge.ug</p></div></div></div>
 <div class="modal-overlay" id="privacyModal" onclick="handleOverlay(event,'privacyModal')"><div class="modal-box" style="max-width:600px;max-height:80vh;overflow-y:auto"><button class="modal-close" onclick="closeModal('privacyModal')">✕</button><h3>Privacy Policy</h3><div style="font-size:0.85rem;color:var(--text2);line-height:1.8"><p><strong>Effective:</strong> April 2026 | Uganda Data Protection Act 2019 compliant</p><p><strong>We collect:</strong> Name, phone, district, transaction data, vet booking data, animal listing data.</p><p><strong>We use it to:</strong> Connect farmers with buyers/buyers, process payments, send SMS alerts, provide AI diagnosis for crops and animals.</p><p><strong>We share with:</strong> MTN/Airtel (payments only), Africa's Talking (SMS only). We NEVER sell your data.</p><p><strong>Your rights:</strong> View, correct, or delete your data anytime: privacy@agribridge.ug</p></div></div></div>
 
+<!-- ══ FORGOT PASSWORD MODAL ════════════════════════════════ -->
+<div class="modal-overlay" id="forgotPwdModal" onclick="handleOverlay(event,'forgotPwdModal')" role="dialog" aria-label="Forgot password">
+  <div class="modal-box" style="max-width:400px">
+    <button class="modal-close" onclick="closeModal('forgotPwdModal')">✕</button>
+
+    <div id="forgotStep1">
+      <div style="text-align:center;margin-bottom:16px"><div style="font-size:2.5rem">🔑</div></div>
+      <h3 style="text-align:center;margin-bottom:8px">Reset Your Password</h3>
+      <p style="font-size:0.85rem;color:var(--text2);text-align:center;margin-bottom:20px">
+        Enter your email address and we'll send you a link to reset your password.
+      </p>
+      <div id="forgotErrMsg" style="display:none;background:#b71c1c22;border:1px solid #b71c1c;border-radius:8px;padding:10px;margin-bottom:14px;font-size:0.83rem;color:#ff5252"></div>
+      <div class="form-group">
+        <label>Email Address</label>
+        <input type="email" id="forgotEmail" placeholder="your@email.com"
+          onkeydown="if(event.key==='Enter')sendPasswordReset()">
+      </div>
+      <button class="btn-submit" onclick="sendPasswordReset()">Send Reset Link 📧</button>
+      <p style="text-align:center;margin-top:12px;font-size:0.83rem;color:var(--text2)">
+        <a href="#" onclick="closeModal('forgotPwdModal');openModal('loginModal')">← Back to Login</a>
+      </p>
+    </div>
+
+    <div id="forgotStep2" style="display:none;text-align:center;padding:10px 0">
+      <div style="font-size:3rem;margin-bottom:12px">✅</div>
+      <h3 style="margin-bottom:8px">Reset link sent!</h3>
+      <p style="font-size:0.85rem;color:var(--text2);margin-bottom:20px">
+        Check your email for the password reset link. Click it to create a new password. The link expires in 1 hour.
+      </p>
+      <button class="btn-submit" onclick="closeModal('forgotPwdModal');openModal('loginModal')">Back to Login</button>
+    </div>
+  </div>
+</div>
 </body>
 </html>
