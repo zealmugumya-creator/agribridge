@@ -2935,58 +2935,11 @@ async function supaAuthSignIn(phone, password) {
   const res=await fetch(`${SUPA_URL}/auth/v1/token?grant_type=password`,{ method:'POST', headers:{apikey:SUPA_KEY,'Content-Type':'application/json'}, body:JSON.stringify({email,password}) });
   return res.ok?res.json():null;
 }
-async function doLogin() {
-  const phone=document.getElementById('loginPhone')?.value.trim(), pwd=document.getElementById('loginPwd')?.value;
-  if(!phone){ showToast('Enter your phone number'); return; }
-  if(!pwd){ showToast('Enter your password'); return; }
-  const btn=document.querySelector('#loginModal .btn-submit');
-  if(btn){ btn.textContent='Logging in…'; btn.disabled=true; }
-  const session=await supaAuthSignIn(phone,pwd);
-  if(btn){ btn.textContent='Log In'; btn.disabled=false; }
-  if(!session?.access_token){ showToast('Incorrect phone or password'); return; }
-  localStorage.setItem('ab_access_token',session.access_token);
-  const farmer=await sb('farmers',{ select:'*', filters:[['phone',`eq.${phone.replace(/\s+/g,'')}`]], single:true });
-  if(farmer){ currentUser={ id:farmer.id, name:farmer.full_name, phone:farmer.phone, district:farmer.district, role:'farmer' }; localStorage.setItem('ab_user',JSON.stringify(currentUser)); closeModal('loginModal'); showToast('Welcome back, '+farmer.full_name+' 🌾'); updateNavUser(farmer.full_name,'farmer'); setTimeout(()=>{ renderRoleHome(); loadBasketFromCloud(); },400); return; }
-  const buyer=await sb('buyers',{ select:'*', filters:[['phone',`eq.${phone.replace(/\s+/g,'')}`]], single:true });
-  if(buyer){ currentUser={ id:buyer.id, name:buyer.full_name, phone:buyer.phone, role:buyer.buyer_type||'buyer' }; localStorage.setItem('ab_user',JSON.stringify(currentUser)); closeModal('loginModal'); showToast('Welcome back, '+buyer.full_name+' 🛒'); updateNavUser(buyer.full_name,'buyer'); setTimeout(()=>{ renderRoleHome(); loadBasketFromCloud(); },400); return; }
-  showToast('Account found — setting up…'); closeModal('loginModal');
-}
-async function doRegister() {
-  const name=document.getElementById('regName')?.value.trim(), phone=document.getElementById('regPhone')?.value.trim();
-  const pwd=document.getElementById('regPwd')?.value, role=document.getElementById('regRole')?.value, district=document.getElementById('regDistrict')?.value;
-  if(!name||!phone||!district){ showToast('Fill in name, phone and district'); return; }
-  if(!pwd||pwd.length<6){ showToast('Password must be at least 6 characters'); return; }
-  const btn=document.querySelector('#registerModal .btn-submit');
-  if(btn){ btn.textContent='Creating…'; btn.disabled=true; }
-  const authResult=await supaAuthSignUp(phone,pwd);
-  if(btn){ btn.textContent='Create Account'; btn.disabled=false; }
-  if(!authResult||authResult.error){ const msg=authResult?.error?.message||''; showToast(msg.includes('already registered')?'Phone already registered — please Log In':'Registration failed: '+(msg||'Please try again')); return; }
-  const normPhone=phone.replace(/\s+/g,'');
-  const table=role==='farmer'?'farmers':'buyers';
-  const payload=role==='farmer'?{ full_name:name, phone:normPhone, district }:{ full_name:name, phone:normPhone, district, buyer_type:role };
-  const profileRow=await sbInsert(table,payload);
-  const session=await supaAuthSignIn(phone,pwd);
-  if(session?.access_token) localStorage.setItem('ab_access_token',session.access_token);
-  currentUser={ id:profileRow?.[0]?.id, name, phone:normPhone, district, role };
-  localStorage.setItem('ab_user',JSON.stringify(currentUser));
-  closeModal('registerModal');
-  showToast('Welcome to AgriBridge, '+name+'! 🌾');
-  updateNavUser(name,role);
-  setTimeout(()=>{ renderRoleHome(); loadBasketFromCloud(); },500);
-}
+
+
 async function verifyOtp(){ closeModal('registerModal'); showToast('Registered! Welcome to AgriBridge 🌱'); }
-function logOut() {
-  currentUser=null; localStorage.removeItem('ab_user'); localStorage.removeItem('ab_access_token');
-  const rp=document.getElementById('roleHomePanel'); if(rp){ rp.style.display='none'; rp.innerHTML=''; }
-  document.querySelectorAll('.nav-btns').forEach(el=>{ el.innerHTML=`<button class="btn-sm outline" onclick="openModal('loginModal')">Log In</button><button class="btn-sm" onclick="openModal('registerModal')">Join Free</button>`; });
-  closeModal('myAccountModal');
-  showToast('Logged out. See you soon! 🌾');
-}
-function updateNavUser(fullName,role) {
-  const icon=role==='farmer'?'🌾':'🛒';
-  const firstName=(fullName||'User').split(' ')[0];
-  document.querySelectorAll('.nav-btns').forEach(el=>{ el.innerHTML=`<button class="btn-sm outline" style="font-size:0.8rem" onclick="openMyAccount()">${icon} ${firstName}</button>`; });
-}
+
+
 function openMyAccount() {
   const body=document.getElementById('myAccountBody');
   if(body&&currentUser){ const roleLabel=currentUser.role==='farmer'?'🌾 Farmer':'🛒 Buyer/Vendor'; body.innerHTML=`<div style="display:flex;align-items:center;gap:12px;margin-bottom:12px"><div style="width:44px;height:44px;border-radius:50%;background:var(--green-dim);display:flex;align-items:center;justify-content:center;font-size:1.2rem;font-weight:700;color:var(--green)">${(currentUser.name||'U').charAt(0).toUpperCase()}</div><div><div style="font-weight:700">${escHtml(currentUser.name||'')}</div><div style="font-size:0.8rem;color:var(--text2)">${roleLabel} · ${escHtml(currentUser.district||'')}</div></div></div><div style="font-size:0.82rem;color:var(--text2)">📞 ${escHtml(currentUser.phone||'')}</div>`; }
@@ -3131,7 +3084,7 @@ let currentPitchSlide=0;
 async function sha256(str){ const buf=await crypto.subtle.digest('SHA-256',new TextEncoder().encode(str)); return Array.from(new Uint8Array(buf)).map(b=>b.toString(16).padStart(2,'0')).join(''); }
 function openPitchGate(){ const el=document.getElementById('pitchPwdInput'); if(el) el.value=''; const err=document.getElementById('pitchPwdError'); if(err) err.style.display='none'; const m=document.getElementById('pitchGateModal'); if(m) m.style.display='flex'; setTimeout(()=>document.getElementById('pitchPwdInput')?.focus(),100); }
 function closePitchGate(){ const m=document.getElementById('pitchGateModal'); if(m) m.style.display='none'; }
-function togglePwdVis(){ const inp=document.getElementById('pitchPwdInput'); if(inp) inp.type=inp.type==='password'?'text':'password'; }
+
 async function verifyPitchPwd(){ const pwd=document.getElementById('pitchPwdInput')?.value; const hash=await sha256(pwd); if(hash===PITCH_HASH){ sessionStorage.setItem('ab_pitch_auth','1'); closePitchGate(); unlockPitchDeck(); showToast('🔓 Pitch deck unlocked!'); } else { const err=document.getElementById('pitchPwdError'); if(err) err.style.display='block'; const inp=document.getElementById('pitchPwdInput'); if(inp){ inp.value=''; inp.style.animation='shake 0.4s'; setTimeout(()=>inp.style.animation='',400); } } }
 function unlockPitchDeck(){ const page=document.getElementById('page-pitch'); if(page) page.classList.add('pitch-unlocked'); }
 function lockPitchDeck(){ sessionStorage.removeItem('ab_pitch_auth'); const page=document.getElementById('page-pitch'); if(page) page.classList.remove('pitch-unlocked'); showPage('home'); showToast('🔒 Pitch deck locked.'); }
@@ -4049,6 +4002,11 @@ if (_origSaveBasket) {
   };
 }
 
+
+function escapeHtml(str) {
+  if(!str) return '';
+  return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
 </script>
 
 <!-- ══════════════════════════════════════════════════════
