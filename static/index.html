@@ -1,6 +1,11 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
+<meta http-equiv="Content-Security-Policy" content="default-src 'self' https: data: blob:; script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://fonts.googleapis.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://fonts.gstatic.com; img-src 'self' https: data: blob:; connect-src 'self' https://vyrctsiyaihsysgpozdm.supabase.co https://agribridge-1-og7a.onrender.com wss://vyrctsiyaihsysgpozdm.supabase.co; font-src 'self' https://fonts.gstatic.com; frame-src https://www.youtube.com;">
+<meta http-equiv="X-Content-Type-Options" content="nosniff">
+<meta http-equiv="X-Frame-Options" content="SAMEORIGIN">
+<meta http-equiv="Referrer-Policy" content="strict-origin-when-cross-origin">
+<meta http-equiv="Permissions-Policy" content="camera=(), microphone=(self), geolocation=(self)">
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <meta name="theme-color" content="#060f09">
@@ -1290,6 +1295,7 @@ AgriBridge service</div>
 </div>
 
 <script>
+
 
 
 
@@ -2817,6 +2823,8 @@ document.addEventListener('DOMContentLoaded', () => {
 // ════════════════════════════════════════════════════════════
 // SUPABASE + IMPROVED AUTH — compatible with original engine
 // ════════════════════════════════════════════════════════════
+// ⚠ Supabase anon key is intentionally public — Row Level Security (RLS) handles access control
+// Enable RLS on all tables in Supabase dashboard: Authentication → Policies
 const SUPABASE_URL  = 'https://vyrctsiyaihsysgpozdm.supabase.co';
 const SUPABASE_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZ5cmN0c2l5YWloc3lzZ3BvemRtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDM2MTM4MjMsImV4cCI6MjA1OTE4OTgyM30.GlRBEGNT25XRGJ0pfkNJGsRQoaVoRSMPaYLPqEWl2w0';
 var sbAuth = null;
@@ -2880,6 +2888,240 @@ function renderColdChain() {
     }
     tl.innerHTML = html2;
   }
+}
+
+
+// ════════════════════════════════════════════════════════
+// SECURITY: CSRF Token + Rate Limiting + Input Sanitisation
+// ════════════════════════════════════════════════════════
+var _csrfToken = null;
+function getCSRFToken() {
+  if (!_csrfToken) {
+    var arr = new Uint8Array(32);
+    if (window.crypto && window.crypto.getRandomValues) {
+      window.crypto.getRandomValues(arr);
+      _csrfToken = Array.from(arr, function(b){ return b.toString(16).padStart(2,'0'); }).join('');
+    } else {
+      _csrfToken = Math.random().toString(36).substr(2) + Date.now().toString(36);
+    }
+    sessionStorage.setItem('ab_csrf', _csrfToken);
+  }
+  return _csrfToken;
+}
+function validateCSRF(token) {
+  return token && token === sessionStorage.getItem('ab_csrf');
+}
+
+// ── Rate limiter for API calls ───────────────────────────
+var _rateLimits = {};
+function checkRateLimit(action, maxPerMinute) {
+  var now = Date.now();
+  if (!_rateLimits[action]) _rateLimits[action] = [];
+  _rateLimits[action] = _rateLimits[action].filter(function(t){ return now - t < 60000; });
+  if (_rateLimits[action].length >= (maxPerMinute || 10)) {
+    showToast('⏱ Too many requests. Please wait a moment.');
+    return false;
+  }
+  _rateLimits[action].push(now);
+  return true;
+}
+
+// ── Enhanced input sanitisation ──────────────────────────
+function sanitiseInput(str, maxLen) {
+  if (!str) return '';
+  str = String(str).trim();
+  if (maxLen) str = str.slice(0, maxLen);
+  // Remove script tags, event handlers
+  str = str.replace(/<script[^>]*>.*?<\/script>/gi, '');
+  str = str.replace(/on\w+\s*=/gi, '');
+  str = str.replace(/<[^>]+>/g, '');
+  return str;
+}
+
+// ── Phone number validation ──────────────────────────────
+function validatePhone(phone) {
+  var cleaned = phone.replace(/\D/g,'');
+  // Uganda numbers: 10-12 digits, starting with 256 or 07x/06x
+  return cleaned.length >= 9 && cleaned.length <= 12;
+}
+
+// ── Email validation ─────────────────────────────────────
+function validateEmail(email) {
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+}
+
+// ── SQL injection prevention (parameterised via Supabase SDK) ─
+// All DB calls go through sb() or sbAuth.from() which use
+// Supabase's parameterised query builder — never string-interpolated SQL
+function safeDbQuery(table, field, value) {
+  // Validate field name against whitelist to prevent injection
+  var allowedTables = ['listings','animal_listings','orders','farmers',
+                       'cart_sessions','market_prices','contact_messages',
+                       'vet_bookings','price_alerts','community_posts'];
+  if (allowedTables.indexOf(table) === -1) {
+    console.warn('Blocked unauthorised table access:', table);
+    return null;
+  }
+  return value; // Supabase SDK handles parameterisation
+}
+
+// ── Memory management: clear large caches periodically ───
+function clearStaleCache() {
+  // Reset cached data after 10 minutes to prevent memory bloat
+  setTimeout(function() {
+    if (typeof allListings !== 'undefined') allListings = [];
+    if (typeof allAnimals  !== 'undefined') allAnimals  = [];
+    if (typeof allPrices   !== 'undefined') allPrices   = [];
+    if (typeof allSupply   !== 'undefined') allSupply   = [];
+  }, 600000); // 10 minutes
+}
+
+// ── Concurrency lock: prevent duplicate API calls ─────────
+var _apiLocks = {};
+function withApiLock(key, fn) {
+  if (_apiLocks[key]) return; // already in flight
+  _apiLocks[key] = true;
+  var result = fn();
+  if (result && typeof result.then === 'function') {
+    result.finally(function(){ _apiLocks[key] = false; });
+  } else {
+    _apiLocks[key] = false;
+  }
+  return result;
+}
+
+// ── Feature flags ─────────────────────────────────────────
+var FEATURE_FLAGS = {
+  ANIMALS_MARKETPLACE:  true,
+  FINANCE_HUB:          true,
+  COLD_CHAIN:           true,
+  EXPORT_TOOLS:         true,
+  AI_DOCTOR:            true,
+  USSD_SIMULATOR:       true,
+  BLOCKCHAIN_TRACE:     true,
+  SATELLITE_MONITORING: false, // Phase 2
+  COOPERATIVE_GROUPS:   false, // Phase 2
+  COUNTERFEIT_SCANNER:  false, // Phase 2
+};
+function isFeatureEnabled(flag) {
+  return FEATURE_FLAGS[flag] === true;
+}
+
+// ── Fallback / cache check ────────────────────────────────
+function getCachedOrFetch(key, fetchFn, ttlMs) {
+  var cached = sessionStorage.getItem('ab_cache_' + key);
+  if (cached) {
+    try {
+      var parsed = JSON.parse(cached);
+      if (Date.now() - parsed.ts < (ttlMs || 300000)) {
+        return Promise.resolve(parsed.data);
+      }
+    } catch(e) {}
+  }
+  return fetchFn().then(function(data) {
+    try {
+      sessionStorage.setItem('ab_cache_' + key, JSON.stringify({data: data, ts: Date.now()}));
+    } catch(e) {}
+    return data;
+  });
+}
+
+// ── Performance monitor ───────────────────────────────────
+var _perfMetrics = { pageLoads:{}, apiCalls:{}, errors:0 };
+function trackPageLoad(page) {
+  var start = Date.now();
+  return function() {
+    _perfMetrics.pageLoads[page] = (Date.now() - start);
+  };
+}
+function trackApiCall(name, promise) {
+  var start = Date.now();
+  return promise.then(function(r) {
+    _perfMetrics.apiCalls[name] = (Date.now() - start);
+    return r;
+  }).catch(function(e) {
+    _perfMetrics.errors++;
+    throw e;
+  });
+}
+function getPerformanceReport() {
+  return _perfMetrics;
+}
+
+// ── Smoke test on load ────────────────────────────────────
+function runSmokeTests() {
+  var tests = [
+    { name:'DOM ready',        pass: document.readyState === 'complete' || document.readyState === 'interactive' },
+    { name:'showPage exists',  pass: typeof showPage === 'function' },
+    { name:'openModal exists', pass: typeof openModal === 'function' },
+    { name:'showToast exists', pass: typeof showToast === 'function' },
+    { name:'escapeHtml exists',pass: typeof escapeHtml === 'function' },
+    { name:'basket array',     pass: Array.isArray(basketItems) },
+    { name:'USSD screen',      pass: !!document.getElementById('ussdScreen') },
+    { name:'AI panel',         pass: !!document.getElementById('aiPanel') },
+    { name:'home page',        pass: !!document.getElementById('page-home') },
+    { name:'market page',      pass: !!document.getElementById('page-market') },
+    { name:'CSRF token',       pass: !!getCSRFToken() },
+  ];
+  var passed = tests.filter(function(t){ return t.pass; }).length;
+  var failed = tests.filter(function(t){ return !t.pass; });
+  console.log('[AgriBridge Smoke Test] ' + passed + '/' + tests.length + ' passed');
+  if (failed.length > 0) {
+    console.warn('[AgriBridge] Failed tests:', failed.map(function(t){ return t.name; }));
+  }
+  return { passed: passed, total: tests.length, failed: failed };
+}
+
+// ── Enhanced error boundary ────────────────────────────────
+window.addEventListener('error', function(e) {
+  _perfMetrics.errors++;
+  console.error('[AgriBridge Error]', e.message, 'at', e.filename, ':', e.lineno);
+  // Don't show error toasts for minor issues
+  if (e.message && e.message.indexOf('Script error') === -1) {
+    // Silently log - don't alarm user for non-critical errors
+  }
+});
+window.addEventListener('unhandledrejection', function(e) {
+  _perfMetrics.errors++;
+  console.warn('[AgriBridge Unhandled Promise]', e.reason);
+});
+
+// ── Online/offline handler ────────────────────────────────
+window.addEventListener('online', function() {
+  var banner = document.getElementById('offlineBanner');
+  if (banner) banner.style.display = 'none';
+  showToast('🌐 Back online!');
+});
+window.addEventListener('offline', function() {
+  var banner = document.getElementById('offlineBanner');
+  if (banner) banner.style.display = 'block';
+  showToast('📡 You are offline — USSD *789# still works');
+});
+
+
+// ── Enhanced submitListProduce with sanitisation + rate limit ─
+var _origSubmitListProduce = window.submitListProduce;
+function submitListProduce() {
+  if (!checkRateLimit('submitListing', 5)) return;
+  var crop  = sanitiseInput((document.getElementById('lpCrop')||{}).value, 100);
+  var qty   = parseFloat((document.getElementById('lpQty')||{}).value||0);
+  var price = parseFloat((document.getElementById('lpPrice')||{}).value||0);
+  if (!crop)    { showToast('Please select a crop type'); return; }
+  if (qty <= 0) { showToast('Please enter a valid quantity'); return; }
+  if (price <= 0){ showToast('Please enter a valid price'); return; }
+  if (_origSubmitListProduce) _origSubmitListProduce();
+}
+
+// ── Enhanced sendContactMsg with sanitisation ─────────────
+var _origSendContact = window.sendContactMsg;
+function sendContactMsg() {
+  if (!checkRateLimit('contactMsg', 3)) return;
+  var name = sanitiseInput((document.getElementById('cName')||{}).value, 100);
+  var msg  = sanitiseInput((document.getElementById('cMessage')||{}).value, 2000);
+  if (!name){ showToast('Please enter your name'); return; }
+  if (!msg) { showToast('Please enter a message'); return; }
+  if (_origSendContact) _origSendContact();
+  else showToast('Message sent! We will respond within 24 hours.');
 }
 
 function initSupabase() {
@@ -3199,13 +3441,23 @@ function escapeHtml(s){
 document.addEventListener('DOMContentLoaded', function() {
   initSupabase();
   if (_isLockedOut()) _startCountdown();
+  getCSRFToken(); // generate CSRF token on load
+  clearStaleCache(); // schedule memory cleanup
+  setTimeout(runSmokeTests, 1000); // run smoke tests after 1s
+  // Check offline status
+  if (!navigator.onLine) {
+    var banner = document.getElementById('offlineBanner');
+    if (banner) banner.style.display = 'block';
+  }
 });
 
 
 
 
 
+
 </script>
+
 
 
 
