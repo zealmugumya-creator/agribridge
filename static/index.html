@@ -1305,6 +1305,9 @@ AgriBridge service</div>
 
 
 
+
+
+
 // ═══════════════════════════════════════════════════════════════════
 // AGRIBRIDGE v5.0 — COMPLETE ENGINE
 // Animals + Auto-Basket + Super AI + All Pages Wired
@@ -2931,8 +2934,9 @@ function sanitiseInput(str, maxLen) {
   if (!str) return '';
   str = String(str).trim();
   if (maxLen) str = str.slice(0, maxLen);
-  // Remove script tags, event handlers
-  str = str.replace(/<script[^>]*>.*?<\/script>/gi, '');
+  // Remove dangerous patterns (encoded to avoid HTML parser issues)
+  var scriptTag = new RegExp('<scr' + 'ipt[\\s\\S]*?<\/scr' + 'ipt>', 'gi');
+  str = str.replace(scriptTag, '');
   str = str.replace(/on\w+\s*=/gi, '');
   str = str.replace(/<[^>]+>/g, '');
   return str;
@@ -3123,6 +3127,287 @@ function sendContactMsg() {
   if (_origSendContact) _origSendContact();
   else showToast('Message sent! We will respond within 24 hours.');
 }
+
+
+// ════════════════════════════════════════════════════════════
+// B2B PORTAL FUNCTIONS
+// ════════════════════════════════════════════════════════════
+
+// ── B2B Tab switching ────────────────────────────────────
+function switchB2BTab(tab, btn) {
+  var tabs = ['overview','products','orders','invoices','standing','processing'];
+  tabs.forEach(function(t) {
+    var el = document.getElementById('b2b-' + t);
+    if (el) el.style.display = 'none';
+  });
+  var active = document.getElementById('b2b-' + tab);
+  if (active) active.style.display = 'block';
+  document.querySelectorAll('#page-b2b .about-tab').forEach(function(b) { b.classList.remove('active'); });
+  if (btn) btn.classList.add('active');
+  if (tab === 'products') renderB2BProducts('all');
+  if (tab === 'processing') renderProcessingPartners();
+}
+
+// ── B2B Product Catalogue ─────────────────────────────────
+var B2B_PRODUCTS = [
+  { id:'b1', name:'Beef Cuts — Mixed (Steak, Ribs, Mince)', cat:'meat', tier:'processed', price:28000, unit:'kg', minOrder:10, cert:['KCCA','MAAIF'], desc:'Grade A Ankole beef. Butchered and vacuum-packed by Pearl Meat Industries. Available boneless on request.', processing:'Pearl Meat Industries Ltd, Namanve' },
+  { id:'b2', name:'Whole Dressed Chicken (1.5kg avg)', cat:'meat', tier:'processed', price:18000, unit:'bird', minOrder:20, cert:['KCCA','UNBS'], desc:'Farm-fresh broilers. Slaughtered, dressed, and chilled within 6 hours. Delivered in sealed food-grade bags.', processing:'Ugachick / Kenchic Uganda' },
+  { id:'b3', name:'Chicken Breast — Boneless (1kg packs)', cat:'meat', tier:'processed', price:22000, unit:'pack', minOrder:10, cert:['KCCA','UNBS'], desc:'Skin-off, boneless chicken breast. Ideal for hotel restaurants. Delivered chilled, shelf life 3 days.', processing:'Kenchic Uganda' },
+  { id:'b4', name:'Tilapia Fillets — Fresh (500g packs)', cat:'meat', tier:'processed', price:16000, unit:'pack', minOrder:20, cert:['KCCA','MAAIF'], desc:'Fresh Nile tilapia fillets from Lake Victoria. Skinless, boneless. Packed in food-grade sealed trays.', processing:'Kajjansi Aquaculture Research Centre' },
+  { id:'b5', name:'Mixed Vegetables — Pre-Cut (5kg trays)', cat:'produce', tier:'processed', price:12000, unit:'tray', minOrder:5, cert:['KCCA'], desc:'Tomatoes, onions, capsicum, carrots — washed, peeled, and chopped. Ready for cooking. Delivery by 5:30AM.', processing:'AgriBridge Central Kitchen, Kampala' },
+  { id:'b6', name:'Maize Flour — AgriBridge Brand (5kg)', cat:'processed', tier:'branded', price:11000, unit:'bag', minOrder:20, cert:['UNBS'], desc:'Grade A maize, milled to fine flour. AgriBridge branded 5kg bags with UNBS quality mark. Expiry: 6 months.', processing:'Maganjo Grain Millers Ltd' },
+  { id:'b7', name:'Pasteurised Milk — AgriBridge Farm (500ml)', cat:'dairy', tier:'branded', price:3200, unit:'bottle', minOrder:50, cert:['KCCA','UNBS'], desc:'Full-cream pasteurised milk from Ankole dairy cows. Bottled and sealed. Shelf life: 5 days refrigerated.', processing:'Pearl Dairy Uganda' },
+  { id:'b8', name:'Raw Honey — AgriBridge Brand (1kg jar)', cat:'processed', tier:'branded', price:22000, unit:'jar', minOrder:12, cert:['UNBS'], desc:'100% pure Uganda honey. Filtered, pasteurised. AgriBridge branded glass jars. Certified by Uganda Honey Council.', processing:'Uganda Honey Council Partner' },
+  { id:'b9', name:'Tomatoes Grade A (10kg boxes)', cat:'produce', tier:'raw', price:18000, unit:'box', minOrder:10, cert:['MAAIF'], desc:'Fresh Grade A tomatoes. Hand-selected, packed in ventilated boxes. Sourced from Wakiso and Mukono districts.', processing:'Farm direct' },
+  { id:'b10', name:'Irish Potato (50kg bags)', cat:'produce', tier:'raw', price:55000, unit:'bag', minOrder:5, cert:['MAAIF'], desc:'Fresh Irish potato from Kabale highlands. Uniform size. Clean and sorted. MAAIF quality checked.', processing:'Farm direct' },
+  { id:'b11', name:'Beef Mince — Lean (1kg packs)', cat:'meat', tier:'processed', price:25000, unit:'pack', minOrder:20, cert:['KCCA','MAAIF'], desc:'Lean beef mince. 80% lean / 20% fat ratio. Vacuum sealed. Ideal for burgers, bolognese, meatballs. 3-day shelf life chilled.', processing:'Pearl Meat Industries Ltd' },
+  { id:'b13', name:'AgriBridge Maize Flour — Supermarket Pack (1kg)', cat:'processed', tier:'consignment', price:4200, unit:'bag', minOrder:100, cert:['UNBS'], desc:'Retail 1kg bags with barcode (EAN-13), UNBS mark, nutritional label. Supplied on consignment to supermarkets — pay for what sells, return unsold.', processing:'Maganjo Grain Millers Ltd' },
+  { id:'b14', name:'AgriBridge Raw Honey — Retail Jar (500g)', cat:'processed', tier:'consignment', price:14000, unit:'jar', minOrder:50, cert:['UNBS'], desc:'500g glass jars, full retail packaging with QR traceability code. Consignment terms available for Capital Shoppers, Carrefour, Quality Supermarkets.', processing:'Uganda Honey Council Partner' },
+  { id:'b15', name:'AgriBridge Chicken Breast — Supermarket Pack (500g)', cat:'meat', tier:'consignment', price:13000, unit:'pack', minOrder:200, cert:['KCCA','UNBS'], desc:'Vacuum-sealed 500g packs with barcode, price label, best-before date. Cold chain delivery. Consignment basis for approved supermarkets.', processing:'Kenchic Uganda' },
+    { id:'b12', name:'Whole Maize Grain (100kg bags)', cat:'processed', tier:'raw', price:75000, unit:'bag', minOrder:10, cert:['MAAIF'], desc:'Grade A white maize grain. Clean, dried to 13% moisture. Suitable for milling, animal feed, or direct sale.', processing:'Farm direct — multiple districts' },
+];
+
+var _b2bFilter = 'all';
+function setB2BFilter(cat, btn) {
+  _b2bFilter = cat;
+  document.querySelectorAll('#b2bCatFilters .filter-btn').forEach(function(b){ b.classList.remove('active'); });
+  if (btn) btn.classList.add('active');
+  renderB2BProducts(cat);
+}
+function renderB2BProducts(cat) {
+  var grid = document.getElementById('b2bProductGrid');
+  if (!grid) return;
+  var products = cat === 'all' ? B2B_PRODUCTS : B2B_PRODUCTS.filter(function(p) {
+    return p.cat === cat || p.tier === cat;
+  });
+  if (!products.length) {
+    grid.innerHTML = '<div class="empty-state"><div class="e-icon">📦</div><p>No products in this category</p></div>';
+    return;
+  }
+  var tierColors = { raw: 'var(--green)', processed: 'var(--amber)', branded: '#9c27b0', consignment: '#1565c0' };
+  var tierLabels = { raw: '🌾 Farm Direct', processed: '⚙️ Processed', branded: '🏷️ AgriBridge Brand', consignment: '🏪 Supermarket Consignment' };
+  var tierColors2 = { raw: 'var(--green)', processed: 'var(--amber)', branded: '#9c27b0', consignment: '#1565c0' };
+  var html = '';
+  for (var i = 0; i < products.length; i++) {
+    var p = products[i];
+    var certs = p.cert.map(function(cert) {
+      return '<span style="background:var(--green-dim);color:var(--green);border:1px solid var(--green);padding:2px 7px;border-radius:20px;font-size:0.65rem;font-weight:700;margin-right:4px">' + cert + '</span>';
+    }).join('');
+    var tierCol = tierColors[p.tier] || 'var(--green)';
+    var tierLbl = tierLabels[p.tier] || p.tier;
+    html += '<div class="card">';
+    html += '<div style="background:linear-gradient(135deg,var(--bg2),var(--bg3));padding:12px 16px;display:flex;justify-content:space-between">';
+    html += '<span style="font-size:0.75rem;font-weight:700;color:' + tierCol + '">' + tierLbl + '</span>';
+    html += '<span style="font-size:0.7rem;color:var(--text2)">Min: ' + p.minOrder + ' ' + p.unit + '</span>';
+    html += '</div>';
+    html += '<div class="card-body">';
+    html += '<div class="card-title" style="margin-bottom:6px">' + escapeHtml(p.name) + '</div>';
+    html += '<div style="margin-bottom:8px">' + certs + '</div>';
+    html += '<div class="card-desc">' + escapeHtml(p.desc) + '</div>';
+    html += '<div style="font-size:0.78rem;color:var(--text2);margin-bottom:10px">⚙️ ' + escapeHtml(p.processing) + '</div>';
+    html += '<div class="card-footer">';
+    html += '<div><div class="card-price">UGX ' + p.price.toLocaleString() + '</div>';
+    html += '<div class="card-unit">per ' + p.unit + '</div></div>';
+    html += '<button class="btn-card" onclick="addToB2BOrder(this)" data-pid="' + p.id + '">Add to Order</button>';
+    html += '</div></div></div>';
+  }
+  grid.innerHTML = html;
+}
+
+// ── B2B Order form ────────────────────────────────────────
+function addB2BRow() {
+  var container = document.getElementById('b2bOrderItems');
+  if (!container) return;
+  var row = document.createElement('div');
+  row.className = 'b2b-order-row';
+  row.style.cssText = 'display:flex;gap:10px;margin-bottom:8px;align-items:flex-end';
+  row.innerHTML = '<div class="form-group" style="flex:2;margin-bottom:0"><select class="b2b-product-sel" style="width:100%">' +
+    '<option>Select product...</option>' +
+    B2B_PRODUCTS.map(function(p){ return '<option value="' + p.id + '">' + p.name + '</option>'; }).join('') +
+    '</select></div>' +
+    '<div class="form-group" style="flex:1;margin-bottom:0"><input type="number" class="b2b-qty" placeholder="Qty" min="1" style="width:100%"></div>' +
+    '<div class="form-group" style="flex:1;margin-bottom:0"><select class="b2b-unit" style="width:100%"><option>kg</option><option>packs</option><option>bottles</option><option>bags</option><option>boxes</option><option>jars</option><option>heads</option></select></div>' +
+    '<button onclick="removeB2BRow(this)" style="background:#f4433622;border:1px solid #f44336;color:#f44336;border-radius:8px;padding:10px 12px;cursor:pointer;flex-shrink:0">✕</button>';
+  container.appendChild(row);
+}
+function removeB2BRow(btn) {
+  var row = btn.closest('.b2b-order-row');
+  if (row) row.remove();
+}
+function addToB2BOrder(btn) {
+  switchB2BTab('orders', null);
+  showToast('Product added to order form — fill in quantity and submit');
+}
+function submitB2BOrder() {
+  if (!checkRateLimit('b2bOrder', 3)) return;
+  var biz = (document.getElementById('b2bBizName')||{}).value||'';
+  if (!biz) { showToast('Please enter your business name'); return; }
+  var rows = document.querySelectorAll('.b2b-order-row');
+  if (!rows.length) { showToast('Please add at least one product'); return; }
+  var ref = 'B2B-' + Date.now().toString(36).toUpperCase().slice(-6);
+  showToast('✅ Bulk order ' + ref + ' submitted! Our team will confirm within 2 hours.');
+  generateInvoice(biz, rows, ref);
+}
+function generateInvoice(bizName, rows, ref) {
+  var now = new Date();
+  var due = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000);
+  var invoiceNum = 'INV-' + ref;
+  var items = [];
+  rows.forEach(function(row) {
+    var sel = row.querySelector('.b2b-product-sel');
+    var qty = row.querySelector('.b2b-qty');
+    var unit = row.querySelector('.b2b-unit');
+    if (sel && qty && sel.value !== 'Select product...' && qty.value) {
+      var prod = B2B_PRODUCTS.find(function(p){ return p.name === sel.value || p.id === sel.value; });
+      var q = parseInt(qty.value) || 1;
+      var price = prod ? prod.price : 15000;
+      items.push({ name: sel.value, qty: q, unit: unit ? unit.value : 'kg', price: price, total: q * price });
+    }
+  });
+  if (!items.length) return;
+  var subtotal = items.reduce(function(s,i){ return s+i.total; }, 0);
+  var commission = Math.round(subtotal * 0.06);
+  var delivery = 25000;
+  var total = subtotal + commission + delivery;
+  document.getElementById('invoiceToName').textContent = bizName;
+  document.getElementById('invoiceNum').textContent = invoiceNum;
+  document.getElementById('invoiceDate').textContent = 'Date: ' + now.toLocaleDateString('en-UG');
+  document.getElementById('invoiceDue').textContent = due.toLocaleDateString('en-UG');
+  document.getElementById('invoiceItems').innerHTML = items.map(function(item,i){
+    return '<tr style="background:' + (i%2?'var(--bg3)':'var(--bg)') + '">' +
+      '<td style="padding:8px 12px">' + item.name + '</td>' +
+      '<td style="padding:8px 12px;text-align:center">' + item.qty + ' ' + item.unit + '</td>' +
+      '<td style="padding:8px 12px;text-align:right">UGX ' + item.price.toLocaleString() + '</td>' +
+      '<td style="padding:8px 12px;text-align:right;font-weight:700">UGX ' + item.total.toLocaleString() + '</td></tr>';
+  }).join('');
+  document.getElementById('invoiceTotals').innerHTML =
+    '<div style="display:flex;justify-content:flex-end;gap:24px;margin-bottom:4px"><span>Subtotal:</span><span>UGX ' + subtotal.toLocaleString() + '</span></div>' +
+    '<div style="display:flex;justify-content:flex-end;gap:24px;margin-bottom:4px"><span>AgriBridge fee (6%):</span><span>UGX ' + commission.toLocaleString() + '</span></div>' +
+    '<div style="display:flex;justify-content:flex-end;gap:24px;margin-bottom:4px"><span>Delivery:</span><span>UGX ' + delivery.toLocaleString() + '</span></div>' +
+    '<div style="display:flex;justify-content:flex-end;gap:24px;font-weight:800;font-size:1.05rem;border-top:2px solid var(--green);padding-top:6px;margin-top:6px"><span>TOTAL DUE:</span><span style="color:var(--green)">UGX ' + total.toLocaleString() + '</span></div>';
+  openModal('invoiceModal');
+}
+function downloadInvoice() { openModal('invoiceModal'); }
+
+// ── Standing Order ────────────────────────────────────────
+function setupStandingOrder() {
+  showToast('Standing order setup — contact hello@agribridge.ug or call +256 755 966 690 to set up your weekly order.');
+}
+
+// ── Processing Partners ───────────────────────────────────
+var PROCESSING_PARTNERS = [
+  { name:'Pearl Meat Industries Ltd', location:'Namanve Industrial Area, Kampala', products:['Beef cuts','Goat meat','Pork','Value-added meat products'], cert:['KCCA','MAAIF','UNBS','ISO 22000'], capacity:'5 tonnes/day', icon:'🥩' },
+  { name:'Ugachick Poultry Breeders', location:'Gayaza Road, Kampala', products:['Dressed chicken','Chicken cuts','Eggs'],cert:['KCCA','MAAIF'], capacity:'2,000 birds/day', icon:'🐔' },
+  { name:'Maganjo Grain Millers Ltd', location:'Maganjo, Kawempe', products:['Maize flour','Wheat flour','Bran'], cert:['UNBS','ISO 9001'], capacity:'200 tonnes/day', icon:'🌾' },
+  { name:'Pearl Dairy Uganda', location:'Mbarara (factory), Kampala (distribution)', products:['Pasteurised milk','UHT milk','Yoghurt','Ghee'], cert:['KCCA','UNBS','ISO 22000'], capacity:'100,000 litres/day', icon:'🥛' },
+  { name:'Kajjansi Aquaculture Centre', location:'Kajjansi, Wakiso', products:['Tilapia fillets','Catfish','Smoked fish'], cert:['MAAIF','KCCA'], capacity:'2 tonnes/day', icon:'🐟' },
+  { name:'Uganda Honey Council Partners', location:'Multiple districts', products:['Filtered honey','Pasteurised honey','Beeswax'], cert:['UNBS','Uganda Honey Council'], capacity:'500kg/day', icon:'🍯' },
+  { name:'AgriBridge Central Kitchen', location:'Kampala (location TBD — Phase 2)', products:['Pre-cut vegetables','Ready-to-cook packs','Hotel breakfast packs'], cert:['KCCA'], capacity:'500kg/day', icon:'🥬' },
+];
+function renderProcessingPartners() {
+  var grid = document.getElementById('processingPartnerGrid');
+  if (!grid) return;
+  var html = '';
+  for (var i = 0; i < PROCESSING_PARTNERS.length; i++) {
+    var p = PROCESSING_PARTNERS[i];
+    var certs = p.cert.map(function(cert) {
+      return '<span style="background:var(--green-dim);color:var(--green);border:1px solid var(--green);padding:2px 7px;border-radius:20px;font-size:0.65rem;font-weight:700;margin-right:4px">' + cert + '</span>';
+    }).join('');
+    html += '<div class="card"><div class="card-body">';
+    html += '<div style="font-size:2rem;margin-bottom:8px">' + p.icon + '</div>';
+    html += '<div class="card-title">' + escapeHtml(p.name) + '</div>';
+    html += '<div style="font-size:0.78rem;color:var(--text2);margin-bottom:6px">📍 ' + escapeHtml(p.location) + '</div>';
+    html += '<div style="margin-bottom:8px">' + certs + '</div>';
+    html += '<div style="font-size:0.8rem;color:var(--text2);margin-bottom:6px">Products: ' + p.products.join(', ') + '</div>';
+    html += '<div style="font-size:0.8rem;color:var(--green);margin-bottom:12px;font-weight:700">Capacity: ' + p.capacity + '</div>';
+    html += '<button class="btn-card" onclick="requestPartnership(this)" data-name="' + escapeHtml(p.name) + '">Request Partnership</button>';
+    html += '</div></div>';
+  }
+  grid.innerHTML = html;
+}
+
+function requestPartnership(btn) {
+  var name = btn ? (btn.getAttribute("data-name") || "this partner") : "this partner";
+  showToast("Request sent to " + name + ". AgriBridge will facilitate the partnership.");
+}
+
+// ── B2B Application ───────────────────────────────────────
+function submitB2BApplication() {
+  if (!checkRateLimit('b2bApply', 2)) return;
+  var name = (document.getElementById('b2bAppName')||{}).value||'';
+  var phone = (document.getElementById('b2bAppPhone')||{}).value||'';
+  if (!name)  { showToast('Please enter your business name'); return; }
+  if (!phone) { showToast('Please enter your contact phone'); return; }
+  showToast('✅ Application submitted! Our B2B team will contact you within 24 hours on ' + phone);
+  closeModal('b2bApplyModal');
+}
+
+// ── Refund System ─────────────────────────────────────────
+function openRefundRequest(orderRef) {
+  var inp = document.getElementById('refundOrderRef');
+  if (inp && orderRef) inp.value = orderRef;
+  openModal('refundModal');
+}
+function submitRefund() {
+  var ref = (document.getElementById('refundOrderRef')||{}).value||'';
+  if (!ref) { showToast('Please enter your order reference'); return; }
+  var type = (document.getElementById('refundType')||{}).value||'full';
+  var labels = { full:'Full refund to MoMo within 48 hours', credit:'Store credit added to your account immediately', replacement:'Replacement delivery scheduled for tomorrow' };
+  showToast('💸 Refund request submitted for ' + ref + '. ' + (labels[type]||'Processing...'));
+  closeModal('refundModal');
+}
+
+// ── Farmer Rating System ──────────────────────────────────
+var _qualityRating = 0, _deliveryRating = 0;
+function initRatingStars() {
+  function makeStars(containerId, ratingVar) {
+    var el = document.getElementById(containerId);
+    if (!el) return;
+    el.innerHTML = '☆☆☆☆☆';
+    el.addEventListener('click', function(e) {
+      var rect = el.getBoundingClientRect();
+      var x = e.clientX - rect.left;
+      var starWidth = rect.width / 5;
+      var rating = Math.ceil(x / starWidth);
+      if (containerId === 'qualityStars') _qualityRating = rating;
+      else _deliveryRating = rating;
+      var filled = '★'.repeat(rating) + '☆'.repeat(5-rating);
+      el.innerHTML = filled;
+      el.style.color = '#ffd600';
+    });
+  }
+  makeStars('qualityStars', '_qualityRating');
+  makeStars('deliveryStars', '_deliveryRating');
+}
+function openFarmerRating(orderId) {
+  openModal('farmerRatingModal');
+  setTimeout(initRatingStars, 100);
+}
+function submitRating() {
+  if (!_qualityRating) { showToast('Please select a quality rating'); return; }
+  var avg = Math.round((_qualityRating + (_deliveryRating||_qualityRating)) / 2);
+  var msg = avg >= 4 ? 'Thank you! Your positive rating helps this farmer get more orders.' :
+            avg === 3 ? 'Thank you for your feedback. AgriBridge will follow up with the farmer.' :
+            'Thank you. AgriBridge quality team has been notified and will review this farmer.';
+  // Three-strikes check simulation
+  if (avg <= 2) {
+    showToast('⚠️ Low rating logged. Farmer quality review triggered. ' + msg);
+  } else {
+    showToast('⭐ Rating submitted! ' + msg);
+  }
+  closeModal('farmerRatingModal');
+  _qualityRating = 0; _deliveryRating = 0;
+}
+
+// ── Extend showPage for B2B ───────────────────────────────
+var _prevShowPage2 = window.showPage;
+window.showPage = function(name) {
+  if (_prevShowPage2) _prevShowPage2(name);
+  if (name === 'b2b') {
+    switchB2BTab('overview', null);
+    document.querySelector('#page-b2b .about-tab') && document.querySelector('#page-b2b .about-tab').classList.add('active');
+  }
+};
 
 function initSupabase() {
   if (typeof supabase === 'undefined') { setTimeout(initSupabase, 500); return; }
@@ -3456,7 +3741,344 @@ document.addEventListener('DOMContentLoaded', function() {
 
 
 
+
+
+
 </script>
+
+
+
+<!-- ══════════════════════════════════════════════════════
+     PAGE: B2B BUSINESS PORTAL
+════════════════════════════════════════════════════════ -->
+<div id="page-b2b" class="page">
+  <div class="page-header">
+    <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px;flex-wrap:wrap">
+      <div>
+        <h2>🏢 B2B Business Portal</h2>
+        <p>Hotels · Restaurants · Supermarkets · Schools · NGOs — bulk orders, standing orders, invoicing</p>
+      </div>
+      <button class="btn-sm" onclick="openModal('b2bApplyModal')" style="white-space:nowrap;background:var(--amber)">Apply for Business Account</button>
+    </div>
+  </div>
+
+  <!-- TABS -->
+  <div style="background:var(--bg2);border-bottom:1px solid var(--border);display:flex;overflow-x:auto;padding:0 12px">
+    <button class="about-tab active" onclick="switchB2BTab('overview',this)">📊 Overview</button>
+    <button class="about-tab" onclick="switchB2BTab('products',this)">📦 Product Catalogue</button>
+    <button class="about-tab" onclick="switchB2BTab('orders',this)">🛒 Place Bulk Order</button>
+    <button class="about-tab" onclick="switchB2BTab('invoices',this)">🧾 My Invoices</button>
+    <button class="about-tab" onclick="switchB2BTab('standing',this)">🔄 Standing Orders</button>
+    <button class="about-tab" onclick="switchB2BTab('processing',this)">⚙️ Processing Partners</button>
+  </div>
+
+  <!-- OVERVIEW TAB -->
+  <div id="b2b-overview" class="section">
+    <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:12px;margin-bottom:24px">
+      <div style="background:var(--card);border:1px solid var(--border);border-radius:12px;padding:16px;text-align:center">
+        <div style="font-size:1.8rem;font-weight:800;color:var(--green)" id="b2b-orders-count">0</div>
+        <div style="font-size:0.78rem;color:var(--text2)">Total Orders</div>
+      </div>
+      <div style="background:var(--card);border:1px solid var(--border);border-radius:12px;padding:16px;text-align:center">
+        <div style="font-size:1.8rem;font-weight:800;color:var(--amber)" id="b2b-spend">UGX 0</div>
+        <div style="font-size:0.78rem;color:var(--text2)">Total Spend (this month)</div>
+      </div>
+      <div style="background:var(--card);border:1px solid var(--border);border-radius:12px;padding:16px;text-align:center">
+        <div style="font-size:1.8rem;font-weight:800;color:var(--green)" id="b2b-standing-count">0</div>
+        <div style="font-size:0.78rem;color:var(--text2)">Standing Orders Active</div>
+      </div>
+      <div style="background:var(--card);border:1px solid var(--border);border-radius:12px;padding:16px;text-align:center">
+        <div style="font-size:1.8rem;font-weight:800;color:#f44336" id="b2b-outstanding">UGX 0</div>
+        <div style="font-size:0.78rem;color:var(--text2)">Outstanding Invoices</div>
+      </div>
+    </div>
+
+    <div style="background:linear-gradient(135deg,var(--bg2),var(--bg3));border:1px solid var(--amber);border-radius:14px;padding:20px;margin-bottom:20px">
+      <div style="font-weight:800;font-size:1rem;color:var(--amber);margin-bottom:8px">🏢 Why B2B with AgriBridge?</div>
+      <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:12px">
+        <div style="background:var(--bg3);border-radius:10px;padding:12px"><div style="font-size:1.2rem;margin-bottom:4px">🚚</div><div style="font-weight:700;font-size:0.88rem;margin-bottom:3px">Early Morning Delivery</div><div style="font-size:0.78rem;color:var(--text2)">Fresh produce by 5:30AM before your kitchen opens</div></div>
+        <div style="background:var(--bg3);border-radius:10px;padding:12px"><div style="font-size:1.2rem;margin-bottom:4px">⚙️</div><div style="font-weight:700;font-size:0.88rem;margin-bottom:3px">Pre-Cut & Packed</div><div style="font-size:0.78rem;color:var(--text2)">Beef cuts, dressed chicken, chopped vegetables — kitchen-ready</div></div>
+        <div style="background:var(--bg3);border-radius:10px;padding:12px"><div style="font-size:1.2rem;margin-bottom:4px">🧾</div><div style="font-weight:700;font-size:0.88rem;margin-bottom:3px">Monthly Invoicing</div><div style="font-size:0.78rem;color:var(--text2)">One invoice per month — 30-day payment terms for approved accounts</div></div>
+        <div style="background:var(--bg3);border-radius:10px;padding:12px"><div style="font-size:1.2rem;margin-bottom:4px">✅</div><div style="font-weight:700;font-size:0.88rem;margin-bottom:3px">KCCA & UNBS Certified</div><div style="font-size:0.78rem;color:var(--text2)">All processed products certified — safe for hotel and restaurant service</div></div>
+        <div style="background:var(--bg3);border-radius:10px;padding:12px"><div style="font-size:1.2rem;margin-bottom:4px">🔄</div><div style="font-weight:700;font-size:0.88rem;margin-bottom:3px">Standing Orders</div><div style="font-size:0.78rem;color:var(--text2)">Set weekly order once — we deliver automatically every week</div></div>
+        <div style="background:var(--bg3);border-radius:10px;padding:12px"><div style="font-size:1.2rem;margin-bottom:4px">💰</div><div style="font-weight:700;font-size:0.88rem;margin-bottom:3px">Wholesale Pricing</div><div style="font-size:0.78rem;color:var(--text2)">B2B prices 10–20% below retail for approved business accounts</div></div>
+        <div style="background:var(--bg3);border-radius:10px;padding:12px"><div style="font-size:1.2rem;margin-bottom:4px">🏪</div><div style="font-weight:700;font-size:0.88rem;margin-bottom:3px">Supermarket Consignment</div><div style="font-size:0.78rem;color:var(--text2)">AgriBridge branded products supplied on consignment — you only pay for what sells</div></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- PRODUCTS CATALOGUE TAB -->
+  <div id="b2b-products" class="section" style="display:none">
+    <div style="font-weight:700;font-size:1rem;margin-bottom:16px">📦 AgriBridge B2B Product Catalogue</div>
+    <div class="filters" id="b2bCatFilters">
+      <button class="filter-btn active" onclick="setB2BFilter('all',this)">All Products</button>
+      <button class="filter-btn" onclick="setB2BFilter('meat',this)">🥩 Meat &amp; Poultry</button>
+      <button class="filter-btn" onclick="setB2BFilter('produce',this)">🥬 Fresh Produce</button>
+      <button class="filter-btn" onclick="setB2BFilter('dairy',this)">🥛 Dairy</button>
+      <button class="filter-btn" onclick="setB2BFilter('processed',this)">⚙️ Processed</button>
+      <button class="filter-btn amber-filter" onclick="setB2BFilter('branded',this)">🏷️ AgriBridge Branded</button>
+      <button class="filter-btn" onclick="setB2BFilter('consignment',this)" style="border-color:#9c27b0;color:#9c27b0">🏪 Consignment</button>
+    </div>
+    <div class="cards-grid" id="b2bProductGrid"></div>
+  </div>
+
+  <!-- BULK ORDER TAB -->
+  <div id="b2b-orders" class="section" style="display:none">
+    <div style="background:var(--card);border:1px solid var(--border);border-radius:14px;padding:20px">
+      <div style="font-weight:700;font-size:1rem;margin-bottom:16px">🛒 Place a Bulk Order</div>
+      <div class="form-row">
+        <div class="form-group"><label>Business Name</label><input id="b2bBizName" placeholder="e.g. Kampala Serena Hotel"></div>
+        <div class="form-group"><label>Order Delivery Date</label><input type="date" id="b2bDelivDate"></div>
+      </div>
+      <div class="form-group"><label>Delivery Time Preference</label>
+        <select id="b2bDelivTime">
+          <option value="0530">5:30AM (before kitchen opens)</option>
+          <option value="0800">8:00AM</option>
+          <option value="1200">12:00PM (lunch prep)</option>
+          <option value="1600">4:00PM (dinner prep)</option>
+        </select>
+      </div>
+      <div id="b2bOrderItems">
+        <div class="b2b-order-row" style="display:flex;gap:10px;margin-bottom:8px;align-items:flex-end">
+          <div class="form-group" style="flex:2;margin-bottom:0"><label>Product</label>
+            <select class="b2b-product-sel">
+              <option>Select product...</option>
+              <option>Beef Cuts (Mixed — Steak, Ribs, Mince) — Grade A</option>
+              <option>Whole Dressed Chicken (1.5kg avg)</option>
+              <option>Chicken Breast (Boneless, 1kg packs)</option>
+              <option>Chicken Drumsticks (1kg packs)</option>
+              <option>Tilapia Fillets (Fresh, 500g packs)</option>
+              <option>Maize Flour (5kg bags — AgriBridge Brand)</option>
+              <option>Pasteurised Milk (500ml bottles)</option>
+              <option>Mixed Vegetables (Pre-cut, 5kg trays)</option>
+              <option>Tomatoes Grade A (10kg boxes)</option>
+              <option>Onions (25kg bags)</option>
+              <option>Irish Potato (50kg bags)</option>
+              <option>Raw Honey (1kg jars — AgriBridge Brand)</option>
+            </select>
+          </div>
+          <div class="form-group" style="flex:1;margin-bottom:0"><label>Quantity</label><input type="number" class="b2b-qty" placeholder="e.g. 20" min="1"></div>
+          <div class="form-group" style="flex:1;margin-bottom:0"><label>Unit</label>
+            <select class="b2b-unit"><option>kg</option><option>packs</option><option>bottles</option><option>bags</option><option>boxes</option><option>jars</option><option>heads</option></select>
+          </div>
+          <button onclick="removeB2BRow(this)" style="background:#f4433622;border:1px solid #f44336;color:#f44336;border-radius:8px;padding:10px 12px;cursor:pointer;margin-bottom:0;flex-shrink:0">✕</button>
+        </div>
+      </div>
+      <button onclick="addB2BRow()" class="btn-sm outline" style="margin-bottom:16px">+ Add Another Item</button>
+      <div class="form-group"><label>Special Instructions</label><textarea id="b2bNotes" placeholder="e.g. All beef must be boneless. Chicken to be delivered in separate sealed bags. Call warehouse manager on arrival."></textarea></div>
+      <div class="form-group"><label>Payment Method</label>
+        <select id="b2bPayment">
+          <option value="invoice">30-Day Invoice (approved accounts)</option>
+          <option value="momo">MTN Mobile Money (immediate)</option>
+          <option value="bank">Bank Transfer (within 3 days)</option>
+        </select>
+      </div>
+      <div style="background:var(--bg3);border-radius:10px;padding:14px;margin-bottom:14px" id="b2bOrderSummary"></div>
+      <button class="btn-submit" onclick="submitB2BOrder()">Place Bulk Order 🛒</button>
+    </div>
+  </div>
+
+  <!-- INVOICES TAB -->
+  <div id="b2b-invoices" class="section" style="display:none">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
+      <div style="font-weight:700;font-size:1rem">🧾 My Invoices</div>
+      <button class="btn-sm outline" onclick="downloadInvoice()" style="font-size:0.8rem">📥 Download Latest Invoice</button>
+    </div>
+    <div id="b2bInvoiceList">
+      <div style="background:var(--card);border:1px solid var(--border);border-radius:12px;overflow:hidden">
+        <div style="overflow-x:auto">
+          <table style="width:100%;min-width:600px;border-collapse:collapse;font-size:0.85rem">
+            <thead><tr style="background:var(--bg3)">
+              <th style="padding:10px 14px;text-align:left;border-bottom:1px solid var(--border)">Invoice #</th>
+              <th style="padding:10px 14px;border-bottom:1px solid var(--border)">Date</th>
+              <th style="padding:10px 14px;border-bottom:1px solid var(--border)">Items</th>
+              <th style="padding:10px 14px;border-bottom:1px solid var(--border)">Amount</th>
+              <th style="padding:10px 14px;border-bottom:1px solid var(--border)">Status</th>
+              <th style="padding:10px 14px;border-bottom:1px solid var(--border)">Action</th>
+            </tr></thead>
+            <tbody id="b2bInvoiceBody">
+              <tr><td colspan="6" style="text-align:center;padding:32px;color:var(--text2)">No invoices yet. Place your first B2B order to get started.</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- STANDING ORDERS TAB -->
+  <div id="b2b-standing" class="section" style="display:none">
+    <div style="font-weight:700;font-size:1rem;margin-bottom:16px">🔄 Standing Orders — Automatic Weekly Delivery</div>
+    <div style="background:var(--green-dim);border:1px solid var(--green);border-radius:12px;padding:14px;margin-bottom:16px">
+      <div style="font-weight:700;font-size:0.9rem;color:var(--green);margin-bottom:4px">💡 How Standing Orders Work</div>
+      <div style="font-size:0.83rem;color:var(--text2)">Set your weekly order once. Every Monday AgriBridge automatically prepares and delivers your standard order. You only pay when delivered. Cancel or modify anytime with 48 hours notice.</div>
+    </div>
+    <div id="b2bStandingList">
+      <div style="background:var(--card);border:2px dashed var(--border);border-radius:14px;padding:32px;text-align:center">
+        <div style="font-size:2rem;margin-bottom:8px">🔄</div>
+        <div style="font-weight:700;margin-bottom:8px">No standing orders yet</div>
+        <div style="font-size:0.85rem;color:var(--text2);margin-bottom:16px">Set up your first automatic weekly order — save time and guarantee your supply</div>
+        <button class="btn-sm" onclick="setupStandingOrder()">Set Up Standing Order</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- PROCESSING PARTNERS TAB -->
+  <div id="b2b-processing" class="section" style="display:none">
+    <div style="font-weight:700;font-size:1rem;margin-bottom:8px">⚙️ AgriBridge Processing Partners</div>
+    <p style="font-size:0.88rem;color:var(--text2);margin-bottom:20px">All processing done by KCCA-certified, UNBS-approved partners. Request custom processing specifications for large B2B orders.</p>
+    <div class="cards-grid" id="processingPartnerGrid"></div>
+  </div>
+</div>
+
+
+<!-- ══ B2B APPLICATION MODAL ══════════════════════════════════ -->
+<div class="modal-overlay" id="b2bApplyModal" onclick="handleOverlay(event,'b2bApplyModal')" role="dialog">
+  <div class="modal-box" style="max-width:500px">
+    <button class="modal-close" onclick="closeModal('b2bApplyModal')">✕</button>
+    <h3>🏢 Apply for B2B Business Account</h3>
+    <p style="font-size:0.85rem;color:var(--text2);margin-bottom:18px">Approval within 24 hours. Get wholesale pricing, 30-day invoicing, and dedicated account manager.</p>
+    <div class="form-group"><label>Business Name</label><input id="b2bAppName" placeholder="e.g. Serena Hotel Kampala"></div>
+    <div class="form-row">
+      <div class="form-group"><label>Business Type</label>
+        <select id="b2bAppType">
+          <option>Hotel (3+ star)</option><option>Restaurant / Cafe</option>
+          <option>Supermarket / Shop</option><option>School / University</option>
+          <option>Hospital / Clinic</option><option>NGO / UN Agency</option>
+          <option>Food Processor / Manufacturer</option><option>Catering Company</option>
+        </select>
+      </div>
+      <div class="form-group"><label>Monthly Budget (UGX)</label>
+        <select id="b2bAppBudget">
+          <option>Under 1,000,000</option><option>1M – 5M</option>
+          <option>5M – 20M</option><option>20M – 100M</option><option>Over 100M</option>
+        </select>
+      </div>
+    </div>
+    <div class="form-row">
+      <div class="form-group"><label>Contact Person</label><input id="b2bAppContact" placeholder="Procurement Manager name"></div>
+      <div class="form-group"><label>Phone / WhatsApp</label><input type="tel" id="b2bAppPhone" placeholder="+256 7xx xxx xxx"></div>
+    </div>
+    <div class="form-group"><label>Email</label><input type="email" id="b2bAppEmail" placeholder="procurement@yourbusiness.com"></div>
+    <div class="form-group"><label>Delivery Address</label><textarea id="b2bAppAddr" placeholder="Full delivery address including landmark..." style="min-height:60px"></textarea></div>
+    <div class="form-group"><label>Main Products Needed</label><textarea id="b2bAppProducts" placeholder="e.g. 50kg beef cuts weekly, 200 dressed chickens, 100L pasteurised milk..."></textarea></div>
+    <button class="btn-submit" onclick="submitB2BApplication()">Submit Application 📤</button>
+  </div>
+</div>
+
+<!-- ══ INVOICE MODAL ═══════════════════════════════════════════ -->
+<div class="modal-overlay" id="invoiceModal" onclick="handleOverlay(event,'invoiceModal')" role="dialog">
+  <div class="modal-box" style="max-width:520px">
+    <button class="modal-close" onclick="closeModal('invoiceModal')">✕</button>
+    <div style="text-align:center;padding:8px 0 16px">
+      <div style="font-size:1.4rem;font-weight:800;color:var(--green);font-family:'Syne',sans-serif">🌾 AgriBridge</div>
+      <div style="font-size:0.78rem;color:var(--text2)">hello@agribridge.ug · +256 755 966 690</div>
+    </div>
+    <div style="display:flex;justify-content:space-between;margin-bottom:16px;font-size:0.85rem">
+      <div><div style="font-weight:700">Invoice To:</div><div id="invoiceToName" style="color:var(--text2)"></div></div>
+      <div style="text-align:right"><div style="font-weight:700">Invoice #: <span id="invoiceNum" style="color:var(--green)"></span></div><div style="color:var(--text2)" id="invoiceDate"></div><div style="color:var(--amber);font-weight:700">Due: <span id="invoiceDue"></span></div></div>
+    </div>
+    <div style="background:var(--bg3);border-radius:10px;overflow:hidden;margin-bottom:16px">
+      <table style="width:100%;border-collapse:collapse;font-size:0.82rem">
+        <thead><tr style="background:var(--green)"><th style="padding:8px 12px;text-align:left;color:#000">Product</th><th style="padding:8px 12px;color:#000">Qty</th><th style="padding:8px 12px;color:#000">Unit Price</th><th style="padding:8px 12px;color:#000">Total</th></tr></thead>
+        <tbody id="invoiceItems"></tbody>
+      </table>
+    </div>
+    <div id="invoiceTotals" style="text-align:right;font-size:0.88rem"></div>
+    <div style="background:var(--green-dim);border:1px solid var(--green);border-radius:8px;padding:10px;margin-top:12px;font-size:0.78rem;color:var(--text2)">
+      Payment: MTN MoMo 0755966690 · Bank: AgriBridge Ltd, DFCU Bank, A/C 01234567 · Reference: Invoice number
+    </div>
+    <button class="btn-submit" onclick="window.print()" style="margin-top:12px">🖨️ Print Invoice</button>
+  </div>
+</div>
+
+<!-- ══ REFUND REQUEST MODAL ════════════════════════════════════ -->
+<div class="modal-overlay" id="refundModal" onclick="handleOverlay(event,'refundModal')" role="dialog">
+  <div class="modal-box">
+    <button class="modal-close" onclick="closeModal('refundModal')">✕</button>
+    <h3>💸 Request a Refund</h3>
+    <p style="font-size:0.85rem;color:var(--text2);margin-bottom:16px">AgriBridge guarantees quality. If product is wrong or substandard, we refund within 48 hours.</p>
+    <div class="form-group"><label>Order Reference</label><input id="refundOrderRef" placeholder="e.g. AB-2026-XXXXX"></div>
+    <div class="form-group"><label>Refund Reason</label>
+      <select id="refundReason">
+        <option>Wrong product received</option><option>Substandard quality</option>
+        <option>Short quantity</option><option>Delivery not received</option>
+        <option>Product spoiled / not fresh</option><option>Wrong processing (not cut as ordered)</option>
+      </select>
+    </div>
+    <div class="form-group"><label>Refund Type</label>
+      <select id="refundType">
+        <option value="full">Full refund to MoMo</option>
+        <option value="credit">Store credit (faster processing)</option>
+        <option value="replacement">Replacement delivery</option>
+      </select>
+    </div>
+    <div class="form-group"><label>Description</label><textarea id="refundDesc" placeholder="Describe the issue in detail..."></textarea></div>
+    <button class="btn-submit" onclick="submitRefund()">Submit Refund Request 💸</button>
+  </div>
+</div>
+
+<!-- ══ FARMER RATING MODAL ══════════════════════════════════════ -->
+<div class="modal-overlay" id="farmerRatingModal" onclick="handleOverlay(event,'farmerRatingModal')" role="dialog">
+  <div class="modal-box" style="max-width:400px">
+    <button class="modal-close" onclick="closeModal('farmerRatingModal')">✕</button>
+    <h3>⭐ Rate This Order</h3>
+    <p style="font-size:0.85rem;color:var(--text2);margin-bottom:16px">Your rating helps other buyers and improves farmer quality standards.</p>
+    <div style="text-align:center;margin-bottom:20px">
+      <div style="font-size:0.85rem;color:var(--text2);margin-bottom:10px">Product Quality</div>
+      <div id="qualityStars" style="font-size:2.5rem;cursor:pointer;letter-spacing:4px">☆☆☆☆☆</div>
+    </div>
+    <div style="text-align:center;margin-bottom:20px">
+      <div style="font-size:0.85rem;color:var(--text2);margin-bottom:10px">Delivery Speed</div>
+      <div id="deliveryStars" style="font-size:2.5rem;cursor:pointer;letter-spacing:4px">☆☆☆☆☆</div>
+    </div>
+    <div class="form-group"><label>Comment (optional)</label><textarea id="ratingComment" placeholder="e.g. Tomatoes were very fresh, well packed..."></textarea></div>
+    <button class="btn-submit" onclick="submitRating()">Submit Rating ⭐</button>
+  </div>
+</div>
+
+<!-- ══ TERMS & PRIVACY MODALS ══════════════════════════════════ -->
+<div class="modal-overlay" id="termsModal" onclick="handleOverlay(event,'termsModal')" role="dialog">
+  <div class="modal-box" style="max-width:600px;max-height:85vh;overflow-y:auto">
+    <button class="modal-close" onclick="closeModal('termsModal')">✕</button>
+    <h3>📋 Terms of Service</h3>
+    <div style="font-size:0.83rem;color:var(--text2);line-height:1.8">
+      <p><strong style="color:var(--text)">Effective: May 2026</strong></p>
+      <p><strong>1. Platform Role.</strong> AgriBridge operates as a marketplace. We connect farmers with buyers but do not own the goods listed.</p>
+      <p><strong>2. Eligibility.</strong> Must be 18+ to register. Businesses must provide valid registration number.</p>
+      <p><strong>3. Commission.</strong> AgriBridge charges 2.5% on consumer transactions and 5–8% on B2B transactions. Deducted automatically before farmer payout.</p>
+      <p><strong>4. Escrow.</strong> All orders above UGX 500,000 are automatically held in escrow. Released on delivery confirmation.</p>
+      <p><strong>5. Quality Guarantee.</strong> AgriBridge guarantees product quality matches listing description. Substandard products eligible for full refund within 48 hours.</p>
+      <p><strong>6. Three-Strikes Policy.</strong> Farmers with 3 verified quality complaints within 90 days will have their account suspended for 30 days and funds withheld pending review.</p>
+      <p><strong>7. Contact Sharing Prohibited.</strong> Sharing contact details between buyers and sellers outside the platform is prohibited and will result in immediate account suspension.</p>
+      <p><strong>8. Livestock.</strong> All animal listings must comply with MAAIF regulations. Health certificates required for livestock over UGX 500,000.</p>
+      <p><strong>9. B2B Invoicing.</strong> 30-day payment terms are available to approved B2B accounts. Late payment incurs 2% monthly penalty.</p>
+      <p><strong>10. KCCA & UNBS.</strong> Processed and packaged products must comply with KCCA food safety standards and UNBS quality marks.</p>
+      <p><strong>11. Data.</strong> We comply with Uganda Data Protection Act 2019. We never sell your data. See Privacy Policy.</p>
+      <p><strong>12. Governing Law.</strong> These terms are governed by the laws of Uganda. Disputes resolved by CADER (Centre for Arbitration and Dispute Resolution), Kampala.</p>
+      <p><strong>Support:</strong> hello@agribridge.ug · +256 755 966 690</p>
+    </div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="privacyModal" onclick="handleOverlay(event,'privacyModal')" role="dialog">
+  <div class="modal-box" style="max-width:600px;max-height:85vh;overflow-y:auto">
+    <button class="modal-close" onclick="closeModal('privacyModal')">✕</button>
+    <h3>🔒 Privacy Policy</h3>
+    <div style="font-size:0.83rem;color:var(--text2);line-height:1.8">
+      <p><strong style="color:var(--text)">Effective: May 2026 | Uganda Data Protection Act 2019 Compliant</strong></p>
+      <p><strong>What We Collect:</strong> Name, phone, district, role (farmer/buyer/B2B), transaction data, GPS delivery data, device type, AI chat logs (anonymised).</p>
+      <p><strong>What We Use It For:</strong> Connecting farmers with buyers, processing payments, sending SMS alerts, AI disease diagnosis, B2B order management, quality monitoring.</p>
+      <p><strong>Buyer-Seller Separation:</strong> Buyer identity is NEVER shared with sellers, and seller contact details are NEVER shared with buyers. Only AgriBridge administrators can see both sides of a transaction.</p>
+      <p><strong>We Share With:</strong> MTN/Airtel (payments only), Africa's Talking (SMS only), Supabase (database hosting — Uganda data stays in EU-compliant servers). We NEVER sell your data.</p>
+      <p><strong>Data Retention:</strong> Transaction records kept for 7 years (tax compliance). Account data deleted within 30 days of account closure request.</p>
+      <p><strong>Your Rights:</strong> Right to access, correct, or delete your data. Contact: privacy@agribridge.ug</p>
+      <p><strong>Cookies:</strong> We use essential cookies only. No advertising or tracking cookies. See cookie policy in settings.</p>
+      <p><strong>Data Protection Officer:</strong> Zeal Mugumya · privacy@agribridge.ug</p>
+    </div>
+  </div>
+</div>
+
+
 
 
 
@@ -3485,6 +4107,7 @@ document.addEventListener('DOMContentLoaded', function() {
   <button class="nav-item"        id="nav-community" onclick="showPage('community')"> <span class="nav-icon">🌱</span><span>Community</span></button>
   <button class="nav-item"        id="nav-about"     onclick="showPage('about')">     <span class="nav-icon">💡</span><span>About</span></button>
   <button class="nav-item"        id="nav-contact"   onclick="showPage('contact')">   <span class="nav-icon">✉️</span><span>Contact</span></button>
+  <button class="nav-item"        id="nav-b2b"       onclick="showPage('b2b')">      <span class="nav-icon">🏢</span><span>B2B</span></button>
   <button class="nav-item"        id="nav-finance"   onclick="showPage('finance')">   <span class="nav-icon">💰</span><span>Finance</span></button>
   <button class="nav-item"        id="nav-coldchain" onclick="showPage('coldchain')"> <span class="nav-icon">❄️</span><span>Cold</span></button>
   <button class="nav-item"        id="nav-export"    onclick="showPage('export')">    <span class="nav-icon">🌍</span><span>Export</span></button>
