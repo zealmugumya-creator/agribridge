@@ -24,23 +24,25 @@
 <link rel="canonical" href="https://agribrige.com">
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🌾</text></svg>">
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=Syne:wght@600;700;800&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <style>
 /* ══════════════════════════════════════════════════════════════
    AGRIBRIDGE v6.2 — COMPLETE CSS
 ══════════════════════════════════════════════════════════════ */
 :root {
-  --green: #00c853; --green-light: #69f0ae; --green-dim: #00c85322;
+  --green: #1E5E3A; --green-light: #2d8a56; --green-dim: #1E5E3A22;
+  --green-dark: #0F4F28; --green-bright: #00A859;
+  --amber: #F2A900; --amber-dim: #F2A90022; --amber-light: #f5be40;
   --bg: #060f09; --bg2: #0d1f12; --bg3: #152b1c;
   --card: #0f2318; --surface: #152b1c; --border: #1e3a28;
   --text: #d4edda; --text2: #8aab93; --white: #ffffff;
-  --amber: #ff8f00; --amber-dim: #ff8f0022; --amber-light: #ffb300;
+  --farmer-color: #1E5E3A; --buyer-color: #1565C0; --b2b-color: #F2A900;
   --nav-h: 60px; --bot-h: 64px;
 }
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
 html{scroll-behavior:smooth}
-body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;overflow-x:hidden;padding-top:var(--nav-h);padding-bottom:var(--bot-h)}
+body{font-family:'Plus Jakarta Sans',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;overflow-x:hidden;padding-top:var(--nav-h);padding-bottom:var(--bot-h)}
 h1,h2,h3,h4{font-family:'Syne',sans-serif}
 a{color:var(--green);text-decoration:none}
 button{cursor:pointer;font-family:inherit}
@@ -422,6 +424,43 @@ img{max-width:100%}
   .cards-grid{grid-template-columns:1fr}
   .pay-methods{grid-template-columns:1fr}
 }
+
+/* ── Skeleton Loaders ──────────────────── */
+@keyframes shimmer{0%{background-position:-1000px 0}100%{background-position:1000px 0}}
+.skeleton{background:linear-gradient(90deg,var(--bg3) 25%,var(--border) 50%,var(--bg3) 75%);background-size:1000px 100%;animation:shimmer 1.6s infinite linear;border-radius:8px}
+.skeleton-card{height:260px;border-radius:14px}
+.skeleton-text{height:14px;margin-bottom:8px;border-radius:4px}
+.skeleton-text.short{width:60%}.skeleton-text.medium{width:80%}
+/* ── Role badges ───────────────────────── */
+.role-badge{display:inline-flex;align-items:center;gap:6px;padding:4px 12px;border-radius:20px;font-size:0.75rem;font-weight:700}
+.role-badge.farmer{background:var(--green-dim);color:var(--green);border:1px solid var(--green)}
+.role-badge.vendor{background:#1565C022;color:#64b5f6;border:1px solid #1565C0}
+.role-badge.hotel{background:var(--amber-dim);color:var(--amber);border:1px solid var(--amber)}
+/* ── Nav role stripe ───────────────────── */
+.nav-role-indicator{position:fixed;top:0;left:0;right:0;height:3px;z-index:201}
+.nav-role-indicator.farmer{background:linear-gradient(90deg,var(--green),var(--green-bright))}
+.nav-role-indicator.vendor{background:linear-gradient(90deg,#1565C0,#42a5f5)}
+.nav-role-indicator.hotel{background:linear-gradient(90deg,var(--amber),var(--amber-light))}
+/* ── How it works ──────────────────────── */
+.how-step{display:flex;gap:20px;align-items:flex-start;background:var(--card);border:1px solid var(--border);border-radius:14px;padding:20px;margin-bottom:12px}
+.how-step-num{width:40px;height:40px;border-radius:50%;background:var(--green);color:#fff;font-weight:800;font-size:1rem;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.how-step-body h4{font-weight:700;margin-bottom:4px;font-size:0.95rem}
+.how-step-body p{font-size:0.83rem;color:var(--text2);line-height:1.5}
+/* ── Value prop cards ──────────────────── */
+.value-prop-card{background:var(--card);border:1px solid var(--border);border-radius:16px;padding:24px;transition:all 0.25s}
+.value-prop-card:hover{border-color:var(--green);transform:translateY(-4px)}
+.value-prop-icon{font-size:2.4rem;margin-bottom:12px}
+.value-prop-title{font-size:1rem;font-weight:700;margin-bottom:6px}
+.value-prop-desc{font-size:0.85rem;color:var(--text2);line-height:1.6}
+/* ── MoMo quick-pay ────────────────────── */
+.momo-btn{display:flex;align-items:center;justify-content:center;gap:10px;width:100%;padding:14px;border:none;border-radius:12px;font-size:1rem;font-weight:700;cursor:pointer;transition:all 0.2s;margin-bottom:10px}
+.momo-btn.mtn{background:#ffcc00;color:#000}
+.momo-btn.mtn:hover{background:#f5c200}
+.momo-btn.airtel{background:#e02020;color:#fff}
+.momo-btn.airtel:hover{background:#c01818}
+/* ── Verified badge on cards ───────────── */
+.verified-badge{position:absolute;top:10px;left:10px;z-index:2;background:var(--green);color:#fff;font-size:0.68rem;font-weight:800;padding:3px 10px;border-radius:20px}
+
 </style>
 </head>
 <body>
@@ -569,6 +608,23 @@ img{max-width:100%}
 </div>
 
 <!-- ══════════════════ PAGE: MARKETPLACE ══════════════════ -->
+<!-- ══ HOW IT WORKS ════════════════════════════════════════ -->
+<div id="howItWorks" style="padding:40px 16px;max-width:900px;margin:0 auto">
+  <div class="section-title" style="text-align:center;margin-bottom:8px">How <span>AgriBridge</span> Works</div>
+  <p style="text-align:center;color:var(--text2);font-size:0.9rem;margin-bottom:28px">Uganda&#39;s farm-to-table platform — connecting farmers directly to buyers with zero middlemen</p>
+  <div>
+    <div class="how-step"><div class="how-step-num">1</div><div class="how-step-body"><h4>🌾 Farmer lists produce or animals</h4><p>Any farmer in Uganda posts their crop or livestock in under 2 minutes — price, quantity, district, photos. Free to list, always.</p></div></div>
+    <div class="how-step"><div class="how-step-num">2</div><div class="how-step-body"><h4>🛒 Buyer or hotel browses and orders</h4><p>Buyers see verified listings with quality grades. Hotels get pre-cut, packaged kitchen-ready products. Pay securely via MTN MoMo or Airtel Money.</p></div></div>
+    <div class="how-step"><div class="how-step-num">3</div><div class="how-step-body"><h4>🚚 AgriBridge driver collects and delivers</h4><p>A verified driver picks up from farm, processes if needed (cutting, milling, packing), and delivers. GPS tracking throughout.</p></div></div>
+    <div class="how-step"><div class="how-step-num">4</div><div class="how-step-body"><h4>💰 Farmer gets paid automatically</h4><p>On delivery confirmation, funds release from escrow to farmer&#39;s MTN MoMo. No cash. No delays. No middlemen.</p></div></div>
+  </div>
+  <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:12px;margin-top:28px">
+    <div class="value-prop-card"><div class="value-prop-icon">🌾</div><div class="value-prop-title">I am a Farmer</div><div class="value-prop-desc">List crops and animals free. Get fair prices. Access loans, insurance, and AI disease diagnosis.</div><button class="btn-sm" style="width:100%;margin-top:12px" onclick="openModal(&#39;registerModal&#39;)">Register as Farmer</button></div>
+    <div class="value-prop-card"><div class="value-prop-icon">🛒</div><div class="value-prop-title">I am a Buyer</div><div class="value-prop-desc">Browse fresh produce from verified farmers. Order online, pay via MoMo, get delivery to your door.</div><button class="btn-sm" style="width:100%;margin-top:12px;background:#1565C0" onclick="openModal(&#39;registerModal&#39;)">Register as Buyer</button></div>
+    <div class="value-prop-card"><div class="value-prop-icon">🏨</div><div class="value-prop-title">Hotel / Restaurant</div><div class="value-prop-desc">Pre-cut beef, dressed chicken, packaged produce delivered by 5:30AM. Weekly invoicing available.</div><button class="btn-sm" style="width:100%;margin-top:12px;background:var(--amber);color:#000" onclick="openModal(&#39;b2bApplyModal&#39;)">Apply for B2B Account</button></div>
+    <div class="value-prop-card"><div class="value-prop-icon">📱</div><div class="value-prop-title">No Internet? No Problem</div><div class="value-prop-desc">Dial <strong style="color:var(--amber)">*789#</strong> from any MTN or Airtel phone — no smartphone needed.</div><button class="btn-sm outline" style="width:100%;margin-top:12px" onclick="showPage(&#39;ussd&#39;)">Try USSD Simulator</button></div>
+  </div>
+</div>
 <div id="page-market" class="page">
   <div class="page-header">
     <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px;flex-wrap:wrap">
@@ -1295,6 +1351,9 @@ AgriBridge service</div>
 </div>
 
 <script>
+
+
+
 
 
 
@@ -3409,6 +3468,188 @@ window.showPage = function(name) {
   }
 };
 
+
+// ════════════════════════════════════════════════════════════
+// ROLE-BASED UI PROFILING
+// guest → landing page only (browse but no transact)
+// farmer → farm tools (list, AI doctor, finance, training)
+// vendor/buyer → marketplace, prices, basket, orders
+// hotel → B2B portal, bulk orders, invoices
+// ════════════════════════════════════════════════════════════
+
+// Pages each role can access
+var ROLE_PAGES = {
+  guest:  ['home'],
+  farmer: ['home','prices','crops','animals','training','delivery','ussd',
+           'doctor','supply','dashboard','community','finance','coldchain','about','contact'],
+  vendor: ['home','market','prices','crops','animals','delivery','ussd',
+           'doctor','supply','community','about','contact'],
+  hotel:  ['home','market','b2b','delivery','community','about','contact'],
+};
+// Bottom nav items each role sees
+var ROLE_NAV = {
+  guest:  [{page:'home',icon:'🏠',label:'Home'},{page:'market',icon:'🛒',label:'Browse'},{page:'about',icon:'💡',label:'About'},{page:'contact',icon:'✉️',label:'Contact'}],
+  farmer: [{page:'home',icon:'🏠',label:'Home'},{page:'market',icon:'🌾',label:'Listings'},{page:'dashboard',icon:'📊',label:'Dashboard'},{page:'doctor',icon:'🩺',label:'AI Doc'},{page:'finance',icon:'💰',label:'Finance'}],
+  vendor: [{page:'home',icon:'🏠',label:'Home'},{page:'market',icon:'🛒',label:'Market'},{page:'prices',icon:'📊',label:'Prices'},{page:'animals',icon:'🐄',label:'Animals'},{page:'delivery',icon:'🚚',label:'Orders'}],
+  hotel:  [{page:'home',icon:'🏠',label:'Home'},{page:'b2b',icon:'🏢',label:'B2B Portal'},{page:'market',icon:'🛒',label:'Browse'},{page:'delivery',icon:'🚚',label:'Deliveries'},{page:'contact',icon:'✉️',label:'Support'}],
+};
+
+function getCurrentRole() {
+  if (!currentUser) return 'guest';
+  var role = (currentUser.role || (currentUser.user_metadata && currentUser.user_metadata.role) || 'vendor');
+  if (role === 'hotel' || role === 'restaurant' || role === 'b2b') return 'hotel';
+  if (role === 'farmer') return 'farmer';
+  return 'vendor';
+}
+
+function applyRoleUI() {
+  var role = getCurrentRole();
+
+  // 1. Role indicator stripe at top
+  var indicator = document.getElementById('roleIndicator');
+  if (!indicator) {
+    indicator = document.createElement('div');
+    indicator.id = 'roleIndicator';
+    indicator.className = 'nav-role-indicator';
+    document.body.insertBefore(indicator, document.body.firstChild);
+  }
+  indicator.className = 'nav-role-indicator ' + role;
+
+  // 2. Rebuild bottom nav for this role
+  var nav = document.querySelector('.bottom-nav');
+  if (nav) {
+    var items = ROLE_NAV[role] || ROLE_NAV.guest;
+    nav.innerHTML = items.map(function(item) {
+      return '<button class="nav-item" id="nav-' + item.page + '" onclick="showPage(\"' + item.page + '\")">' +
+        '<span class="nav-icon">' + item.icon + '</span><span>' + item.label + '</span></button>';
+    }).join('');
+    // Mark current page active
+    var cur = nav.querySelector('#nav-home');
+    if (cur) cur.classList.add('active');
+  }
+
+  // 3. Show/hide nav buttons (Log In vs user avatar)
+  // updateNavUser already handles this — just refresh it
+  if (currentUser) {
+    var name = currentUser.name || (currentUser.user_metadata && currentUser.user_metadata.name) || currentUser.email.split('@')[0];
+    var r = getCurrentRole();
+    updateNavUser(name, r);
+  } else {
+    updateNavUser(null, null);
+  }
+
+  // 4. If guest, show landing page
+  if (role === 'guest') {
+    showGuestLanding();
+  }
+  // 5. If hotel, default to B2B
+  else if (role === 'hotel') {
+    showPage('b2b');
+  }
+  // 6. If farmer, default to home with farmer quick links
+  else if (role === 'farmer') {
+    showPage('home');
+    renderFarmerQuickLinks();
+  }
+  // 7. If vendor/buyer, default to marketplace
+  else if (role === 'vendor') {
+    showPage('market');
+  }
+}
+
+function showGuestLanding() {
+  var pages = document.querySelectorAll('.page');
+  pages.forEach(function(p){ p.classList.remove('active'); });
+  var home = document.getElementById('page-home');
+  if (home) home.classList.add('active');
+  var existing = document.getElementById('guestCta');
+  if (!existing && home) {
+    var cta = document.createElement('div');
+    cta.id = 'guestCta';
+    cta.style.cssText = 'background:var(--bg2);border-bottom:1px solid var(--border);padding:14px 16px;display:flex;gap:12px;align-items:center;flex-wrap:wrap;justify-content:center';
+    var span = document.createElement('span');
+    span.style.cssText = 'font-size:0.88rem;color:var(--text2)';
+    span.textContent = '🌾 Browsing as guest — create a free account to buy, sell, and access all features';
+    var btn1 = document.createElement('button');
+    btn1.className = 'btn-sm';
+    btn1.textContent = 'Join Free';
+    btn1.onclick = function(){ openModal('registerModal'); };
+    var btn2 = document.createElement('button');
+    btn2.className = 'btn-sm outline';
+    btn2.textContent = 'Log In';
+    btn2.onclick = function(){ openModal('loginModal'); };
+    cta.appendChild(span);
+    cta.appendChild(btn1);
+    cta.appendChild(btn2);
+    home.insertBefore(cta, home.firstChild);
+  }
+  if (existing) existing.style.display = 'flex';
+}
+
+function hideGuestCta() {
+  var el = document.getElementById('guestCta');
+  if (el) el.style.display = 'none';
+}
+
+function renderFarmerQuickLinks() {
+  var home = document.getElementById('page-home');
+  if (!home) return;
+  var existing = document.getElementById('farmerQuickLinks');
+  if (existing) { existing.style.display = 'block'; return; }
+  var div = document.createElement('div');
+  div.id = 'farmerQuickLinks';
+  div.style.cssText = 'background:var(--green-dim);border-bottom:1px solid var(--green);padding:14px 16px';
+  div.innerHTML = '<div style="font-size:0.85rem;font-weight:700;color:var(--green);margin-bottom:10px">🌾 Farmer Quick Actions</div>' +
+    '<div style="display:flex;gap:8px;flex-wrap:wrap">' +
+    '<button class="btn-sm" onclick="openListProduceModal()">+ List Crop</button>' +
+    '<button class="btn-sm outline" onclick="openListAnimalModal()">+ List Animal</button>' +
+    '<button class="btn-sm outline" onclick="showPage(&quot;doctor&quot;)">🩺 AI Doctor</button>' +
+    '<button class="btn-sm outline" onclick="showPage(&quot;finance&quot;)">💰 Get Loan</button>' +
+    '<button class="btn-sm outline" onclick="showPage(&quot;dashboard&quot;)">📊 Dashboard</button>' +
+    '</div>';
+  home.insertBefore(div, home.firstChild);
+}
+
+// Override showPage to enforce role gating
+var _showPageOrig3 = window.showPage;
+window.showPage = function(name) {
+  var role = getCurrentRole();
+  var allowed = ROLE_PAGES[role] || ROLE_PAGES.guest;
+  if (allowed.indexOf(name) === -1 && name !== 'home') {
+    // Guest trying to access gated page
+    if (role === 'guest') {
+      showToast('🔒 Create a free account to access ' + name.charAt(0).toUpperCase() + name.slice(1));
+      openModal('registerModal');
+      return;
+    }
+    // Wrong role accessing wrong page
+    showToast('This section is not available for your account type');
+    return;
+  }
+  if (_showPageOrig3) _showPageOrig3(name);
+  // Update nav active state
+  document.querySelectorAll('.nav-item').forEach(function(b){ b.classList.remove('active'); });
+  var btn = document.getElementById('nav-' + name);
+  if (btn) btn.classList.add('active');
+};
+
+// Call applyRoleUI after auth state is known
+var _origDomReady = document.addEventListener;
+document.addEventListener('DOMContentLoaded', function() {
+  // Apply role UI on load (will be guest until auth resolves)
+  setTimeout(applyRoleUI, 300);
+});
+// Re-apply after login/logout
+var _origUpdateNavUser = window.updateNavUser;
+window.updateNavUser = function(nameOrUser, role) {
+  if (_origUpdateNavUser) _origUpdateNavUser(nameOrUser, role);
+  // Re-render role nav after auth change
+  setTimeout(function() {
+    applyRoleUI();
+    if (nameOrUser) hideGuestCta();
+  }, 100);
+};
+
 function initSupabase() {
   if (typeof supabase === 'undefined') { setTimeout(initSupabase, 500); return; }
   if (sbAuth) return;
@@ -3744,7 +3985,13 @@ document.addEventListener('DOMContentLoaded', function() {
 
 
 
+
+
+
 </script>
+
+
+
 
 
 
