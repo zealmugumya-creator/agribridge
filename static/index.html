@@ -462,186 +462,27 @@ img{max-width:100%}
 .verified-badge{position:absolute;top:10px;left:10px;z-index:2;background:var(--green);color:#fff;font-size:0.68rem;font-weight:800;padding:3px 10px;border-radius:20px}
 
 
-/* ══ DESIGN SYSTEM v2 ══════════════════════════════════════ */
-/* Matooke Green #1E5E3A · Nile Gold #F2A900 · Dark #060f09  */
-@keyframes ticker{0%{transform:translateX(0)}100%{transform:translateX(-50%)}}
-@keyframes fadeUp{from{opacity:0;transform:translateY(20px)}to{opacity:1;transform:translateY(0)}}
-.hero-v2{position:relative;min-height:92vh;display:flex;align-items:center;justify-content:center;text-align:center;padding:100px 20px 80px;background:linear-gradient(to bottom,rgba(6,15,9,0.35) 0%,rgba(6,15,9,0.72) 60%,rgba(6,15,9,1) 100%),url('https://images.unsplash.com/photo-1500937386664-56d1dfef3854?auto=format&fit=crop&w=1920&q=80') center/cover no-repeat}
-.hero-v2-inner{max-width:680px;margin:0 auto;animation:fadeUp 0.7s ease}
-.hero-badge{display:inline-block;background:rgba(30,94,58,0.15);border:1px solid #1E5E3A;color:#1E5E3A;padding:5px 14px;border-radius:50px;font-size:0.72rem;font-weight:700;margin-bottom:20px;letter-spacing:0.3px}
-.hero-v2 h1{font-family:'Syne',sans-serif;font-size:clamp(2.2rem,6vw,4rem);font-weight:800;line-height:1.1;color:#fff;margin-bottom:18px}
-.hero-v2 h1 em{font-style:normal;color:#1E5E3A}
-.hero-v2>div>p{font-size:1rem;color:rgba(255,255,255,0.8);max-width:520px;margin:0 auto 28px;line-height:1.7}
-.hero-ctas{display:flex;gap:12px;justify-content:center;flex-wrap:wrap;margin-bottom:44px}
-.btn-hero-primary{padding:13px 28px;background:#1E5E3A;color:#000;font-weight:800;font-size:0.95rem;border-radius:12px;border:none;cursor:pointer;font-family:'Plus Jakarta Sans',sans-serif;transition:all 0.2s}
-.btn-hero-primary:hover{background:#2d8a56;transform:translateY(-2px)}
-.btn-hero-secondary{padding:13px 28px;background:transparent;color:#fff;font-weight:600;font-size:0.95rem;border-radius:12px;border:2px solid rgba(255,255,255,0.4);cursor:pointer;font-family:'Plus Jakarta Sans',sans-serif;transition:all 0.2s}
-.btn-hero-secondary:hover{border-color:#fff}
-.hero-stats{display:flex;gap:32px;justify-content:center;flex-wrap:wrap}
-.hero-stat p:first-child{font-family:'Syne',sans-serif;font-size:2rem;font-weight:800;color:#1E5E3A;margin:0}
-.hero-stat p:last-child{font-size:0.72rem;color:rgba(255,255,255,0.6);margin:2px 0 0}
-/* Product card v2 */
-.product-card-v2{background:#0f2318;border:1px solid #1e3a28;border-radius:16px;overflow:hidden;transition:all 0.25s;cursor:pointer}
-.product-card-v2:hover{border-color:#1E5E3A;transform:translateY(-4px);box-shadow:0 8px 32px rgba(30,94,58,0.15)}
-.product-card-v2 .pc-img{position:relative;height:150px;overflow:hidden;background:#152b1c}
-.product-card-v2 .pc-img img{width:100%;height:100%;object-fit:cover;transition:transform 0.3s}
-.product-card-v2:hover .pc-img img{transform:scale(1.05)}
-.pc-badge-off{position:absolute;top:8px;left:8px;background:#f44336;color:#fff;font-size:0.6rem;font-weight:800;padding:2px 8px;border-radius:50px}
-.pc-badge-org{position:absolute;top:8px;right:8px;background:#007a33;color:#fff;font-size:0.6rem;font-weight:800;padding:2px 8px;border-radius:50px}
-.pc-body{padding:14px}
-.pc-name{font-family:'Syne',sans-serif;font-weight:700;color:#d4edda;font-size:0.88rem;margin-bottom:6px}
-.pc-farmer-row{display:flex;align-items:center;gap:6px;margin-bottom:4px}
-.pc-avatar{width:22px;height:22px;border-radius:50%;background:rgba(30,94,58,0.2);color:#1E5E3A;font-size:0.6rem;font-weight:800;display:flex;align-items:center;justify-content:center}
-.pc-farmer-name{font-size:0.72rem;color:#8aab93}
-.pc-location{font-size:0.68rem;color:#8aab93;margin-bottom:10px}
-.pc-footer{display:flex;align-items:flex-end;justify-content:space-between}
-.pc-price-val{font-weight:800;color:#1E5E3A;font-size:0.9rem}
-.pc-price-old{font-size:0.68rem;color:#8aab93;text-decoration:line-through}
-.pc-price-unit{font-size:0.62rem;color:#8aab93}
-.pc-actions{display:flex;gap:5px}
-.pc-btn-wa{width:30px;height:30px;background:#25D366;border:none;border-radius:8px;display:flex;align-items:center;justify-content:center;color:#fff;cursor:pointer;text-decoration:none;font-size:0.78rem;transition:opacity 0.2s}
-.pc-btn-wa:hover{opacity:0.85}
-.pc-btn-cart{width:30px;height:30px;background:rgba(30,94,58,0.2);border:1px solid #1E5E3A;border-radius:8px;color:#1E5E3A;display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:0.8rem;transition:all 0.2s}
-.pc-btn-cart:hover{background:#1E5E3A;color:#000}
-.pc-btn-order{padding:0 10px;height:30px;background:#1E5E3A;color:#000;font-weight:800;font-size:0.68rem;border:none;border-radius:8px;cursor:pointer;font-family:'Plus Jakarta Sans',sans-serif;transition:background 0.2s}
-.pc-btn-order:hover{background:#2d8a56}
-/* Category pills */
-.cat-pills{display:flex;gap:8px;overflow-x:auto;padding:4px 0 12px;scrollbar-width:none}
-.cat-pills::-webkit-scrollbar{display:none}
-.cat-pill{flex-shrink:0;padding:8px 16px;border-radius:50px;border:1px solid #1e3a28;background:#0f2318;color:#8aab93;font-size:0.78rem;font-weight:600;cursor:pointer;transition:all 0.2s;white-space:nowrap;display:flex;align-items:center;gap:6px;font-family:'Plus Jakarta Sans',sans-serif}
-.cat-pill:hover,.cat-pill.active{background:rgba(30,94,58,0.15);border-color:#1E5E3A;color:#1E5E3A}
-/* Section head */
-.section-head{display:flex;align-items:flex-end;justify-content:space-between;margin-bottom:20px;flex-wrap:wrap;gap:8px}
-.section-head-left h2{font-family:'Syne',sans-serif;font-size:1.2rem;font-weight:800;color:#d4edda;margin:0}
-.section-head-left h2 span{color:#1E5E3A}
-.section-head-left p{font-size:0.8rem;color:#8aab93;margin:3px 0 0}
-.section-head-right{font-size:0.8rem;font-weight:700;color:#1E5E3A;cursor:pointer;text-decoration:none;display:flex;align-items:center;gap:4px}
-/* Products grid */
-.products-grid-v2{display:grid;grid-template-columns:repeat(2,1fr);gap:12px}
-@media(min-width:600px){.products-grid-v2{grid-template-columns:repeat(3,1fr)}}
-@media(min-width:900px){.products-grid-v2{grid-template-columns:repeat(4,1fr)}}
-/* USSD banner */
-.ussd-banner-v2{background:linear-gradient(135deg,#0d1f12,#152b1c);border:1px solid #1e3a28;border-radius:14px;padding:14px 16px;display:flex;align-items:center;gap:14px;flex-wrap:wrap;margin:12px 0}
-.ussd-code-badge{font-family:'Syne',sans-serif;font-size:1.3rem;font-weight:800;color:#F2A900;background:rgba(242,169,0,0.1);border:1px solid #F2A900;padding:4px 12px;border-radius:8px;white-space:nowrap}
-.ussd-desc{flex:1}
-.ussd-desc strong{font-size:0.85rem;color:#d4edda;display:block}
-.ussd-desc span{font-size:0.75rem;color:#8aab93}
-/* MoMo buttons */
-.momo-btns{display:flex;gap:10px;margin:12px 0}
-.btn-mtn{flex:1;padding:13px;background:#ffcc00;border:none;border-radius:12px;font-weight:800;font-size:0.88rem;cursor:pointer;color:#000;font-family:'Plus Jakarta Sans',sans-serif;transition:opacity 0.2s}
-.btn-mtn:hover{opacity:0.9}
-.btn-airtel{flex:1;padding:13px;background:#e02020;border:none;border-radius:12px;font-weight:800;font-size:0.88rem;cursor:pointer;color:#fff;font-family:'Plus Jakarta Sans',sans-serif;transition:opacity 0.2s}
-.btn-airtel:hover{opacity:0.9}
-/* Footer v2 */
-.footer-v2{background:#0d1f12;border-top:1px solid #1e3a28;padding:48px 16px 100px;margin-top:32px}
-.footer-v2-grid{max-width:1100px;margin:0 auto;display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:28px}
-.footer-v2 h4{font-weight:700;color:#d4edda;margin:0 0 14px;font-size:0.9rem}
-.footer-v2 ul{list-style:none;padding:0;margin:0}
-.footer-v2 ul li{margin-bottom:9px}
-.footer-v2 ul li a,.footer-v2 ul li span{font-size:0.8rem;color:#8aab93;text-decoration:none;transition:color 0.2s;cursor:pointer}
-.footer-v2 ul li a:hover{color:#1E5E3A}
-.footer-brand-logo{font-family:'Syne',sans-serif;font-size:1.3rem;font-weight:800;color:#1E5E3A;text-decoration:none}
-.footer-brand-logo span{color:#fff}
-.footer-brand-desc{font-size:0.8rem;color:#8aab93;margin:10px 0 0;line-height:1.6}
-.footer-bottom{max-width:1100px;margin:28px auto 0;padding-top:20px;border-top:1px solid #1e3a28;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px}
-.footer-bottom p{font-size:0.75rem;color:#8aab93;margin:0}
-.footer-bottom-links{display:flex;gap:16px}
-.footer-bottom-links a{font-size:0.75rem;color:#8aab93;text-decoration:none;transition:color 0.2s;cursor:pointer}
-.footer-bottom-links a:hover{color:#1E5E3A}
-/* MoMo badges */
-.payment-badges{display:flex;gap:8px;margin-top:14px}
-.badge-mtn{padding:5px 10px;background:#ffcc00;color:#000;font-size:0.72rem;font-weight:800;border-radius:6px}
-.badge-airtel{padding:5px 10px;background:#e02020;color:#fff;font-size:0.72rem;font-weight:800;border-radius:6px}
-/* Farmer spotlight */
-.farmer-card{background:#0f2318;border:1px solid #1e3a28;border-radius:14px;padding:16px;display:flex;flex-direction:column;align-items:center;text-align:center;transition:all 0.25s}
-.farmer-card:hover{border-color:#1E5E3A;transform:translateY(-3px)}
-.fc-avatar{width:56px;height:56px;border-radius:50%;background:linear-gradient(135deg,#1E5E3A,#2d8a56);color:#000;font-size:1.2rem;font-weight:800;display:flex;align-items:center;justify-content:center;margin-bottom:10px;font-family:'Syne',sans-serif}
-.fc-name{font-weight:700;font-size:0.85rem;color:#d4edda;margin-bottom:2px}
-.fc-loc{font-size:0.72rem;color:#8aab93;margin-bottom:5px}
-.fc-products{font-size:0.72rem;color:#1E5E3A;font-weight:700}
-/* Section wrap */
-.sec{padding:12px 14px;max-width:1100px;margin:0 auto}
-@media(min-width:640px){.sec{padding:16px 24px}}
-/* Guest CTA update */
-#guestCta{background:var(--bg2);border-bottom:1px solid #1e3a28;padding:12px 16px;display:flex;gap:10px;align-items:center;flex-wrap:wrap;justify-content:center}
-
-
-/* ══ MOBILE FIXES ══════════════════════════════════════════ */
-/* Fix nav on small screens */
-.top-nav { padding: 0 10px; gap: 6px; }
-.top-nav .nav-logo { cursor: pointer; text-decoration: none; color: inherit;  font-size: 1.1rem; }
-.nav-search { display: none; }
-@media (min-width: 600px) { .nav-search { display: flex; } }
-
-/* Bottom nav - fit 4 items on small screen */
-.bottom-nav { height: 58px; }
-.bottom-nav .nav-item { min-width: 48px; padding: 2px; }
-.bottom-nav .nav-item .nav-icon { font-size: 1.1rem; }
-.bottom-nav .nav-item span:last-child { font-size: 0.58rem; }
-
-/* Hero on mobile */
-.hero-v2 { min-height: 85vh; padding: 80px 16px 60px; }
-.hero-v2 h1 { font-size: clamp(1.8rem, 5vw, 4rem); }
-.hero-v2 > div > p { font-size: 0.92rem; }
-.hero-ctas { gap: 8px; }
-.btn-hero-primary, .btn-hero-secondary { padding: 11px 20px; font-size: 0.88rem; }
-.hero-stats { gap: 20px; }
-.hero-stat p:first-child { font-size: 1.6rem; }
-
-/* Value prop cards on mobile */
-.guest-value-props, [style*="minmax(200px"] {
-  grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)) !important;
+/* MOBILE FIXES */
+@media(max-width:599px){
+  .nav-search{display:none!important}
+  .page{padding-top:58px!important;padding-bottom:68px}
+  .hero-v2{min-height:80vh;padding:70px 14px 50px}
+  .hero-v2 h1{font-size:1.9rem}
+  .products-grid-v2{grid-template-columns:repeat(2,1fr)!important;gap:8px}
+  .product-card-v2 .pc-img{height:110px}
+  .footer-v2-grid{grid-template-columns:repeat(2,1fr)!important;gap:16px}
+  .cards-grid{grid-template-columns:repeat(2,1fr)!important}
+  .modal-box{margin:8px;border-radius:14px;max-height:calc(100vh - 16px)}
+  #cookieBanner{bottom:68px!important;left:8px!important;right:8px!important;border-radius:12px}
+  .bottom-nav .nav-item span:last-child{font-size:0.56rem}
+  .bottom-nav .nav-item{min-width:44px}
 }
-
-/* Products grid on mobile - 2 columns always */
-.products-grid-v2 { grid-template-columns: repeat(2, 1fr); gap: 8px; }
-@media (min-width: 500px) { .products-grid-v2 { grid-template-columns: repeat(2, 1fr); } }
-@media (min-width: 700px) { .products-grid-v2 { grid-template-columns: repeat(3, 1fr); } }
-
-/* Product card on mobile */
-.product-card-v2 .pc-img { height: 120px; }
-.pc-body { padding: 10px; }
-.pc-name { font-size: 0.82rem; }
-.pc-btn-order { font-size: 0.62rem; padding: 0 7px; }
-
-/* How it works on mobile */
-.how-step { padding: 14px; gap: 12px; }
-.how-step-num { width: 32px; height: 32px; font-size: 0.85rem; }
-
-/* Section padding on mobile */
-.sec { padding: 10px 12px; }
-
-/* Footer on mobile */
-.footer-v2 { padding: 32px 14px 80px; }
-.footer-v2-grid { grid-template-columns: repeat(2, 1fr); gap: 20px; }
-
-/* Page content offset for fixed nav + ticker */
-.page { padding-top: 60px !important; padding-bottom: 68px; min-height: 100vh; }
-
-/* Fix cards grid */
-.cards-grid { 
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(155px, 1fr));
-  gap: 10px;
-}
-
-/* Make modals fit mobile */
-.modal-box {
-  margin: 10px;
-  max-height: calc(100vh - 20px);
-  border-radius: 16px;
-}
-
-/* Cookie banner */
-#cookieBanner {
-  bottom: 64px !important;
-  margin: 0 8px 8px !important;
-  border-radius: 12px;
-  font-size: 0.78rem;
-}
+.page{padding-bottom:70px}
 
 </style>
 </head>
+<body>
+
 <body>
 
 <!-- ══ SKIP LINK ══ -->
@@ -649,22 +490,18 @@ img{max-width:100%}
 
 <!-- ══ NAVBAR ══ -->
 <nav class="navbar" role="navigation" aria-label="Main">
-  <a class="nav-logo" onclick="showPage('home')" style="cursor:pointer">Agri<span>Bridge</span></a>
-  <div class="nav-search" style="flex:1;max-width:380px">
+  <div class="nav-logo">Agri<span>Bridge</span></div>
+  <div class="nav-search">
     <input type="text" id="globalSearch" placeholder="Search crops, animals, farmers…" oninput="handleSearch(this.value)" aria-label="Search">
     <span class="nav-search-icon">🔍</span>
   </div>
-  <div class="nav-actions" style="display:flex;align-items:center;gap:6px;margin-left:auto">
-    <button class="mob-search-btn nav-icon-btn" onclick="toggleMobSearch()" aria-label="Search" title="Search">🔍</button>
-    <button class="nav-icon-btn" onclick="toggleAI()" aria-label="AI Doctor" title="AI Doctor">🩺</button>
-    <button class="nav-icon-btn" onclick="toggleBasket()" aria-label="Basket" title="Basket" style="position:relative">
-      🛒<span class="nav-badge" id="basketCount" style="display:none">0</span>
-    </button>
-    <button class="nav-icon-btn" onclick="openModal('langModal')" aria-label="Language" style="font-size:0.75rem;font-weight:700;border:1px solid var(--green);border-radius:6px;padding:4px 8px;color:var(--green)">🌐 EN</button>
-    <div id="navUserArea" style="display:flex;gap:6px;align-items:center">
-      <button class="btn-nav-login" onclick="openModal('loginModal')">Log In</button>
-      <button class="btn-nav-join" onclick="openModal('registerModal')">Join Free</button>
-    </div>
+  <button class="mob-search-btn" onclick="toggleMobSearch()" aria-label="Search">🔍</button>
+  <button class="notif-bell" onclick="toggleNotifPanel()" title="Notifications" id="notifBell" aria-label="Notifications">🔔<span class="notif-badge" id="notifCount" style="display:none">4</span></button>
+  <button class="notif-bell" onclick="toggleBasket()" title="Basket" id="basketNavBtn" style="position:relative" aria-label="Basket">🛒<span class="notif-badge" id="basketNavCount" style="display:none;background:#f44336">0</span></button>
+  <button id="langPickerBtn" class="btn-sm outline" onclick="openModal('langModal')" style="font-size:0.8rem;padding:5px 10px" title="Change Language">🌐 EN</button>
+  <div class="nav-btns">
+    <button class="btn-sm outline" onclick="openModal('loginModal')">Log In</button>
+    <button class="btn-sm" onclick="openModal('registerModal')">Join Free</button>
   </div>
 </nav>
 
@@ -1532,11 +1369,6 @@ AgriBridge service</div>
 </div>
 
 <script>
-
-
-
-
-
 
 
 
@@ -3666,7 +3498,7 @@ window.showPage = function(name) {
 
 // Pages each role can access
 var ROLE_PAGES = {
-  guest:  ['home','market','prices','about','contact','ussd','doctor'],
+  guest:  ['home','market','prices','about','contact','ussd','doctor','animals','crops','training','community'],
   farmer: ['home','prices','crops','animals','training','delivery','ussd',
            'doctor','supply','dashboard','community','finance','coldchain','about','contact'],
   vendor: ['home','market','prices','crops','animals','delivery','ussd',
@@ -3805,15 +3637,9 @@ window.showPage = function(name) {
   if (allowed.indexOf(name) === -1 && name !== 'home') {
     // Guest trying to access gated page
     if (role === 'guest') {
-      // Allow read-only pages for guests
-      var guestReadOnly = ['market','prices','about','contact','ussd','doctor','animals','crops','training','community'];
-      if (guestReadOnly.indexOf(name) >= 0) {
-        // allow through - just viewing
-      } else {
-        showToast('🔒 Create a free account to access ' + name.charAt(0).toUpperCase() + name.slice(1));
-        openModal('registerModal');
-        return;
-      }
+      var guestOK = ['market','prices','about','contact','ussd','doctor','animals','crops','training','community'];
+      if (guestOK.indexOf(name) >= 0) { /* allow read-only */ }
+      else { showToast('🔒 Create a free account to access ' + name.charAt(0).toUpperCase() + name.slice(1)); openModal('registerModal'); return; }
     }
     // Wrong role accessing wrong page
     showToast('This section is not available for your account type');
@@ -3829,8 +3655,6 @@ window.showPage = function(name) {
 // Call applyRoleUI after auth state is known
 var _origDomReady = document.addEventListener;
 document.addEventListener('DOMContentLoaded', function() {
-  // Render home featured products
-  setTimeout(renderHomeFeatured, 200);
   // Apply role UI on load (will be guest until auth resolves)
   setTimeout(applyRoleUI, 300);
 });
@@ -3982,102 +3806,129 @@ function updateNavUser(nameOrUser, role) {
 }
 
 // ── doLogin — replaces original ───────────────────────
-async function doLogin(){
+async function doLogin() {
   _clearLoginErr();
-  if(_isLockedOut()){_showLockoutUI();return;}
-  if(!sbAuth){_showLoginErr('Not connected. Please refresh the page.');return;}
-  var raw=((document.getElementById('loginPhone')||{}).value||'').trim();
-  var pwd=(document.getElementById('loginPwd')||{}).value||'';
-  if(!raw){_showLoginErr('Please enter your phone number or email.');return;}
-  if(!pwd){_showLoginErr('Please enter your password.');return;}
-  var btn=document.getElementById('loginBtn');
-  if(btn){btn.disabled=true;btn.textContent='Logging in…';}
-  try{
-    var res=await sbAuth.auth.signInWithPassword({email:_toEmail(raw),password:pwd});
-    if(res.error){
-      _recordFail();
-      var msg='Wrong phone/email or password.';
-      if(res.error.message&&res.error.message.indexOf('confirmed')>-1)msg='Please confirm your email first.';
-      _showLoginErr('❌ '+msg);
-    } else {
-      _clearAttempts();
-      var u=res.data.user;
-      currentUser={ name:(u.user_metadata&&u.user_metadata.name)||u.email.split('@')[0], role:(u.user_metadata&&u.user_metadata.role)||'farmer', phone:(u.user_metadata&&u.user_metadata.phone)||'', email:u.email, supaId:u.id };
-      localStorage.setItem('ab_user',JSON.stringify(currentUser));
-      updateNavUser(currentUser.name, currentUser.role);
-      closeModal('loginModal');
-      showToast('✅ Welcome back, '+currentUser.name+'!');
-      if(typeof loadBasketFromCloud==='function') loadBasketFromCloud();
+  if (_isLockedOut()) { _showLockoutUI(); return; }
+  if (!sbAuth) { _showLoginErr('Not connected. Please refresh the page.'); return; }
+  var raw = ((document.getElementById('loginPhone')||{}).value||'').trim();
+  var pwd = (document.getElementById('loginPwd')||{}).value||'';
+  if (!raw) { _showLoginErr('Please enter your email.'); return; }
+  if (!pwd) { _showLoginErr('Please enter your password.'); return; }
+  var authEmail = raw.indexOf('@') > -1 ? raw : raw.replace(/[^0-9]/g,'') + '@agribridge.ug';
+  if (!checkRateLimit('login', 5)) return;
+  var btn = document.getElementById('loginSubmitBtn');
+  if (btn) { btn.disabled=true; btn.textContent='Logging in...'; }
+  try {
+    var res = await sbAuth.auth.signInWithPassword({ email: authEmail, password: pwd });
+    if (res.error) {
+      _trackFailedAttempt();
+      var msg = res.error.message || 'Login failed.';
+      if (msg.indexOf('Invalid login credentials')>-1||msg.indexOf('invalid_credentials')>-1) {
+        _showLoginErr('Wrong email or password. Check and try again.');
+      } else if (msg.indexOf('Email not confirmed')>-1) {
+        _showLoginErr('Check your email and click the confirmation link first.');
+      } else if (msg.indexOf('rate')>-1||msg.indexOf('limit')>-1) {
+        _showLoginErr('Too many attempts. Wait 1 minute and try again.');
+      } else {
+        _showLoginErr(msg.slice(0,100));
+      }
+      return;
     }
-  }catch(e){
-    var m = (e && e.message) ? e.message : String(e);
-    if (m.includes('Invalid API key') || m.includes('apikey') || m.includes('401')) {
-      _showLoginErr('⚠️ Auth service paused. Go to supabase.com/dashboard → resume the agribridge project.');
-    } else if (m.includes('Email not confirmed')) {
-      _showLoginErr('📧 Check your email and click the confirmation link first.');
-    } else if (m.includes('Invalid login credentials') || m.includes('invalid_credentials')) {
-      _showLoginErr('❌ Wrong email or password. Use the email you registered with.');
-    } else if (m.includes('network') || m.includes('fetch') || m.includes('Failed')) {
-      _showLoginErr('📵 No internet connection. Check your network and try again.');
+    var user = res.data.user;
+    var meta = (user && user.user_metadata) || {};
+    var uname = meta.name || meta.full_name || authEmail.split('@')[0];
+    var urole = meta.role || 'vendor';
+    currentUser = { name:uname, phone:meta.phone||'', role:urole,
+                    district:meta.district||'', email:authEmail,
+                    supaId: user ? user.id : null };
+    try {
+      var pending = localStorage.getItem('ab_pending_profile');
+      if (pending) { var p=JSON.parse(pending); if(p.email===authEmail){ currentUser=Object.assign(currentUser,p); } }
+    } catch(e){}
+    closeModal('loginModal');
+    updateNavUser(uname, urole);
+    showToast('Welcome back, ' + uname + '!');
+    if (typeof loadBasketFromCloud==='function') loadBasketFromCloud();
+  } catch(e) {
+    var em = (e&&e.message) ? e.message : String(e);
+    if (em.indexOf('fetch')>-1||em.indexOf('network')>-1||em.indexOf('Failed')>-1) {
+      _showLoginErr('No internet. Check your connection and try again.');
     } else {
-      _showLoginErr('❌ ' + m.slice(0, 100));
+      _showLoginErr(em.slice(0,120));
     }
+  } finally {
+    if (btn&&!_isLockedOut()) { btn.disabled=false; btn.textContent='Log In'; }
   }
-  finally{if(btn&&!_isLockedOut()){btn.disabled=false;btn.textContent='Log In';}}
 }
 
 // ── doRegister — replaces original ───────────────────
-async function doRegister(){
+async function doRegister() {
   _clearRegErr();
-  if(!sbAuth){_showRegErr('Not connected. Please refresh the page.');return;}
-  var name=((document.getElementById('regName')||{}).value||'').trim();
-  var phone=((document.getElementById('regPhone')||{}).value||'').trim();
-  var email=((document.getElementById('regEmail')||{}).value||'').trim();
-  var role=(document.getElementById('regRole')||{}).value||'farmer';
-  var district=(document.getElementById('regDistrict')||{}).value||'';
-  var pwd=(document.getElementById('regPwd')||{}).value||'';
-  var conf=(document.getElementById('regPwdConfirm')||{}).value||'';
-  if(!name){_showRegErr('Please enter your full name.');return;}
-  if(!phone&&!email){_showRegErr('Please enter your phone or email.');return;}
-  if(!pwd){_showRegErr('Please create a password.');return;}
-  if(pwd.length<8){_showRegErr('Password must be at least 8 characters.');return;}
-  if(pwd!==conf){_showRegErr('Passwords do not match.');return;}
-  var authEmail=email||_toEmail(phone);
-  var btn=document.querySelector('#regStep1 .btn-submit');
-  if(btn){btn.disabled=true;btn.textContent='Creating account…';}
-  try{
-    var res=await sbAuth.auth.signUp({email:authEmail,password:pwd,options:{data:{name,phone,role,district}}});
-    if(res.error){
-      var msg=res.error.message||'Registration failed.';
-      if(msg.indexOf('already')>-1){
-        msg='This email is already registered. Try logging in instead.';
-      } else if(msg.indexOf('Invalid API key')>-1||msg.indexOf('apikey')>-1||msg.indexOf('401')>-1){
-        msg='Database is starting up (takes ~2 min after resume). Please wait and try again.';
-      } else if(msg.indexOf('JWT')>-1){
-        msg='Auth key error. Please refresh the page and try again.';
+  if (!sbAuth) { _showRegErr('Not connected. Please refresh the page.'); return; }
+  var name     = ((document.getElementById('regName')    ||{}).value||'').trim();
+  var phone    = ((document.getElementById('regPhone')   ||{}).value||'').trim();
+  var email    = ((document.getElementById('regEmail')   ||{}).value||'').trim();
+  var role     = (document.getElementById('regRole')     ||{}).value||'farmer';
+  var district = (document.getElementById('regDistrict') ||{}).value||'';
+  var pwd      = (document.getElementById('regPwd')      ||{}).value||'';
+  var conf     = (document.getElementById('regPwdConfirm')||{}).value||'';
+  if (!name)  { _showRegErr('Please enter your full name.'); return; }
+  if (!email) { _showRegErr('Please enter your email address.'); return; }
+  if (!pwd)   { _showRegErr('Please create a password.'); return; }
+  if (pwd.length < 6) { _showRegErr('Password must be at least 6 characters.'); return; }
+  if (pwd !== conf)   { _showRegErr('Passwords do not match.'); return; }
+  if (!checkRateLimit('register', 3)) return;
+  var btn = document.getElementById('regSubmitBtn');
+  if (btn) { btn.disabled = true; btn.textContent = 'Creating Account...'; }
+  try {
+    var res = await sbAuth.auth.signUp({
+      email: email, password: pwd,
+      options: { data: { name: name, phone: phone, role: role, district: district } }
+    });
+    if (res.error) {
+      var msg = res.error.message || 'Registration failed.';
+      if (msg.indexOf('already') > -1 || msg.indexOf('duplicate') > -1) {
+        msg = 'This email is already registered. Try logging in.';
+      } else if (msg.indexOf('Password') > -1) {
+        msg = 'Password must be at least 6 characters.';
+      } else if (msg.indexOf('valid email') > -1) {
+        msg = 'Please enter a valid email address.';
+      } else if (msg.indexOf('rate') > -1 || msg.indexOf('limit') > -1) {
+        msg = 'Too many attempts. Wait 1 minute and try again.';
       }
-      _showRegErr('❌ '+msg);
-    } else {
-      try{ await sb('farmers',{method:'POST',body:{phone,name,role,district,email:authEmail}}); }catch(e2){}
-      var s1=document.getElementById('regStep1'),s2=document.getElementById('regStep2');
-      if(s1)s1.style.display='none'; if(s2)s2.style.display='block';
-      var se=document.getElementById('regEmailSent'); if(se)se.textContent=authEmail;
+      _showRegErr('Registration failed: ' + msg);
+      return;
     }
-  }catch(e){
-    var rm = (e && e.message) ? e.message : String(e);
-    if (rm.includes('already registered') || rm.includes('already exists') || rm.includes('duplicate')) {
-      _showRegErr('📱 This email is already registered. Try logging in instead.');
-    } else if (rm.includes('Invalid API key') || rm.includes('apikey') || rm.includes('401')) {
-      _showRegErr('⚠️ Auth service paused. Go to supabase.com/dashboard → resume the agribridge project.');
-    } else if (rm.includes('Password') || rm.includes('password')) {
-      _showRegErr('🔒 Password must be at least 6 characters.');
-    } else if (rm.includes('valid email') || rm.includes('email')) {
-      _showRegErr('📧 Please enter a valid email address.');
-    } else {
-      _showRegErr('❌ ' + rm.slice(0, 100));
+    // Auth success - save profile locally in case PostgREST is down
+    try { localStorage.setItem('ab_pending_profile', JSON.stringify({name,phone,role,district,email})); } catch(e){}
+    // Try DB write but don't block on failure
+    if (res.data && res.data.user) {
+      try {
+        await sb('farmers', { method:'POST', body: JSON.stringify({
+          id: res.data.user.id, name: name, phone: phone, role: role, district: district, email: email
+        })});
+      } catch(dbErr) { console.warn('DB write skipped (PostgREST unavailable):', dbErr.message||dbErr); }
     }
+    var needsConfirm = res.data && res.data.user && !res.data.session;
+    closeModal('registerModal');
+    if (needsConfirm) {
+      showToast('Check your email (' + email + ') and click the confirmation link!');
+    } else {
+      currentUser = { name:name, phone:phone, role:role, district:district, email:email,
+                      supaId: res.data.user ? res.data.user.id : null };
+      updateNavUser(name, role);
+      showToast('Welcome to AgriBridge, ' + name + '! Account created.');
+    }
+  } catch(e) {
+    var em = (e&&e.message) ? e.message : String(e);
+    if (em.indexOf('fetch')>-1||em.indexOf('network')>-1||em.indexOf('Failed')>-1) {
+      _showRegErr('No internet. Check your connection and try again.');
+    } else {
+      _showRegErr(em.slice(0,120));
+    }
+  } finally {
+    if (btn) { btn.disabled=false; btn.textContent='Create Account'; }
   }
-  finally{if(btn){btn.disabled=false;btn.textContent='Create Account 🌾';}}
 }
 
 // ── logOut — replaces original ────────────────────────
@@ -4216,153 +4067,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
 
 
-// ════════════════════════════════════════════════════════════
-// HOME PAGE — Featured Products v2 (new design spec)
-// ════════════════════════════════════════════════════════════
-var HOME_FEATURED = [
-  {id:'h1',name:'Fresh Maize',price:750,emoji:'🌽',img:'https://images.unsplash.com/photo-1560493676-696fc1c5d2bf?auto=format&fit=crop&w=400&h=220&q=70',farmer:'John Tumusiime',initials:'JT',verified:true,district:'Masaka',qty:500,unit:'kg'},
-  {id:'h2',name:'Organic Tomatoes',price:1800,origPrice:2200,disc:18,emoji:'🍅',img:'https://images.unsplash.com/photo-1546094096-0df4bcaaa337?auto=format&fit=crop&w=400&h=220&q=70',farmer:'Sarah Nakato',initials:'SN',verified:true,organic:true,district:'Wakiso',qty:200,unit:'kg'},
-  {id:'h3',name:'Matooke (Plantains)',price:950,emoji:'🍌',img:'https://images.unsplash.com/photo-1603833665858-e61d17a86224?auto=format&fit=crop&w=400&h=220&q=70',farmer:'Moses Kiggundu',initials:'MK',district:'Mbarara',qty:1000,unit:'bunch'},
-  {id:'h4',name:'Fresh Beans',price:3200,emoji:'🫘',img:'https://images.unsplash.com/photo-1628771065518-0d82f1938462?auto=format&fit=crop&w=400&h=220&q=70',farmer:'Grace Namutebi',initials:'GN',verified:true,district:'Jinja',qty:300,unit:'kg'},
-  {id:'h5',name:'Arabica Coffee',price:8500,emoji:'☕',img:'https://images.unsplash.com/photo-1447933601403-0c6688de566e?auto=format&fit=crop&w=400&h=220&q=70',farmer:'Peter Mukisa',initials:'PM',verified:true,organic:true,district:'Mbale',qty:150,unit:'kg'},
-  {id:'h6',name:'Raw Honey',price:18000,emoji:'🍯',img:'https://images.unsplash.com/photo-1607303929487-5e16e41f2f41?auto=format&fit=crop&w=400&h=220&q=70',farmer:'David Ssemakula',initials:'DS',verified:true,district:'Mbarara',qty:200,unit:'kg'},
-  {id:'h7',name:'Fresh Milk',price:1200,emoji:'🥛',img:'https://images.unsplash.com/photo-1563636619-e9143da7973b?auto=format&fit=crop&w=400&h=220&q=70',farmer:'Rose Namuli',initials:'RN',district:'Kiruhura',qty:500,unit:'L'},
-  {id:'h8',name:'Irish Potatoes',price:1100,origPrice:1400,disc:21,emoji:'🥔',img:'https://images.unsplash.com/photo-1518977676601-b53f82ber21?auto=format&fit=crop&w=400&h=220&q=70',farmer:'Emmanuel Byaruhanga',initials:'EB',organic:true,district:'Kabale',qty:800,unit:'kg'},
-];
-
-function renderProductCardV2(p) {
-  var div = document.createElement('div');
-  div.className = 'product-card-v2';
-  div.onclick = function(){ showPage('market'); };
-
-  var img = document.createElement('div');
-  img.className = 'pc-img';
-  var imgEl = document.createElement('img');
-  imgEl.src = p.img;
-  imgEl.alt = p.name;
-  imgEl.onerror = function(){ this.style.display='none'; };
-  img.appendChild(imgEl);
-  if (p.disc) {
-    var discBadge = document.createElement('div');
-    discBadge.className = 'pc-badge-off';
-    discBadge.textContent = p.disc + '% OFF';
-    img.appendChild(discBadge);
-  }
-  if (p.organic) {
-    var orgBadge = document.createElement('div');
-    orgBadge.className = 'pc-badge-org';
-    orgBadge.textContent = 'ORGANIC';
-    img.appendChild(orgBadge);
-  }
-  div.appendChild(img);
-
-  var body = document.createElement('div');
-  body.className = 'pc-body';
-
-  var name = document.createElement('div');
-  name.className = 'pc-name';
-  name.textContent = p.name + (p.verified ? ' \u2705' : '');
-  body.appendChild(name);
-
-  var farmerRow = document.createElement('div');
-  farmerRow.className = 'pc-farmer-row';
-  var av = document.createElement('div');
-  av.className = 'pc-avatar';
-  av.textContent = p.initials;
-  var fn = document.createElement('span');
-  fn.className = 'pc-farmer-name';
-  fn.textContent = p.farmer;
-  farmerRow.appendChild(av);
-  farmerRow.appendChild(fn);
-  body.appendChild(farmerRow);
-
-  var loc = document.createElement('div');
-  loc.className = 'pc-location';
-  loc.textContent = '\uD83D\uDCCD '.replace(/[\uD800-\uDFFF]/, '') + p.district + ' - ' + p.qty.toLocaleString() + ' ' + p.unit;
-  loc.innerHTML = '&#128205; ' + escapeHtml(p.district) + ' &middot; ' + p.qty.toLocaleString() + ' ' + p.unit;
-  body.appendChild(loc);
-
-  var footer = document.createElement('div');
-  footer.className = 'pc-footer';
-
-  var priceDiv = document.createElement('div');
-  var priceVal = document.createElement('div');
-  priceVal.className = 'pc-price-val';
-  priceVal.textContent = 'UGX ' + p.price.toLocaleString();
-  priceDiv.appendChild(priceVal);
-  if (p.origPrice) {
-    var priceOld = document.createElement('div');
-    priceOld.className = 'pc-price-old';
-    priceOld.textContent = 'UGX ' + p.origPrice.toLocaleString();
-    priceDiv.appendChild(priceOld);
-  }
-  var priceUnit = document.createElement('div');
-  priceUnit.className = 'pc-price-unit';
-  priceUnit.textContent = 'per ' + p.unit;
-  priceDiv.appendChild(priceUnit);
-
-  var actions = document.createElement('div');
-  actions.className = 'pc-actions';
-
-  var waBtn = document.createElement('a');
-  waBtn.className = 'pc-btn-wa';
-  waBtn.href = 'https://wa.me/256755966690?text=' + encodeURIComponent('Hi! I want to order ' + p.name + ' from AgriBridge.');
-  waBtn.target = '_blank';
-  waBtn.textContent = 'WA';
-  waBtn.onclick = function(e){ e.stopPropagation(); };
-  actions.appendChild(waBtn);
-
-  var cartBtn = document.createElement('button');
-  cartBtn.className = 'pc-btn-cart';
-  cartBtn.textContent = '+';
-  cartBtn.title = 'Add to basket';
-  cartBtn.onclick = function(e){ e.stopPropagation(); addToBasketById(p.id, p.name, p.price, p.unit); };
-  actions.appendChild(cartBtn);
-
-  var orderBtn = document.createElement('button');
-  orderBtn.className = 'pc-btn-order';
-  orderBtn.textContent = 'Order';
-  orderBtn.onclick = function(e){ e.stopPropagation(); showPage('market'); };
-  actions.appendChild(orderBtn);
-
-  footer.appendChild(priceDiv);
-  footer.appendChild(actions);
-  body.appendChild(footer);
-  div.appendChild(body);
-  return div;
-}
-
-function addToBasketById(id, name, price, unit) {
-  var item = { id: id, name: name, price: price, unit: unit, qty: 1 };
-  addToBasket(item);
-  showToast('✅ ' + name + ' added to basket!');
-}
-
-
-function setHomeFilter(cat, btn) {
-  document.querySelectorAll('.cat-pill').forEach(function(b){ b.classList.remove('active'); });
-  if (btn) btn.classList.add('active');
-  renderHomeFeatured(); // for now shows all; can filter later
-}
-function renderHomeFeatured() {
-  var container = document.getElementById('homeFeaturedGrid');
-  if (!container) return;
-  container.innerHTML = '';
-  HOME_FEATURED.forEach(function(p){ container.appendChild(renderProductCardV2(p)); });
-}
-
-
-
-
-
-
-
 </script>
-
-
-
-
-
 
 
 
@@ -4554,67 +4259,6 @@ function renderHomeFeatured() {
 
 
 <!-- ══ B2B APPLICATION MODAL ══════════════════════════════════ -->
-
-<!-- ══ FOOTER v2 ════════════════════════════════════════════ -->
-<footer class="footer-v2">
-  <div class="footer-v2-grid">
-    <div class="footer-brand">
-      <a class="footer-brand-logo" onclick="showPage('home')">Agri<span>Bridge</span></a>
-      <p class="footer-brand-desc">Uganda's #1 agri-tech platform connecting farmers directly to buyers. Fair prices, mobile money payments, zero middlemen.</p>
-      <div class="payment-badges" style="margin-top:16px">
-        <span class="badge-mtn">MTN MoMo</span>
-        <span class="badge-airtel">Airtel Money</span>
-      </div>
-    </div>
-    <div>
-      <h4>Quick Links</h4>
-      <ul>
-        <li><a onclick="showPage('market')">Marketplace</a></li>
-        <li><a onclick="showPage('animals')">Livestock Market</a></li>
-        <li><a onclick="showPage('prices')">Live Prices</a></li>
-        <li><a onclick="showPage('training')">Training Videos</a></li>
-        <li><a onclick="showPage('b2b')">B2B Portal</a></li>
-        <li><a onclick="showPage('export')">Export Tools</a></li>
-      </ul>
-    </div>
-    <div>
-      <h4>For Farmers</h4>
-      <ul>
-        <li><a onclick="openModal('registerModal')">Join as Farmer</a></li>
-        <li><a onclick="showPage('dashboard')">Farmer Dashboard</a></li>
-        <li><a onclick="showPage('finance')">Finance &amp; Loans</a></li>
-        <li><a onclick="showPage('doctor')">AI Crop Doctor</a></li>
-        <li><a onclick="showPage('coldchain')">Cold Storage</a></li>
-        <li><span style="color:#F2A900;font-weight:700">USSD: *789#</span></li>
-      </ul>
-    </div>
-    <div>
-      <h4>Contact Us</h4>
-      <ul>
-        <li><span>📞 +256 755 966 690</span></li>
-        <li><span>✉️ hello@agribridge.ug</span></li>
-        <li><span>📍 Plot 12, Industrial Area, Kampala</span></li>
-      </ul>
-      <div style="margin-top:16px">
-        <p style="font-size:0.75rem;color:#8aab93;margin-bottom:6px">Accepted Payments</p>
-        <div class="payment-badges">
-          <span class="badge-mtn">MTN MoMo</span>
-          <span class="badge-airtel">Airtel Money</span>
-        </div>
-      </div>
-    </div>
-  </div>
-  <div class="footer-bottom">
-    <p>© 2026 AgriBridge Uganda. All rights reserved.</p>
-    <div class="footer-bottom-links">
-      <a onclick="openModal('privacyModal')">Privacy</a>
-      <a onclick="openModal('termsModal')">Terms</a>
-      <a onclick="showPage('about')">About</a>
-      <a onclick="showPage('contact')">Contact</a>
-    </div>
-  </div>
-</footer>
-
 <div class="modal-overlay" id="b2bApplyModal" onclick="handleOverlay(event,'b2bApplyModal')" role="dialog">
   <div class="modal-box" style="max-width:500px">
     <button class="modal-close" onclick="closeModal('b2bApplyModal')">✕</button>
@@ -4941,7 +4585,7 @@ Just ask anything!</div>
         <a href="#" onclick="openForgotPassword();return false" style="font-size:0.78rem;color:var(--green)">Forgot password?</a>
       </div>
     </div>
-    <button class="btn-submit" id="loginBtn" onclick="doLogin()">Log In</button>
+    <button class="btn-submit" id="loginBtn" id="loginSubmitBtn" onclick="doLogin()">Log In</button>
     <p style="text-align:center;margin-top:14px;font-size:0.85rem;color:var(--text2)">No account? <a href="#" onclick="closeModal('loginModal');openModal('registerModal')">Join Free</a></p>
   </div>
 </div>
@@ -4984,7 +4628,7 @@ Just ask anything!</div>
         </div>
         <div id="pwdMatchMsg" style="font-size:0.76rem;margin-top:4px"></div>
       </div>
-      <button class="btn-submit" onclick="doRegister()">Create Account 🌾</button>
+      <button class="btn-submit" id="regSubmitBtn" onclick="doRegister()">Create Account 🌾</button>
     </div>
     <div id="regStep2" style="display:none;text-align:center;padding:10px 0">
       <div style="font-size:3rem;margin-bottom:8px">📧</div>
