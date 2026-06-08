@@ -565,10 +565,83 @@ img{max-width:100%}
 /* Guest CTA update */
 #guestCta{background:var(--bg2);border-bottom:1px solid #1e3a28;padding:12px 16px;display:flex;gap:10px;align-items:center;flex-wrap:wrap;justify-content:center}
 
+
+/* ══ MOBILE FIXES ══════════════════════════════════════════ */
+/* Fix nav on small screens */
+.top-nav { padding: 0 10px; gap: 6px; }
+.top-nav .nav-logo { cursor: pointer; text-decoration: none; color: inherit;  font-size: 1.1rem; }
+.nav-search { display: none; }
+@media (min-width: 600px) { .nav-search { display: flex; } }
+
+/* Bottom nav - fit 4 items on small screen */
+.bottom-nav { height: 58px; }
+.bottom-nav .nav-item { min-width: 48px; padding: 2px; }
+.bottom-nav .nav-item .nav-icon { font-size: 1.1rem; }
+.bottom-nav .nav-item span:last-child { font-size: 0.58rem; }
+
+/* Hero on mobile */
+.hero-v2 { min-height: 85vh; padding: 80px 16px 60px; }
+.hero-v2 h1 { font-size: clamp(1.8rem, 5vw, 4rem); }
+.hero-v2 > div > p { font-size: 0.92rem; }
+.hero-ctas { gap: 8px; }
+.btn-hero-primary, .btn-hero-secondary { padding: 11px 20px; font-size: 0.88rem; }
+.hero-stats { gap: 20px; }
+.hero-stat p:first-child { font-size: 1.6rem; }
+
+/* Value prop cards on mobile */
+.guest-value-props, [style*="minmax(200px"] {
+  grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)) !important;
+}
+
+/* Products grid on mobile - 2 columns always */
+.products-grid-v2 { grid-template-columns: repeat(2, 1fr); gap: 8px; }
+@media (min-width: 500px) { .products-grid-v2 { grid-template-columns: repeat(2, 1fr); } }
+@media (min-width: 700px) { .products-grid-v2 { grid-template-columns: repeat(3, 1fr); } }
+
+/* Product card on mobile */
+.product-card-v2 .pc-img { height: 120px; }
+.pc-body { padding: 10px; }
+.pc-name { font-size: 0.82rem; }
+.pc-btn-order { font-size: 0.62rem; padding: 0 7px; }
+
+/* How it works on mobile */
+.how-step { padding: 14px; gap: 12px; }
+.how-step-num { width: 32px; height: 32px; font-size: 0.85rem; }
+
+/* Section padding on mobile */
+.sec { padding: 10px 12px; }
+
+/* Footer on mobile */
+.footer-v2 { padding: 32px 14px 80px; }
+.footer-v2-grid { grid-template-columns: repeat(2, 1fr); gap: 20px; }
+
+/* Page content offset for fixed nav + ticker */
+.page { padding-top: 60px !important; padding-bottom: 68px; min-height: 100vh; }
+
+/* Fix cards grid */
+.cards-grid { 
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(155px, 1fr));
+  gap: 10px;
+}
+
+/* Make modals fit mobile */
+.modal-box {
+  margin: 10px;
+  max-height: calc(100vh - 20px);
+  border-radius: 16px;
+}
+
+/* Cookie banner */
+#cookieBanner {
+  bottom: 64px !important;
+  margin: 0 8px 8px !important;
+  border-radius: 12px;
+  font-size: 0.78rem;
+}
+
 </style>
 </head>
-<body>
-
 <body>
 
 <!-- ══ SKIP LINK ══ -->
@@ -576,18 +649,22 @@ img{max-width:100%}
 
 <!-- ══ NAVBAR ══ -->
 <nav class="navbar" role="navigation" aria-label="Main">
-  <div class="nav-logo">Agri<span>Bridge</span></div>
-  <div class="nav-search">
+  <a class="nav-logo" onclick="showPage('home')" style="cursor:pointer">Agri<span>Bridge</span></a>
+  <div class="nav-search" style="flex:1;max-width:380px">
     <input type="text" id="globalSearch" placeholder="Search crops, animals, farmers…" oninput="handleSearch(this.value)" aria-label="Search">
     <span class="nav-search-icon">🔍</span>
   </div>
-  <button class="mob-search-btn" onclick="toggleMobSearch()" aria-label="Search">🔍</button>
-  <button class="notif-bell" onclick="toggleNotifPanel()" title="Notifications" id="notifBell" aria-label="Notifications">🔔<span class="notif-badge" id="notifCount" style="display:none">4</span></button>
-  <button class="notif-bell" onclick="toggleBasket()" title="Basket" id="basketNavBtn" style="position:relative" aria-label="Basket">🛒<span class="notif-badge" id="basketNavCount" style="display:none;background:#f44336">0</span></button>
-  <button id="langPickerBtn" class="btn-sm outline" onclick="openModal('langModal')" style="font-size:0.8rem;padding:5px 10px" title="Change Language">🌐 EN</button>
-  <div class="nav-btns">
-    <button class="btn-sm outline" onclick="openModal('loginModal')">Log In</button>
-    <button class="btn-sm" onclick="openModal('registerModal')">Join Free</button>
+  <div class="nav-actions" style="display:flex;align-items:center;gap:6px;margin-left:auto">
+    <button class="mob-search-btn nav-icon-btn" onclick="toggleMobSearch()" aria-label="Search" title="Search">🔍</button>
+    <button class="nav-icon-btn" onclick="toggleAI()" aria-label="AI Doctor" title="AI Doctor">🩺</button>
+    <button class="nav-icon-btn" onclick="toggleBasket()" aria-label="Basket" title="Basket" style="position:relative">
+      🛒<span class="nav-badge" id="basketCount" style="display:none">0</span>
+    </button>
+    <button class="nav-icon-btn" onclick="openModal('langModal')" aria-label="Language" style="font-size:0.75rem;font-weight:700;border:1px solid var(--green);border-radius:6px;padding:4px 8px;color:var(--green)">🌐 EN</button>
+    <div id="navUserArea" style="display:flex;gap:6px;align-items:center">
+      <button class="btn-nav-login" onclick="openModal('loginModal')">Log In</button>
+      <button class="btn-nav-join" onclick="openModal('registerModal')">Join Free</button>
+    </div>
   </div>
 </nav>
 
@@ -1455,6 +1532,9 @@ AgriBridge service</div>
 </div>
 
 <script>
+
+
+
 
 
 
@@ -3586,7 +3666,7 @@ window.showPage = function(name) {
 
 // Pages each role can access
 var ROLE_PAGES = {
-  guest:  ['home'],
+  guest:  ['home','market','prices','about','contact','ussd','doctor'],
   farmer: ['home','prices','crops','animals','training','delivery','ussd',
            'doctor','supply','dashboard','community','finance','coldchain','about','contact'],
   vendor: ['home','market','prices','crops','animals','delivery','ussd',
@@ -3725,9 +3805,15 @@ window.showPage = function(name) {
   if (allowed.indexOf(name) === -1 && name !== 'home') {
     // Guest trying to access gated page
     if (role === 'guest') {
-      showToast('🔒 Create a free account to access ' + name.charAt(0).toUpperCase() + name.slice(1));
-      openModal('registerModal');
-      return;
+      // Allow read-only pages for guests
+      var guestReadOnly = ['market','prices','about','contact','ussd','doctor','animals','crops','training','community'];
+      if (guestReadOnly.indexOf(name) >= 0) {
+        // allow through - just viewing
+      } else {
+        showToast('🔒 Create a free account to access ' + name.charAt(0).toUpperCase() + name.slice(1));
+        openModal('registerModal');
+        return;
+      }
     }
     // Wrong role accessing wrong page
     showToast('This section is not available for your account type');
@@ -3963,7 +4049,13 @@ async function doRegister(){
     var res=await sbAuth.auth.signUp({email:authEmail,password:pwd,options:{data:{name,phone,role,district}}});
     if(res.error){
       var msg=res.error.message||'Registration failed.';
-      if(msg.indexOf('already')>-1)msg='Account already exists. Try logging in.';
+      if(msg.indexOf('already')>-1){
+        msg='This email is already registered. Try logging in instead.';
+      } else if(msg.indexOf('Invalid API key')>-1||msg.indexOf('apikey')>-1||msg.indexOf('401')>-1){
+        msg='Database is starting up (takes ~2 min after resume). Please wait and try again.';
+      } else if(msg.indexOf('JWT')>-1){
+        msg='Auth key error. Please refresh the page and try again.';
+      }
       _showRegErr('❌ '+msg);
     } else {
       try{ await sb('farmers',{method:'POST',body:{phone,name,role,district,email:authEmail}}); }catch(e2){}
@@ -4262,7 +4354,13 @@ function renderHomeFeatured() {
 
 
 
+
+
+
 </script>
+
+
+
 
 
 
