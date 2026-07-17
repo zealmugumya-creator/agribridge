@@ -3855,7 +3855,7 @@ async function doLogin() {
   try {
     var res = await sbAuth.auth.signInWithPassword({ email: authEmail, password: pwd });
     if (res.error) {
-      _trackFailedAttempt();
+      _recordFail();
       var msg = res.error.message || 'Login failed.';
       if (msg.indexOf('Invalid login credentials')>-1||msg.indexOf('invalid_credentials')>-1) {
         _showLoginErr('Wrong email or password. Check and try again.');
@@ -3868,6 +3868,7 @@ async function doLogin() {
       }
       return;
     }
+    _clearAttempts();
     var user = res.data.user;
     var meta = (user && user.user_metadata) || {};
     var uname = meta.name || meta.full_name || authEmail.split('@')[0];
