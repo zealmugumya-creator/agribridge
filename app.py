@@ -37,9 +37,13 @@ SUPABASE_URL   = os.environ.get('SUPABASE_URL',   'https://vyrctsiyaihsysgpozdm.
 SUPABASE_KEY   = os.environ.get('SUPABASE_KEY',   '')
 GEMINI_KEY     = os.environ.get('GEMINI_API_KEY', '')
 
-if AT_AVAILABLE and AT_API_KEY != 'atsk_REPLACE_ME':
-    africastalking.initialize(AT_USERNAME, AT_API_KEY)
-    at_sms = africastalking.SMS()
+if AT_AVAILABLE and AT_API_KEY and AT_API_KEY != 'atsk_REPLACE_ME':
+    try:
+        africastalking.initialize(AT_USERNAME, AT_API_KEY)
+        at_sms = africastalking.SMS
+    except Exception as _at_err:
+        print(f"WARNING: Africa's Talking init failed: {_at_err}")
+        at_sms = None
 else:
     at_sms = None
 
