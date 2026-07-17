@@ -3539,7 +3539,7 @@ function applyRoleUI() {
   if (nav) {
     var items = ROLE_NAV[role] || ROLE_NAV.guest;
     nav.innerHTML = items.map(function(item) {
-      return '<button class="nav-item" id="nav-' + item.page + '" onclick="showPage(\"' + item.page + '\")">' +
+      return '<button class="nav-item" id="nav-' + item.page + '" onclick="showPage(\'' + item.page + '\')">' +
         '<span class="nav-icon">' + item.icon + '</span><span>' + item.label + '</span></button>';
     }).join('');
     // Mark current page active
