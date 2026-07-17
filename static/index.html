@@ -3886,9 +3886,14 @@ async function doLogin() {
   } catch(e) {
     var em = (e&&e.message) ? e.message : String(e);
     if (em.indexOf('fetch')>-1||em.indexOf('network')>-1||em.indexOf('Failed')>-1) {
-      _showLoginErr('No internet. Check your connection and try again.');
+      if (navigator.onLine === false) {
+        _showLoginErr('No internet. Check your connection and try again.');
+      } else {
+        // Device is online but the request failed to reach Supabase.
+        _showLoginErr('Could not reach the server. It may be waking up — wait ~30s and try again. (' + em.slice(0,60) + ')');
+      }
     } else {
-      _showLoginErr(em.slice(0,120));
+      _showLoginErr(em.slice(0,140));
     }
   } finally {
     if (btn&&!_isLockedOut()) { btn.disabled=false; btn.textContent='Log In'; }
@@ -3955,7 +3960,11 @@ async function doRegister() {
   } catch(e) {
     var em = (e&&e.message) ? e.message : String(e);
     if (em.indexOf('fetch')>-1||em.indexOf('network')>-1||em.indexOf('Failed')>-1) {
-      _showRegErr('No internet. Check your connection and try again.');
+      if (navigator.onLine === false) {
+        _showRegErr('No internet. Check your connection and try again.');
+      } else {
+        _showRegErr('Could not reach the server. It may be waking up — wait ~30s and try again. (' + em.slice(0,60) + ')');
+      }
     } else {
       _showRegErr(em.slice(0,120));
     }
