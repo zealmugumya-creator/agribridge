@@ -1421,6 +1421,38 @@ async function sb(table, opts = {}) {
 async function sbInsert(t, d) { return sb(t, { method:'POST', body:d }); }
 async function sbUpdate(t, d, col, val) { return sb(t, { method:'PATCH', body:d, filters:[[col, `eq.${val}`]] }); }
 
+// Save a signup profile. sb() returns null on failure rather than throwing, so
+// the result must be checked. PostgREST on the current tier intermittently times
+// out, so retry with backoff and queue locally as a last resort — a registration
+// must never be silently discarded.
+async function saveProfileWithRetry(profile, attempts) {
+  attempts = attempts || 3;
+  for (var i = 0; i < attempts; i++) {
+    if (await sbInsert('farmers', profile)) return true;
+    if (i < attempts - 1) {
+      await new Promise(function(ok){ setTimeout(ok, 500 * Math.pow(2, i)); });
+    }
+  }
+  try {
+    var q = JSON.parse(localStorage.getItem('ab_pending_profiles') || '[]');
+    q.push(profile);
+    localStorage.setItem('ab_pending_profiles', JSON.stringify(q));
+  } catch (e) {}
+  return false;
+}
+
+// Re-send any profiles that could not be saved on an earlier visit.
+async function flushPendingProfiles() {
+  var q;
+  try { q = JSON.parse(localStorage.getItem('ab_pending_profiles') || '[]'); } catch (e) { return; }
+  if (!q.length) return;
+  var remaining = [];
+  for (var i = 0; i < q.length; i++) {
+    if (!(await sbInsert('farmers', q[i]))) remaining.push(q[i]);
+  }
+  try { localStorage.setItem('ab_pending_profiles', JSON.stringify(remaining)); } catch (e) {}
+}
+
 // ── GLOBAL STATE ──────────────────────────────────────────────────
 let currentUser   = JSON.parse(localStorage.getItem('ab_user') || 'null');
 let allListings   = [];
@@ -2862,6 +2894,8 @@ if ('serviceWorker' in navigator) {
 // INIT — called on DOM ready
 // ─────────────────────────────────────────────────────────────────
 document.addEventListener('DOMContentLoaded', () => {
+  // Re-send any signup profiles that failed to save on an earlier visit
+  flushPendingProfiles();
   // Restore user
   if (currentUser?.name) { updateNavUser(currentUser.name, currentUser.role||'farmer'); setTimeout(()=>{ renderRoleHome(); loadBasketFromCloud(); },600); }
   // Init basket badge
@@ -3903,11 +3937,10 @@ async function doRegister() {
     try { localStorage.setItem('ab_pending_profile', JSON.stringify({name,phone,role,district,email})); } catch(e){}
     // Try DB write but don't block on failure
     if (res.data && res.data.user) {
-      try {
-        await sb('farmers', { method:'POST', body: JSON.stringify({
-          id: res.data.user.id, full_name: name, phone: phone, role: role, district: district, email: email
-        })});
-      } catch(dbErr) { console.warn('DB write skipped (PostgREST unavailable):', dbErr.message||dbErr); }
+      var profileSaved = await saveProfileWithRetry({
+        id: res.data.user.id, full_name: name, phone: phone, role: role, district: district, email: email
+      });
+      if (!profileSaved) console.warn('Profile could not be saved; queued to retry on next visit.');
     }
     var needsConfirm = res.data && res.data.user && !res.data.session;
     closeModal('registerModal');
