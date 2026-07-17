@@ -989,7 +989,7 @@ def crop_doctor():
     )
     try:
         res = requests.post(
-            f"https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent"
+            f"https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent"
             f"?key={GEMINI_KEY}",
             json={"contents": [{"parts": [{"text": prompt}]}]},
             timeout=15
