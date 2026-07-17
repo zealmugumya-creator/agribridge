@@ -1,7 +1,7 @@
 // AgriBridge Uganda — Service Worker v3
 // Handles offline caching, smart fetch strategies, and SPA navigation
 
-const CACHE_NAME = 'agribridge-v3';
+const CACHE_NAME = 'agribridge-v4';
 const STATIC_ASSETS = [
   '/',
   '/index.html',
@@ -95,17 +95,24 @@ self.addEventListener('fetch', event => {
     return;
   }
 
-  // 5. Stale-while-revalidate for the app shell (index.html + same-origin)
+  // 5. Network-FIRST for the app shell (index.html + same-origin) so code
+  //    fixes reach users on the very next open. Falls back to cache when the
+  //    network fails, or after 4s on slow rural connections, so it still works
+  //    offline. (Was stale-while-revalidate, which showed old code for a load.)
   if (url.origin === self.location.origin || event.request.mode === 'navigate') {
     event.respondWith(
       caches.open(CACHE_NAME).then(cache =>
         cache.match('/index.html').then(cached => {
-          const fetchPromise = fetch(event.request).then(response => {
+          const network = fetch(event.request).then(response => {
             cache.put(event.request.url === '/' ? '/index.html' : event.request, response.clone());
             return response;
-          }).catch(() => cached || new Response('AgriBridge is offline', { status: 503 }));
-          // Return cached immediately, update in background
-          return cached || fetchPromise;
+          });
+          if (!cached) {
+            return network.catch(() => new Response('AgriBridge is offline', { status: 503 }));
+          }
+          // Prefer fresh network; fall back to cache on failure or after 4s.
+          const slowFallback = new Promise(res => setTimeout(() => res(cached), 4000));
+          return Promise.race([network.catch(() => cached), slowFallback]);
         })
       )
     );
