@@ -1428,6 +1428,18 @@ async function sb(table, opts = {}) {
   } catch { return null; }
 }
 async function sbInsert(t, d) { return sb(t, { method:'POST', body:d }); }
+// Upload an image to the public 'uploads' bucket; returns its public URL (or null).
+async function uploadImage(file, prefix){
+  if(!file) return null;
+  if(file.size > 2097152){ showToast('Image too large (max 2MB)'); return null; }
+  try{
+    var ext=((file.name||'img').split('.').pop()||'jpg').toLowerCase().replace(/[^a-z0-9]/g,'')||'jpg';
+    var path=(prefix||'misc')+'/'+Date.now()+'-'+Math.random().toString(36).slice(2,8)+'.'+ext;
+    var res=await fetch(SUPA_URL+'/storage/v1/object/uploads/'+path,{ method:'POST', headers:{ apikey:SUPA_KEY, Authorization:'Bearer '+SUPA_KEY, 'Content-Type':file.type||'image/jpeg', 'x-upsert':'true' }, body:file });
+    if(!res.ok) return null;
+    return SUPA_URL+'/storage/v1/object/public/uploads/'+path;
+  }catch(e){ return null; }
+}
 async function sbUpdate(t, d, col, val) { return sb(t, { method:'PATCH', body:d, filters:[[col, `eq.${val}`]] }); }
 
 // Save a signup profile. sb() returns null on failure rather than throwing, so
@@ -1600,7 +1612,7 @@ async function loadHomeStats() {
     sb('farmers',  { count:true }),
     sb('listings', { count:true }),
     sb('animal_listings', { count:true }),
-    sb('listings', { select:'id,crop_name,category,quantity_kg,price_per_kg,unit,district,is_organic,is_verified,description,discount_pct,sale_unit,min_order_kg,delivery_available,payment_terms,farmers(full_name,is_verified)', filters:[['is_available','eq.true'],['limit','6']] })
+    sb('listings', { select:'id,crop_name,category,quantity_kg,price_per_kg,unit,district,is_organic,is_verified,description,discount_pct,sale_unit,min_order_kg,delivery_available,payment_terms,image_url,farmers(full_name,is_verified)', filters:[['is_available','eq.true'],['limit','6']] })
   ]);
   const fc = (farmerCount||0).toLocaleString();
   const lc = (listingCount||0).toLocaleString();
@@ -1626,7 +1638,7 @@ async function loadListings() {
   if (allListings.length > 0) { renderListings(); return; }
   document.getElementById('marketListings').innerHTML = '<div class="loader"><div class="spinner"></div>Loading…</div>';
   const data = await sb('listings', {
-    select:'id,crop_name,category,quantity_kg,price_per_kg,unit,district,is_organic,is_verified,description,discount_pct,sale_unit,min_order_kg,delivery_available,payment_terms,farmers(full_name,is_verified)',
+    select:'id,crop_name,category,quantity_kg,price_per_kg,unit,district,is_organic,is_verified,description,discount_pct,sale_unit,min_order_kg,delivery_available,payment_terms,image_url,farmers(full_name,is_verified)',
     filters:[['is_available','eq.true']]
   });
   allListings = (data && data.length) ? data.map(normalise) : sampleListings();
@@ -1664,7 +1676,7 @@ function listingCard(l) {
   const waMsg   = encodeURIComponent(`Hi! I saw your ${name} on AgriBridge. Is it available?`);
   const cropPhotos = { maize:'1560493676-696fc1c5d2bf', tomatoes:'1546094096-0df4bcaaa337', matooke:'1603833665858-e61d17a86224', coffee:'1447933601403-0c6688de566e', avocado:'1601039641847-7857b994d704', pineapple:'1490474418585-ba9bad8fd0ea', onion:'1618512496248-a07fe83aa8cb', cassava:'1612257999756-2d43c78397ee', vanilla:'1617634975995-b2fa8bcf2f20', banana:'1571771894821-ce9b6c11b08e', beans:'1628771065518-0d82f1938462' };
   const pk = Object.keys(cropPhotos).find(k => name.toLowerCase().includes(k));
-  const imgUrl = pk ? `https://images.unsplash.com/photo-${cropPhotos[pk]}?auto=format&fit=crop&w=400&h=220&q=70` : '';
+  const imgUrl = l.image_url ? l.image_url : (pk ? `https://images.unsplash.com/photo-${cropPhotos[pk]}?auto=format&fit=crop&w=400&h=220&q=70` : '');
   const priceHtml = flash
     ? `<div class="card-price" style="color:#f44336">UGX ${salePrice.toLocaleString()}</div><div class="card-unit" style="text-decoration:line-through;color:var(--text2)">UGX ${price.toLocaleString()} · ??${l.discount_pct}% OFF</div>`
     : `<div class="card-price">UGX ${price.toLocaleString()}</div><div class="card-unit">per kg</div>`;
@@ -2748,7 +2760,10 @@ async function submitListProduce() {
   const minOrder=parseInt(document.getElementById('lpMinOrder')?.value||'0')||0;
   const delivery=document.getElementById('lpDelivery')?.checked||false;
   const pays=[]; if(document.getElementById('lpPayMomo')?.checked)pays.push('MoMo'); if(document.getElementById('lpPayCash')?.checked)pays.push('Cash'); if(document.getElementById('lpPayBank')?.checked)pays.push('Bank');
-  const result=await sbInsert('listings',{ farmer_id:currentUser?.id||null, crop_name:crop, category:cat, quantity_kg:qty, price_per_kg:price, unit:'kg', district, is_organic:organic, is_available:true, description:desc||null, sale_unit:saleUnit, min_order_kg:minOrder, delivery_available:delivery, payment_terms:pays.join(', ')||null });
+  const photoFile=document.getElementById('lpPhoto')?.files?.[0]||null;
+  if(photoFile) showToast('Uploading photo…');
+  const imageUrl=photoFile ? await uploadImage(photoFile,'listings') : null;
+  const result=await sbInsert('listings',{ farmer_id:currentUser?.id||null, crop_name:crop, category:cat, quantity_kg:qty, price_per_kg:price, unit:'kg', district, is_organic:organic, is_available:true, description:desc||null, sale_unit:saleUnit, min_order_kg:minOrder, delivery_available:delivery, payment_terms:pays.join(', ')||null, image_url:imageUrl });
   if(result){ closeModal('listProduceModal'); showToast(`✅ ${crop} listing posted! Buyers can now find you.`); allListings=[]; if(document.querySelector('.page.active')?.id==='page-market') loadListings(); }
   else showToast('Could not post listing — please try again');
 }
@@ -2887,7 +2902,9 @@ function openSettings(){
   });
   html+='</div></div>';
   if(currentUser){
+    var av = currentUser.avatar_url ? '<img src="'+currentUser.avatar_url+'" style="width:56px;height:56px;border-radius:50%;object-fit:cover">' : '<div style="width:56px;height:56px;border-radius:50%;background:var(--green-dim);display:flex;align-items:center;justify-content:center;font-size:1.4rem;font-weight:700;color:var(--green)">'+((currentUser.name||'U').charAt(0).toUpperCase())+'</div>';
     html+='<div style="'+sec+'"><span style="'+lbl+'">👤 Profile</span>'+
+      '<div style="display:flex;align-items:center;gap:12px;margin-bottom:12px">'+av+'<label class="btn-sm outline" style="cursor:pointer;margin:0">📷 Change photo<input type="file" accept="image/*" style="display:none" onchange="uploadAvatar(this)"></label></div>'+
       '<input id="setName" placeholder="Full name" style="'+inp+'">'+
       '<input id="setPhone" placeholder="Phone" style="'+inp+'">'+
       '<input id="setDistrict" placeholder="District" style="'+inp+'">'+
@@ -2913,6 +2930,13 @@ function openSettings(){
   openModal('settingsModal');
 }
 function setLangFromSettings(code){ setLang(code); openSettings(); }
+async function uploadAvatar(inp){
+  var f=inp&&inp.files&&inp.files[0]; if(!f||!currentUser) return;
+  showToast('Uploading photo…');
+  var url=await uploadImage(f,'avatars');
+  if(url){ currentUser.avatar_url=url; localStorage.setItem('ab_user',JSON.stringify(currentUser)); if(typeof updateNavUser==='function') updateNavUser(currentUser.name,currentUser.role||'vendor'); showToast('Photo updated ✓'); openSettings(); }
+  else showToast('Upload failed — try a smaller image');
+}
 function saveProfile(){
   if(!currentUser) return;
   var g=function(id){ var e=document.getElementById(id); return e?e.value.trim():''; };
@@ -4835,6 +4859,10 @@ Just ask anything!</div>
       <select id="lpDistrict"><option>Kampala</option><option>Wakiso</option><option>Mukono</option><option>Jinja</option><option>Mbarara</option><option>Gulu</option><option>Lira</option><option>Mbale</option><option>Kasese</option><option>Masaka</option><option>Other</option></select>
     </div>
     <div class="form-group"><label>Description (optional)</label><textarea id="lpDesc" placeholder="e.g. Grade A tomatoes, freshly harvested…" style="min-height:60px"></textarea></div>
+    <div class="form-group"><label>Photo of your produce (optional)</label>
+      <input type="file" id="lpPhoto" accept="image/*" style="width:100%;padding:8px;border:1px solid var(--border);border-radius:8px;background:var(--card);color:var(--text)">
+      <div style="font-size:0.72rem;color:var(--text2);margin-top:4px">A real photo helps buyers trust your listing. Max 2MB.</div>
+    </div>
     <div class="form-group"><label>How do you sell? (optional)</label>
       <div class="form-row">
         <select id="lpSaleUnit"><option value="per kg">Loose (per kg)</option><option value="100kg bags">100kg bags</option><option value="50kg bags">50kg bags</option><option value="crates">Crates</option><option value="bunches">Bunches</option><option value="sacks">Sacks</option></select>
