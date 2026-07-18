@@ -507,6 +507,7 @@ img{max-width:100%}
   <button class="notif-bell" onclick="toggleNotifPanel()" title="Notifications" id="notifBell" aria-label="Notifications">🔔<span class="notif-badge" id="notifCount" style="display:none">4</span></button>
   <button class="notif-bell" onclick="toggleBasket()" title="Basket" id="basketNavBtn" style="position:relative" aria-label="Basket">🛒<span class="notif-badge" id="basketNavCount" style="display:none;background:#f44336">0</span></button>
   <button id="langPickerBtn" class="btn-sm outline" onclick="openModal('langModal')" style="font-size:0.8rem;padding:5px 10px" title="Change Language">🌐 EN</button>
+  <button id="settingsBtn" class="notif-bell" onclick="openSettings()" title="Settings" aria-label="Settings">⚙️</button>
   <div class="nav-btns">
     <button class="btn-sm outline" onclick="openModal('loginModal')">Log In</button>
     <button class="btn-sm" onclick="openModal('registerModal')">Join Free</button>
@@ -2845,6 +2846,58 @@ function acceptCookies(){ localStorage.setItem('ab_cookies','1'); const b=docume
 function checkCookieBanner(){ if(!localStorage.getItem('ab_cookies')) setTimeout(()=>{ const b=document.getElementById('cookieBanner'); if(b) b.style.display='flex'; },3000); }
 function toggleFaq(qEl){ const aEl=qEl.nextElementSibling; const isOpen=aEl.classList.contains('open'); document.querySelectorAll('.faq-a.open').forEach(a=>{ a.classList.remove('open'); a.previousElementSibling?.classList.remove('open'); }); if(!isOpen){ aEl.classList.add('open'); qEl.classList.add('open'); } }
 function setLang(code){ localStorage.setItem('ab_lang',code); const langBtn=document.getElementById('langPickerBtn'); if(langBtn) langBtn.textContent={en:'?? EN',lg:'?? LG',rn:'?? RN',ac:'?? AC'}[code]||'??'; closeModal('langModal'); showToast('Language updated ✓'); }
+// ── Settings hub (language + profile + selling actions) ──────────
+function openSettings(){
+  var b=document.getElementById('settingsBody'); if(!b) return;
+  var lang=localStorage.getItem('ab_lang')||'en';
+  var langs=[['en','🇬🇧 English'],['lg','🇺🇬 Luganda'],['rn','🌄 Runyankole'],['ac','🌾 Acholi/Luo']];
+  var sec='background:var(--bg3);border-radius:12px;padding:14px;margin-bottom:12px';
+  var lbl='font-weight:700;font-size:0.9rem;margin-bottom:10px;display:block';
+  var inp='width:100%;padding:10px;border:1px solid var(--border);border-radius:8px;background:var(--card);color:var(--text);margin-bottom:10px;font-size:0.9rem';
+  var html='<div style="'+sec+'"><span style="'+lbl+'">🌐 Language</span><div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">';
+  langs.forEach(function(l){
+    var on=l[0]===lang;
+    html+='<button onclick="setLangFromSettings(\''+l[0]+'\')" style="padding:10px;border-radius:10px;cursor:pointer;font-size:0.85rem;font-weight:600;color:var(--text);border:1px solid '+(on?'var(--green)':'var(--border)')+';background:'+(on?'var(--green-dim)':'var(--card)')+'">'+l[1]+'</button>';
+  });
+  html+='</div></div>';
+  if(currentUser){
+    html+='<div style="'+sec+'"><span style="'+lbl+'">👤 Profile</span>'+
+      '<input id="setName" placeholder="Full name" style="'+inp+'">'+
+      '<input id="setPhone" placeholder="Phone" style="'+inp+'">'+
+      '<input id="setDistrict" placeholder="District" style="'+inp+'">'+
+      '<div style="font-size:0.72rem;color:var(--text2);margin-bottom:10px">'+escHtml(currentUser.email||'')+(currentUser.role?' · '+escHtml(currentUser.role):'')+'</div>'+
+      '<button class="btn-sm" style="width:100%" onclick="saveProfile()">Save changes</button></div>';
+    if(getCurrentRole()==='farmer'){
+      html+='<div style="'+sec+'"><span style="'+lbl+'">🌾 My selling</span><div style="display:flex;gap:8px;flex-wrap:wrap">'+
+        '<button class="btn-sm outline" onclick="closeModal(\'settingsModal\');openListProduceModal()">List produce</button>'+
+        '<button class="btn-sm outline" onclick="closeModal(\'settingsModal\');showPage(\'dashboard\')">My dashboard</button></div></div>';
+    }
+    html+='<button class="btn-sm" onclick="logOut()" style="background:#c0392b;width:100%">Log Out</button>';
+  } else {
+    html+='<div style="'+sec+'"><div style="font-size:0.85rem;color:var(--text2);margin-bottom:10px">Log in to edit your profile and manage your listings.</div>'+
+      '<div style="display:flex;gap:8px"><button class="btn-sm" onclick="closeModal(\'settingsModal\');openModal(\'loginModal\')">Log In</button>'+
+      '<button class="btn-sm outline" onclick="closeModal(\'settingsModal\');openModal(\'registerModal\')">Join Free</button></div></div>';
+  }
+  b.innerHTML=html;
+  if(currentUser){
+    var n=document.getElementById('setName'); if(n) n.value=currentUser.name||'';
+    var p=document.getElementById('setPhone'); if(p) p.value=currentUser.phone||'';
+    var d=document.getElementById('setDistrict'); if(d) d.value=currentUser.district||'';
+  }
+  openModal('settingsModal');
+}
+function setLangFromSettings(code){ setLang(code); openSettings(); }
+function saveProfile(){
+  if(!currentUser) return;
+  var g=function(id){ var e=document.getElementById(id); return e?e.value.trim():''; };
+  var nm=g('setName'); if(nm) currentUser.name=nm;
+  currentUser.phone=g('setPhone');
+  currentUser.district=g('setDistrict');
+  localStorage.setItem('ab_user',JSON.stringify(currentUser));
+  if(typeof updateNavUser==='function') updateNavUser(currentUser.name,currentUser.role||'vendor');
+  showToast('Profile saved ✓');
+  closeModal('settingsModal');
+}
 function shareListing(name,district,price){ const text='?? Fresh '+name+' from '+district+' at UGX '+Number(price).toLocaleString()+'/kg on AgriBridge!\nhttps://agribrige.com · Dial *789# on any phone'; if(navigator.share) navigator.share({title:name+' on AgriBridge',text,url:'https://agribrige.com'}).catch(()=>{}); else window.open('https://wa.me/?text='+encodeURIComponent(text),'_blank'); }
 function updateOnlineStatus(){ const b=document.getElementById('offlineBanner'); if(b) b.style.display=navigator.onLine?'none':'block'; }
 
@@ -4714,6 +4767,14 @@ Just ask anything!</div>
 </div>
 
 <!-- ══ LANGUAGE MODAL ════════════════════════════════════════ -->
+<div class="modal-overlay" id="settingsModal" onclick="handleOverlay(event,'settingsModal')" role="dialog" aria-label="Settings">
+  <div class="modal-box">
+    <button class="modal-close" onclick="closeModal('settingsModal')">✕</button>
+    <h3>⚙️ Settings</h3>
+    <div id="settingsBody"></div>
+  </div>
+</div>
+
 <div class="modal-overlay" id="langModal" onclick="handleOverlay(event,'langModal')" role="dialog" aria-label="Language selection">
   <div class="modal-box" style="max-width:340px">
     <button class="modal-close" onclick="closeModal('langModal')">✕</button>
