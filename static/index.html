@@ -688,7 +688,7 @@ img{max-width:100%}
 
 <!-- ══════════════════ PAGE: PRICES ══════════════════ -->
 <div id="page-prices" class="page">
-  <div class="page-header"><h2>📊 Market Prices</h2><p>Live prices from Kampala, Jinja &amp; Mbarara markets</p></div>
+  <div class="page-header"><h2>📊 Market Prices</h2><p>Live prices from Kampala, Jinja &amp; Mbarara markets · <span id="pricesUpdated" style="color:var(--green);font-weight:700">● Live</span></p></div>
   <div class="section">
     <div class="filters" id="priceFilters">
       <button class="filter-btn active" onclick="setPriceFilter('all',this)">All</button>
@@ -1631,6 +1631,7 @@ async function loadListings() {
   });
   allListings = (data && data.length) ? data.map(normalise) : sampleListings();
   renderListings();
+  if(!allPrices.length && navigator.onLine){ loadPrices(true).then(renderListings); }
 }
 
 function renderListings() {
@@ -1656,6 +1657,9 @@ function listingCard(l) {
   const verified= l.is_verified ? ' ✅' : '';
   const flash   = (l.discount_pct||0) > 0;
   const terms   = [ (l.min_order_kg>0)?('Min '+l.min_order_kg+'kg'):'', l.delivery_available?'🚚 Delivers':'', l.payment_terms?('💳 '+escHtml(l.payment_terms)):'' ].filter(Boolean).join(' · ');
+  const mktPrice= marketPriceFor(name);
+  const cmpPct  = (mktPrice && price>0) ? Math.round((price-mktPrice)/mktPrice*100) : null;
+  const cmpHtml = (cmpPct!==null && cmpPct!==0) ? `<div style="font-size:0.68rem;font-weight:700;margin-top:2px;color:${cmpPct<0?'var(--green)':'#f0a020'}">${cmpPct<0?Math.abs(cmpPct)+'% below market ✓':cmpPct+'% above market'}</div>` : '';
   const salePrice = flash ? Math.round(price*(1-l.discount_pct/100)) : price;
   const waMsg   = encodeURIComponent(`Hi! I saw your ${name} on AgriBridge. Is it available?`);
   const cropPhotos = { maize:'1560493676-696fc1c5d2bf', tomatoes:'1546094096-0df4bcaaa337', matooke:'1603833665858-e61d17a86224', coffee:'1447933601403-0c6688de566e', avocado:'1601039641847-7857b994d704', pineapple:'1490474418585-ba9bad8fd0ea', onion:'1618512496248-a07fe83aa8cb', cassava:'1612257999756-2d43c78397ee', vanilla:'1617634975995-b2fa8bcf2f20', banana:'1571771894821-ce9b6c11b08e', beans:'1628771065518-0d82f1938462' };
@@ -1682,7 +1686,7 @@ function listingCard(l) {
       </div>
       ${terms ? `<div style="font-size:0.72rem;color:var(--green);margin:2px 0 6px;padding:0 2px">${terms}</div>` : ''}
       <div class="card-footer">
-        <div>${priceHtml}</div>
+        <div>${priceHtml}${cmpHtml}</div>
         <div style="display:flex;gap:5px;flex-wrap:wrap;justify-content:flex-end;margin-top:6px">
           <a href="https://wa.me/256755966690?text=${waMsg}" target="_blank" class="btn-card" style="background:#25D366;font-size:0.75rem;padding:5px 8px">??</a>
           <button class="btn-card" onclick="event.stopPropagation();addToBasket('${l.id||Date.now()}','${escHtml(name)}',${salePrice},'kg','${emoji}','produce')" style="background:var(--green-dim);color:var(--green);border:1px solid var(--green);font-size:0.76rem">??</button>
@@ -2380,22 +2384,38 @@ function stopVoice() {
 // ─────────────────────────────────────────────────────────────────
 // PRICES PAGE
 // ─────────────────────────────────────────────────────────────────
-async function loadPrices() {
-  if (allPrices.length > 0) { renderPrices(); return; }
+async function loadPrices(force) {
+  if (!force && allPrices.length > 0) { renderPrices(); return; }
   const data = await sb('market_prices', { select:'crop_name,market,district,price_per_kg,change_pct,price_date', filters:[['order','price_date.desc']] });
-  allPrices = (data && data.length) ? data : samplePrices();
+  if (data && data.length) allPrices = data;
+  else if (!allPrices.length) allPrices = samplePrices();
   renderPrices();
+  var ind=document.getElementById('pricesUpdated');
+  if(ind) ind.textContent='● Updated '+new Date().toLocaleTimeString('en-UG',{hour:'2-digit',minute:'2-digit'});
 }
+// Latest market price for a crop name (for listing vs. market comparison)
+function marketPriceFor(crop){
+  if(!allPrices||!allPrices.length||!crop) return null;
+  var lc=crop.toLowerCase();
+  var hit=allPrices.find(function(p){ var n=(p.crop_name||'').toLowerCase(); return n && (lc.indexOf(n)>=0||n.indexOf(lc)>=0); });
+  return hit ? (Number(hit.price_per_kg)||null) : null;
+}
+// Auto-refresh prices every 60s while the Prices page is open
+setInterval(function(){
+  var pg=document.querySelector('.page.active');
+  if(pg && pg.id==='page-prices' && navigator.onLine) loadPrices(true);
+},60000);
 function renderPrices() {
   let list = allPrices;
   if (priceFilter !== 'all') list = list.filter(p => (p.market||'').includes(priceFilter));
   const tbody = document.getElementById('priceTableBody');
   if (!tbody) return;
   tbody.innerHTML = list.map(p => {
-    const chg = (p.change_pct ?? (Math.random()*10-5)).toFixed(1);
-    const cls = chg > 0 ? 'price-up' : 'price-dn';
-    const arr = chg > 0 ? '↑' : '↓';
-    return `<tr><td><strong>${getCropEmoji(p.crop_name||'?')} ${p.crop_name||'?'}</strong></td><td>${p.market||'Kampala'}</td><td>${Number(p.price_per_kg||0).toLocaleString()}</td><td class="${cls}">${arr} ${Math.abs(chg)}%</td><td>${p.price_date?new Date(p.price_date).toLocaleDateString('en-UG',{day:'numeric',month:'short'}):(p.date||'Today')}</td></tr>`;
+    const hasChg = (p.change_pct !== null && p.change_pct !== undefined);
+    const chg = hasChg ? Number(p.change_pct) : 0;
+    const cls = !hasChg ? '' : (chg >= 0 ? 'price-up' : 'price-dn');
+    const chgHtml = hasChg ? `${chg >= 0 ? '↑' : '↓'} ${Math.abs(chg).toFixed(1)}%` : '—';
+    return `<tr><td><strong>${getCropEmoji(p.crop_name||'?')} ${p.crop_name||'?'}</strong></td><td>${p.market||'Kampala'}</td><td>${Number(p.price_per_kg||0).toLocaleString()}</td><td class="${cls}">${chgHtml}</td><td>${p.price_date?new Date(p.price_date).toLocaleDateString('en-UG',{day:'numeric',month:'short'}):(p.date||'Today')}</td></tr>`;
   }).join('');
 }
 function setPriceFilter(f,btn){ priceFilter=f; document.querySelectorAll('#priceFilters .filter-btn').forEach(b=>b.classList.remove('active')); btn.classList.add('active'); renderPrices(); }
