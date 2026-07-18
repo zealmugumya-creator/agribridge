@@ -420,7 +420,15 @@ img{max-width:100%}
   .form-row{grid-template-columns:1fr}
   .nav-search{display:none}
   .mob-search-btn{display:block}
-  .nav-btns .btn-sm.outline{display:none}
+  /* Keep BOTH Log In and Join Free reachable on phones. Free the space they
+     need by hiding the two secondary icons (notifications + language) and
+     compacting the header so nothing clips or overlaps. */
+  #notifBell{display:none}
+  #langPickerBtn{display:none}
+  .nav-logo{font-size:1.1rem}
+  .navbar{gap:8px;padding:0 10px}
+  .nav-btns{gap:6px}
+  .nav-btns .btn-sm{padding:5px 9px;font-size:0.76rem}
   .cards-grid{grid-template-columns:1fr}
   .pay-methods{grid-template-columns:1fr}
 }
