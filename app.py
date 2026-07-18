@@ -24,7 +24,12 @@ except ImportError:
     print("WARNING: africastalking not installed. SMS disabled.")
 
 app = Flask(__name__)
-CORS(app, resources={r"/api/*": {"origins": "*"}})
+CORS(app, resources={r"/api/*": {"origins": [
+    "https://agribrige.com", "https://www.agribrige.com",
+    "https://agribridge.com", "https://www.agribridge.com",
+    "https://agribridge-1-og7a.onrender.com",
+    "http://localhost:3000", "http://127.0.0.1:3000",
+]}})
 
 # ── Config ────────────────────────────────────────────────────────────────────
 JWT_SECRET     = os.environ.get('JWT_SECRET',     'CHANGE_ME_IN_RENDER_ENV_VARS')
@@ -37,15 +42,54 @@ SUPABASE_URL   = os.environ.get('SUPABASE_URL',   'https://vyrctsiyaihsysgpozdm.
 SUPABASE_KEY   = os.environ.get('SUPABASE_KEY',   '')
 GEMINI_KEY     = os.environ.get('GEMINI_API_KEY', '')
 
+at_sms = None
 if AT_AVAILABLE and AT_API_KEY and AT_API_KEY != 'atsk_REPLACE_ME':
     try:
         africastalking.initialize(AT_USERNAME, AT_API_KEY)
         at_sms = africastalking.SMS
     except Exception as _at_err:
         print(f"WARNING: Africa's Talking init failed: {_at_err}")
-        at_sms = None
-else:
-    at_sms = None
+
+# ── Security hardening ────────────────────────────────────────────────────────
+import time as _time
+from collections import defaultdict as _defaultdict
+from functools import wraps as _wraps
+
+_rl_buckets = _defaultdict(list)
+
+def _client_ip():
+    fwd = request.headers.get('X-Forwarded-For', '')
+    return fwd.split(',')[0].strip() if fwd else (request.remote_addr or 'unknown')
+
+def rate_limit(max_req=30, window=60):
+    """Simple in-memory sliding-window limiter, keyed by route+client IP."""
+    def deco(fn):
+        @_wraps(fn)
+        def wrapper(*args, **kwargs):
+            now = _time.time()
+            key = fn.__name__ + ':' + _client_ip()
+            bucket = _rl_buckets[key]
+            cutoff = now - window
+            while bucket and bucket[0] < cutoff:
+                bucket.pop(0)
+            if len(bucket) >= max_req:
+                return jsonify({'error': 'Too many requests. Please slow down.'}), 429
+            bucket.append(now)
+            return fn(*args, **kwargs)
+        return wrapper
+    return deco
+
+@app.after_request
+def _security_headers(resp):
+    resp.headers['X-Content-Type-Options'] = 'nosniff'
+    resp.headers['X-Frame-Options'] = 'SAMEORIGIN'
+    resp.headers['X-XSS-Protection'] = '1; mode=block'
+    resp.headers['Referrer-Policy'] = 'strict-origin-when-cross-origin'
+    return resp
+
+@app.errorhandler(404)
+def _not_found(e):
+    return jsonify({'error': 'Not found'}), 404
 
 # ── Supabase helpers ──────────────────────────────────────────────────────────
 def supa_get(table, filters=None, limit=100):
@@ -149,8 +193,9 @@ def health():
 # ADMIN AUTH
 # ══════════════════════════════════════════════════════════════════════════════
 @app.route('/api/admin/login', methods=['POST'])
+@rate_limit(max_req=5, window=300)
 def admin_login():
-    data = request.get_json(force=True) or {}
+    data = request.get_json(force=True, silent=True) or {}
     if data.get('password', '') != ADMIN_PASSWORD:
         return jsonify({'error': 'Invalid password'}), 401
     token = make_token({'sub': 'admin', 'role': 'admin'}, hours=24)
@@ -972,8 +1017,9 @@ def get_prices():
 # AI CROP DOCTOR
 # ══════════════════════════════════════════════════════════════════════════════
 @app.route('/api/crop-doctor', methods=['POST'])
+@rate_limit(max_req=15, window=300)
 def crop_doctor():
-    data        = request.get_json(force=True) or {}
+    data        = request.get_json(force=True, silent=True) or {}
     description = data.get('description', '').strip()
     crop        = data.get('crop', 'crop')
     if not description:
@@ -1002,7 +1048,7 @@ def crop_doctor():
         text = text.strip().lstrip('```json').lstrip('```').rstrip('```').strip()
         return jsonify(_json.loads(text))
     except Exception as e:
-        return jsonify({'error': 'AI service unavailable', 'detail': str(e)}), 503
+        return jsonify({'error': 'AI service temporarily unavailable'}), 503
 
 # ══════════════════════════════════════════════════════════════════════════════
 # ENTRY POINT
