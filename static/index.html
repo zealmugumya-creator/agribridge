@@ -1660,14 +1660,14 @@ function listingCard(l) {
   const waMsg   = encodeURIComponent(`Hi! I saw your ${name} on AgriBridge. Is it available?`);
   const cropPhotos = { maize:'1560493676-696fc1c5d2bf', tomatoes:'1546094096-0df4bcaaa337', matooke:'1603833665858-e61d17a86224', coffee:'1447933601403-0c6688de566e', avocado:'1601039641847-7857b994d704', pineapple:'1490474418585-ba9bad8fd0ea', onion:'1618512496248-a07fe83aa8cb', cassava:'1612257999756-2d43c78397ee', vanilla:'1617634975995-b2fa8bcf2f20', banana:'1571771894821-ce9b6c11b08e', beans:'1628771065518-0d82f1938462' };
   const pk = Object.keys(cropPhotos).find(k => name.toLowerCase().includes(k));
-  const imgUrl = `https://images.unsplash.com/photo-${cropPhotos[pk]||'1560472354-b33ff0c44a43'}?auto=format&fit=crop&w=400&h=220&q=70`;
+  const imgUrl = pk ? `https://images.unsplash.com/photo-${cropPhotos[pk]}?auto=format&fit=crop&w=400&h=220&q=70` : '';
   const priceHtml = flash
     ? `<div class="card-price" style="color:#f44336">UGX ${salePrice.toLocaleString()}</div><div class="card-unit" style="text-decoration:line-through;color:var(--text2)">UGX ${price.toLocaleString()} · ??${l.discount_pct}% OFF</div>`
     : `<div class="card-price">UGX ${price.toLocaleString()}</div><div class="card-unit">per kg</div>`;
   return `<div class="card" onclick="trackInterest('${escHtml(name)}')">
     <div style="position:relative;overflow:hidden;height:140px;background:var(--bg3)">
-      <img src="${imgUrl}" alt="${escHtml(name)}" style="width:100%;height:100%;object-fit:cover" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'">
-      <div style="display:none;width:100%;height:100%;align-items:center;justify-content:center;font-size:4rem">${emoji}</div>
+      ${imgUrl ? `<img src="${imgUrl}" alt="${escHtml(name)}" style="width:100%;height:100%;object-fit:cover" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'">` : ''}
+      <div style="display:${imgUrl?'none':'flex'};width:100%;height:100%;align-items:center;justify-content:center;font-size:4rem">${emoji}</div>
       ${flash ? `<div class="flash-badge">?? ${l.discount_pct}% OFF <span class="flash-countdown">${getFlashCountdown()}</span></div>` : ''}
       ${l.is_organic ? `<div style="position:absolute;top:8px;right:8px;background:#007a33;color:#fff;font-size:0.65rem;font-weight:700;padding:2px 7px;border-radius:20px">?? ORGANIC</div>` : ''}
     </div>
@@ -1757,16 +1757,16 @@ function renderAnimals() {
 function animalCard(a) {
   const catLabel = { livestock:'?? Livestock', poultry:'?? Poultry', dairy:'?? Dairy', aqua:'?? Aquaculture', apiary:'?? Beekeeping' };
   const tagCls   = { livestock:'tag-livestock', poultry:'tag-poultry', dairy:'tag-dairy', aqua:'tag-aqua', apiary:'tag-apiary' };
-  const photoMap = { cattle:'1516467508483-a7212febe31a', cow:'1570824104453-508955ab713e', goat:'1591593765853-b9e4c5d80b03', chicken:'1548550023-2bdb3c5beed7', pig:'1548550023-2bdb3c5beed7', fish:'1625246174804-de40b2fae23d', tilapia:'1625246174804-de40b2fae23d', bee:'1558618666-fcd25c85cd64', honey:'1607303929487-5e16e41f2f41', rabbit:'1585110396000-d9e2e6c1e4f2', sheep:'1516467508483-a7212febe31a' };
+  const photoMap = { cattle:'1516467508483-a7212febe31a', cow:'1570824104453-508955ab713e', goat:'1591593765853-b9e4c5d80b03', chicken:'1548550023-2bdb3c5beed7', fish:'1625246174804-de40b2fae23d', tilapia:'1625246174804-de40b2fae23d', bee:'1558618666-fcd25c85cd64', honey:'1607303929487-5e16e41f2f41', rabbit:'1585110396000-d9e2e6c1e4f2' };
   const pk = Object.keys(photoMap).find(k => a.name.toLowerCase().includes(k));
-  const imgUrl = `https://images.unsplash.com/photo-${photoMap[pk]||'1516467508483-a7212febe31a'}?auto=format&fit=crop&w=400&h=220&q=75`;
+  const imgUrl = pk ? `https://images.unsplash.com/photo-${photoMap[pk]}?auto=format&fit=crop&w=400&h=220&q=75` : '';
   const safeId = escHtml(a.id);
   const safeName = escHtml(a.name);
   return `<div class="animal-card" id="ac-${safeId}">
     ${a.certified ? '<div class="certified-badge">✅ MAAIF</div>' : ''}
     ${a.health_cert ? '<div class="health-badge">?? Vet Cert</div>' : ''}
-    <img src="${imgUrl}" alt="${safeName}" class="animal-card-img" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'">
-    <div class="animal-emoji-bg" style="display:none">${a.emoji||'??'}</div>
+    ${imgUrl ? `<img src="${imgUrl}" alt="${safeName}" class="animal-card-img" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'">` : ''}
+    <div class="animal-emoji-bg" style="display:${imgUrl?'none':'flex'}">${a.emoji||'??'}</div>
     <div class="animal-info">
       <div class="animal-name">${safeName}</div>
       <span class="animal-tag ${tagCls[a.cat]||'tag-livestock'}">${catLabel[a.cat]||a.cat}</span>
