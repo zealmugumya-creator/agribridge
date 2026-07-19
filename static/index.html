@@ -1404,6 +1404,10 @@ AgriBridge service</div>
 const SUPA_URL = 'https://vyrctsiyaihsysgpozdm.supabase.co';
 const SUPA_KEY = 'sb_publishable_gIo704Cn8Kf7IAK3CReEGg_ZD_LJq6k';
 const USSD_API = 'https://agribridge-1-og7a.onrender.com';
+// Logged-in user's Supabase access token. Set from auth state changes below and
+// sent by sb() so PostgREST/RLS can identify the user (auth.uid()). Falls back
+// to the publishable key for anonymous/public reads.
+let _authToken = null;
 
 async function sb(table, opts = {}) {
   const { method='GET', select='*', filters=[], body, single=false, count=false } = opts;
@@ -1415,7 +1419,7 @@ async function sb(table, opts = {}) {
   filters.forEach(f => params.set(f[0], f[1]));
   if (params.toString()) url += '?' + params;
   const headers = {
-    'apikey': SUPA_KEY, 'Authorization': 'Bearer ' + SUPA_KEY,
+    'apikey': SUPA_KEY, 'Authorization': 'Bearer ' + (_authToken || SUPA_KEY),
     'Content-Type': 'application/json',
     'Prefer': method === 'POST' ? 'return=representation' : (count ? 'count=exact' : 'return=minimal')
   };
@@ -3819,6 +3823,7 @@ function initSupabase() {
   if (sbAuth) return;
   sbAuth = supabase.createClient(SUPABASE_URL, SUPABASE_ANON);
   sbAuth.auth.onAuthStateChange(function(event, session) {
+    _authToken = (session && session.access_token) ? session.access_token : null;
     if (session && session.user) {
       var u = session.user;
       currentUser = { name: (u.user_metadata&&u.user_metadata.name)||u.email.split('@')[0], role: (u.user_metadata&&u.user_metadata.role)||'farmer', phone: (u.user_metadata&&u.user_metadata.phone)||'', email: u.email, supaId: u.id };
@@ -3832,6 +3837,7 @@ function initSupabase() {
   });
   sbAuth.auth.getSession().then(function(res) {
     var s = res && res.data && res.data.session;
+    _authToken = (s && s.access_token) ? s.access_token : null;
     if (s && s.user) {
       var u = s.user;
       currentUser = { name: (u.user_metadata&&u.user_metadata.name)||u.email.split('@')[0], role: (u.user_metadata&&u.user_metadata.role)||'farmer', phone: (u.user_metadata&&u.user_metadata.phone)||'', email: u.email, supaId: u.id };
