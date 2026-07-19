@@ -4187,6 +4187,13 @@ var _origShowPage = window.showPage;
 window.showPage = function(name) {
   if (_origShowPage) _origShowPage(name);
   if (name === 'coldchain') setTimeout(renderColdChain, 100);
+  // #howItWorks sits OUTSIDE the page system (a sibling of the .page divs), so
+  // it stays on screen when you navigate away from home — pushing the target
+  // page below the fold and making every nav look like "back to the first page".
+  // Hide it unless we're on home, and always scroll to the top of the new page.
+  var _hiw = document.getElementById('howItWorks');
+  if (_hiw) _hiw.style.display = (name === 'home') ? '' : 'none';
+  window.scrollTo(0, 0);
 };
 
 // ── escapeHtml (used by basket renderer) ──────────────
