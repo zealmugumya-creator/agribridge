@@ -1,7 +1,7 @@
 // AgriBridge Uganda — Service Worker v3
 // Handles offline caching, smart fetch strategies, and SPA navigation
 
-const CACHE_NAME = 'agribridge-v4';
+const CACHE_NAME = 'agribridge-v5';
 const STATIC_ASSETS = [
   '/',
   '/index.html',
