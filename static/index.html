@@ -41,7 +41,7 @@
   --nav-h: 60px; --bot-h: 64px;
 }
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
-html{scroll-behavior:smooth}
+html{scroll-behavior:auto}
 body{font-family:'Plus Jakarta Sans',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;overflow-x:hidden;padding-top:var(--nav-h);padding-bottom:var(--bot-h)}
 h1,h2,h3,h4{font-family:'Syne',sans-serif}
 a{color:var(--green);text-decoration:none}
@@ -3781,19 +3781,11 @@ function renderFarmerQuickLinks() {
 // Override showPage to enforce role gating
 var _showPageOrig3 = window.showPage;
 window.showPage = function(name) {
-  var role = getCurrentRole();
-  var allowed = ROLE_PAGES[role] || ROLE_PAGES.guest;
-  if (allowed.indexOf(name) === -1 && name !== 'home') {
-    // Guest trying to access gated page
-    if (role === 'guest') {
-      var guestOK = ['market','prices','about','contact','ussd','doctor','animals','crops','training','community'];
-      if (guestOK.indexOf(name) >= 0) { /* allow read-only */ }
-      else { showToast('🔒 Create a free account to access ' + name.charAt(0).toUpperCase() + name.slice(1)); openModal('registerModal'); return; }
-    }
-    // Wrong role accessing wrong page
-    showToast('This section is not available for your account type');
-    return;
-  }
+  // Browsing is open to everyone. Role only customises the nav MENU
+  // (applyRoleUI) — it must NEVER block viewing a page. The old gate called
+  // return here, so Dashboard/Finance/AI-Doctor and other role-scoped pages
+  // appeared to "do nothing" and flashed a toast. Login is still required for
+  // ACTIONS (posting a listing, placing an order), enforced per action.
   if (_showPageOrig3) _showPageOrig3(name);
   // Update nav active state
   document.querySelectorAll('.nav-item').forEach(function(b){ b.classList.remove('active'); });
