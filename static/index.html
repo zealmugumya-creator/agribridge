@@ -502,6 +502,22 @@ body{overscroll-behavior-y:none}
 #installBanner button{border:none;border-radius:10px;font-weight:800;font-size:0.82rem;padding:9px 14px;cursor:pointer}
 #installBanner .ib-go{background:#04160c;color:#fff}
 #installBanner .ib-x{background:rgba(0,0,0,0.14);color:#04160c;padding:9px 11px}
+/* ── Role home panel (personalised farmer/buyer dashboard) ── */
+#roleHomePanel{padding:12px 14px 0}
+.role-panel{background:linear-gradient(160deg,var(--card),var(--bg3));border:1px solid var(--border);border-radius:18px;padding:16px;margin:0 auto;max-width:920px}
+.role-welcome{display:flex;align-items:center;gap:12px;margin-bottom:14px}
+.role-avatar{width:52px;height:52px;border-radius:16px;background:var(--green-dim);display:flex;align-items:center;justify-content:center;font-size:1.7rem;flex-shrink:0}
+.role-info h3{font-family:'Syne',sans-serif;font-size:1.15rem;font-weight:800;margin:0;color:var(--text)}
+.role-info p{margin:2px 0 0;font-size:0.82rem;color:var(--text2)}
+.role-kpis{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:14px}
+.role-kpi{background:var(--bg3);border:1px solid var(--border);border-radius:12px;padding:10px 6px;text-align:center}
+.rk-num{font-size:1.25rem;font-weight:800;color:var(--green)}
+.rk-lbl{font-size:0.68rem;color:var(--text2);margin-top:2px}
+.role-actions{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:8px}
+.role-action-btn{background:var(--bg3);border:1px solid var(--border);color:var(--text);border-radius:12px;padding:11px 6px;font-size:0.78rem;font-weight:700;cursor:pointer;font-family:inherit;transition:transform .1s,border-color .15s;display:flex;align-items:center;justify-content:center;gap:4px;text-align:center;line-height:1.15}
+.role-action-btn:active{transform:scale(0.96)}
+.role-action-btn.primary{background:var(--green);border-color:var(--green);color:#04160c}
+@media(max-width:420px){.role-action-btn{font-size:0.72rem;padding:10px 4px}.role-info h3{font-size:1.05rem}}
 </style>
 </head>
 <body>
@@ -1542,31 +1558,31 @@ function escHtml(s) {
   return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#x27;');
 }
 function getCropEmoji(name) {
-  const map = { maize:'??',corn:'??',tomato:'??',tomatoes:'??',matooke:'??',banana:'??',
-    coffee:'☕',cassava:'??',potato:'??',onion:'??',onions:'??',carrot:'??',
-    cabbage:'??',kale:'??',sukuma:'??',mango:'??',pineapple:'??',avocado:'??',
-    passion:'??',watermelon:'??',papaya:'??',orange:'??',rice:'??',millet:'??',
-    sorghum:'??',vanilla:'??',tea:'??',cotton:'??',cocoa:'??',sunflower:'??',
-    groundnut:'??',peanut:'??',soybean:'??',sesame:'??',sugarcane:'??',
-    pepper:'??️',eggplant:'??',pumpkin:'??',sweet:'??',jackfruit:'??',beans:'??' };
+  const map = { maize:'🌽',corn:'🌽',tomato:'🍅',tomatoes:'🍅',matooke:'🍌',banana:'🍌',
+    coffee:'☕',cassava:'🥔',potato:'🥔',onion:'🧅',onions:'🧅',carrot:'🥕',
+    cabbage:'🥬',kale:'🥬',sukuma:'🥬',mango:'🥭',pineapple:'🍍',avocado:'🥑',
+    passion:'🍈',watermelon:'🍉',papaya:'🍈',orange:'🍊',rice:'🍚',millet:'🌾',
+    sorghum:'🌾',vanilla:'🌿',tea:'🍵',cotton:'🌱',cocoa:'🍫',sunflower:'🌻',
+    groundnut:'🥜',peanut:'🥜',soybean:'🫘',sesame:'🌱',sugarcane:'🎋',
+    pepper:'🌶️',eggplant:'🍆',pumpkin:'🎃',sweet:'🍠',jackfruit:'🍈',beans:'🫘' };
   const lc = (name||'').toLowerCase();
   for (const [k,v] of Object.entries(map)) { if (lc.includes(k)) return v; }
-  return '??';
+  return '🌱';
 }
 function getAnimalEmoji(name) {
   const n = (name||'').toLowerCase();
-  if(n.includes('cow')||n.includes('cattle')||n.includes('friesian')||n.includes('ankole')||n.includes('bull')) return '??';
-  if(n.includes('goat')) return '??';
-  if(n.includes('chicken')||n.includes('broiler')||n.includes('layer')||n.includes('kienyeji')||n.includes('chick')) return '??';
-  if(n.includes('pig')||n.includes('swine')||n.includes('pork')) return '??';
-  if(n.includes('tilapia')||n.includes('fish')) return '??';
-  if(n.includes('catfish')) return '??';
-  if(n.includes('rabbit')) return '??';
-  if(n.includes('honey')||n.includes('hive')) return '??';
-  if(n.includes('bee')) return '??';
-  if(n.includes('duck')||n.includes('goose')) return '??';
-  if(n.includes('sheep')) return '??';
-  return '??';
+  if(n.includes('cow')||n.includes('cattle')||n.includes('friesian')||n.includes('ankole')||n.includes('bull')) return '🐄';
+  if(n.includes('goat')) return '🐐';
+  if(n.includes('chicken')||n.includes('broiler')||n.includes('layer')||n.includes('kienyeji')||n.includes('chick')) return '🐔';
+  if(n.includes('pig')||n.includes('swine')||n.includes('pork')) return '🐖';
+  if(n.includes('tilapia')||n.includes('fish')) return '🐟';
+  if(n.includes('catfish')) return '🐟';
+  if(n.includes('rabbit')) return '🐇';
+  if(n.includes('honey')||n.includes('hive')) return '🍯';
+  if(n.includes('bee')) return '🐝';
+  if(n.includes('duck')||n.includes('goose')) return '🦆';
+  if(n.includes('sheep')) return '🐑';
+  return '🐾';
 }
 function normalise(l) {
   return { ...l, farmer_name: l.farmers?.full_name || 'Ugandan Farmer', is_verified: l.is_verified || l.farmers?.is_verified || false };
@@ -2818,11 +2834,11 @@ async function renderRoleHome() {
   const role=currentUser.role||'buyer', name=currentUser.name||'there', firstName=name.split(' ')[0];
   const hour=new Date().getHours(); const greeting=hour<12?'Good morning':hour<17?'Good afternoon':'Good evening';
   if(role==='farmer') {
-    panel.innerHTML=`<div class="role-panel"><div class="role-welcome"><div class="role-avatar">??</div><div class="role-info"><h3>${greeting}, ${firstName}!</h3><p>Farmer · ${currentUser.district||'Uganda'}</p></div></div><div class="role-kpis"><div class="role-kpi"><div class="rk-num" id="fk-listings">–</div><div class="rk-lbl">My Listings</div></div><div class="role-kpi"><div class="rk-num" id="fk-orders">–</div><div class="rk-lbl">Orders</div></div><div class="role-kpi"><div class="rk-num" id="fk-earned">–</div><div class="rk-lbl">Earned</div></div></div><div class="role-actions"><button class="role-action-btn primary" onclick="openListProduceModal()">?? List Produce</button><button class="role-action-btn" onclick="showPage('animals');openListAnimalModal()">?? List Animal</button><button class="role-action-btn" onclick="showPage('prices')">?? Prices</button></div><div class="role-actions"><button class="role-action-btn" onclick="showPage('doctor')">?? Crop Doctor</button><button class="role-action-btn" onclick="showPage('animals')">?? Animal Doctor</button><button class="role-action-btn" onclick="showPage('dashboard')">?? Dashboard</button></div></div>`;
+    panel.innerHTML=`<div class="role-panel"><div class="role-welcome"><div class="role-avatar">🌾</div><div class="role-info"><h3>${greeting}, ${escHtml(firstName)}!</h3><p>Farmer · ${escHtml(currentUser.district||'Uganda')}</p></div></div><div class="role-kpis"><div class="role-kpi"><div class="rk-num" id="fk-listings">–</div><div class="rk-lbl">My Listings</div></div><div class="role-kpi"><div class="rk-num" id="fk-orders">–</div><div class="rk-lbl">Orders</div></div><div class="role-kpi"><div class="rk-num" id="fk-earned">–</div><div class="rk-lbl">Earned</div></div></div><div class="role-actions"><button class="role-action-btn primary" onclick="openListProduceModal()">🌾 List Produce</button><button class="role-action-btn" onclick="showPage('animals');openListAnimalModal()">🐄 List Animal</button><button class="role-action-btn" onclick="showPage('prices')">📊 Prices</button></div><div class="role-actions"><button class="role-action-btn" onclick="showPage('doctor')">🩺 Crop Doctor</button><button class="role-action-btn" onclick="showPage('animals')">🐾 Animal Doctor</button><button class="role-action-btn" onclick="showPage('dashboard')">📈 Dashboard</button></div></div>`;
     loadFarmerKpis();
   } else {
     const bc=basketItems.reduce((s,i)=>s+i.qty,0);
-    panel.innerHTML=`<div class="role-panel"><div class="role-welcome"><div class="role-avatar">??</div><div class="role-info"><h3>${greeting}, ${firstName}!</h3><p>${role==='hotel'?'Hotel/Restaurant':'Buyer'} · ${bc} item${bc!==1?'s':''} in basket</p></div></div><div class="role-actions"><button class="role-action-btn primary" onclick="showPage('market')">?? Browse Produce</button><button class="role-action-btn primary" style="background:var(--amber);border-color:var(--amber)" onclick="showPage('animals')">?? Browse Animals</button></div><div class="role-actions"><button class="role-action-btn" onclick="toggleBasket()">?? My Basket ${bc>0?'('+bc+')':''}</button><button class="role-action-btn" onclick="showPage('delivery')">?? Track Orders</button><button class="role-action-btn" onclick="showPage('prices')">?? Prices</button></div></div>`;
+    panel.innerHTML=`<div class="role-panel"><div class="role-welcome"><div class="role-avatar">🛒</div><div class="role-info"><h3>${greeting}, ${escHtml(firstName)}!</h3><p>${role==='hotel'?'Hotel/Restaurant':'Buyer'} · ${bc} item${bc!==1?'s':''} in basket</p></div></div><div class="role-actions"><button class="role-action-btn primary" onclick="showPage('market')">🛒 Browse Produce</button><button class="role-action-btn primary" style="background:var(--amber);border-color:var(--amber);color:#3a2600" onclick="showPage('animals')">🐄 Browse Animals</button></div><div class="role-actions"><button class="role-action-btn" onclick="toggleBasket()">🧺 My Basket ${bc>0?'('+bc+')':''}</button><button class="role-action-btn" onclick="showPage('delivery')">🚚 Track Orders</button><button class="role-action-btn" onclick="showPage('prices')">📊 Prices</button></div></div>`;
   }
 }
 async function loadFarmerKpis() {
