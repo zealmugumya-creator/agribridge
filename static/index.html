@@ -3670,7 +3670,14 @@ function getCurrentRole() {
   return 'vendor';
 }
 
+var _applyingRoleUI = false;
 function applyRoleUI() {
+  // Re-entrancy guard: applyRoleUI calls updateNavUser, and the wrapped
+  // updateNavUser re-schedules applyRoleUI — without this that's an infinite
+  // loop (and for farmers each pass calls showPage('home'), so no navigation
+  // ever sticks). Mark that we're inside applyRoleUI for this synchronous run.
+  _applyingRoleUI = true;
+  setTimeout(function(){ _applyingRoleUI = false; }, 0);
   var role = getCurrentRole();
 
   // 1. Role indicator stripe at top
@@ -3803,6 +3810,9 @@ document.addEventListener('DOMContentLoaded', function() {
 var _origUpdateNavUser = window.updateNavUser;
 window.updateNavUser = function(nameOrUser, role) {
   if (_origUpdateNavUser) _origUpdateNavUser(nameOrUser, role);
+  // If this call came from inside applyRoleUI, do NOT re-schedule applyRoleUI —
+  // that is the infinite loop (applyRoleUI -> updateNavUser -> applyRoleUI ...).
+  if (_applyingRoleUI) return;
   // Re-render role nav after auth change
   setTimeout(function() {
     applyRoleUI();
