@@ -59,7 +59,7 @@ img{max-width:100%}
 @keyframes shake{0%,100%{transform:translateX(0)}20%,60%{transform:translateX(-6px)}40%,80%{transform:translateX(6px)}}
 
 /* ── NAVBAR ── */
-.navbar{position:fixed;top:0;left:0;right:0;z-index:200;height:var(--nav-h);background:rgba(6,15,9,0.97);backdrop-filter:blur(12px);border-bottom:1px solid var(--border);display:flex;align-items:center;gap:12px;padding:0 16px}
+.navbar{position:fixed;top:0;left:0;right:0;z-index:200;height:var(--nav-h);background:rgba(6,15,9,0.99);border-bottom:1px solid var(--border);display:flex;align-items:center;gap:12px;padding:0 16px}
 .nav-logo{font-family:'Syne',sans-serif;font-size:1.3rem;font-weight:800;color:var(--green);white-space:nowrap}
 .nav-logo span{color:var(--white)}
 .nav-search{flex:1;position:relative;max-width:400px}
@@ -321,7 +321,7 @@ img{max-width:100%}
 .ai-overlay.show{opacity:1;pointer-events:all}
 
 /* ── BOTTOM NAV ── */
-.bottom-nav{position:fixed;bottom:0;left:0;right:0;z-index:200;height:var(--bot-h);background:rgba(6,15,9,0.97);backdrop-filter:blur(12px);border-top:1px solid var(--border);display:flex;overflow-x:auto}
+.bottom-nav{position:fixed;bottom:0;left:0;right:0;z-index:200;height:var(--bot-h);background:rgba(6,15,9,0.99);border-top:1px solid var(--border);display:flex;overflow-x:auto}
 .bottom-nav::-webkit-scrollbar{height:0}
 .nav-item{flex:0 0 auto;min-width:54px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;cursor:pointer;background:transparent;border:none;color:var(--text2);font-size:0.58rem;font-weight:600;padding:6px 8px;font-family:inherit;transition:color 0.2s}
 .nav-item.active,.nav-item:hover{color:var(--green)}
@@ -4211,6 +4211,20 @@ window.showPage = function(name) {
   var sp=window.showPage;
   window.showPage=function(n){ log('showPage("'+n+'")'); try{ sp(n); }catch(err){ log('showPage THREW: '+err.message); } log('  -> active='+((document.querySelector('.page.active')||{}).id||'none')); };
 })();
+
+// ── Safety: never leave the page scroll-locked or covered by a stuck overlay.
+//    Runs on load and whenever the tab becomes visible again. A stuck
+//    body{overflow:hidden} or an overlay left in .show/.open state would make
+//    the whole page feel frozen and swallow taps.
+function _unstickUI(){
+  try{
+    document.body.style.overflow='';
+    document.querySelectorAll('.basket-overlay.show,.ai-overlay.show,.ai-overlay.open,.basket-drawer.open,.ai-panel.open,.notif-panel.open')
+      .forEach(function(e){ e.classList.remove('show'); e.classList.remove('open'); });
+  }catch(e){}
+}
+window.addEventListener('load', _unstickUI);
+document.addEventListener('visibilitychange', function(){ if(!document.hidden) _unstickUI(); });
 
 // ── escapeHtml (used by basket renderer) ──────────────
 function escapeHtml(s){
