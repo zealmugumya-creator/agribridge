@@ -7,11 +7,13 @@
 <meta http-equiv="Referrer-Policy" content="strict-origin-when-cross-origin">
 <meta http-equiv="Permissions-Policy" content="camera=(), microphone=(self), geolocation=(self)">
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
 <meta name="theme-color" content="#060f09">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-status-bar-style" content="black">
+<meta name="apple-mobile-web-app-title" content="AgriBridge">
+<link rel="apple-touch-icon" href="icon-192.png">
 <title>AgriBridge · Uganda's Farm-to-Table Platform</title>
 <link rel="manifest" href="manifest.json">
 <meta name="description" content="Uganda's #1 agri-tech platform. Connect farmers directly to buyers. Check live prices, order fresh produce, buy livestock, access training, AI crop and animal doctor. Works on any phone via USSD *789#.">
@@ -487,6 +489,19 @@ img{max-width:100%}
 }
 .page{padding-bottom:70px}
 
+/* ── Installable-app polish: native feel + safe areas ── */
+*{-webkit-tap-highlight-color:transparent}
+button,a,.nav-item,.navbar,.bottom-nav,.role-action-btn{-webkit-user-select:none;user-select:none;-webkit-touch-callout:none}
+body{overscroll-behavior-y:none}
+.bottom-nav{height:calc(var(--bot-h) + env(safe-area-inset-bottom,0px));padding-bottom:env(safe-area-inset-bottom,0px)}
+.page{padding-bottom:calc(80px + env(safe-area-inset-bottom,0px))!important}
+/* Install banner */
+#installBanner{position:fixed;left:12px;right:12px;bottom:calc(74px + env(safe-area-inset-bottom,0px));z-index:360;background:linear-gradient(135deg,var(--green),var(--green-bright,#00e676));color:#04160c;border-radius:16px;padding:12px 14px;display:none;align-items:center;gap:10px;box-shadow:0 12px 34px rgba(0,200,83,0.4)}
+#installBanner .ib-txt{flex:1;font-size:0.9rem;font-weight:800;line-height:1.2}
+#installBanner .ib-sub{font-weight:500;opacity:0.82;font-size:0.74rem;margin-top:2px}
+#installBanner button{border:none;border-radius:10px;font-weight:800;font-size:0.82rem;padding:9px 14px;cursor:pointer}
+#installBanner .ib-go{background:#04160c;color:#fff}
+#installBanner .ib-x{background:rgba(0,0,0,0.14);color:#04160c;padding:9px 11px}
 </style>
 </head>
 <body>
@@ -4226,6 +4241,27 @@ window.showPage = function(name) {
 //    Runs on load and whenever the tab becomes visible again. A stuck
 //    body{overflow:hidden} or an overlay left in .show/.open state would make
 //    the whole page feel frozen and swallow taps.
+// ── PWA install experience (Android native prompt + iOS instructions) ──
+(function(){
+  var deferred=null;
+  function isStandalone(){ return (window.matchMedia&&window.matchMedia('(display-mode: standalone)').matches) || window.navigator.standalone===true; }
+  function isIos(){ return /iphone|ipad|ipod/i.test(navigator.userAgent||''); }
+  function show(){ var b=document.getElementById('installBanner'); if(b) b.style.display='flex'; }
+  function hide(){ var b=document.getElementById('installBanner'); if(b) b.style.display='none'; }
+  window.addEventListener('beforeinstallprompt', function(e){ e.preventDefault(); deferred=e; if(!localStorage.getItem('ab_install_dismissed')) show(); });
+  window.addEventListener('appinstalled', function(){ hide(); localStorage.setItem('ab_install_dismissed','1'); if(typeof showToast==='function') showToast('Installed! Find AgriBridge on your home screen 🎉'); });
+  window.__installApp=function(){
+    if(deferred){ deferred.prompt(); deferred.userChoice.then(function(){ deferred=null; hide(); }); }
+    else if(isIos()){ if(typeof showToast==='function') showToast('Tap the Share icon, then "Add to Home Screen" to install'); }
+    else if(typeof showToast==='function'){ showToast('Open your browser menu and choose "Install app"'); }
+  };
+  window.__dismissInstall=function(){ hide(); localStorage.setItem('ab_install_dismissed','1'); };
+  window.addEventListener('load', function(){
+    if(isStandalone()) return; // already installed — never nag
+    if(isIos() && !localStorage.getItem('ab_install_dismissed')) setTimeout(show, 2500);
+  });
+})();
+
 function _unstickUI(){
   try{
     document.body.style.overflow='';
@@ -5117,6 +5153,14 @@ Just ask anything!</div>
 </div>
 
 <!-- ══ COOKIE BANNER ══════════════════════════════════════════ -->
+<!-- Install App banner -->
+<div id="installBanner">
+  <div style="font-size:1.7rem">📲</div>
+  <div class="ib-txt">Install AgriBridge<div class="ib-sub">Add to your home screen · opens instantly · works offline</div></div>
+  <button class="ib-go" onclick="__installApp()">Install</button>
+  <button class="ib-x" onclick="__dismissInstall()" aria-label="Dismiss">✕</button>
+</div>
+
 <div id="cookieBanner" style="display:none;position:fixed;bottom:70px;left:0;right:0;z-index:350;background:var(--bg2);border-top:1px solid var(--border);padding:12px 16px;gap:12px;align-items:center;flex-wrap:wrap;pointer-events:none">
   <p style="flex:1;font-size:0.82rem;color:var(--text2);margin:0">🍪 AgriBridge uses cookies to improve your experience and comply with the Uganda Data Protection Act 2019.</p>
   <button class="btn-sm" style="pointer-events:auto" onclick="acceptCookies()">Accept</button>
