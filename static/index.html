@@ -4202,6 +4202,24 @@ window.showPage = function(name) {
   window.scrollTo(0, 0);
 };
 
+// ── Debug diagnostics (opt-in via ?debug=1) ───────────
+// Shows a live on-screen log of taps, navigation, and JS errors so we can
+// diagnose device-specific issues that can't be reproduced remotely. Does
+// nothing unless the URL contains debug=1.
+(function(){
+  if (location.search.indexOf('debug=1') < 0) return;
+  var box=document.createElement('div');
+  box.style.cssText='position:fixed;left:0;right:0;bottom:0;max-height:45vh;overflow:auto;background:rgba(0,0,0,0.9);color:#0f0;font:11px/1.35 monospace;z-index:2147483647;padding:8px;white-space:pre-wrap';
+  var buf=[];
+  function log(m){ buf.unshift('['+new Date().toLocaleTimeString().split(' ')[0]+'] '+m); if(buf.length>40)buf.pop(); box.textContent=buf.join('\n'); }
+  (function attach(){ if(document.body){ document.body.appendChild(box); log('debug ready · '+innerWidth+'x'+innerHeight); } else setTimeout(attach,50); })();
+  window.addEventListener('error',function(e){ log('JS ERROR: '+e.message+' @'+((e.filename||'').split('/').pop())+':'+e.lineno); });
+  window.addEventListener('unhandledrejection',function(e){ log('PROMISE REJECT: '+((e.reason&&e.reason.message)||e.reason)); });
+  document.addEventListener('click',function(e){ var t=e.target||{}; var oc=(t.getAttribute&&t.getAttribute('onclick'))||''; log('TAP '+(t.tagName||'?')+(t.id?'#'+t.id:'')+(t.className?'.'+String(t.className).split(' ')[0]:'')+(oc?' onclick='+oc.slice(0,32):' (no onclick)')); },true);
+  var sp=window.showPage;
+  window.showPage=function(n){ log('showPage("'+n+'")'); try{ sp(n); }catch(err){ log('showPage THREW: '+err.message); } log('  -> active='+((document.querySelector('.page.active')||{}).id||'none')); };
+})();
+
 // ── escapeHtml (used by basket renderer) ──────────────
 function escapeHtml(s){
   if(!s)return'';
