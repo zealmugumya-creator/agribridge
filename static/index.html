@@ -1689,7 +1689,7 @@ function renderListings() {
   if (activeDistrict) list = list.filter(l => (l.district||'').toLowerCase().includes(activeDistrict.toLowerCase()));
   const sv = document.querySelector('.market-search')?.value?.toLowerCase() || '';
   if (sv) list = list.filter(l => (l.crop_name||'').toLowerCase().includes(sv) || (l.district||'').toLowerCase().includes(sv) || (l.farmer_name||'').toLowerCase().includes(sv));
-  if (!list.length) { document.getElementById('marketListings').innerHTML = '<div class="empty-state"><div class="e-icon">??</div><p>No listings match your filter.</p></div>'; return; }
+  if (!list.length) { document.getElementById('marketListings').innerHTML = '<div class="empty-state"><div class="e-icon">🌾</div><p>No listings match your filter.</p></div>'; return; }
   document.getElementById('marketListings').innerHTML = list.map(listingCard).join('');
 }
 
@@ -1713,14 +1713,14 @@ function listingCard(l) {
   const pk = Object.keys(cropPhotos).find(k => name.toLowerCase().includes(k));
   const imgUrl = l.image_url ? l.image_url : (pk ? `https://images.unsplash.com/photo-${cropPhotos[pk]}?auto=format&fit=crop&w=400&h=220&q=70` : '');
   const priceHtml = flash
-    ? `<div class="card-price" style="color:#f44336">UGX ${salePrice.toLocaleString()}</div><div class="card-unit" style="text-decoration:line-through;color:var(--text2)">UGX ${price.toLocaleString()} · ??${l.discount_pct}% OFF</div>`
+    ? `<div class="card-price" style="color:#f44336">UGX ${salePrice.toLocaleString()}</div><div class="card-unit" style="text-decoration:line-through;color:var(--text2)">UGX ${price.toLocaleString()} · 🔻${l.discount_pct}% OFF</div>`
     : `<div class="card-price">UGX ${price.toLocaleString()}</div><div class="card-unit">per kg</div>`;
   return `<div class="card" onclick="trackInterest('${escHtml(name)}')">
     <div style="position:relative;overflow:hidden;height:140px;background:var(--bg3)">
       ${imgUrl ? `<img src="${imgUrl}" alt="${escHtml(name)}" style="width:100%;height:100%;object-fit:cover" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'">` : ''}
       <div style="display:${imgUrl?'none':'flex'};width:100%;height:100%;align-items:center;justify-content:center;font-size:4rem">${emoji}</div>
-      ${flash ? `<div class="flash-badge">?? ${l.discount_pct}% OFF <span class="flash-countdown">${getFlashCountdown()}</span></div>` : ''}
-      ${l.is_organic ? `<div style="position:absolute;top:8px;right:8px;background:#007a33;color:#fff;font-size:0.65rem;font-weight:700;padding:2px 7px;border-radius:20px">?? ORGANIC</div>` : ''}
+      ${flash ? `<div class="flash-badge">⚡ ${l.discount_pct}% OFF <span class="flash-countdown">${getFlashCountdown()}</span></div>` : ''}
+      ${l.is_organic ? `<div style="position:absolute;top:8px;right:8px;background:#007a33;color:#fff;font-size:0.65rem;font-weight:700;padding:2px 7px;border-radius:20px">🌱 ORGANIC</div>` : ''}
     </div>
     <div class="card-body">
       <div class="card-title">${escHtml(name)}${verified}</div>
@@ -1754,22 +1754,22 @@ function refreshListings(){ allListings=[]; loadListings(); showToast('Refreshin
 // ANIMALS MARKETPLACE — FULL ENGINE
 // ─────────────────────────────────────────────────────────────────
 const SAMPLE_ANIMALS = [
-  { id:'a1', name:'Ankole Longhorn Cow',        cat:'livestock', emoji:'??', price:2800000, unit:'head',       district:'Kiruhura',  qty:3,     certified:true,  health_cert:true,  breed:'Ankole Longhorn',     desc:'2.5yr old heifer, fully vaccinated FMD+ECF. MAAIF certified. 320kg. Ready for dairy or beef.' },
-  { id:'a2', name:'Friesian Dairy Cow',         cat:'dairy',     emoji:'??', price:4500000, unit:'head',       district:'Mbarara',   qty:2,     certified:true,  health_cert:true,  breed:'Holstein Friesian',   desc:'High-yielding Friesian. 18L/day average. In-calf. Health cert available.' },
-  { id:'a3', name:'Boer Goats (Breeding Pair)', cat:'livestock', emoji:'??', price:850000,  unit:'pair',       district:'Kabale',    qty:5,     certified:false, health_cert:true,  breed:'Boer',                desc:'Pure Boer buck+doe pair. Fast weight gain. Vaccinated PPR+FMD.' },
-  { id:'a4', name:'Local Mountain Goats',       cat:'livestock', emoji:'??', price:280000,  unit:'head',       district:'Kabale',    qty:12,    certified:false, health_cert:false, breed:'Kigezi Local',        desc:'Hardy Kigezi mountain breed. Disease resistant. Good for subsistence and local market.' },
-  { id:'a5', name:'Broiler Chicks (Day-Old)',   cat:'poultry',   emoji:'??', price:3500,    unit:'chick',      district:'Wakiso',    qty:500,   certified:true,  health_cert:true,  breed:'Cobb 500',            desc:"Cobb 500 day-old chicks from NNEC-certified hatchery. Marek's vaccinated." },
-  { id:'a6', name:'Layer Hens (Point-of-Lay)', cat:'poultry',   emoji:'??', price:28000,   unit:'hen',        district:'Mukono',    qty:200,   certified:true,  health_cert:true,  breed:'Isa Brown',           desc:'18-week Isa Brown layers. Production starts week 20. 300+ egg cycle.' },
-  { id:'a7', name:'Kienyeji Free-Range Chickens',cat:'poultry', emoji:'??', price:25000,   unit:'head',       district:'Luwero',    qty:80,    certified:false, health_cert:false, breed:'Kienyeji Local',      desc:'Organic free-range. High demand in Kampala restaurants. 1.8–2.2kg live.' },
-  { id:'a8', name:'Nile Tilapia Fingerlings',  cat:'aqua',      emoji:'??', price:350,     unit:'fingerling', district:'Jinja',     qty:10000, certified:true,  health_cert:true,  breed:'Oreochromis niloticus',desc:'NARO-certified Nile tilapia fingerlings. 400g in 6 months. Delivered in oxygenated bags.' },
-  { id:'a9', name:'African Catfish Fingerlings',cat:'aqua',     emoji:'??', price:500,     unit:'fingerling', district:'Kampala',   qty:5000,  certified:false, health_cert:true,  breed:'Clarias gariepinus',  desc:'Hardy in pond and tank systems. Reaches 1kg in 5 months.' },
-  { id:'a10', name:'Nile Tilapia (Market Size)',cat:'aqua',     emoji:'??', price:15000,   unit:'kg',         district:'Masaka',    qty:800,   certified:true,  health_cert:true,  breed:'Nile Tilapia',        desc:'400g average market-size tilapia. Fresh or ice-packed. Same-day delivery Kampala.' },
-  { id:'a11', name:'Langstroth Beehive (Occupied)',cat:'apiary',emoji:'??', price:380000,  unit:'hive',       district:'Mbarara',   qty:8,     certified:false, health_cert:false, breed:'African Apis mellifera',desc:'Active Langstroth hive with established colony. 25kg+ honey yield per season.' },
-  { id:'a12', name:'Raw Wildflower Honey',      cat:'apiary',   emoji:'??', price:18000,   unit:'kg',         district:'Mbarara',   qty:200,   certified:true,  health_cert:true,  breed:'Natural Honey',       desc:'Pure raw wildflower honey. No additives. UNBS quality tested. Wholesale available.' },
-  { id:'a13', name:'Uganda Pigs (Weaners)',     cat:'livestock', emoji:'??', price:180000,  unit:'head',       district:'Gulu',      qty:15,    certified:false, health_cert:true,  breed:'Uganda Crested',      desc:'10-week weaners. Vaccinated against ASF. Good feed conversion.' },
-  { id:'a14', name:'New Zealand White Rabbits', cat:'livestock', emoji:'??', price:45000,   unit:'kit',        district:'Kampala',   qty:30,    certified:false, health_cert:true,  breed:'New Zealand White',   desc:'6-week kits. Fast-growing. Ideal for meat and lab use. Vaccinated and wormed.' },
-  { id:'a15', name:'Dairy Goats (Saanen Cross)',cat:'dairy',    emoji:'??', price:650000,  unit:'head',       district:'Mbarara',   qty:6,     certified:true,  health_cert:true,  breed:'Saanen Cross',        desc:'High-milk Saanen cross. 2–3L/day. In-kid. MAAIF certified. Great for home dairy.' },
-  { id:'a16', name:'Sheep (Mubende Breed)',     cat:'livestock', emoji:'??', price:420000,  unit:'head',       district:'Mubende',   qty:20,    certified:false, health_cert:true,  breed:'Mubende',             desc:'Hardy Mubende sheep. Good for meat and wool. Vaccinated Clostridium+PPR.' },
+  { id:'a1', name:'Ankole Longhorn Cow',        cat:'livestock', emoji:'🐄', price:2800000, unit:'head',       district:'Kiruhura',  qty:3,     certified:true,  health_cert:true,  breed:'Ankole Longhorn',     desc:'2.5yr old heifer, fully vaccinated FMD+ECF. MAAIF certified. 320kg. Ready for dairy or beef.' },
+  { id:'a2', name:'Friesian Dairy Cow',         cat:'dairy',     emoji:'🐄', price:4500000, unit:'head',       district:'Mbarara',   qty:2,     certified:true,  health_cert:true,  breed:'Holstein Friesian',   desc:'High-yielding Friesian. 18L/day average. In-calf. Health cert available.' },
+  { id:'a3', name:'Boer Goats (Breeding Pair)', cat:'livestock', emoji:'🐄', price:850000,  unit:'pair',       district:'Kabale',    qty:5,     certified:false, health_cert:true,  breed:'Boer',                desc:'Pure Boer buck+doe pair. Fast weight gain. Vaccinated PPR+FMD.' },
+  { id:'a4', name:'Local Mountain Goats',       cat:'livestock', emoji:'🐄', price:280000,  unit:'head',       district:'Kabale',    qty:12,    certified:false, health_cert:false, breed:'Kigezi Local',        desc:'Hardy Kigezi mountain breed. Disease resistant. Good for subsistence and local market.' },
+  { id:'a5', name:'Broiler Chicks (Day-Old)',   cat:'poultry',   emoji:'🐔', price:3500,    unit:'chick',      district:'Wakiso',    qty:500,   certified:true,  health_cert:true,  breed:'Cobb 500',            desc:"Cobb 500 day-old chicks from NNEC-certified hatchery. Marek's vaccinated." },
+  { id:'a6', name:'Layer Hens (Point-of-Lay)', cat:'poultry',   emoji:'🐔', price:28000,   unit:'hen',        district:'Mukono',    qty:200,   certified:true,  health_cert:true,  breed:'Isa Brown',           desc:'18-week Isa Brown layers. Production starts week 20. 300+ egg cycle.' },
+  { id:'a7', name:'Kienyeji Free-Range Chickens',cat:'poultry', emoji:'🐔', price:25000,   unit:'head',       district:'Luwero',    qty:80,    certified:false, health_cert:false, breed:'Kienyeji Local',      desc:'Organic free-range. High demand in Kampala restaurants. 1.8–2.2kg live.' },
+  { id:'a8', name:'Nile Tilapia Fingerlings',  cat:'aqua',      emoji:'🐟', price:350,     unit:'fingerling', district:'Jinja',     qty:10000, certified:true,  health_cert:true,  breed:'Oreochromis niloticus',desc:'NARO-certified Nile tilapia fingerlings. 400g in 6 months. Delivered in oxygenated bags.' },
+  { id:'a9', name:'African Catfish Fingerlings',cat:'aqua',     emoji:'🐟', price:500,     unit:'fingerling', district:'Kampala',   qty:5000,  certified:false, health_cert:true,  breed:'Clarias gariepinus',  desc:'Hardy in pond and tank systems. Reaches 1kg in 5 months.' },
+  { id:'a10', name:'Nile Tilapia (Market Size)',cat:'aqua',     emoji:'🐟', price:15000,   unit:'kg',         district:'Masaka',    qty:800,   certified:true,  health_cert:true,  breed:'Nile Tilapia',        desc:'400g average market-size tilapia. Fresh or ice-packed. Same-day delivery Kampala.' },
+  { id:'a11', name:'Langstroth Beehive (Occupied)',cat:'apiary',emoji:'🐝', price:380000,  unit:'hive',       district:'Mbarara',   qty:8,     certified:false, health_cert:false, breed:'African Apis mellifera',desc:'Active Langstroth hive with established colony. 25kg+ honey yield per season.' },
+  { id:'a12', name:'Raw Wildflower Honey',      cat:'apiary',   emoji:'🐝', price:18000,   unit:'kg',         district:'Mbarara',   qty:200,   certified:true,  health_cert:true,  breed:'Natural Honey',       desc:'Pure raw wildflower honey. No additives. UNBS quality tested. Wholesale available.' },
+  { id:'a13', name:'Uganda Pigs (Weaners)',     cat:'livestock', emoji:'🐄', price:180000,  unit:'head',       district:'Gulu',      qty:15,    certified:false, health_cert:true,  breed:'Uganda Crested',      desc:'10-week weaners. Vaccinated against ASF. Good feed conversion.' },
+  { id:'a14', name:'New Zealand White Rabbits', cat:'livestock', emoji:'🐄', price:45000,   unit:'kit',        district:'Kampala',   qty:30,    certified:false, health_cert:true,  breed:'New Zealand White',   desc:'6-week kits. Fast-growing. Ideal for meat and lab use. Vaccinated and wormed.' },
+  { id:'a15', name:'Dairy Goats (Saanen Cross)',cat:'dairy',    emoji:'🐄', price:650000,  unit:'head',       district:'Mbarara',   qty:6,     certified:true,  health_cert:true,  breed:'Saanen Cross',        desc:'High-milk Saanen cross. 2–3L/day. In-kid. MAAIF certified. Great for home dairy.' },
+  { id:'a16', name:'Sheep (Mubende Breed)',     cat:'livestock', emoji:'🐄', price:420000,  unit:'head',       district:'Mubende',   qty:20,    certified:false, health_cert:true,  breed:'Mubende',             desc:'Hardy Mubende sheep. Good for meat and wool. Vaccinated Clostridium+PPR.' },
 ];
 
 async function loadAnimals() {
@@ -1801,7 +1801,7 @@ function renderAnimals() {
   else if (animalFilter !== 'all') list = list.filter(a => a.cat === animalFilter);
   if (animalDistrict) list = list.filter(a => (a.district||'').toLowerCase().includes(animalDistrict.toLowerCase()));
   if (animalSearch)   list = list.filter(a => a.name.toLowerCase().includes(animalSearch) || (a.breed||'').toLowerCase().includes(animalSearch) || (a.district||'').toLowerCase().includes(animalSearch));
-  if (!list.length) { el.innerHTML = '<div class="empty-state" style="grid-column:1/-1"><div class="e-icon">??</div><p>No animals match. Try a different filter.</p></div>'; return; }
+  if (!list.length) { el.innerHTML = '<div class="empty-state" style="grid-column:1/-1"><div class="e-icon">🐄</div><p>No animals match. Try a different filter.</p></div>'; return; }
   el.innerHTML = list.map(animalCard).join('');
 }
 
@@ -1817,7 +1817,7 @@ function animalCard(a) {
     ${a.certified ? '<div class="certified-badge">✅ MAAIF</div>' : ''}
     ${a.health_cert ? '<div class="health-badge">🩺 Vet Cert</div>' : ''}
     ${imgUrl ? `<img src="${imgUrl}" alt="${safeName}" class="animal-card-img" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'">` : ''}
-    <div class="animal-emoji-bg" style="display:${imgUrl?'none':'flex'}">${a.emoji||'??'}</div>
+    <div class="animal-emoji-bg" style="display:${imgUrl?'none':'flex'}">${getAnimalEmoji(a.name||'')}</div>
     <div class="animal-info">
       <div class="animal-name">${safeName}</div>
       <span class="animal-tag ${tagCls[a.cat]||'tag-livestock'}">${catLabel[a.cat]||a.cat}</span>
@@ -1845,7 +1845,7 @@ function quickOrderAnimal(id,name,price) {
 }
 
 function openListAnimalModal() {
-  if (!currentUser) { showToast('Please log in to list your animals ??'); setTimeout(()=>openModal('loginModal'),800); return; }
+  if (!currentUser) { showToast('Please log in to list your animals 🐄'); setTimeout(()=>openModal('loginModal'),800); return; }
   openModal('listAnimalModal');
 }
 
@@ -1894,7 +1894,7 @@ function runAnimalDiagnosis() {
   const db = ANIMAL_DISEASE_DB[animal] || ANIMAL_DISEASE_DB['default'];
   const result = db[symptom] || ANIMAL_DISEASE_DB['default']['Fever / High temperature'];
   const rEl = document.getElementById('anDrResult');
-  document.getElementById('anDiagName').textContent = '?? ' + result.name;
+  document.getElementById('anDiagName').textContent = '🎤 ' + result.name;
   document.getElementById('anDiagConf').textContent = `${result.conf} · Animal: ${animal}${district?' · '+district+' District':''} · ${count}`;
   document.getElementById('anDiagBody').innerHTML = `
     <p style="margin-bottom:14px;line-height:1.6">${result.desc}</p>
@@ -1907,8 +1907,8 @@ function runAnimalDiagnosis() {
       <p style="font-size:0.84rem;line-height:1.6">${result.prevention}</p>
     </div>
     <div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:12px">
-      <button style="background:var(--amber);color:#000;border:none;border-radius:8px;padding:8px 16px;font-size:0.82rem;font-weight:700;cursor:pointer;font-family:inherit" onclick="bookVetService('Emergency Vet Visit')">?? Book Vet Now</button>
-      <button style="background:var(--green-dim);color:var(--green);border:1px solid var(--green);border-radius:8px;padding:8px 16px;font-size:0.82rem;font-weight:700;cursor:pointer;font-family:inherit" onclick="saveDiseaseReportAnimal()">?? Report to DVO</button>
+      <button style="background:var(--amber);color:#000;border:none;border-radius:8px;padding:8px 16px;font-size:0.82rem;font-weight:700;cursor:pointer;font-family:inherit" onclick="bookVetService('Emergency Vet Visit')">🩺 Book Vet Now</button>
+      <button style="background:var(--green-dim);color:var(--green);border:1px solid var(--green);border-radius:8px;padding:8px 16px;font-size:0.82rem;font-weight:700;cursor:pointer;font-family:inherit" onclick="saveDiseaseReportAnimal()">📢 Report to DVO</button>
       <button style="background:var(--bg3);color:var(--text2);border:1px solid var(--border);border-radius:8px;padding:8px 16px;font-size:0.82rem;font-weight:700;cursor:pointer;font-family:inherit" onclick="showPage('supply')">🛍️ Buy Treatments</button>
     </div>`;
   rEl.style.display = 'block';
@@ -2052,7 +2052,7 @@ function renderBasket() {
   const footer = document.getElementById('basketFooter');
   if (!body) return;
   if (!basketItems.length) {
-    body.innerHTML = '<div class="basket-empty"><div class="be-icon">??</div><p>Your basket is empty</p><button class="btn-sm" onclick="closeBasket();showPage(\'market\')" style="margin-top:12px">Browse Marketplace</button></div>';
+    body.innerHTML = '<div class="basket-empty"><div class="be-icon">🛒</div><p>Your basket is empty</p><button class="btn-sm" onclick="closeBasket();showPage(\'market\')" style="margin-top:12px">Browse Marketplace</button></div>';
     if (footer) footer.style.display = 'none';
     return;
   }
@@ -2107,7 +2107,7 @@ function renderPromoTag() {
   const area = document.getElementById('promoTagArea');
   if (!area) return;
   area.innerHTML = appliedPromo
-    ? `<div class="promo-tag">??️ ${appliedPromo.code} (−${appliedPromo.pct}%) <button onclick="removePromo()">✕</button></div>`
+    ? `<div class="promo-tag">🏷️ ${appliedPromo.code} (−${appliedPromo.pct}%) <button onclick="removePromo()">✕</button></div>`
     : '';
 }
 
@@ -2176,7 +2176,7 @@ async function placeOrder() {
   const saved = JSON.parse(localStorage.getItem('ab_orders')||'[]');
   saved.unshift({ ref, track, date:new Date().toISOString(), items:basketItems.map(i=>({name:i.name,qty:i.qty,price:i.price})), total, addr, payment:selectedPayMethod, status:'confirmed' });
   localStorage.setItem('ab_orders', JSON.stringify(saved.slice(0,20)));
-  if (btn) { btn.textContent = 'Place Order ??'; btn.disabled = false; }
+  if (btn) { btn.textContent = 'Place Order 🛒'; btn.disabled = false; }
   // Show success
   const step1 = document.getElementById('checkoutStep1');
   const step2 = document.getElementById('checkoutStep2');
@@ -2290,7 +2290,7 @@ function localAIResponse(prompt) {
 
   // ── BASKET QUERIES ──────────────────────────────────────
   if (/my basket|show basket|view basket|open basket|what.*in.*basket|basket items/i.test(p)) {
-    if (!basket.length) return "Your basket is empty ??. Browse the Marketplace or Animals section to add items! [NAVIGATE:market]";
+    if (!basket.length) return "Your basket is empty 🛒. Browse the Marketplace or Animals section to add items! [NAVIGATE:market]";
     const { total } = getBasketTotals();
     return `You have ${basket.length} item(s) in your basket:\n${basket.map(i=>`• ${i.emoji} ${i.name} ×${i.qty} = UGX ${(i.price*i.qty).toLocaleString()}`).join('\n')}\n\nTotal: UGX ${total.toLocaleString()} (incl. delivery)\n\nReady to checkout? [OPEN_BASKET]`;
   }
@@ -2394,7 +2394,7 @@ function startVoice() {
     const btn = document.getElementById('aiVoiceBtn');
     if (btn) { btn.classList.add('listening'); btn.title = 'Tap to stop'; }
     const status = document.getElementById('aiStatus');
-    if (status) status.textContent = '?? Listening…';
+    if (status) status.textContent = '🎤 Listening…';
     voiceTimeout = setTimeout(() => { if (voiceActive && finalTranscript) commitVoice(finalTranscript); else stopVoice(); }, 15000);
   };
   voiceRecognizer.onresult = e => {
@@ -2482,7 +2482,7 @@ function renderTraining() {
   if (trainingFilter !== 'all') list = list.filter(t => t.level === trainingFilter);
   const el = document.getElementById('trainingGrid');
   if (!el) return;
-  if (!list.length) { el.innerHTML = '<div class="empty-state"><div class="e-icon">??</div><p>No modules for this level.</p></div>'; return; }
+  if (!list.length) { el.innerHTML = '<div class="empty-state"><div class="e-icon">🎓</div><p>No modules for this level.</p></div>'; return; }
   el.innerHTML = list.map(trainingCard).join('');
 }
 function getYouTubeId(url) { if(!url)return null; const m=url.match(/(?:embed\/|watch\?v=|youtu\.be\/)([^&?/]+)/); return m?m[1]:null; }
@@ -2528,28 +2528,28 @@ function handleVideoOverlay(e) { if(e.target===document.getElementById('videoMod
 // CROPS PAGE
 // ─────────────────────────────────────────────────────────────────
 const UGANDA_CROPS = [
-  { name:'Matooke',emoji:'??',cat:'staple',img:'1603833665858-e61d17a86224',price:'800–1,500',unit:'bunch',season:'Year-round',districts:'Mbarara, Bushenyi, Kabale',desc:"Uganda's beloved cooking banana — the national staple food" },
-  { name:'Maize',emoji:'??',cat:'staple',img:'1560493676-696fc1c5d2bf',price:'600–900',unit:'kg',season:'Mar–Jun, Aug–Nov',districts:'Eastern & Northern Uganda',desc:'Main cereal crop; used for posho and animal feed' },
-  { name:'Cassava',emoji:'??',cat:'staple',img:'1612257999756-2d43c78397ee',price:'400–700',unit:'kg',season:'Year-round',districts:'Lango, Northern Uganda',desc:'Drought-resistant root crop; second most important staple' },
-  { name:'Sweet Potato',emoji:'??',cat:'staple',img:'1598170845058-32b9d6a5da37',price:'500–800',unit:'kg',season:'Year-round',districts:'Southwestern Uganda',desc:'Nutritious orange-fleshed varieties rich in Vitamin A' },
-  { name:'Irish Potato',emoji:'??',cat:'staple',img:'1518977676601-b53f82aba655',price:'800–1,200',unit:'kg',season:'Mar–Jun, Sep–Dec',districts:'Kabale, Kisoro, Mbale',desc:"Highland potato grown in Uganda's cool mountainous regions" },
-  { name:'Millet',emoji:'??',cat:'staple',img:'1625246174804-de40b2fae23d',price:'1,200–1,800',unit:'kg',season:'Apr–Aug',districts:'Northern & Eastern Uganda',desc:'Used for atap and local waragi brew' },
-  { name:'Rice',emoji:'??',cat:'staple',img:'1586201375761-83865001e31c',price:'2,500–3,500',unit:'kg',season:'Mar–Jul, Sep–Jan',districts:'Bugiri, Iganga, Pallisa',desc:'Grown in wetlands; increasingly popular urban food' },
-  { name:'Tomatoes',emoji:'??',cat:'vegetable',img:'1546094096-0df4bcaaa337',price:'1,000–2,500',unit:'kg',season:'Jan–Mar, Jun–Sep',districts:'Mpigi, Buikwe, Kayunga',desc:'Most widely traded vegetable in Ugandan markets' },
-  { name:'Cabbage',emoji:'??',cat:'vegetable',img:'1551754655-9e95b9a0c3e3',price:'500–1,000',unit:'head',season:'Year-round',districts:'Kabale, Kisoro, Ntungamo',desc:"Cool-season vegetable from Uganda's highland areas" },
-  { name:'Onions',emoji:'??',cat:'vegetable',img:'1618512496248-a07fe83aa8cb',price:'1,500–3,000',unit:'kg',season:'Dec–Mar',districts:'Kasese, Kabarole, Kabale',desc:'Essential kitchen ingredient with high year-round demand' },
-  { name:'Carrots',emoji:'??',cat:'vegetable',img:'1447955275775-3cd6b8f6c5e8',price:'800–1,500',unit:'kg',season:'Year-round (highlands)',districts:'Kisoro, Kabale',desc:'Highland vegetable with growing urban demand' },
-  { name:'Peppers',emoji:'??️',cat:'vegetable',img:'1583119022894-919a68a3d0e3',price:'2,000–4,000',unit:'kg',season:'Year-round',districts:'Central Uganda',desc:'Hot and sweet peppers for local and export markets' },
-  { name:'Mango',emoji:'??',cat:'fruit',img:'1553279768-865429fa0078',price:'200–500',unit:'kg',season:'Oct–Jan',districts:'Soroti, Kumi, Butaleja',desc:'Uganda has 20+ mango varieties; high export potential' },
-  { name:'Pineapple',emoji:'??',cat:'fruit',img:'1490474418585-ba9bad8fd0ea',price:'800–1,500',unit:'piece',season:'Year-round',districts:'Kayunga, Mukono, Luwero',desc:'Smooth Cayenne variety dominates; processed for juice export' },
-  { name:'Avocado',emoji:'??',cat:'fruit',img:'1601039641847-7857b994d704',price:'500–1,200',unit:'kg',season:'Feb–May, Jul–Oct',districts:'Western Uganda, Buganda',desc:'Fast-growing export crop with high European demand' },
-  { name:'Passion Fruit',emoji:'??',cat:'fruit',img:'1544735716-392fe2489ffa',price:'3,000–5,000',unit:'kg',season:'Year-round',districts:'Kabale, Kisoro, Mbarara',desc:'Purple & yellow varieties; major juice export product' },
+  { name:'Matooke',emoji:'🍌',cat:'staple',img:'1603833665858-e61d17a86224',price:'800–1,500',unit:'bunch',season:'Year-round',districts:'Mbarara, Bushenyi, Kabale',desc:"Uganda's beloved cooking banana — the national staple food" },
+  { name:'Maize',emoji:'🌽',cat:'staple',img:'1560493676-696fc1c5d2bf',price:'600–900',unit:'kg',season:'Mar–Jun, Aug–Nov',districts:'Eastern & Northern Uganda',desc:'Main cereal crop; used for posho and animal feed' },
+  { name:'Cassava',emoji:'🥔',cat:'staple',img:'1612257999756-2d43c78397ee',price:'400–700',unit:'kg',season:'Year-round',districts:'Lango, Northern Uganda',desc:'Drought-resistant root crop; second most important staple' },
+  { name:'Sweet Potato',emoji:'🍠',cat:'staple',img:'1598170845058-32b9d6a5da37',price:'500–800',unit:'kg',season:'Year-round',districts:'Southwestern Uganda',desc:'Nutritious orange-fleshed varieties rich in Vitamin A' },
+  { name:'Irish Potato',emoji:'🥔',cat:'staple',img:'1518977676601-b53f82aba655',price:'800–1,200',unit:'kg',season:'Mar–Jun, Sep–Dec',districts:'Kabale, Kisoro, Mbale',desc:"Highland potato grown in Uganda's cool mountainous regions" },
+  { name:'Millet',emoji:'🌾',cat:'staple',img:'1625246174804-de40b2fae23d',price:'1,200–1,800',unit:'kg',season:'Apr–Aug',districts:'Northern & Eastern Uganda',desc:'Used for atap and local waragi brew' },
+  { name:'Rice',emoji:'🍚',cat:'staple',img:'1586201375761-83865001e31c',price:'2,500–3,500',unit:'kg',season:'Mar–Jul, Sep–Jan',districts:'Bugiri, Iganga, Pallisa',desc:'Grown in wetlands; increasingly popular urban food' },
+  { name:'Tomatoes',emoji:'🍅',cat:'vegetable',img:'1546094096-0df4bcaaa337',price:'1,000–2,500',unit:'kg',season:'Jan–Mar, Jun–Sep',districts:'Mpigi, Buikwe, Kayunga',desc:'Most widely traded vegetable in Ugandan markets' },
+  { name:'Cabbage',emoji:'🥬',cat:'vegetable',img:'1551754655-9e95b9a0c3e3',price:'500–1,000',unit:'head',season:'Year-round',districts:'Kabale, Kisoro, Ntungamo',desc:"Cool-season vegetable from Uganda's highland areas" },
+  { name:'Onions',emoji:'🧅',cat:'vegetable',img:'1618512496248-a07fe83aa8cb',price:'1,500–3,000',unit:'kg',season:'Dec–Mar',districts:'Kasese, Kabarole, Kabale',desc:'Essential kitchen ingredient with high year-round demand' },
+  { name:'Carrots',emoji:'🥕',cat:'vegetable',img:'1447955275775-3cd6b8f6c5e8',price:'800–1,500',unit:'kg',season:'Year-round (highlands)',districts:'Kisoro, Kabale',desc:'Highland vegetable with growing urban demand' },
+  { name:'Peppers',emoji:'🌶️',cat:'vegetable',img:'1583119022894-919a68a3d0e3',price:'2,000–4,000',unit:'kg',season:'Year-round',districts:'Central Uganda',desc:'Hot and sweet peppers for local and export markets' },
+  { name:'Mango',emoji:'🥭',cat:'fruit',img:'1553279768-865429fa0078',price:'200–500',unit:'kg',season:'Oct–Jan',districts:'Soroti, Kumi, Butaleja',desc:'Uganda has 20+ mango varieties; high export potential' },
+  { name:'Pineapple',emoji:'🍍',cat:'fruit',img:'1490474418585-ba9bad8fd0ea',price:'800–1,500',unit:'piece',season:'Year-round',districts:'Kayunga, Mukono, Luwero',desc:'Smooth Cayenne variety dominates; processed for juice export' },
+  { name:'Avocado',emoji:'🥑',cat:'fruit',img:'1601039641847-7857b994d704',price:'500–1,200',unit:'kg',season:'Feb–May, Jul–Oct',districts:'Western Uganda, Buganda',desc:'Fast-growing export crop with high European demand' },
+  { name:'Passion Fruit',emoji:'🍈',cat:'fruit',img:'1544735716-392fe2489ffa',price:'3,000–5,000',unit:'kg',season:'Year-round',districts:'Kabale, Kisoro, Mbarara',desc:'Purple & yellow varieties; major juice export product' },
   { name:'Coffee',emoji:'☕',cat:'cash',img:'1447933601403-0c6688de566e',price:'8,000–15,000',unit:'kg',season:'Oct–Feb',districts:'Bugisu, Rwenzori, Masaka',desc:"Uganda's #1 export — Robusta & Arabica for world markets" },
-  { name:'Vanilla',emoji:'??',cat:'cash',img:'1617634975995-b2fa8bcf2f20',price:'50,000–200,000',unit:'kg',season:'Jun–Aug',districts:'Mbarara, Kasese, Mukono',desc:"Premium spice — Uganda is world's top 3 vanilla exporter" },
-  { name:'Cocoa',emoji:'??',cat:'cash',img:'1606312619070-d48b4c652a52',price:'5,000–8,000',unit:'kg',season:'Mar–Jun, Oct–Feb',districts:'Bundibugyo, Masindi',desc:'Fast-growing export crop with premium organic potential' },
-  { name:'Groundnuts',emoji:'??',cat:'cash',img:'1567892514-e441cdad1c9c',price:'3,000–5,000',unit:'kg',season:'Mar–Jul, Sep–Dec',districts:'Eastern & Northern Uganda',desc:'Important protein source and oil crop; widely traded' },
-  { name:'Soybeans',emoji:'??',cat:'cash',img:'1628771065518-0d82f1938462',price:'2,000–3,500',unit:'kg',season:'Mar–Jul',districts:'Masindi, Lira, Hoima',desc:'Protein-rich legume; animal feed and cooking oil' },
-  { name:'Sugarcane',emoji:'??',cat:'cash',img:'1541123437800-99a8c63d0d8e',price:'50,000–80,000',unit:'tonne',season:'Year-round',districts:'Jinja, Iganga, Lugazi',desc:'Processed into sugar at major mills; byproducts for ethanol' },
+  { name:'Vanilla',emoji:'🌿',cat:'cash',img:'1617634975995-b2fa8bcf2f20',price:'50,000–200,000',unit:'kg',season:'Jun–Aug',districts:'Mbarara, Kasese, Mukono',desc:"Premium spice — Uganda is world's top 3 vanilla exporter" },
+  { name:'Cocoa',emoji:'🍫',cat:'cash',img:'1606312619070-d48b4c652a52',price:'5,000–8,000',unit:'kg',season:'Mar–Jun, Oct–Feb',districts:'Bundibugyo, Masindi',desc:'Fast-growing export crop with premium organic potential' },
+  { name:'Groundnuts',emoji:'🥜',cat:'cash',img:'1567892514-e441cdad1c9c',price:'3,000–5,000',unit:'kg',season:'Mar–Jul, Sep–Dec',districts:'Eastern & Northern Uganda',desc:'Important protein source and oil crop; widely traded' },
+  { name:'Soybeans',emoji:'🫘',cat:'cash',img:'1628771065518-0d82f1938462',price:'2,000–3,500',unit:'kg',season:'Mar–Jul',districts:'Masindi, Lira, Hoima',desc:'Protein-rich legume; animal feed and cooking oil' },
+  { name:'Sugarcane',emoji:'🎋',cat:'cash',img:'1541123437800-99a8c63d0d8e',price:'50,000–80,000',unit:'tonne',season:'Year-round',districts:'Jinja, Iganga, Lugazi',desc:'Processed into sugar at major mills; byproducts for ethanol' },
 ];
 const PLANTING_CAL = [
   { crop:'Maize',        months:['P','P','G','G','H','H','P','G','G','H','H','_'] },
@@ -2562,7 +2562,7 @@ const PLANTING_CAL = [
   { crop:'Groundnuts',   months:['_','_','P','G','G','H','P','G','G','H','_','_'] },
 ];
 const CAL_COLOR = { P:'#1a7a3a', G:'#8a6a00', H:'#c0392b', _:'transparent' };
-const CAL_TEXT  = { P:'??', G:'??', H:'??', _:'' };
+const CAL_TEXT  = { P:'🌱', G:'🌿', H:'🌾', _:'' };
 
 function renderCalendar() {
   const tb = document.getElementById('calendarBody');
@@ -2577,7 +2577,7 @@ function renderCrops() {
   if (!el) return;
   el.innerHTML = list.map(c => {
     const imgUrl = `https://images.unsplash.com/photo-${c.img}?auto=format&fit=crop&w=400&h=220&q=75`;
-    return `<div class="crop-card"><img class="crop-card-img" src="${imgUrl}" alt="${c.name}" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'"><div class="crop-emoji-bg" style="display:none">${c.emoji}</div><div class="crop-info"><div class="crop-name">${c.name}</div><span class="crop-cat cat-${c.cat}">${catLabel[c.cat]}</span><div style="font-size:0.8rem;color:var(--text2);margin:4px 0 8px;line-height:1.4">${c.desc}</div><div class="crop-price">UGX ${c.price} <small>/ ${c.unit}</small></div><div class="crop-district">?? ${c.districts}</div><div style="font-size:0.75rem;color:var(--text2);margin-top:3px">📅 ${c.season}</div></div></div>`;
+    return `<div class="crop-card"><img class="crop-card-img" src="${imgUrl}" alt="${c.name}" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'"><div class="crop-emoji-bg" style="display:none">${c.emoji}</div><div class="crop-info"><div class="crop-name">${c.name}</div><span class="crop-cat cat-${c.cat}">${catLabel[c.cat]}</span><div style="font-size:0.8rem;color:var(--text2);margin:4px 0 8px;line-height:1.4">${c.desc}</div><div class="crop-price">UGX ${c.price} <small>/ ${c.unit}</small></div><div class="crop-district">📍 ${c.districts}</div><div style="font-size:0.75rem;color:var(--text2);margin-top:3px">📅 ${c.season}</div></div></div>`;
   }).join('');
 }
 
@@ -2592,23 +2592,23 @@ const SUPPLY_ITEMS = [
   { cat:'seeds',      name:'Hass Avocado Grafted Seedlings',  brand:'Green Gold',       price:25000,  unit:'plant',     img:'1601039641847-7857b994d704',badge:'Export Grade', desc:'Grafted on local rootstock. Fruiting starts 3–4 years.' },
   { cat:'fertilizer', name:'CAN 26% Nitrogen Fertilizer',     brand:'Yara / Balton',    price:125000, unit:'50kg bag',  img:'1574316071802-0d684efa7bf5',badge:'Top-dress',    desc:'Best top-dressing for maize, vegetables & coffee.' },
   { cat:'fertilizer', name:'NPK 17:17:17 Basal Fertilizer',   brand:'Yara',             price:140000, unit:'50kg bag',  img:'1525498128493-380d2990a9c5',badge:'Planting',     desc:'Balanced fertilizer for planting time. Ideal for maize, beans.' },
-  { cat:'fertilizer', name:'Organic Compost Fertilizer',      brand:'AgriBridge',       price:35000,  unit:'50kg bag',  img:'1416879591584-be108b5e4b2c',badge:'?? Organic',   desc:'Certified composted farmyard manure. Improves soil structure.' },
+  { cat:'fertilizer', name:'Organic Compost Fertilizer',      brand:'AgriBridge',       price:35000,  unit:'50kg bag',  img:'1416879591584-be108b5e4b2c',badge:'🌱 Organic',   desc:'Certified composted farmyard manure. Improves soil structure.' },
   { cat:'pesticide',  name:'Emamectin Benzoate (Proclaim)',   brand:'Syngenta',         price:28000,  unit:'100ml',     img:'1530836369250-ef72a3f5cda8',badge:'Fall Armyworm',desc:'Most effective insecticide for Fall Armyworm in maize.' },
   { cat:'pesticide',  name:'Ridomil Gold MZ 68WP',            brand:'Syngenta',         price:45000,  unit:'100g',      img:'1569989153237-5f5e1b0da3ce',badge:'Fungicide',    desc:'Controls early and late blight in tomatoes and potatoes.' },
   { cat:'pesticide',  name:'Mancozeb 80WP',                   brand:'Dithane',          price:18000,  unit:'200g',      img:'1586201375761-83865001e31c',badge:'Broad Spectrum',desc:'Broad-spectrum fungicide. Controls grey leaf spot, blight, rust.' },
-  { cat:'pesticide',  name:'Neem Oil Extract (Organic)',      brand:'AgriBridge',       price:22000,  unit:'500ml',     img:'1503454537195-1dcabb73ffb9',badge:'?? Organic',   desc:'Controls aphids, whitefly, spider mites. Safe for bees.' },
+  { cat:'pesticide',  name:'Neem Oil Extract (Organic)',      brand:'AgriBridge',       price:22000,  unit:'500ml',     img:'1503454537195-1dcabb73ffb9',badge:'🌱 Organic',   desc:'Controls aphids, whitefly, spider mites. Safe for bees.' },
   { cat:'tool',       name:'Hand Pump Sprayer 16L',           brand:'Solo',             price:85000,  unit:'unit',      img:'1488590528505-98d2b5aba04b',badge:'Best Seller',  desc:'Solo backpack sprayer. 16L capacity. 3-year warranty.' },
   { cat:'tool',       name:'Digital Soil pH Tester',          brand:'Kelway',           price:120000, unit:'unit',      img:'1617199824472-f5dc87237f11',badge:'New',          desc:'Test soil pH in 60 seconds. Know what lime your soil needs.' },
   { cat:'tool',       name:'Motorized Knapsack Sprayer 20L',  brand:'Jacto',            price:380000, unit:'unit',      img:'1570197788417-0e82375c9371',badge:'Pro Farmer',   desc:'Engine-powered. Covers 2 acres/hour. 20L tank.' },
   // ANIMAL supplies
-  { cat:'animal_supply', name:'Buparvaquone (Butalex) ECF Treatment', brand:'MSD Animal Health', price:85000, unit:'20ml vial', img:'1530836369250-ef72a3f5cda8', badge:'?? ECF Treatment', desc:'Most effective treatment for East Coast Fever in cattle. Administer IM within first 4 days.' },
-  { cat:'animal_supply', name:'FMD Vaccine (Polyvalent)',     brand:'MAAIF / NAPH',     price:15000,  unit:'dose/10ml', img:'1525498128493-380d2990a9c5',badge:'?? FMD Vaccine',desc:'Government-approved Foot & Mouth Disease vaccine. Biannual administration.' },
-  { cat:'animal_supply', name:'Newcastle Lasota Vaccine',     brand:'NAPH Uganda',      price:8000,   unit:'100 doses', img:'1548550023-2bdb3c5beed7',badge:'?? NCD Vaccine',desc:'Day-old chick and booster dose. Cold-chain maintained. MAAIF approved.' },
+  { cat:'animal_supply', name:'Buparvaquone (Butalex) ECF Treatment', brand:'MSD Animal Health', price:85000, unit:'20ml vial', img:'1530836369250-ef72a3f5cda8', badge:'💊 ECF Treatment', desc:'Most effective treatment for East Coast Fever in cattle. Administer IM within first 4 days.' },
+  { cat:'animal_supply', name:'FMD Vaccine (Polyvalent)',     brand:'MAAIF / NAPH',     price:15000,  unit:'dose/10ml', img:'1525498128493-380d2990a9c5',badge:'💉 FMD Vaccine',desc:'Government-approved Foot & Mouth Disease vaccine. Biannual administration.' },
+  { cat:'animal_supply', name:'Newcastle Lasota Vaccine',     brand:'NAPH Uganda',      price:8000,   unit:'100 doses', img:'1548550023-2bdb3c5beed7',badge:'💉 NCD Vaccine',desc:'Day-old chick and booster dose. Cold-chain maintained. MAAIF approved.' },
   { cat:'animal_supply', name:'Amitraz Tick Dip (Triatix)',   brand:'Boehringer',       price:45000,  unit:'1L conc.',  img:'1530836369250-ef72a3f5cda8',badge:'Tick Control', desc:'Controls ticks, mites, and mange. Dilute 1L:400L water for cattle dipping.' },
   { cat:'animal_supply', name:'Oxytetracycline LA 200mg',     brand:'Norbrook',         price:38000,  unit:'100ml vial',img:'1617199824472-f5dc87237f11',badge:'Antibiotic',   desc:'Long-acting broad-spectrum antibiotic. Effective for respiratory, skin, and soft tissue infections.' },
   { cat:'animal_supply', name:'Albendazole Dewormer (Cattle)',brand:'Elanco',           price:22000,  unit:'1L bottle', img:'1416879591584-be108b5e4b2c',badge:'Dewormer',     desc:'Oral drench for roundworm, tapeworm, and liver fluke in cattle and goats.' },
-  { cat:'animal_supply', name:'Poultry Starter Feed (Broiler)',brand:'UGACHICK',        price:95000,  unit:'50kg bag',  img:'1548550023-2bdb3c5beed7',badge:'?? Starter Feed',desc:'High-protein (22%) broiler starter. Optimal growth 0–3 weeks. Medicated.' },
-  { cat:'animal_supply', name:'Fish Feed (Tilapia Pellets)',  brand:'FICA Uganda',      price:85000,  unit:'25kg bag',  img:'1625246174804-de40b2fae23d',badge:'?? Fish Feed',  desc:'35% protein floating pellets. Optimal growth for Nile tilapia in ponds and cages.' },
+  { cat:'animal_supply', name:'Poultry Starter Feed (Broiler)',brand:'UGACHICK',        price:95000,  unit:'50kg bag',  img:'1548550023-2bdb3c5beed7',badge:'🌾 Starter Feed',desc:'High-protein (22%) broiler starter. Optimal growth 0–3 weeks. Medicated.' },
+  { cat:'animal_supply', name:'Fish Feed (Tilapia Pellets)',  brand:'FICA Uganda',      price:85000,  unit:'25kg bag',  img:'1625246174804-de40b2fae23d',badge:'🐟 Fish Feed',  desc:'35% protein floating pellets. Optimal growth for Nile tilapia in ponds and cages.' },
 ];
 let supplyFilter='all', supplySearch='';
 function setSupplyFilter(f,btn){ supplyFilter=f; document.querySelectorAll('#supplyFilters .filter-btn').forEach(b=>b.classList.remove('active')); btn.classList.add('active'); renderSupply(); }
@@ -2621,7 +2621,7 @@ function renderSupply() {
   const catLabel = { seeds:'🌱 Seeds', fertilizer:'🧪 Fertilizer', pesticide:'🐛 Pesticide', tool:'🔧 Tool', animal_supply:'🐾 Animal Care' };
   const el = document.getElementById('supplyGrid');
   if (!el) return;
-  el.innerHTML = items.map(item => `<div class="card"><img class="card-img" src="https://images.unsplash.com/photo-${item.img}?auto=format&fit=crop&w=400&h=180&q=75" alt="${item.name}" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'"><div class="card-img-placeholder" style="display:none">${catLabel[item.cat]}</div><div class="card-body">${item.badge?`<span class="card-tag">${item.badge}</span>`:`<span class="card-tag">${catLabel[item.cat]}</span>`}<div class="card-title">${item.name}</div><div class="card-desc">${item.desc}</div><div style="font-size:0.78rem;color:var(--text2);margin-bottom:12px">??️ ${item.brand} · Per ${item.unit}</div><div class="card-footer"><div><div class="card-price">UGX ${item.price.toLocaleString()}</div><div class="card-unit">per ${item.unit}</div></div><button class="btn-card" onclick="addToBasket('supply-${encodeURIComponent(item.name)}','${escHtml(item.name)}',${item.price},'${item.unit}','${catLabel[item.cat].split(' ')[0]}','supply')">?? Order</button></div></div></div>`).join('');
+  el.innerHTML = items.map(item => `<div class="card"><img class="card-img" src="https://images.unsplash.com/photo-${item.img}?auto=format&fit=crop&w=400&h=180&q=75" alt="${item.name}" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'"><div class="card-img-placeholder" style="display:none">${catLabel[item.cat]}</div><div class="card-body">${item.badge?`<span class="card-tag">${item.badge}</span>`:`<span class="card-tag">${catLabel[item.cat]}</span>`}<div class="card-title">${item.name}</div><div class="card-desc">${item.desc}</div><div style="font-size:0.78rem;color:var(--text2);margin-bottom:12px">🏷️ ${item.brand} · Per ${item.unit}</div><div class="card-footer"><div><div class="card-price">UGX ${item.price.toLocaleString()}</div><div class="card-unit">per ${item.unit}</div></div><button class="btn-card" onclick="addToBasket('supply-${encodeURIComponent(item.name)}','${escHtml(item.name)}',${item.price},'${item.unit}','${catLabel[item.cat].split(' ')[0]}','supply')">🛒 Order</button></div></div></div>`).join('');
 }
 
 // ─────────────────────────────────────────────────────────────────
@@ -2639,7 +2639,7 @@ function runDiagnosis() {
   if (!crop||!symptom) { showToast('Please select at least the crop and symptom'); return; }
   const db=DISEASE_DB[crop]||DISEASE_DB['default'];
   const result=db[symptom]||DISEASE_DB['default']['Yellowing / Chlorosis'];
-  document.getElementById('drDiagName').textContent = '?? ' + result.name;
+  document.getElementById('drDiagName').textContent = '🎤 ' + result.name;
   document.getElementById('drDiagConf').textContent = `${result.conf} · Crop: ${crop}${district?' · '+district+' District':''} · ${weather}`;
   document.getElementById('drDiagBody').innerHTML = `<p style="margin-bottom:14px;line-height:1.6">${result.desc}</p><div style="background:var(--bg3);border-radius:10px;padding:16px;margin-bottom:14px"><div style="font-weight:700;margin-bottom:10px;font-size:0.9rem">💊 Treatment (${duration})</div>${result.treatment.map((t,i)=>`<div style="display:flex;gap:10px;margin-bottom:8px;font-size:0.85rem"><span style="color:var(--green);font-weight:700;min-width:20px">${i+1}.</span><span>${t}</span></div>`).join('')}</div><div style="background:var(--bg3);border-radius:10px;padding:16px"><div style="font-weight:700;margin-bottom:8px;font-size:0.9rem">🛡️ Prevention</div><p style="font-size:0.85rem;line-height:1.6">${result.prevention}</p></div><div style="margin-top:14px;display:flex;gap:10px;flex-wrap:wrap"><button class="btn-card" onclick="showPage('supply')">🛍️ Buy Treatments</button><a href="tel:+256755966690" class="btn-card" style="display:inline-block">📞 Call Expert</a><button class="btn-card" style="background:transparent;border:1px solid var(--green);color:var(--green)" onclick="saveDiseaseReport()">📢 Report to Extension</button></div>`;
   document.getElementById('drResult').style.display = 'block';
@@ -2706,15 +2706,15 @@ async function trackDelivery() {
 async function loadAlerts() {
   const data=await sb('deliveries',{ select:'id,status,pickup_location,delivery_location,tracking_code,estimated_arrival,notes,created_at', filters:[['order','created_at.desc'],['limit','10']] });
   const el=document.getElementById('alertsList'); const list=(data&&data.length)?data:sampleAlerts();
-  if(!list.length){ el.innerHTML='<div class="empty-state"><div class="e-icon">??</div><p>No delivery alerts yet.</p></div>'; return; }
-  const statusIcon={ scheduled:'??', picked_up:'??', in_transit:'??', at_checkpoint:'??', delivered:'✅', failed:'❌' };
-  el.innerHTML=list.map(a=>{ const msg=a.message||(a.status?`${statusIcon[a.status]||'??'} Delivery ${a.tracking_code||''}: ${(a.status||'').replace(/_/g,' ')} — ${a.pickup_location||''} → ${a.delivery_location||''}`:a); const time=a.created_at?new Date(a.created_at).toLocaleString('en-UG',{dateStyle:'short',timeStyle:'short'}):'Just now'; return `<div class="alert-item"><div class="a-msg">${msg}</div><div class="a-time">${time}</div></div>`; }).join('');
+  if(!list.length){ el.innerHTML='<div class="empty-state"><div class="e-icon">🚚</div><p>No delivery alerts yet.</p></div>'; return; }
+  const statusIcon={ scheduled:'📋', picked_up:'📦', in_transit:'??', at_checkpoint:'??', delivered:'✅', failed:'❌' };
+  el.innerHTML=list.map(a=>{ const msg=a.message||(a.status?`${statusIcon[a.status]||'🚚'} Delivery ${a.tracking_code||''}: ${(a.status||'').replace(/_/g,' ')} — ${a.pickup_location||''} → ${a.delivery_location||''}`:a); const time=a.created_at?new Date(a.created_at).toLocaleString('en-UG',{dateStyle:'short',timeStyle:'short'}):'Just now'; return `<div class="alert-item"><div class="a-msg">${msg}</div><div class="a-time">${time}</div></div>`; }).join('');
 }
 function loadMyOrders() {
   const el=document.getElementById('myOrdersList'); if(!el) return;
   const orders=JSON.parse(localStorage.getItem('ab_orders')||'[]');
   if(!orders.length){ el.innerHTML='<div style="color:var(--text2);font-size:0.88rem;padding:12px 0">No orders yet. <a href="#" onclick="showPage(\'market\')">Browse marketplace →</a></div>'; return; }
-  el.innerHTML=orders.map(o=>`<div style="background:var(--bg3);border-radius:10px;padding:12px;margin-bottom:10px;border:1px solid var(--border)"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px"><div style="font-weight:700;font-size:0.9rem">${o.ref}</div><div style="color:var(--green);font-size:0.78rem;font-weight:700;text-transform:uppercase">${o.status}</div></div><div style="font-size:0.8rem;color:var(--text2)">${o.items.map(i=>i.name+'×'+i.qty).join(', ')}</div><div style="display:flex;justify-content:space-between;margin-top:6px;font-size:0.82rem"><span>Total: <strong style="color:var(--green)">UGX ${Number(o.total).toLocaleString()}</strong></span><button class="btn-sm" onclick="document.getElementById('trackingInput').value='${o.track}';trackDelivery()" style="font-size:0.72rem;padding:4px 10px">Track ??</button></div><div style="font-size:0.72rem;color:var(--text2);margin-top:4px">Track: <span style="color:var(--yellow);font-family:monospace">${o.track}</span> · ${new Date(o.date).toLocaleDateString('en-UG')}</div></div>`).join('');
+  el.innerHTML=orders.map(o=>`<div style="background:var(--bg3);border-radius:10px;padding:12px;margin-bottom:10px;border:1px solid var(--border)"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px"><div style="font-weight:700;font-size:0.9rem">${o.ref}</div><div style="color:var(--green);font-size:0.78rem;font-weight:700;text-transform:uppercase">${o.status}</div></div><div style="font-size:0.8rem;color:var(--text2)">${o.items.map(i=>i.name+'×'+i.qty).join(', ')}</div><div style="display:flex;justify-content:space-between;margin-top:6px;font-size:0.82rem"><span>Total: <strong style="color:var(--green)">UGX ${Number(o.total).toLocaleString()}</strong></span><button class="btn-sm" onclick="document.getElementById('trackingInput').value='${o.track}';trackDelivery()" style="font-size:0.72rem;padding:4px 10px">Track 📍</button></div><div style="font-size:0.72rem;color:var(--text2);margin-top:4px">Track: <span style="color:var(--yellow);font-family:monospace">${o.track}</span> · ${new Date(o.date).toLocaleDateString('en-UG')}</div></div>`).join('');
 }
 async function saveAlert() {
   const crop=document.getElementById('alertCrop')?.value, district=document.getElementById('alertDistrict')?.value;
@@ -2761,7 +2761,7 @@ async function submitOrder() {
   if(!currentUser){ closeModal('orderModal'); openModal('loginModal'); showToast('Please log in to place an order'); return; }
   const listing=allListings.find(l=>l.id===currentListingId);
   const result=await sbInsert('orders',{ listing_id:currentListingId, farmer_id:listing?.farmer_id||null, buyer_id:currentUser?.id||null, buyer_phone:currentUser?.phone||null, quantity_kg:qty, price_per_kg:listing?.price_per_kg||0, total_price:qty*(listing?.price_per_kg||0), delivery_address:addr, payment_method:pay, status:'pending', payment_status:'unpaid' });
-  if(result){ closeModal('orderModal'); const ref='AB-'+Date.now().toString(36).toUpperCase().slice(-6); showToast('Order placed! Ref: '+ref+' ?? Farmer will confirm via SMS'); }
+  if(result){ closeModal('orderModal'); const ref='AB-'+Date.now().toString(36).toUpperCase().slice(-6); showToast('Order placed! Ref: '+ref+' ✅ Farmer will confirm via SMS'); }
   else showToast('Order failed — please try again');
 }
 
@@ -2773,7 +2773,7 @@ async function sendContactMsg() {
   const role=document.getElementById('cRole')?.value||'visitor', msg=document.getElementById('cMessage')?.value.trim();
   if(!name||!contact||!msg){ showToast('Please fill all fields'); return; }
   const result=await sbInsert('contact_messages',{ full_name:name, contact, role, message:msg });
-  if(result){ showToast('Message sent! We\'ll reply within 24 hours ??'); ['cName','cContact','cMessage'].forEach(id=>{ const el=document.getElementById(id); if(el) el.value=''; }); }
+  if(result){ showToast('Message sent! We\'ll reply within 24 hours ✅'); ['cName','cContact','cMessage'].forEach(id=>{ const el=document.getElementById(id); if(el) el.value=''; }); }
   else showToast('Saved locally. We\'ll follow up soon ??');
 }
 
@@ -2781,7 +2781,7 @@ async function sendContactMsg() {
 // LIST PRODUCE
 // ─────────────────────────────────────────────────────────────────
 function openListProduceModal() {
-  if(!currentUser){ showToast('Please log in or join free first ??'); setTimeout(()=>openModal('loginModal'),800); return; }
+  if(!currentUser){ showToast('Please log in or join free first 🌾'); setTimeout(()=>openModal('loginModal'),800); return; }
   const sel=document.getElementById('lpDistrict'); if(sel&&currentUser.district) sel.value=currentUser.district;
   openModal('listProduceModal');
 }
@@ -2892,9 +2892,9 @@ async function sha256(str){ const buf=await crypto.subtle.digest('SHA-256',new T
 function openPitchGate(){ const el=document.getElementById('pitchPwdInput'); if(el) el.value=''; const err=document.getElementById('pitchPwdError'); if(err) err.style.display='none'; const m=document.getElementById('pitchGateModal'); if(m) m.style.display='flex'; setTimeout(()=>document.getElementById('pitchPwdInput')?.focus(),100); }
 function closePitchGate(){ const m=document.getElementById('pitchGateModal'); if(m) m.style.display='none'; }
 function togglePwdVis(){ const inp=document.getElementById('pitchPwdInput'); if(inp) inp.type=inp.type==='password'?'text':'password'; }
-async function verifyPitchPwd(){ const pwd=document.getElementById('pitchPwdInput')?.value; const hash=await sha256(pwd); if(hash===PITCH_HASH){ sessionStorage.setItem('ab_pitch_auth','1'); closePitchGate(); unlockPitchDeck(); showToast('?? Pitch deck unlocked!'); } else { const err=document.getElementById('pitchPwdError'); if(err) err.style.display='block'; const inp=document.getElementById('pitchPwdInput'); if(inp){ inp.value=''; inp.style.animation='shake 0.4s'; setTimeout(()=>inp.style.animation='',400); } } }
+async function verifyPitchPwd(){ const pwd=document.getElementById('pitchPwdInput')?.value; const hash=await sha256(pwd); if(hash===PITCH_HASH){ sessionStorage.setItem('ab_pitch_auth','1'); closePitchGate(); unlockPitchDeck(); showToast('🔓 Pitch deck unlocked!'); } else { const err=document.getElementById('pitchPwdError'); if(err) err.style.display='block'; const inp=document.getElementById('pitchPwdInput'); if(inp){ inp.value=''; inp.style.animation='shake 0.4s'; setTimeout(()=>inp.style.animation='',400); } } }
 function unlockPitchDeck(){ const page=document.getElementById('page-pitch'); if(page) page.classList.add('pitch-unlocked'); }
-function lockPitchDeck(){ sessionStorage.removeItem('ab_pitch_auth'); const page=document.getElementById('page-pitch'); if(page) page.classList.remove('pitch-unlocked'); showPage('home'); showToast('?? Pitch deck locked.'); }
+function lockPitchDeck(){ sessionStorage.removeItem('ab_pitch_auth'); const page=document.getElementById('page-pitch'); if(page) page.classList.remove('pitch-unlocked'); showPage('home'); showToast('🔒 Pitch deck locked.'); }
 function guardPitch(){ if(sessionStorage.getItem('ab_pitch_auth')==='1') unlockPitchDeck(); else openPitchGate(); }
 function openPitchDeck(){ const m=document.getElementById('pitchModal'); if(m) m.classList.add('open'); document.body.style.overflow='hidden'; goToPitchSlide(0); }
 function closePitchDeck(){ const m=document.getElementById('pitchModal'); if(m) m.classList.remove('open'); document.body.style.overflow=''; }
@@ -2921,7 +2921,7 @@ function toggleNotifPanel(){ const p=document.getElementById('notifPanel'); if(p
 function acceptCookies(){ localStorage.setItem('ab_cookies','1'); const b=document.getElementById('cookieBanner'); if(b) b.style.display='none'; }
 function checkCookieBanner(){ if(!localStorage.getItem('ab_cookies')) setTimeout(()=>{ const b=document.getElementById('cookieBanner'); if(b) b.style.display='flex'; },3000); }
 function toggleFaq(qEl){ const aEl=qEl.nextElementSibling; const isOpen=aEl.classList.contains('open'); document.querySelectorAll('.faq-a.open').forEach(a=>{ a.classList.remove('open'); a.previousElementSibling?.classList.remove('open'); }); if(!isOpen){ aEl.classList.add('open'); qEl.classList.add('open'); } }
-function setLang(code){ localStorage.setItem('ab_lang',code); const langBtn=document.getElementById('langPickerBtn'); if(langBtn) langBtn.textContent={en:'🇬🇧 EN',lg:'🇺🇬 LG',rn:'🇺🇬 RN',ac:'🇺🇬 AC'}[code]||'??'; closeModal('langModal'); showToast('Language updated ✓'); }
+function setLang(code){ localStorage.setItem('ab_lang',code); const langBtn=document.getElementById('langPickerBtn'); if(langBtn) langBtn.textContent={en:'🇬🇧 EN',lg:'🇺🇬 LG',rn:'🇺🇬 RN',ac:'🇺🇬 AC'}[code]||'🌐'; closeModal('langModal'); showToast('Language updated ✓'); }
 // ── Settings hub (language + profile + selling actions) ──────────
 function openSettings(){
   var b=document.getElementById('settingsBody'); if(!b) return;
@@ -2983,7 +2983,7 @@ function saveProfile(){
   showToast('Profile saved ✓');
   closeModal('settingsModal');
 }
-function shareListing(name,district,price){ const text='?? Fresh '+name+' from '+district+' at UGX '+Number(price).toLocaleString()+'/kg on AgriBridge!\nhttps://agribrige.com · Dial *789# on any phone'; if(navigator.share) navigator.share({title:name+' on AgriBridge',text,url:'https://agribrige.com'}).catch(()=>{}); else window.open('https://wa.me/?text='+encodeURIComponent(text),'_blank'); }
+function shareListing(name,district,price){ const text='🌾 Fresh '+name+' from '+district+' at UGX '+Number(price).toLocaleString()+'/kg on AgriBridge!\nhttps://agribrige.com · Dial *789# on any phone'; if(navigator.share) navigator.share({title:name+' on AgriBridge',text,url:'https://agribrige.com'}).catch(()=>{}); else window.open('https://wa.me/?text='+encodeURIComponent(text),'_blank'); }
 function updateOnlineStatus(){ const b=document.getElementById('offlineBanner'); if(b) b.style.display=navigator.onLine?'none':'block'; }
 
 // ─────────────────────────────────────────────────────────────────
@@ -3009,7 +3009,7 @@ async function submitCommPost() {
   const feed=document.getElementById('comm-feed'); if(!feed) return;
   const initials=(currentUser.name||'U').split(' ').map(w=>w[0]).join('').toUpperCase().slice(0,2);
   const div=document.createElement('div'); div.className='comm-post';
-  div.innerHTML=`<div class="comm-avatar">${initials}</div><div class="comm-body"><div class="comm-author">${escHtml(currentUser.name||'You')} · Just now</div><p>${escHtml(text)}</p><div class="comm-actions"><button onclick="commLike(this)">?? 0</button></div></div>`;
+  div.innerHTML=`<div class="comm-avatar">${initials}</div><div class="comm-body"><div class="comm-author">${escHtml(currentUser.name||'You')} · Just now</div><p>${escHtml(text)}</p><div class="comm-actions"><button onclick="commLike(this)">👍 0</button></div></div>`;
   feed.insertBefore(div,feed.firstChild);
 }
 
@@ -3073,7 +3073,7 @@ document.addEventListener('DOMContentLoaded', () => {
   });
   // First-time welcome
   if (!localStorage.getItem('ab_visited')) {
-    setTimeout(() => { showToast('?? Welcome to AgriBridge! Browse fresh produce or dial *789# on any phone.'); localStorage.setItem('ab_visited','1'); }, 1800);
+    setTimeout(() => { showToast('🌱 Welcome to AgriBridge! Browse fresh produce or dial *789# on any phone.'); localStorage.setItem('ab_visited','1'); }, 1800);
   }
   // Recommendations
   setTimeout(() => { if(getTopInterests(1).length>0) renderRecommendations(); }, 1200);
