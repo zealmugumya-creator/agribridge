@@ -1826,7 +1826,7 @@ function animalCard(a) {
       <div class="animal-district">📍 ${escHtml(a.district||'Uganda')} · 📦 ${Number(a.qty||0).toLocaleString()} available</div>
       ${a.health_cert ? '<div class="animal-vet">📄 Health certificate available on purchase</div>' : ''}
       <div class="animal-actions">
-        <button class="btn-animal-basket" onclick="addToBasket('${safeId}','${safeName}',${a.price},'${escHtml(a.unit||'head')}','${a.emoji||'??'}','animal')">🛒 Add to Basket</button>
+        <button class="btn-animal-basket" onclick="addToBasket('${safeId}','${safeName}',${a.price},'${escHtml(a.unit||'head')}','${a.emoji||'🐄'}','animal')">🛒 Add to Basket</button>
         <button class="btn-animal-order" onclick="quickOrderAnimal('${safeId}','${safeName}',${a.price})">Order Now</button>
       </div>
     </div>
@@ -1840,7 +1840,7 @@ function sortAnimals(v){ if(v==='price_asc') allAnimals.sort((a,b)=>a.price-b.pr
 
 function quickOrderAnimal(id,name,price) {
   const a = allAnimals.find(x=>x.id===id);
-  addToBasket(id, name, price, a?.unit||'head', a?.emoji||'??', 'animal');
+  addToBasket(id, name, price, a?.unit||'head', a?.emoji||'🐄', 'animal');
   setTimeout(openCheckout, 500);
 }
 
@@ -1922,12 +1922,12 @@ async function saveDiseaseReportAnimal() {
   const notes   = document.getElementById('anDrDesc')?.value;
   const diagName= document.getElementById('anDiagName')?.textContent?.replace('?? ','');
   await sbInsert('disease_reports', { farmer_phone:currentUser?.phone||null, crop_name:animal, symptom, diagnosis_name:diagName, district, description:notes, reported_to_extension:true });
-  showToast('Report saved! DVO will follow up within 48hrs ??');
+  showToast('Report saved! DVO will follow up within 48hrs ✅');
 }
 
 async function bookVetService(service) {
   await sbInsert('vet_bookings', { service_type:service, farmer_phone:currentUser?.phone||null, status:'pending' });
-  showToast(`✅ ${service} booked! Vet will call within 2 hours ??`);
+  showToast(`✅ ${service} booked! Vet will call within 2 hours ✅`);
 }
 
 // ─────────────────────────────────────────────────────────────────
@@ -1963,7 +1963,7 @@ function closeBasket() {
 // Main add-to-basket: works for both produce AND animals, fully automatic
 function addToBasket(id, name, price, unit, emoji, category) {
   unit     = unit     || 'kg';
-  emoji    = emoji    || '??';
+  emoji    = emoji    || '🌾';
   category = category || 'produce';
   const cleanName = String(name).replace(/'/g,"'");
   const existing = basketItems.find(i => String(i.id) === String(id));
@@ -1972,7 +1972,7 @@ function addToBasket(id, name, price, unit, emoji, category) {
     showToast(`➕ ${cleanName} qty updated`);
   } else {
     basketItems.push({ id:String(id), name:cleanName, price:Number(price), unit, emoji, qty:1, category });
-    showToast(`?? ${cleanName} added to basket!`);
+    showToast(`🛒 ${cleanName} added to basket!`);
     trackInterest(name);
   }
   saveBasket();
@@ -2186,7 +2186,7 @@ async function placeOrder() {
   const trackEl = document.getElementById('trackCodeDisplay');
   if (refEl)   refEl.textContent   = ref;
   if (trackEl) trackEl.textContent = track;
-  showToast(`?? Order placed! ${ref} · SMS confirmation sent`);
+  showToast(`✅ Order placed! ${ref} · SMS confirmation sent`);
   // Pre-fill tracking
   const ti = document.getElementById('trackingInput');
   if (ti) ti.value = track;
@@ -2291,12 +2291,12 @@ function localAIResponse(prompt) {
   // ── GREETINGS ──────────────────────────────────────────
   if (/^(hi|hello|hey|good\s*(morning|afternoon|evening)|howdy|oba|munda|sawa)/i.test(p)) {
     const name = user?.name ? `, ${user.name.split(' ')[0]}` : '';
-    return `Hello${name}! ?? I'm the AgriBridge AI — I know everything about this platform! I can help you:\n• Browse crops or animals ????\n• Check live prices ??\n• Add items to your basket ??\n• Diagnose crop or animal diseases ??\n• Track your orders ??\n• Navigate any page\n\nWhat would you like to do?`;
+    return `Hello${name}! 👋 I'm the AgriBridge AI — I know everything about this platform! I can help you:\n• Browse crops or animals 🌾🐄\n• Check live prices 📊\n• Add items to your basket 🛒\n• Diagnose crop or animal diseases 🩺\n• Track your orders 🚚\n• Navigate any page\n\nWhat would you like to do?`;
   }
 
   // ── WHO ARE YOU ─────────────────────────────────────────
   if (/who are you|what are you|what can you do|your name|agribridge ai/i.test(p))
-    return `I'm the AgriBridge AI Assistant ?? — trained on Uganda's full farming ecosystem.\n\nI know about:\n?? 35+ Uganda crops & live prices\n?? Animals: cattle, goats, poultry, fish, bees\n?? Your basket (${basket.length} items right now)\n?? Crop & animal disease diagnosis\n?? USSD *789# for any phone\n?? MTN MoMo & Airtel Money payments\n?? GPS delivery tracking\n\nJust ask me anything — I can also navigate pages, add items to your basket, and book vet services!`;
+    return `I'm the AgriBridge AI Assistant 🤖 — trained on Uganda's full farming ecosystem.\n\nI know about:\n🌾 35+ Uganda crops & live prices\n🐄 Animals: cattle, goats, poultry, fish, bees\n🛒 Your basket (${basket.length} items right now)\n🩺 Crop & animal disease diagnosis\n📱 USSD *789# for any phone\n💳 MTN MoMo & Airtel Money payments\n🚚 GPS delivery tracking\n\nJust ask me anything — I can also navigate pages, add items to your basket, and book vet services!`;
 
   // ── BASKET QUERIES ──────────────────────────────────────
   if (/my basket|show basket|view basket|open basket|what.*in.*basket|basket items/i.test(p)) {
@@ -2313,9 +2313,9 @@ function localAIResponse(prompt) {
 
   // ── ANIMAL QUERIES ──────────────────────────────────────
   if (/animal|cattle|cow|goat|pig|chicken|poultry|livestock|tilapia|fish|bee|honey|rabbit|sheep|duck/i.test(p) && !/disease|sick|symptom|fever|diagnos/i.test(p))
-    return "Browse our Animals Marketplace ?? — cattle, goats, poultry, fish, and bees. All vet-certified with health certificates. [NAVIGATE:animals]";
+    return "Browse our Animals Marketplace 🐄 — cattle, goats, poultry, fish, and bees. All vet-certified with health certificates. [NAVIGATE:animals]";
   if (/animal.*doctor|vet.*service|book.*vet|sick.*animal|animal.*disease|ecf|newcastle|fmd|mastitis|asfrika.*swine|lumpy.*skin/i.test(p))
-    return "Our AI Animal Doctor is free! ?? It can diagnose ECF, FMD, Newcastle, Mastitis, Brucellosis and more. Also book a real vet visit. [NAVIGATE:animals]";
+    return "Our AI Animal Doctor is free! 🐾 It can diagnose ECF, FMD, Newcastle, Mastitis, Brucellosis and more. Also book a real vet visit. [NAVIGATE:animals]";
   if (/east coast fever|ecf/i.test(p))
     return "East Coast Fever (ECF) is caused by Theileria parva ticks. Treatment: Buparvaquone (Butalex) injection ASAP — first 4 days are critical. Tick dipping with Amitraz. [NAVIGATE:animals]";
   if (/african swine fever|asf/i.test(p))
@@ -2333,7 +2333,7 @@ function localAIResponse(prompt) {
   if (/price.*vanilla|vanilla.*price/i.test(p)) return "Vanilla: UGX 50,000–200,000/kg — Uganda's most valuable export crop. Grown in Kasese and Mbarara. Takes 3 years to produce. [NAVIGATE:prices]";
   if (/price.*avocado|avocado.*price/i.test(p)) return "Avocado: UGX 500–1,200/kg. Peak season Feb–May and July–Oct. High export demand to Europe. Hass variety commands premium. [NAVIGATE:prices]";
   if (/price|prices|live price|market price|today.*price|price.*today/i.test(p))
-    return "Current Kampala prices:\n?? Maize: UGX 750/kg ↑\n?? Matooke: UGX 950/bunch ↓\n?? Tomatoes: UGX 1,800/kg ↑\n☕ Coffee: UGX 12,000/kg ↑\n?? Avocado: UGX 800/kg ↑\n?? Vanilla: UGX 120,000/kg ↑\n\nSee all live prices: [NAVIGATE:prices]";
+    return "Current Kampala prices:\n📈 Maize: UGX 750/kg ↑\n📈 Matooke: UGX 950/bunch ↓\n📈 Tomatoes: UGX 1,800/kg ↑\n☕ Coffee: UGX 12,000/kg ↑\n📈 Avocado: UGX 800/kg ↑\n📈 Vanilla: UGX 120,000/kg ↑\n\nSee all live prices: [NAVIGATE:prices]";
 
   // ── CROP DISEASES ───────────────────────────────────────
   if (/yellow.*leaf|leaf.*yellow|chlorosis/i.test(p)) return "Yellow leaves can mean nitrogen deficiency, cassava mosaic virus, or maize streak virus. Go to the AI Crop Doctor for precise diagnosis. [NAVIGATE:doctor]";
@@ -2341,7 +2341,7 @@ function localAIResponse(prompt) {
   if (/fall.*armyworm|armyworm/i.test(p)) return "Fall Armyworm: Apply Emamectin benzoate (Proclaim) into the whorl early morning. Push-pull method with Desmodium plants prevents infestations. [NAVIGATE:doctor]";
   if (/cassava.*mosaic|mosaic/i.test(p)) return "Cassava Mosaic Disease: Plant CMD-resistant varieties (NAROCAS 1, TME 14). Control whitefly vectors with neem oil. Remove and burn infected plants. [NAVIGATE:doctor]";
   if (/disease|sick.*crop|crop.*problem|diagnose|doctor/i.test(p))
-    return "Our AI Crop Doctor is free! ?? Describe your crop problem or choose your crop and symptom to get instant expert advice. [NAVIGATE:doctor]";
+    return "Our AI Crop Doctor is free! 🩺 Describe your crop problem or choose your crop and symptom to get instant expert advice. [NAVIGATE:doctor]";
 
   // ── PLATFORM NAVIGATION ─────────────────────────────────
   if (/marketplace|browse.*market|buy.*produce|find.*produce|shop/i.test(p)) return "Opening the Marketplace — fresh produce from Uganda's farms, zero middlemen! [NAVIGATE:market]";
@@ -2354,17 +2354,17 @@ function localAIResponse(prompt) {
   if (/dashboard|my account|my.*listings|my.*orders|my.*stats/i.test(p)) return "Your personal dashboard shows your listings, orders, and earnings. [NAVIGATE:dashboard]";
   if (/community|forum|ask.*farmer|other farmer/i.test(p)) return "Join the AgriBridge Community to share tips, price updates and get advice from 10,000+ Ugandan farmers! [NAVIGATE:community]";
   if (/about|who.*agribridge|what.*platform|investor|pitch/i.test(p)) return "AgriBridge is Uganda's #1 farm-to-table platform — connecting farmers directly to buyers with live prices, mobile money, AI tools, and USSD on any phone. [NAVIGATE:about]";
-  if (/contact|phone number|email|support|help desk|call/i.test(p)) return "Contact AgriBridge:\n?? +256 755 966 690 (call/WhatsApp)\n✉️ hello@agribridge.ug\n?? USSD: *789#\n\nOffice hours: Mon–Sat 7am–9pm [NAVIGATE:contact]";
+  if (/contact|phone number|email|support|help desk|call/i.test(p)) return "Contact AgriBridge:\n📞 +256 755 966 690 (call/WhatsApp)\n✉️ hello@agribridge.ug\n📱 USSD: *789#\n\nOffice hours: Mon–Sat 7am–9pm [NAVIGATE:contact]";
   if (/register|sign up|join|create account/i.test(p)) return "Join AgriBridge free! You need your MTN or Airtel phone number. Registration takes under 2 minutes — tap 'Join Free' at the top of the screen.";
   if (/log.*in|login|sign in/i.test(p)) return "Tap 'Log In' at the top right. Use your phone number and password. Forgot password? Call +256 755 966 690.";
 
   // ── PAYMENT ─────────────────────────────────────────────
-  if (/mtn|mobile money|momo|payment|pay|airtel money/i.test(p)) return "AgriBridge supports:\n?? MTN Mobile Money (*165#)\n?? Airtel Money (*185#)\n?? Cash on Delivery\n?? Bank Transfer (Stanbic/Equity)\n\nAll payments are secure. Farmers receive funds within 24 hours of confirmed delivery.";
+  if (/mtn|mobile money|momo|payment|pay|airtel money/i.test(p)) return "AgriBridge supports:\n💳 MTN Mobile Money (*165#)\n📲 Airtel Money (*185#)\n💵 Cash on Delivery\n🏦 Bank Transfer (Stanbic/Equity)\n\nAll payments are secure. Farmers receive funds within 24 hours of confirmed delivery.";
   if (/delivery|transport|deliver|shipping|delivery fee/i.test(p)) return "AgriBridge delivery: farm pickup → your door. Fee: UGX 5,000 within Kampala. Upcountry rates vary by district. Estimated 1–3 days. GPS tracking on every order. [TRACK_ORDERS]";
 
   // ── WEATHER/SEASON ──────────────────────────────────────
-  if (/weather|rain|planting.*season|when to plant|best.*time.*plant/i.test(p)) return "Uganda has 2 main rain seasons:\n?? Season A: March–May — plant maize, beans, tomatoes\n?? Season B: Oct–Dec — plant quick-maturing varieties\n\nRight now (April/May 2026) is excellent planting season! See the planting calendar: [NAVIGATE:crops]";
-  if (/best crop|most profitable|which crop|what to grow|high value/i.test(p)) return "Most profitable Uganda crops right now:\n1. ?? Vanilla (UGX 100,000+/kg)\n2. ?? Avocado (high export demand)\n3. ☕ Coffee (consistent price)\n4. ?? Passion fruit\n5. ?? Tomatoes (high urban demand)\n\nFor animals: Friesian dairy cows and broiler chickens give fastest returns!";
+  if (/weather|rain|planting.*season|when to plant|best.*time.*plant/i.test(p)) return "Uganda has 2 main rain seasons:\n🌱 Season A: March–May — plant maize, beans, tomatoes\n🌱 Season B: Oct–Dec — plant quick-maturing varieties\n\nRight now (April/May 2026) is excellent planting season! See the planting calendar: [NAVIGATE:crops]";
+  if (/best crop|most profitable|which crop|what to grow|high value/i.test(p)) return "Most profitable Uganda crops right now:\n1. 🌿 Vanilla (UGX 100,000+/kg)\n2. 🥑 Avocado (high export demand)\n3. ☕ Coffee (consistent price)\n4. 🍈 Passion fruit\n5. 🍅 Tomatoes (high urban demand)\n\nFor animals: Friesian dairy cows and broiler chickens give fastest returns!";
 
   // ── USER-SPECIFIC ───────────────────────────────────────
   if (/who am i|my profile|my name|am i logged in/i.test(p)) {
@@ -2376,16 +2376,16 @@ function localAIResponse(prompt) {
 
   // ── THANKFUL/SMALLTALK ──────────────────────────────────
   if (/thank|thanks|ok|okay|great|perfect|good|excellent|wonderful/i.test(p))
-    return "You're welcome! ?? I'm here 24/7. Ask me about crops, animals, prices, diseases, your orders, or anything AgriBridge!";
+    return "You're welcome! 😊 I'm here 24/7. Ask me about crops, animals, prices, diseases, your orders, or anything AgriBridge!";
   if (/help|what can you|what do you do|commands|options/i.test(p))
-    return "Here's what I can do:\n?? Find crops & animals\n?? Show live prices\n?? Add items to basket & checkout\n?? Diagnose crop & animal diseases\n?? Track your orders\n?? Guide you to list produce/animals\n?? Show training videos\n?? Explain USSD *789#\n\nJust ask in plain English — or Luganda!";
+    return "Here's what I can do:\n🔍 Find crops & animals\n📊 Show live prices\n🛒 Add items to basket & checkout\n🩺 Diagnose crop & animal diseases\n🚚 Track your orders\n📝 Guide you to list produce/animals\n🎓 Show training videos\n📱 Explain USSD *789#\n\nJust ask in plain English — or Luganda!";
 
   // ── LUGANDA BASIC SUPPORT ───────────────────────────────
-  if (/webale|nyo|gyebale/i.test(p)) return "Gyebale nyo! ?? Ndi ku kukuyamba bulijjo. Noonya ebibala, ebibala by'abalimi oba bbeeyi za leero?";
+  if (/webale|nyo|gyebale/i.test(p)) return "Gyebale nyo! 👋 Ndi ku kukuyamba bulijjo. Noonya ebibala, ebibala by'abalimi oba bbeeyi za leero?";
   if (/sseko|sente|bbeeyi/i.test(p)) return "Bbeeyi za leero: Maize UGX 750/kg · Matooke UGX 950/bunch · Tomatoes UGX 1,800/kg · Coffee UGX 12,000/kg [NAVIGATE:prices]";
 
   // ── DEFAULT ─────────────────────────────────────────────
-  return `I heard: "${prompt}"\n\nI can help with:\n?? Crops & produce marketplace\n?? Animals & livestock marketplace\n?? Live market prices\n?? Crop & animal disease diagnosis\n?? Your basket & checkout\n?? Order tracking\n\nTry asking: "Show me cattle listings" or "What's the price of maize?" or "My chicken has Newcastle disease"`;
+  return `I heard: "${prompt}"\n\nI can help with:\n🌾 Crops & produce marketplace\n🐄 Animals & livestock marketplace\n📊 Live market prices\n🩺 Crop & animal disease diagnosis\n🛒 Your basket & checkout\n🚚 Order tracking\n\nTry asking: "Show me cattle listings" or "What's the price of maize?" or "My chicken has Newcastle disease"`;
 }
 
 // ── VOICE INPUT ──────────────────────────────────────────
@@ -2501,7 +2501,7 @@ function trainingCard(t) {
   const lvl = t.level||'beginner'; const dur = t.duration_mins||45;
   const safeUrl = encodeURIComponent(url); const safeTitle = escHtml(t.title||'Training Module');
   return `<div class="training-card"><div class="training-thumb" onclick="playVideoSafe('${safeUrl}','${encodeURIComponent(t.title||'')}')">
-    ${thumb?`<img src="${thumb}" alt="${safeTitle}" loading="lazy" onerror="this.style.display='none'">`:`<div style="width:100%;height:100%;background:linear-gradient(135deg,var(--bg2),var(--bg3));display:flex;align-items:center;justify-content:center;font-size:2.5rem">??</div>`}
+    ${thumb?`<img src="${thumb}" alt="${safeTitle}" loading="lazy" onerror="this.style.display='none'">`:`<div style="width:100%;height:100%;background:linear-gradient(135deg,var(--bg2),var(--bg3));display:flex;align-items:center;justify-content:center;font-size:2.5rem">📦</div>`}
     <div class="training-play"><div class="play-icon">▶</div></div>
     <div class="training-level lv-${lvl}">${lvl}</div>
   </div>
@@ -2660,7 +2660,7 @@ async function saveDiseaseReport() {
   const district=document.getElementById('drDistrict')?.value, weather=document.getElementById('drWeather')?.value, notes=document.getElementById('drDesc')?.value;
   const diagName=document.getElementById('drDiagName')?.textContent?.replace('?? ','');
   await sbInsert('disease_reports',{ farmer_phone:currentUser?.phone||null, crop_name:crop, affected_part:part, symptom, diagnosis_name:diagName, district, weather_cond:weather, description:notes, reported_to_extension:true });
-  showToast('Report saved! Extension officer will follow up within 48hrs ??');
+  showToast('Report saved! Extension officer will follow up within 48hrs ✅');
 }
 
 // ─────────────────────────────────────────────────────────────────
@@ -2688,12 +2688,12 @@ async function callUssdApi(text) {
 }
 function localUssdFallback(text) {
   const inputs=text?text.split('*'):[]; const depth=inputs.length; const last=inputs[inputs.length-1]||''; let response='';
-  if(text===''){ response='CON Welcome to AgriBridge ??\nUganda Farm-to-Table\n\n1. Crop Prices\n2. List Produce\n3. Find Buyers\n4. Animal Prices\n5. Training Tips\n6. My Account\n7. Register'; }
+  if(text===''){ response='CON Welcome to AgriBridge 🌾\nUganda Farm-to-Table\n\n1. Crop Prices\n2. List Produce\n3. Find Buyers\n4. Animal Prices\n5. Training Tips\n6. My Account\n7. Register'; }
   else if(inputs[0]==='1'){ response=depth===1?'CON Choose crop:\n1. Maize\n2. Matooke\n3. Tomatoes\n4. Coffee\n5. Cassava\n0. Back':'END Maize price Kampala:\nUGX 750/kg (↑5%)\nNational avg: UGX 720/kg'; }
   else if(inputs[0]==='4'){ response=depth===1?'CON Animal Prices:\n1. Cattle\n2. Goats\n3. Chicken\n4. Fish\n0. Back':'END Cattle (Ankole):\nUGX 2,500,000–3,500,000/head\nContact: *789# opt 3 for buyers'; }
   else if(inputs[0]==='2'){ response=depth===1?'CON Select crop:\n1. Maize\n2. Matooke\n3. Tomatoes\n4. Other':'END Listing created!\nRef: AB-'+Math.floor(Math.random()*90000+10000)+'\nBuyers will contact you.'; }
   else if(inputs[0]==='7'){ response=depth===1?'CON Enter your name\n(type and press Send)':depth===2?'CON Select district:\n1. Kampala  2. Mbarara\n3. Gulu  4. Jinja':'END Registration done!\nWelcome to AgriBridge!\nSMS sent to your phone.'; }
-  else { response='CON Welcome to AgriBridge ??\n1. Crop Prices\n2. List Produce\n3. Find Buyers\n4. Animal Prices\n5. Training Tips\n6. My Account\n7. Register'; }
+  else { response='CON Welcome to AgriBridge 🌾\n1. Crop Prices\n2. List Produce\n3. Find Buyers\n4. Animal Prices\n5. Training Tips\n6. My Account\n7. Register'; }
   const isEnd=response.startsWith('END'); const msg=response.replace(/^(CON|END)\s*/,'');
   ussdCurrentScreen=msg; updateUssdScreen(msg+(isEnd?'\n─────────────\n[Session ended]':''));
   if(isEnd){ ussdInSession=false; setTimeout(()=>{ updateUssdScreen('Session ended.\nDial *789# again.'); resetUssdState(); },3500); }
@@ -2717,7 +2717,7 @@ async function loadAlerts() {
   const data=await sb('deliveries',{ select:'id,status,pickup_location,delivery_location,tracking_code,estimated_arrival,notes,created_at', filters:[['order','created_at.desc'],['limit','10']] });
   const el=document.getElementById('alertsList'); const list=(data&&data.length)?data:sampleAlerts();
   if(!list.length){ el.innerHTML='<div class="empty-state"><div class="e-icon">🚚</div><p>No delivery alerts yet.</p></div>'; return; }
-  const statusIcon={ scheduled:'📋', picked_up:'📦', in_transit:'??', at_checkpoint:'??', delivered:'✅', failed:'❌' };
+  const statusIcon={ scheduled:'📋', picked_up:'📦', in_transit:'🚚', at_checkpoint:'🚩', delivered:'✅', failed:'❌' };
   el.innerHTML=list.map(a=>{ const msg=a.message||(a.status?`${statusIcon[a.status]||'🚚'} Delivery ${a.tracking_code||''}: ${(a.status||'').replace(/_/g,' ')} — ${a.pickup_location||''} → ${a.delivery_location||''}`:a); const time=a.created_at?new Date(a.created_at).toLocaleString('en-UG',{dateStyle:'short',timeStyle:'short'}):'Just now'; return `<div class="alert-item"><div class="a-msg">${msg}</div><div class="a-time">${time}</div></div>`; }).join('');
 }
 function loadMyOrders() {
@@ -2732,7 +2732,7 @@ async function saveAlert() {
   if(!crop||!price){ showToast('Select a crop and enter a target price'); return; }
   if(!currentUser){ showToast('Please log in to set price alerts'); openModal('loginModal'); return; }
   await sbInsert('price_alerts',{ farmer_phone:currentUser.phone, crop_name:crop, district, target_price:price, direction:dir, is_active:true });
-  showToast('?? Alert set! We\'ll SMS you when '+crop+' in '+district+' '+(dir==='above'?'rises above':'falls below')+' UGX '+price.toLocaleString()+'/kg');
+  showToast('🔔 Alert set! We\'ll SMS you when '+crop+' in '+district+' '+(dir==='above'?'rises above':'falls below')+' UGX '+price.toLocaleString()+'/kg');
   ['alertCrop','alertPrice'].forEach(id=>{ const el=document.getElementById(id); if(el) el.value=''; });
 }
 
@@ -2749,10 +2749,10 @@ async function supaAuthSignIn(phone, password) {
   const res=await fetch(`${SUPA_URL}/auth/v1/token?grant_type=password`,{ method:'POST', headers:{apikey:SUPA_KEY,'Content-Type':'application/json'}, body:JSON.stringify({email,password}) });
   return res.ok?res.json():null;
 }
-async function verifyOtp(){ closeModal('registerModal'); showToast('Registered! Welcome to AgriBridge ??'); }
+async function verifyOtp(){ closeModal('registerModal'); showToast('Registered! Welcome to AgriBridge 🌾'); }
 function openMyAccount() {
   const body=document.getElementById('myAccountBody');
-  if(body&&currentUser){ const roleLabel=currentUser.role==='farmer'?'🌾 Farmer':'🛒 Buyer/Vendor'; body.innerHTML=`<div style="display:flex;align-items:center;gap:12px;margin-bottom:12px"><div style="width:44px;height:44px;border-radius:50%;background:var(--green-dim);display:flex;align-items:center;justify-content:center;font-size:1.2rem;font-weight:700;color:var(--green)">${(currentUser.name||'U').charAt(0).toUpperCase()}</div><div><div style="font-weight:700">${escHtml(currentUser.name||'')}</div><div style="font-size:0.8rem;color:var(--text2)">${roleLabel} · ${escHtml(currentUser.district||'')}</div></div></div><div style="font-size:0.82rem;color:var(--text2)">?? ${escHtml(currentUser.phone||'')}</div>`; }
+  if(body&&currentUser){ const roleLabel=currentUser.role==='farmer'?'🌾 Farmer':'🛒 Buyer/Vendor'; body.innerHTML=`<div style="display:flex;align-items:center;gap:12px;margin-bottom:12px"><div style="width:44px;height:44px;border-radius:50%;background:var(--green-dim);display:flex;align-items:center;justify-content:center;font-size:1.2rem;font-weight:700;color:var(--green)">${(currentUser.name||'U').charAt(0).toUpperCase()}</div><div><div style="font-weight:700">${escHtml(currentUser.name||'')}</div><div style="font-size:0.8rem;color:var(--text2)">${roleLabel} · ${escHtml(currentUser.district||'')}</div></div></div><div style="font-size:0.82rem;color:var(--text2)">📞 ${escHtml(currentUser.phone||'')}</div>`; }
   openModal('myAccountModal');
 }
 
@@ -2784,7 +2784,7 @@ async function sendContactMsg() {
   if(!name||!contact||!msg){ showToast('Please fill all fields'); return; }
   const result=await sbInsert('contact_messages',{ full_name:name, contact, role, message:msg });
   if(result){ showToast('Message sent! We\'ll reply within 24 hours ✅'); ['cName','cContact','cMessage'].forEach(id=>{ const el=document.getElementById(id); if(el) el.value=''; }); }
-  else showToast('Saved locally. We\'ll follow up soon ??');
+  else showToast('Saved locally. We\'ll follow up soon ✅');
 }
 
 // ─────────────────────────────────────────────────────────────────
@@ -2863,7 +2863,7 @@ async function loadFarmerKpis() {
 async function loadDashboard() {
   const el=document.getElementById('dash-content');
   if(!el) return;
-  if(!currentUser){ el.innerHTML='<div style="text-align:center;padding:40px"><div style="font-size:3rem">??</div><p style="color:var(--text2);margin:12px 0">Log in to see your dashboard</p><button class="btn-primary" style="width:auto;padding:12px 24px" onclick="openModal(\'loginModal\')">Log In</button></div>'; return; }
+  if(!currentUser){ el.innerHTML='<div style="text-align:center;padding:40px"><div style="font-size:3rem">📭</div><p style="color:var(--text2);margin:12px 0">Log in to see your dashboard</p><button class="btn-primary" style="width:auto;padding:12px 24px" onclick="openModal(\'loginModal\')">Log In</button></div>'; return; }
   el.innerHTML='<div class="loader"><div class="spinner"></div>Loading…</div>';
   if(currentUser.role==='farmer') {
     const [listings,orders]=await Promise.all([sb('listings',{ select:'id,crop_name,quantity_kg,price_per_kg,is_available,views', filters:[['farmer_phone',`eq.${currentUser.phone||''}`],['order','created_at.desc'],['limit','20']] }),sb('orders',{ select:'id,quantity_kg,price_per_kg,total_price,total_amount,status,payment_status,created_at', filters:currentUser.id?[['farmer_id','eq.'+currentUser.id],['order','created_at.desc'],['limit','10']]:[['limit','eq.0']] })]);
@@ -3008,7 +3008,7 @@ function sampleAlerts(){ return [{ message:'Delivery DEL-2026-001 picked up from
 // COMMUNITY
 // ─────────────────────────────────────────────────────────────────
 function switchCommTab(tab){ /* filter posts by tab in full build */ }
-function commLike(btn){ const count=parseInt(btn.textContent.replace(/[^0-9]/g,''))+1; btn.textContent='?? '+count; }
+function commLike(btn){ const count=parseInt(btn.textContent.replace(/[^0-9]/g,''))+1; btn.textContent='👍 '+count; }
 function commReply(btn){ const text=document.getElementById('commText'); if(!text) return; text.focus(); text.placeholder='Replying to post…'; text.scrollIntoView({behavior:'smooth',block:'center'}); }
 async function submitCommPost() {
   const text=document.getElementById('commText')?.value.trim(); if(!text){ showToast('Write something first'); return; }
