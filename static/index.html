@@ -1729,14 +1729,14 @@ function listingCard(l) {
           <div style="width:24px;height:24px;border-radius:50%;background:var(--green-dim);display:flex;align-items:center;justify-content:center;font-size:0.68rem;font-weight:700;color:var(--green);flex-shrink:0">${initials}</div>
           <span style="font-size:0.8rem">${escHtml(farmer)}</span>
         </div>
-        <div style="font-size:0.78rem;color:var(--text2)">?? ${escHtml(district)} · ?? ${Number(qty).toLocaleString()} kg</div>
+        <div style="font-size:0.78rem;color:var(--text2)">📍 ${escHtml(district)} · 📦 ${Number(qty).toLocaleString()} kg</div>
       </div>
       ${terms ? `<div style="font-size:0.72rem;color:var(--green);margin:2px 0 6px;padding:0 2px">${terms}</div>` : ''}
       <div class="card-footer">
         <div>${priceHtml}${cmpHtml}</div>
         <div style="display:flex;gap:5px;flex-wrap:wrap;justify-content:flex-end;margin-top:6px">
-          <a href="https://wa.me/256755966690?text=${waMsg}" target="_blank" class="btn-card" style="background:#25D366;font-size:0.75rem;padding:5px 8px">??</a>
-          <button class="btn-card" onclick="event.stopPropagation();addToBasket('${l.id||Date.now()}','${escHtml(name)}',${salePrice},'kg','${emoji}','produce')" style="background:var(--green-dim);color:var(--green);border:1px solid var(--green);font-size:0.76rem">??</button>
+          <a href="https://wa.me/256755966690?text=${waMsg}" target="_blank" class="btn-card" style="background:#25D366;font-size:0.75rem;padding:5px 8px">💬</a>
+          <button class="btn-card" onclick="event.stopPropagation();addToBasket('${l.id||Date.now()}','${escHtml(name)}',${salePrice},'kg','${emoji}','produce')" style="background:var(--green-dim);color:var(--green);border:1px solid var(--green);font-size:0.76rem">🛒</button>
           <button class="btn-card" onclick="event.stopPropagation();openOrderModal(${l.id||0},'${escHtml(name)}','${escHtml(farmer)}',${price})" style="font-size:0.76rem">Order</button>
         </div>
       </div>
@@ -1806,16 +1806,16 @@ function renderAnimals() {
 }
 
 function animalCard(a) {
-  const catLabel = { livestock:'?? Livestock', poultry:'?? Poultry', dairy:'?? Dairy', aqua:'?? Aquaculture', apiary:'?? Beekeeping' };
+  const catLabel = { livestock:'🐄 Livestock', poultry:'🐔 Poultry', dairy:'🥛 Dairy', aqua:'🐟 Aquaculture', apiary:'🐝 Beekeeping' };
   const tagCls   = { livestock:'tag-livestock', poultry:'tag-poultry', dairy:'tag-dairy', aqua:'tag-aqua', apiary:'tag-apiary' };
   const photoMap = { cattle:'1516467508483-a7212febe31a', cow:'1570824104453-508955ab713e', goat:'1591593765853-b9e4c5d80b03', chicken:'1548550023-2bdb3c5beed7', fish:'1625246174804-de40b2fae23d', tilapia:'1625246174804-de40b2fae23d', bee:'1558618666-fcd25c85cd64', honey:'1607303929487-5e16e41f2f41', rabbit:'1585110396000-d9e2e6c1e4f2' };
   const pk = Object.keys(photoMap).find(k => a.name.toLowerCase().includes(k));
-  const imgUrl = pk ? `https://images.unsplash.com/photo-${photoMap[pk]}?auto=format&fit=crop&w=400&h=220&q=75` : '';
+  const imgUrl = a.image_url ? a.image_url : '';
   const safeId = escHtml(a.id);
   const safeName = escHtml(a.name);
   return `<div class="animal-card" id="ac-${safeId}">
     ${a.certified ? '<div class="certified-badge">✅ MAAIF</div>' : ''}
-    ${a.health_cert ? '<div class="health-badge">?? Vet Cert</div>' : ''}
+    ${a.health_cert ? '<div class="health-badge">🩺 Vet Cert</div>' : ''}
     ${imgUrl ? `<img src="${imgUrl}" alt="${safeName}" class="animal-card-img" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'">` : ''}
     <div class="animal-emoji-bg" style="display:${imgUrl?'none':'flex'}">${a.emoji||'??'}</div>
     <div class="animal-info">
@@ -1823,10 +1823,10 @@ function animalCard(a) {
       <span class="animal-tag ${tagCls[a.cat]||'tag-livestock'}">${catLabel[a.cat]||a.cat}</span>
       <div class="animal-desc">${escHtml(a.desc||'')}${a.breed?`<br><b>Breed:</b> ${escHtml(a.breed)}`:''}</div>
       <div class="animal-price">UGX ${Number(a.price).toLocaleString()} <small>/ ${escHtml(a.unit||'head')}</small></div>
-      <div class="animal-district">?? ${escHtml(a.district||'Uganda')} · ?? ${Number(a.qty||0).toLocaleString()} available</div>
-      ${a.health_cert ? '<div class="animal-vet">?? Health certificate available on purchase</div>' : ''}
+      <div class="animal-district">📍 ${escHtml(a.district||'Uganda')} · 📦 ${Number(a.qty||0).toLocaleString()} available</div>
+      ${a.health_cert ? '<div class="animal-vet">📄 Health certificate available on purchase</div>' : ''}
       <div class="animal-actions">
-        <button class="btn-animal-basket" onclick="addToBasket('${safeId}','${safeName}',${a.price},'${escHtml(a.unit||'head')}','${a.emoji||'??'}','animal')">?? Add to Basket</button>
+        <button class="btn-animal-basket" onclick="addToBasket('${safeId}','${safeName}',${a.price},'${escHtml(a.unit||'head')}','${a.emoji||'??'}','animal')">🛒 Add to Basket</button>
         <button class="btn-animal-order" onclick="quickOrderAnimal('${safeId}','${safeName}',${a.price})">Order Now</button>
       </div>
     </div>
@@ -1899,17 +1899,17 @@ function runAnimalDiagnosis() {
   document.getElementById('anDiagBody').innerHTML = `
     <p style="margin-bottom:14px;line-height:1.6">${result.desc}</p>
     <div style="background:var(--bg3);border-radius:10px;padding:16px;margin-bottom:12px">
-      <div style="font-weight:700;margin-bottom:10px;font-size:0.88rem">?? Recommended Treatment</div>
+      <div style="font-weight:700;margin-bottom:10px;font-size:0.88rem">💊 Recommended Treatment</div>
       ${result.treatment.map((t,i)=>`<div style="display:flex;gap:10px;margin-bottom:8px;font-size:0.84rem"><span style="color:var(--amber);font-weight:700;min-width:20px">${i+1}.</span><span>${t}</span></div>`).join('')}
     </div>
     <div style="background:var(--bg3);border-radius:10px;padding:16px;margin-bottom:12px">
-      <div style="font-weight:700;margin-bottom:8px;font-size:0.88rem">??️ Prevention</div>
+      <div style="font-weight:700;margin-bottom:8px;font-size:0.88rem">🛡️ Prevention</div>
       <p style="font-size:0.84rem;line-height:1.6">${result.prevention}</p>
     </div>
     <div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:12px">
       <button style="background:var(--amber);color:#000;border:none;border-radius:8px;padding:8px 16px;font-size:0.82rem;font-weight:700;cursor:pointer;font-family:inherit" onclick="bookVetService('Emergency Vet Visit')">?? Book Vet Now</button>
       <button style="background:var(--green-dim);color:var(--green);border:1px solid var(--green);border-radius:8px;padding:8px 16px;font-size:0.82rem;font-weight:700;cursor:pointer;font-family:inherit" onclick="saveDiseaseReportAnimal()">?? Report to DVO</button>
-      <button style="background:var(--bg3);color:var(--text2);border:1px solid var(--border);border-radius:8px;padding:8px 16px;font-size:0.82rem;font-weight:700;cursor:pointer;font-family:inherit" onclick="showPage('supply')">?? Buy Treatments</button>
+      <button style="background:var(--bg3);color:var(--text2);border:1px solid var(--border);border-radius:8px;padding:8px 16px;font-size:0.82rem;font-weight:700;cursor:pointer;font-family:inherit" onclick="showPage('supply')">🛍️ Buy Treatments</button>
     </div>`;
   rEl.style.display = 'block';
   rEl.scrollIntoView({ behavior:'smooth', block:'start' });
@@ -2577,7 +2577,7 @@ function renderCrops() {
   if (!el) return;
   el.innerHTML = list.map(c => {
     const imgUrl = `https://images.unsplash.com/photo-${c.img}?auto=format&fit=crop&w=400&h=220&q=75`;
-    return `<div class="crop-card"><img class="crop-card-img" src="${imgUrl}" alt="${c.name}" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'"><div class="crop-emoji-bg" style="display:none">${c.emoji}</div><div class="crop-info"><div class="crop-name">${c.name}</div><span class="crop-cat cat-${c.cat}">${catLabel[c.cat]}</span><div style="font-size:0.8rem;color:var(--text2);margin:4px 0 8px;line-height:1.4">${c.desc}</div><div class="crop-price">UGX ${c.price} <small>/ ${c.unit}</small></div><div class="crop-district">?? ${c.districts}</div><div style="font-size:0.75rem;color:var(--text2);margin-top:3px">?? ${c.season}</div></div></div>`;
+    return `<div class="crop-card"><img class="crop-card-img" src="${imgUrl}" alt="${c.name}" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'"><div class="crop-emoji-bg" style="display:none">${c.emoji}</div><div class="crop-info"><div class="crop-name">${c.name}</div><span class="crop-cat cat-${c.cat}">${catLabel[c.cat]}</span><div style="font-size:0.8rem;color:var(--text2);margin:4px 0 8px;line-height:1.4">${c.desc}</div><div class="crop-price">UGX ${c.price} <small>/ ${c.unit}</small></div><div class="crop-district">?? ${c.districts}</div><div style="font-size:0.75rem;color:var(--text2);margin-top:3px">📅 ${c.season}</div></div></div>`;
   }).join('');
 }
 
@@ -2618,7 +2618,7 @@ function renderSupply() {
   let items = SUPPLY_ITEMS;
   if (supplyFilter !== 'all') items = items.filter(i=>i.cat===supplyFilter);
   if (supplySearch) items = items.filter(i=>i.name.toLowerCase().includes(supplySearch)||i.brand.toLowerCase().includes(supplySearch)||i.desc.toLowerCase().includes(supplySearch));
-  const catLabel = { seeds:'?? Seeds', fertilizer:'?? Fertilizer', pesticide:'??️ Pesticide', tool:'?? Tool', animal_supply:'?? Animal Care' };
+  const catLabel = { seeds:'🌱 Seeds', fertilizer:'🧪 Fertilizer', pesticide:'🐛 Pesticide', tool:'🔧 Tool', animal_supply:'🐾 Animal Care' };
   const el = document.getElementById('supplyGrid');
   if (!el) return;
   el.innerHTML = items.map(item => `<div class="card"><img class="card-img" src="https://images.unsplash.com/photo-${item.img}?auto=format&fit=crop&w=400&h=180&q=75" alt="${item.name}" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'"><div class="card-img-placeholder" style="display:none">${catLabel[item.cat]}</div><div class="card-body">${item.badge?`<span class="card-tag">${item.badge}</span>`:`<span class="card-tag">${catLabel[item.cat]}</span>`}<div class="card-title">${item.name}</div><div class="card-desc">${item.desc}</div><div style="font-size:0.78rem;color:var(--text2);margin-bottom:12px">??️ ${item.brand} · Per ${item.unit}</div><div class="card-footer"><div><div class="card-price">UGX ${item.price.toLocaleString()}</div><div class="card-unit">per ${item.unit}</div></div><button class="btn-card" onclick="addToBasket('supply-${encodeURIComponent(item.name)}','${escHtml(item.name)}',${item.price},'${item.unit}','${catLabel[item.cat].split(' ')[0]}','supply')">?? Order</button></div></div></div>`).join('');
@@ -2641,7 +2641,7 @@ function runDiagnosis() {
   const result=db[symptom]||DISEASE_DB['default']['Yellowing / Chlorosis'];
   document.getElementById('drDiagName').textContent = '?? ' + result.name;
   document.getElementById('drDiagConf').textContent = `${result.conf} · Crop: ${crop}${district?' · '+district+' District':''} · ${weather}`;
-  document.getElementById('drDiagBody').innerHTML = `<p style="margin-bottom:14px;line-height:1.6">${result.desc}</p><div style="background:var(--bg3);border-radius:10px;padding:16px;margin-bottom:14px"><div style="font-weight:700;margin-bottom:10px;font-size:0.9rem">?? Treatment (${duration})</div>${result.treatment.map((t,i)=>`<div style="display:flex;gap:10px;margin-bottom:8px;font-size:0.85rem"><span style="color:var(--green);font-weight:700;min-width:20px">${i+1}.</span><span>${t}</span></div>`).join('')}</div><div style="background:var(--bg3);border-radius:10px;padding:16px"><div style="font-weight:700;margin-bottom:8px;font-size:0.9rem">??️ Prevention</div><p style="font-size:0.85rem;line-height:1.6">${result.prevention}</p></div><div style="margin-top:14px;display:flex;gap:10px;flex-wrap:wrap"><button class="btn-card" onclick="showPage('supply')">?? Buy Treatments</button><a href="tel:+256755966690" class="btn-card" style="display:inline-block">?? Call Expert</a><button class="btn-card" style="background:transparent;border:1px solid var(--green);color:var(--green)" onclick="saveDiseaseReport()">?? Report to Extension</button></div>`;
+  document.getElementById('drDiagBody').innerHTML = `<p style="margin-bottom:14px;line-height:1.6">${result.desc}</p><div style="background:var(--bg3);border-radius:10px;padding:16px;margin-bottom:14px"><div style="font-weight:700;margin-bottom:10px;font-size:0.9rem">💊 Treatment (${duration})</div>${result.treatment.map((t,i)=>`<div style="display:flex;gap:10px;margin-bottom:8px;font-size:0.85rem"><span style="color:var(--green);font-weight:700;min-width:20px">${i+1}.</span><span>${t}</span></div>`).join('')}</div><div style="background:var(--bg3);border-radius:10px;padding:16px"><div style="font-weight:700;margin-bottom:8px;font-size:0.9rem">🛡️ Prevention</div><p style="font-size:0.85rem;line-height:1.6">${result.prevention}</p></div><div style="margin-top:14px;display:flex;gap:10px;flex-wrap:wrap"><button class="btn-card" onclick="showPage('supply')">🛍️ Buy Treatments</button><a href="tel:+256755966690" class="btn-card" style="display:inline-block">📞 Call Expert</a><button class="btn-card" style="background:transparent;border:1px solid var(--green);color:var(--green)" onclick="saveDiseaseReport()">📢 Report to Extension</button></div>`;
   document.getElementById('drResult').style.display = 'block';
   document.getElementById('drResult').scrollIntoView({ behavior:'smooth', block:'start' });
 }
@@ -2700,7 +2700,7 @@ async function trackDelivery() {
   const el=document.getElementById('trackingResult'); el.innerHTML='<div class="loader"><div class="spinner"></div>Tracking…</div>';
   const data=await sb('deliveries',{ select:'id,status,pickup_location,delivery_location,tracking_code,estimated_arrival,driver_name,driver_phone', filters:[['tracking_code',`eq.${ref.toUpperCase()}`]], single:true });
   if(data&&data.id){ const steps=['Scheduled','Picked Up','In Transit','At Checkpoint','Delivered']; const statusMap={scheduled:0,picked_up:1,in_transit:2,at_checkpoint:3,delivered:4}; const cur=statusMap[data.status]??2;
-    el.innerHTML=`<div style="background:var(--bg3);border-radius:12px;padding:16px;margin-top:8px"><div style="display:flex;justify-content:space-between;margin-bottom:16px;flex-wrap:wrap;gap:8px"><div><strong>Ref:</strong> ${data.tracking_code||ref}</div><div style="color:var(--green);font-weight:700">${(data.status||'in_transit').replace(/_/g,' ').toUpperCase()}</div></div><div class="timeline">${steps.map((s,i)=>`<div class="timeline-step"><div class="tl-dot ${i<=cur?'done':''} ${i===cur?'active':''}"></div><div class="tl-text"><div class="tl-label" style="color:${i<=cur?'var(--green)':'var(--text2)'}">${s}</div>${i<=cur?`<div class="tl-time">${i===cur?'Current location':'Completed'}</div>`:''}</div></div>${i<steps.length-1?`<div class="tl-line ${i<cur?'done':''}"></div>`:''}`).join('')}</div>${data.driver_name?`<div style="margin-top:12px;font-size:0.88rem;color:var(--text2)">?? Driver: <strong style="color:var(--text)">${data.driver_name}</strong> · ?? ${data.driver_phone||'+256 755 966 690'}</div>`:''}</div>`;
+    el.innerHTML=`<div style="background:var(--bg3);border-radius:12px;padding:16px;margin-top:8px"><div style="display:flex;justify-content:space-between;margin-bottom:16px;flex-wrap:wrap;gap:8px"><div><strong>Ref:</strong> ${data.tracking_code||ref}</div><div style="color:var(--green);font-weight:700">${(data.status||'in_transit').replace(/_/g,' ').toUpperCase()}</div></div><div class="timeline">${steps.map((s,i)=>`<div class="timeline-step"><div class="tl-dot ${i<=cur?'done':''} ${i===cur?'active':''}"></div><div class="tl-text"><div class="tl-label" style="color:${i<=cur?'var(--green)':'var(--text2)'}">${s}</div>${i<=cur?`<div class="tl-time">${i===cur?'Current location':'Completed'}</div>`:''}</div></div>${i<steps.length-1?`<div class="tl-line ${i<cur?'done':''}"></div>`:''}`).join('')}</div>${data.driver_name?`<div style="margin-top:12px;font-size:0.88rem;color:var(--text2)">🚚 Driver: <strong style="color:var(--text)">${data.driver_name}</strong> · 📞 ${data.driver_phone||'+256 755 966 690'}</div>`:''}</div>`;
   } else { el.innerHTML=`<div style="padding:16px;background:var(--bg3);border-radius:10px;color:var(--text2)">No delivery found for <strong>${ref}</strong>. Try: DEL-2026-001 or DEL-2026-002.</div>`; }
 }
 async function loadAlerts() {
@@ -2742,7 +2742,7 @@ async function supaAuthSignIn(phone, password) {
 async function verifyOtp(){ closeModal('registerModal'); showToast('Registered! Welcome to AgriBridge ??'); }
 function openMyAccount() {
   const body=document.getElementById('myAccountBody');
-  if(body&&currentUser){ const roleLabel=currentUser.role==='farmer'?'?? Farmer':'?? Buyer/Vendor'; body.innerHTML=`<div style="display:flex;align-items:center;gap:12px;margin-bottom:12px"><div style="width:44px;height:44px;border-radius:50%;background:var(--green-dim);display:flex;align-items:center;justify-content:center;font-size:1.2rem;font-weight:700;color:var(--green)">${(currentUser.name||'U').charAt(0).toUpperCase()}</div><div><div style="font-weight:700">${escHtml(currentUser.name||'')}</div><div style="font-size:0.8rem;color:var(--text2)">${roleLabel} · ${escHtml(currentUser.district||'')}</div></div></div><div style="font-size:0.82rem;color:var(--text2)">?? ${escHtml(currentUser.phone||'')}</div>`; }
+  if(body&&currentUser){ const roleLabel=currentUser.role==='farmer'?'🌾 Farmer':'🛒 Buyer/Vendor'; body.innerHTML=`<div style="display:flex;align-items:center;gap:12px;margin-bottom:12px"><div style="width:44px;height:44px;border-radius:50%;background:var(--green-dim);display:flex;align-items:center;justify-content:center;font-size:1.2rem;font-weight:700;color:var(--green)">${(currentUser.name||'U').charAt(0).toUpperCase()}</div><div><div style="font-weight:700">${escHtml(currentUser.name||'')}</div><div style="font-size:0.8rem;color:var(--text2)">${roleLabel} · ${escHtml(currentUser.district||'')}</div></div></div><div style="font-size:0.82rem;color:var(--text2)">?? ${escHtml(currentUser.phone||'')}</div>`; }
   openModal('myAccountModal');
 }
 
@@ -2822,7 +2822,7 @@ function renderRecommendations() {
   el.style.display='block';
   const recs=allListings.filter(l=>tops.some(t=>(l.crop_name||'').toLowerCase().includes(t.toLowerCase())));
   const rc=document.getElementById('recommendedCrops'); if(!rc) return;
-  rc.innerHTML=recs.slice(0,4).map(l=>`<div style="min-width:160px;background:var(--bg3);border:1px solid var(--border);border-radius:12px;padding:12px;flex-shrink:0"><div style="font-size:2rem;margin-bottom:4px">${getCropEmoji(l.crop_name||'')}</div><div style="font-weight:700;font-size:0.85rem">${escHtml(l.crop_name||'Produce')}</div><div style="color:var(--green);font-size:0.8rem;margin:3px 0">UGX ${Number(l.price_per_kg||0).toLocaleString()}/kg</div><button style="width:100%;margin-top:6px;padding:6px;background:var(--green);color:#000;border:none;border-radius:7px;font-size:0.75rem;font-weight:700;cursor:pointer;font-family:inherit" onclick="addToBasket('${l.id}','${escHtml(l.crop_name||'')}',${l.price_per_kg||0},'kg','${getCropEmoji(l.crop_name||'')}','produce')">?? Add</button></div>`).join('');
+  rc.innerHTML=recs.slice(0,4).map(l=>`<div style="min-width:160px;background:var(--bg3);border:1px solid var(--border);border-radius:12px;padding:12px;flex-shrink:0"><div style="font-size:2rem;margin-bottom:4px">${getCropEmoji(l.crop_name||'')}</div><div style="font-weight:700;font-size:0.85rem">${escHtml(l.crop_name||'Produce')}</div><div style="color:var(--green);font-size:0.8rem;margin:3px 0">UGX ${Number(l.price_per_kg||0).toLocaleString()}/kg</div><button style="width:100%;margin-top:6px;padding:6px;background:var(--green);color:#000;border:none;border-radius:7px;font-size:0.75rem;font-weight:700;cursor:pointer;font-family:inherit" onclick="addToBasket('${l.id}','${escHtml(l.crop_name||'')}',${l.price_per_kg||0},'kg','${getCropEmoji(l.crop_name||'')}','produce')">🛒 Add</button></div>`).join('');
 }
 
 // ─────────────────────────────────────────────────────────────────
@@ -2857,17 +2857,17 @@ async function loadDashboard() {
   el.innerHTML='<div class="loader"><div class="spinner"></div>Loading…</div>';
   if(currentUser.role==='farmer') {
     const [listings,orders]=await Promise.all([sb('listings',{ select:'id,crop_name,quantity_kg,price_per_kg,is_available,views', filters:[['farmer_phone',`eq.${currentUser.phone||''}`],['order','created_at.desc'],['limit','20']] }),sb('orders',{ select:'id,quantity_kg,price_per_kg,total_price,total_amount,status,payment_status,created_at', filters:currentUser.id?[['farmer_id','eq.'+currentUser.id],['order','created_at.desc'],['limit','10']]:[['limit','eq.0']] })]);
-    let html=`<div style="margin-bottom:20px"><h3 style="font-size:1rem;font-weight:700;margin-bottom:12px">?? My Listings (${listings?.length||0})</h3>`;
+    let html=`<div style="margin-bottom:20px"><h3 style="font-size:1rem;font-weight:700;margin-bottom:12px">🌾 My Listings (${listings?.length||0})</h3>`;
     if(listings?.length) html+=listings.map(l=>`<div class="dash-row"><span>${escHtml(l.crop_name||'Item')}</span><span style="color:var(--green)">UGX ${(l.price_per_kg||0).toLocaleString()}/kg</span><span style="color:var(--text2);font-size:0.8rem">${l.quantity_kg||0}kg · ${l.views||0} views</span></div>`).join('');
     else html+=`<p style="color:var(--text2);font-size:0.9rem">No listings yet. <button class="btn-sm" onclick="openListProduceModal()">List Produce</button></p>`;
-    html+=`</div><div><h3 style="font-size:1rem;font-weight:700;margin-bottom:12px">?? Orders Received (${orders?.length||0})</h3>`;
+    html+=`</div><div><h3 style="font-size:1rem;font-weight:700;margin-bottom:12px">📥 Orders Received (${orders?.length||0})</h3>`;
     if(orders?.length) html+=orders.map(o=>{ const amt=o.total_price||o.total_amount||(o.quantity_kg*(o.price_per_kg||0))||0; return `<div class="dash-row"><span>${o.quantity_kg||0} kg</span><span style="color:var(--green)">UGX ${Number(amt).toLocaleString()}</span><span class="status-badge ${o.status||'pending'}">${o.status||'pending'}</span></div>`; }).join('');
     else html+=`<p style="color:var(--text2);font-size:0.9rem">No orders yet.</p>`;
     html+=`</div>`;
     el.innerHTML=html;
   } else {
     const orders=JSON.parse(localStorage.getItem('ab_orders')||'[]');
-    let html=`<h3 style="font-size:1rem;font-weight:700;margin-bottom:12px">?? My Orders (${orders.length})</h3>`;
+    let html=`<h3 style="font-size:1rem;font-weight:700;margin-bottom:12px">📦 My Orders (${orders.length})</h3>`;
     if(orders.length) html+=orders.map(o=>`<div class="dash-row"><span style="font-size:0.82rem">${o.items.map(i=>i.name).join(', ')}</span><span style="color:var(--green)">UGX ${Number(o.total).toLocaleString()}</span><span class="status-badge confirmed">${o.status}</span></div>`).join('');
     else html+=`<p style="color:var(--text2);font-size:0.9rem">No orders placed yet. <button class="btn-sm" onclick="showPage('market')">Browse Market</button></p>`;
     el.innerHTML=html;
@@ -2921,7 +2921,7 @@ function toggleNotifPanel(){ const p=document.getElementById('notifPanel'); if(p
 function acceptCookies(){ localStorage.setItem('ab_cookies','1'); const b=document.getElementById('cookieBanner'); if(b) b.style.display='none'; }
 function checkCookieBanner(){ if(!localStorage.getItem('ab_cookies')) setTimeout(()=>{ const b=document.getElementById('cookieBanner'); if(b) b.style.display='flex'; },3000); }
 function toggleFaq(qEl){ const aEl=qEl.nextElementSibling; const isOpen=aEl.classList.contains('open'); document.querySelectorAll('.faq-a.open').forEach(a=>{ a.classList.remove('open'); a.previousElementSibling?.classList.remove('open'); }); if(!isOpen){ aEl.classList.add('open'); qEl.classList.add('open'); } }
-function setLang(code){ localStorage.setItem('ab_lang',code); const langBtn=document.getElementById('langPickerBtn'); if(langBtn) langBtn.textContent={en:'?? EN',lg:'?? LG',rn:'?? RN',ac:'?? AC'}[code]||'??'; closeModal('langModal'); showToast('Language updated ✓'); }
+function setLang(code){ localStorage.setItem('ab_lang',code); const langBtn=document.getElementById('langPickerBtn'); if(langBtn) langBtn.textContent={en:'🇬🇧 EN',lg:'🇺🇬 LG',rn:'🇺🇬 RN',ac:'🇺🇬 AC'}[code]||'??'; closeModal('langModal'); showToast('Language updated ✓'); }
 // ── Settings hub (language + profile + selling actions) ──────────
 function openSettings(){
   var b=document.getElementById('settingsBody'); if(!b) return;
