@@ -579,9 +579,9 @@ body{overscroll-behavior-y:none}
         <button class="btn-outline" onclick="openModal('registerModal')">Join as Farmer</button>
       </div>
       <div class="hero-stats">
-        <div class="hero-stat"><div class="num" id="h-farmers">5,000+</div><div class="lbl">Registered Farmers</div></div>
-        <div class="hero-stat"><div class="num" id="h-listings">2,400+</div><div class="lbl">Active Listings</div></div>
-        <div class="hero-stat"><div class="num">1,240+</div><div class="lbl">Animals Listed</div></div>
+        <div class="hero-stat"><div class="num" id="h-farmers">…</div><div class="lbl">Registered Farmers</div></div>
+        <div class="hero-stat"><div class="num" id="h-listings">…</div><div class="lbl">Active Listings</div></div>
+        <div class="hero-stat"><div class="num" id="h-animals">…</div><div class="lbl">Animals Listed</div></div>
         <div class="hero-stat"><div class="num">24/7</div><div class="lbl">USSD *789#</div></div>
       </div>
     </div>
@@ -868,7 +868,7 @@ AgriBridge service</div>
 <div id="page-doctor" class="page">
   <div class="page-header">
     <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px;flex-wrap:wrap">
-      <div><h2>🩺 AI Crop Doctor</h2><p>Describe your crop problem — get expert advice instantly, free</p></div>
+      <div><h2>🩺 AI Crop Doctor</h2><p>Describe your crop problem — get expert advice instantly, free</p><p style="margin-top:8px;font-size:0.74rem;color:var(--text2);line-height:1.5">⚠️ <strong>AI guidance only</strong> — not a substitute for a certified agronomist. Confirm with an expert before applying any chemicals, and follow the label instructions.</p></div>
       <button class="btn-sm" onclick="showPage('animals')" style="background:var(--amber);white-space:nowrap">🐄 Animal Doctor</button>
     </div>
   </div>
@@ -1655,8 +1655,8 @@ async function loadHomeStats() {
   ['h-listings'].forEach(id => { const el=document.getElementById(id); if(el) el.textContent=lc+'+'; });
   ['sp-farmers'].forEach(id => { const el=document.getElementById(id); if(el) el.textContent=fc+'+'; });
   ['sp-listings'].forEach(id => { const el=document.getElementById(id); if(el) el.textContent=lc+'+'; });
-  const anEl = document.getElementById('an-count');
-  if (anEl && animalCount) anEl.textContent = (animalCount).toLocaleString() + '+';
+  const ac = (animalCount||0).toLocaleString() + '+';
+  ['an-count','h-animals'].forEach(id => { const el=document.getElementById(id); if(el) el.textContent=ac; });
   if (listings && listings.length) {
     allListings = listings.map(normalise);
     document.getElementById('homeFeatured').innerHTML = allListings.slice(0,4).map(listingCard).join('');
@@ -1910,7 +1910,8 @@ function runAnimalDiagnosis() {
       <button style="background:var(--amber);color:#000;border:none;border-radius:8px;padding:8px 16px;font-size:0.82rem;font-weight:700;cursor:pointer;font-family:inherit" onclick="bookVetService('Emergency Vet Visit')">🩺 Book Vet Now</button>
       <button style="background:var(--green-dim);color:var(--green);border:1px solid var(--green);border-radius:8px;padding:8px 16px;font-size:0.82rem;font-weight:700;cursor:pointer;font-family:inherit" onclick="saveDiseaseReportAnimal()">📢 Report to DVO</button>
       <button style="background:var(--bg3);color:var(--text2);border:1px solid var(--border);border-radius:8px;padding:8px 16px;font-size:0.82rem;font-weight:700;cursor:pointer;font-family:inherit" onclick="showPage('supply')">🛍️ Buy Treatments</button>
-    </div>`;
+    </div>
+    <div style="margin-top:14px;padding:10px 12px;background:rgba(255,193,7,0.1);border:1px solid var(--amber);border-radius:10px;font-size:0.74rem;color:var(--text2);line-height:1.5">⚠️ <strong>AI guidance only</strong> — not a substitute for a certified veterinarian. Confirm with a vet before giving any medicine, and follow the dosage on the product label.</div>`;
   rEl.style.display = 'block';
   rEl.scrollIntoView({ behavior:'smooth', block:'start' });
 }
