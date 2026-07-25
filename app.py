@@ -1051,6 +1051,54 @@ def crop_doctor():
         return jsonify({'error': 'AI service temporarily unavailable'}), 503
 
 # ══════════════════════════════════════════════════════════════════════════════
+# AI ASSISTANT (Groq) — key stays server-side in GROQ_API_KEY
+# ══════════════════════════════════════════════════════════════════════════════
+@app.route('/api/ai', methods=['POST'])
+@rate_limit(max_req=20, window=300)
+def ai_chat():
+    data = request.get_json(force=True, silent=True) or {}
+    msg = (data.get('message') or '').strip()[:1500]
+    if not msg:
+        return jsonify({'reply': None, 'error': 'empty message'}), 400
+    key = os.environ.get('GROQ_API_KEY', '')
+    if not key:
+        # Not configured — let the client fall back to its offline helper.
+        return jsonify({'reply': None, 'error': 'AI not configured'}), 200
+    system = (
+        "You are the AgriBridge assistant for Ugandan smallholder farmers and buyers. "
+        "AgriBridge connects farmers directly to buyers: a marketplace for crops AND livestock, "
+        "live market prices, AI crop & animal disease help, USSD *789# for basic phones, "
+        "mobile money (MTN MoMo, Airtel Money) and GPS delivery. "
+        "Answer concisely, practically and warmly. Reply in the user's language if they write "
+        "Luganda or Swahili. Give real, useful farming and market advice for Uganda. "
+        "Keep replies under 180 words. When it clearly helps, you may add ONE action tag on its "
+        "own final line, chosen from: [NAVIGATE:market] [NAVIGATE:prices] [NAVIGATE:animals] "
+        "[NAVIGATE:doctor] [NAVIGATE:delivery] [NAVIGATE:training] [NAVIGATE:dashboard] [OPEN_BASKET]."
+    )
+    try:
+        res = requests.post(
+            'https://api.groq.com/openai/v1/chat/completions',
+            headers={'Authorization': 'Bearer ' + key, 'Content-Type': 'application/json'},
+            json={
+                'model': 'llama-3.3-70b-versatile',
+                'messages': [
+                    {'role': 'system', 'content': system},
+                    {'role': 'user', 'content': msg},
+                ],
+                'temperature': 0.4,
+                'max_tokens': 500,
+            },
+            timeout=25,
+        )
+        if res.ok:
+            reply = res.json()['choices'][0]['message']['content'].strip()
+            return jsonify({'reply': reply}), 200
+        return jsonify({'reply': None, 'error': 'ai upstream ' + str(res.status_code)}), 200
+    except Exception:
+        return jsonify({'reply': None, 'error': 'ai unavailable'}), 200
+
+
+# ══════════════════════════════════════════════════════════════════════════════
 # ENTRY POINT
 # ══════════════════════════════════════════════════════════════════════════════
 if __name__ == '__main__':

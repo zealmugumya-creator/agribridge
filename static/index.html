@@ -2234,17 +2234,27 @@ function sendAIChip(text) {
   sendAIMsg();
 }
 
-function sendAIMsg() {
+async function sendAIMsg() {
   const inp = document.getElementById('aiInput');
   const text = (inp?.value||'').trim();
   if (!text) return;
   if (inp) inp.value = '';
   addAIMsg(text, 'user');
   const typing = addAIMsg('Thinking…', 'bot typing');
-  // Use local AI first for speed, then optionally call Claude API
-  const reply = localAIResponse(text);
+  // Ask the real AI (Groq, via our backend — key stays server-side). Fall back
+  // to the built-in offline helper if the backend is unreachable/unconfigured.
+  let reply = null;
+  try {
+    const res = await fetch(USSD_API + '/api/ai', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ message: text })
+    });
+    if (res.ok) { const d = await res.json(); if (d && d.reply) reply = d.reply; }
+  } catch (e) {}
+  if (!reply) reply = localAIResponse(text);
   const cleanReply = processAIActions(reply);
-  setTimeout(() => { typing?.remove(); addAIMsg(cleanReply, 'bot'); }, 600);
+  typing?.remove();
+  addAIMsg(cleanReply, 'bot');
 }
 
 function processAIActions(text) {
