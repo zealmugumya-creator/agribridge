@@ -2160,7 +2160,7 @@ async function placeOrder() {
   await Promise.allSettled(basketItems.map(item =>
     sbInsert('orders', {
       buyer_phone:      currentUser?.phone || null,
-      buyer_id:         currentUser?.id    || null,
+      buyer_id:         currentUser?.supaId    || null,
       listing_id:       /^a\d+$/.test(item.id) ? null : (isNaN(item.id) ? null : Number(item.id)),
       quantity_kg:      item.qty,
       price_per_kg:     item.price,
@@ -2771,7 +2771,7 @@ async function submitOrder() {
   if(!qty||!addr){ showToast('Fill in quantity and delivery address'); return; }
   if(!currentUser){ closeModal('orderModal'); openModal('loginModal'); showToast('Please log in to place an order'); return; }
   const listing=allListings.find(l=>l.id===currentListingId);
-  const result=await sbInsert('orders',{ listing_id:currentListingId, farmer_id:listing?.farmer_id||null, buyer_id:currentUser?.id||null, buyer_phone:currentUser?.phone||null, quantity_kg:qty, price_per_kg:listing?.price_per_kg||0, total_price:qty*(listing?.price_per_kg||0), delivery_address:addr, payment_method:pay, status:'pending', payment_status:'unpaid' });
+  const result=await sbInsert('orders',{ listing_id:currentListingId, farmer_id:listing?.farmer_id||null, buyer_id:currentUser?.supaId||null, buyer_phone:currentUser?.phone||null, quantity_kg:qty, price_per_kg:listing?.price_per_kg||0, total_price:qty*(listing?.price_per_kg||0), delivery_address:addr, payment_method:pay, status:'pending', payment_status:'unpaid' });
   if(result){ closeModal('orderModal'); const ref='AB-'+Date.now().toString(36).toUpperCase().slice(-6); showToast('Order placed! Ref: '+ref+' ✅ Farmer will confirm via SMS'); }
   else showToast('Order failed — please try again');
 }
@@ -2809,7 +2809,7 @@ async function submitListProduce() {
   const photoFile=document.getElementById('lpPhoto')?.files?.[0]||null;
   if(photoFile) showToast('Uploading photo…');
   const imageUrl=photoFile ? await uploadImage(photoFile,'listings') : null;
-  const result=await sbInsert('listings',{ farmer_id:currentUser?.id||null, crop_name:crop, category:cat, quantity_kg:qty, price_per_kg:price, unit:'kg', district, is_organic:organic, is_available:true, description:desc||null, sale_unit:saleUnit, min_order_kg:minOrder, delivery_available:delivery, payment_terms:pays.join(', ')||null, image_url:imageUrl });
+  const result=await sbInsert('listings',{ farmer_id:currentUser?.supaId||null, crop_name:crop, category:cat, quantity_kg:qty, price_per_kg:price, unit:'kg', district, is_organic:organic, is_available:true, description:desc||null, sale_unit:saleUnit, min_order_kg:minOrder, delivery_available:delivery, payment_terms:pays.join(', ')||null, image_url:imageUrl });
   if(result){ closeModal('listProduceModal'); showToast(`✅ ${crop} listing posted! Buyers can now find you.`); allListings=[]; if(document.querySelector('.page.active')?.id==='page-market') loadListings(); }
   else showToast('Could not post listing — please try again');
 }
@@ -2854,7 +2854,7 @@ async function renderRoleHome() {
 }
 async function loadFarmerKpis() {
   if(!currentUser) return;
-  const [listings,orders]=await Promise.all([sb('listings',{ select:'id,price_per_kg,quantity_kg', filters:[['farmer_phone',`eq.${currentUser.phone||''}`]] }),sb('orders',{ select:'id,total_price,total_amount,quantity_kg,price_per_kg,status', filters:currentUser.id?[['farmer_id','eq.'+currentUser.id]]:[['limit','eq.0']] })]);
+  const [listings,orders]=await Promise.all([sb('listings',{ select:'id,price_per_kg,quantity_kg', filters:[['farmer_phone',`eq.${currentUser.phone||''}`]] }),sb('orders',{ select:'id,total_price,total_amount,quantity_kg,price_per_kg,status', filters:currentUser.supaId?[['farmer_id','eq.'+currentUser.supaId]]:[['limit','eq.0']] })]);
   const lEl=document.getElementById('fk-listings'), oEl=document.getElementById('fk-orders'), eEl=document.getElementById('fk-earned');
   if(lEl) lEl.textContent=listings?.length||0;
   if(oEl) oEl.textContent=orders?.length||0;
@@ -2867,7 +2867,7 @@ async function loadDashboard() {
   if(!currentUser){ el.innerHTML='<div style="text-align:center;padding:40px"><div style="font-size:3rem">📭</div><p style="color:var(--text2);margin:12px 0">Log in to see your dashboard</p><button class="btn-primary" style="width:auto;padding:12px 24px" onclick="openModal(\'loginModal\')">Log In</button></div>'; return; }
   el.innerHTML='<div class="loader"><div class="spinner"></div>Loading…</div>';
   if(currentUser.role==='farmer') {
-    const [listings,orders]=await Promise.all([sb('listings',{ select:'id,crop_name,quantity_kg,price_per_kg,is_available,views', filters:[['farmer_phone',`eq.${currentUser.phone||''}`],['order','created_at.desc'],['limit','20']] }),sb('orders',{ select:'id,quantity_kg,price_per_kg,total_price,total_amount,status,payment_status,created_at', filters:currentUser.id?[['farmer_id','eq.'+currentUser.id],['order','created_at.desc'],['limit','10']]:[['limit','eq.0']] })]);
+    const [listings,orders]=await Promise.all([sb('listings',{ select:'id,crop_name,quantity_kg,price_per_kg,is_available,views', filters:[['farmer_phone',`eq.${currentUser.phone||''}`],['order','created_at.desc'],['limit','20']] }),sb('orders',{ select:'id,quantity_kg,price_per_kg,total_price,total_amount,status,payment_status,created_at', filters:currentUser.supaId?[['farmer_id','eq.'+currentUser.supaId],['order','created_at.desc'],['limit','10']]:[['limit','eq.0']] })]);
     let html=`<div style="margin-bottom:20px"><h3 style="font-size:1rem;font-weight:700;margin-bottom:12px">🌾 My Listings (${listings?.length||0})</h3>`;
     if(listings?.length) html+=listings.map(l=>`<div class="dash-row"><span>${escHtml(l.crop_name||'Item')}</span><span style="color:var(--green)">UGX ${(l.price_per_kg||0).toLocaleString()}/kg</span><span style="color:var(--text2);font-size:0.8rem">${l.quantity_kg||0}kg · ${l.views||0} views</span></div>`).join('');
     else html+=`<p style="color:var(--text2);font-size:0.9rem">No listings yet. <button class="btn-sm" onclick="openListProduceModal()">List Produce</button></p>`;
