@@ -1845,7 +1845,7 @@ async function submitListAnimal() {
   const hcert = document.getElementById('laHealthCert')?.checked;
   const desc  = document.getElementById('laDesc')?.value;
   if (!name || !qty || !price) { showToast('Fill in animal name, quantity and price'); return; }
-  const result = await sbInsert('animal_listings', { name, category:cat, quantity:qty, price, unit, district:dist, is_certified:cert, has_health_cert:hcert, description:desc, farmer_phone:currentUser?.phone||null, is_available:true, emoji:getAnimalEmoji(name) });
+  const result = await sbInsert('animal_listings', { name, category:cat, quantity:qty, price, unit, district:dist, is_certified:cert, has_health_cert:hcert, description:desc, farmer_id:currentUser?.supaId||null, farmer_name:currentUser?.name||null, farmer_phone:currentUser?.phone||null, is_available:true, emoji:getAnimalEmoji(name) });
   if (result) {
     closeModal('listAnimalModal');
     showToast(`✅ ${name} listing posted! Buyers can now find you.`);
@@ -2135,6 +2135,7 @@ function selectPayMethod(method) {
 }
 
 async function placeOrder() {
+  if (!currentUser?.supaId) { showToast('Please log in to place your order 🔐'); closeCheckout && closeCheckout(); setTimeout(()=>openModal('loginModal'),500); return; }
   const addr = document.getElementById('checkoutAddr')?.value.trim();
   if (!addr) { showToast('Please enter your delivery address'); return; }
   const btn = document.querySelector('#checkoutStep1 .btn-primary');
