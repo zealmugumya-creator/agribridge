@@ -1658,7 +1658,7 @@ async function loadListings() {
   if (allListings.length > 0) { renderListings(); return; }
   document.getElementById('marketListings').innerHTML = '<div class="loader"><div class="spinner"></div>Loading…</div>';
   const data = await sb('listings', {
-    select:'id,crop_name,category,quantity_kg,price_per_kg,unit,district,is_organic,is_verified,description,discount_pct,sale_unit,min_order_kg,delivery_available,payment_terms,image_url,farmers(full_name,is_verified)',
+    select:'id,farmer_id,crop_name,category,quantity_kg,price_per_kg,unit,district,is_organic,is_verified,description,discount_pct,sale_unit,min_order_kg,delivery_available,payment_terms,image_url,farmers(full_name,is_verified)',
     filters:[['is_available','eq.true']]
   });
   allListings = (data && data.length) ? data.map(normalise) : sampleListings();
@@ -1762,12 +1762,12 @@ async function loadAnimals() {
   if (!el) return;
   el.innerHTML = '<div class="loader"><div class="spinner"></div>Loading animals…</div>';
   const data = await sb('animal_listings', {
-    select:'id,name,category,price,unit,district,quantity,description,breed,is_certified,has_health_cert,emoji,farmer_phone,is_available',
+    select:'id,farmer_id,name,category,price,unit,district,quantity,description,breed,is_certified,has_health_cert,emoji,farmer_phone,is_available',
     filters:[['is_available','eq.true']]
   });
   if (data && data.length) {
     allAnimals = data.map(a => ({
-      id:String(a.id), name:a.name, cat:a.category, emoji:a.emoji||getAnimalEmoji(a.name),
+      id:String(a.id), farmer_id:a.farmer_id||null, name:a.name, cat:a.category, emoji:a.emoji||getAnimalEmoji(a.name),
       price:Number(a.price), unit:a.unit||'head', district:a.district, qty:a.quantity,
       desc:a.description, certified:a.is_certified, health_cert:a.has_health_cert,
       breed:a.breed, farmer_phone:a.farmer_phone
@@ -2143,11 +2143,25 @@ async function placeOrder() {
   const { total } = getBasketTotals();
   const ref   = 'AB-' + Date.now().toString(36).toUpperCase().slice(-6);
   const track = 'TRK-' + Math.random().toString(36).substr(2,6).toUpperCase();
-  await Promise.allSettled(basketItems.map(item =>
-    sbInsert('orders', {
+  const uuidRe = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+  await Promise.allSettled(basketItems.map(item => {
+    // Resolve the seller + listing link from the in-memory catalogues so the
+    // farmer can actually see the order. Animals live in animal_listings, so
+    // their orders carry no listings.listing_id (uuid FK), only farmer_id.
+    var farmerId = null, listingId = null;
+    if (item.category === 'animal') {
+      var a = (allAnimals || []).find(function(x){ return String(x.id) === String(item.id); });
+      farmerId = (a && a.farmer_id) ? a.farmer_id : null;
+    } else if (uuidRe.test(item.id)) {
+      var l = (allListings || []).find(function(x){ return String(x.id) === String(item.id); });
+      farmerId  = (l && l.farmer_id) ? l.farmer_id : null;
+      listingId = item.id;
+    }
+    return sbInsert('orders', {
       buyer_phone:      currentUser?.phone || null,
       buyer_id:         currentUser?.supaId    || null,
-      listing_id:       /^a\d+$/.test(item.id) ? null : (isNaN(item.id) ? null : Number(item.id)),
+      farmer_id:        farmerId,
+      listing_id:       listingId,
       quantity_kg:      item.qty,
       price_per_kg:     item.price,
       total_price:      item.price * item.qty,
@@ -2157,8 +2171,8 @@ async function placeOrder() {
       status:           'pending',
       payment_status:   'unpaid',
       notes:            `Ref:${ref} Track:${track} Item:${item.name}`
-    })
-  ));
+    });
+  }));
   // Persist locally
   const saved = JSON.parse(localStorage.getItem('ab_orders')||'[]');
   saved.unshift({ ref, track, date:new Date().toISOString(), items:basketItems.map(i=>({name:i.name,qty:i.qty,price:i.price})), total, addr, payment:selectedPayMethod, status:'confirmed' });
