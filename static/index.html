@@ -1658,7 +1658,7 @@ async function loadListings() {
   if (allListings.length > 0) { renderListings(); return; }
   document.getElementById('marketListings').innerHTML = '<div class="loader"><div class="spinner"></div>Loading…</div>';
   const data = await sb('listings', {
-    select:'id,farmer_id,crop_name,category,quantity_kg,price_per_kg,unit,district,is_organic,is_verified,description,discount_pct,sale_unit,min_order_kg,delivery_available,payment_terms,image_url,farmers(full_name,is_verified)',
+    select:'id,farmer_id,crop_name,category,quantity_kg,price_per_kg,unit,district,is_organic,is_verified,description,discount_pct,sale_unit,min_order_kg,delivery_available,payment_terms,image_url,created_at,farmers(full_name,is_verified)',
     filters:[['is_available','eq.true']]
   });
   allListings = (data && data.length) ? data.map(normalise) : sampleListings();
@@ -1732,7 +1732,7 @@ function listingCard(l) {
 function setMarketFilter(f,btn){ marketFilter=f; document.querySelectorAll('#marketFilters .filter-btn').forEach(b=>b.classList.remove('active')); btn.classList.add('active'); renderListings(); }
 function filterListings(){ renderListings(); }
 function filterByDistrict(v){ activeDistrict=v; renderListings(); }
-function sortListings(v){ if(v==='price_asc') allListings.sort((a,b)=>a.price_per_kg-b.price_per_kg); if(v==='price_desc') allListings.sort((a,b)=>b.price_per_kg-a.price_per_kg); if(v==='newest') allListings.sort((a,b)=>b.id-a.id); renderListings(); }
+function sortListings(v){ if(v==='price_asc') allListings.sort((a,b)=>a.price_per_kg-b.price_per_kg); if(v==='price_desc') allListings.sort((a,b)=>b.price_per_kg-a.price_per_kg); if(v==='newest') allListings.sort((a,b)=>new Date(b.created_at||0)-new Date(a.created_at||0)); renderListings(); }
 function refreshListings(){ allListings=[]; loadListings(); showToast('Refreshing listings…'); }
 
 // ─────────────────────────────────────────────────────────────────
@@ -2715,8 +2715,15 @@ async function trackDelivery() {
   } else { el.innerHTML=`<div style="padding:16px;background:var(--bg3);border-radius:10px;color:var(--text2)">No delivery found for <strong>${ref}</strong>. Try: DEL-2026-001 or DEL-2026-002.</div>`; }
 }
 async function loadAlerts() {
-  const data=await sb('deliveries',{ select:'id,status,pickup_location,delivery_location,tracking_code,estimated_arrival,notes,created_at', filters:[['order','created_at.desc'],['limit','10']] });
-  const el=document.getElementById('alertsList'); const list=(data&&data.length)?data:sampleAlerts();
+  // Only show the signed-in user's own deliveries (by their order tracking codes),
+  // never the global delivery feed. Falls back to sample activity for the demo.
+  const el=document.getElementById('alertsList');
+  const myCodes=JSON.parse(localStorage.getItem('ab_orders')||'[]').map(o=>o.track).filter(Boolean);
+  let data=[];
+  if(myCodes.length){
+    data=await sb('deliveries',{ select:'id,status,pickup_location,delivery_location,tracking_code,estimated_arrival,notes,created_at', filters:[['tracking_code',`in.(${myCodes.join(',')})`],['order','created_at.desc'],['limit','10']] })||[];
+  }
+  const list=(data&&data.length)?data:sampleAlerts();
   if(!list.length){ el.innerHTML='<div class="empty-state"><div class="e-icon">🚚</div><p>No delivery alerts yet.</p></div>'; return; }
   const statusIcon={ scheduled:'📋', picked_up:'📦', in_transit:'🚚', at_checkpoint:'🚩', delivered:'✅', failed:'❌' };
   el.innerHTML=list.map(a=>{ const msg=a.message||(a.status?`${statusIcon[a.status]||'🚚'} Delivery ${a.tracking_code||''}: ${(a.status||'').replace(/_/g,' ')} — ${a.pickup_location||''} → ${a.delivery_location||''}`:a); const time=a.created_at?new Date(a.created_at).toLocaleString('en-UG',{dateStyle:'short',timeStyle:'short'}):'Just now'; return `<div class="alert-item"><div class="a-msg">${msg}</div><div class="a-time">${time}</div></div>`; }).join('');
