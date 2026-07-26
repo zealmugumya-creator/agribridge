@@ -1870,7 +1870,10 @@ async function submitListAnimal() {
   const cert  = document.getElementById('laCertified')?.checked;
   const hcert = document.getElementById('laHealthCert')?.checked;
   const desc  = document.getElementById('laDesc')?.value;
-  if (!name || !qty || !price) { showToast('Fill in animal name, quantity and price'); return; }
+  if (!currentUser?.supaId) { showToast('Please log in to list your animals 🔐'); openModal('loginModal'); return; }
+  if (!name || !(qty>0) || !(price>0)) { showToast('Enter an animal name, and a quantity and price greater than 0'); return; }
+  if (qty>100000) { showToast('That quantity looks too large — please double-check'); return; }
+  if (price>500000000) { showToast('That price looks too high — please double-check'); return; }
   const result = await sbInsert('animal_listings', { name, category:cat, quantity:qty, price, unit, district:dist, is_certified:cert, has_health_cert:hcert, description:desc, farmer_id:currentUser?.supaId||null, farmer_name:currentUser?.name||null, farmer_phone:currentUser?.phone||null, is_available:true, emoji:getAnimalEmoji(name) });
   if (result) {
     closeModal('listAnimalModal');
@@ -2801,8 +2804,8 @@ function openOrderModal(id,name,farmer,price) {
 }
 async function submitOrder() {
   const qty=parseFloat(document.getElementById('orderQty')?.value), addr=document.getElementById('orderAddr')?.value.trim(), pay=document.getElementById('orderPayment')?.value;
-  if(!qty||!addr){ showToast('Fill in quantity and delivery address'); return; }
-  if(!currentUser){ closeModal('orderModal'); openModal('loginModal'); showToast('Please log in to place an order'); return; }
+  if(!(qty>0)||!addr){ showToast('Enter a quantity greater than 0 and a delivery address'); return; }
+  if(!currentUser?.supaId){ closeModal('orderModal'); openModal('loginModal'); showToast('Please log in to place an order'); return; }
   const listing=allListings.find(l=>l.id===currentListingId);
   const result=await sbInsert('orders',{ listing_id:currentListingId, farmer_id:listing?.farmer_id||null, buyer_id:currentUser?.supaId||null, buyer_phone:currentUser?.phone||null, quantity_kg:qty, price_per_kg:listing?.price_per_kg||0, total_price:qty*(listing?.price_per_kg||0), delivery_address:addr, payment_method:pay, status:'pending', payment_status:'unpaid' });
   if(result){ closeModal('orderModal'); const ref='AB-'+Date.now().toString(36).toUpperCase().slice(-6); showToast('Order placed! Ref: '+ref+' ✅ Farmer will confirm via SMS'); }
@@ -2856,7 +2859,10 @@ async function submitListProduce() {
   const qty=parseFloat(document.getElementById('lpQty')?.value), price=parseFloat(document.getElementById('lpPrice')?.value);
   const district=document.getElementById('lpDistrict')?.value, organic=document.getElementById('lpOrganic')?.checked;
   const desc=document.getElementById('lpDesc')?.value;
-  if(!crop||!qty||!price){ showToast('Please fill in crop, quantity and price'); return; }
+  if(!currentUser?.supaId){ showToast('Please log in to post a listing 🔐'); openModal('loginModal'); return; }
+  if(!crop||!(qty>0)||!(price>0)){ showToast('Enter a crop, and a quantity and price greater than 0'); return; }
+  if(qty>1000000){ showToast('That quantity looks too large — please double-check'); return; }
+  if(price>10000000){ showToast('That price per kg looks too high — please double-check'); return; }
   const saleUnit=document.getElementById('lpSaleUnit')?.value||'per kg';
   const minOrder=parseInt(document.getElementById('lpMinOrder')?.value||'0')||0;
   const delivery=document.getElementById('lpDelivery')?.checked||false;
@@ -4146,6 +4152,11 @@ async function doRegister() {
   var conf     = (document.getElementById('regPwdConfirm')||{}).value||'';
   if (!name)  { _showRegErr('Please enter your full name.'); return; }
   if (!email) { _showRegErr('Please enter your email address.'); return; }
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) { _showRegErr('Please enter a valid email address.'); return; }
+  if (!phone) { _showRegErr('Please enter your phone number.'); return; }
+  var _pd = phone.replace(/\D/g,''); if (_pd.indexOf('256')===0) _pd=_pd.slice(3); else if (_pd.charAt(0)==='0') _pd=_pd.slice(1);
+  if (!/^7\d{8}$/.test(_pd)) { _showRegErr('Enter a valid Ugandan phone, e.g. 0771 234567.'); return; }
+  phone = '+256' + _pd;
   if (!pwd)   { _showRegErr('Please create a password.'); return; }
   if (pwd.length < 6) { _showRegErr('Password must be at least 6 characters.'); return; }
   if (pwd !== conf)   { _showRegErr('Passwords do not match.'); return; }
