@@ -1481,32 +1481,17 @@ async function sbUpdate(t, d, col, val) { return sb(t, { method:'PATCH', body:d,
 // the result must be checked. PostgREST on the current tier intermittently times
 // out, so retry with backoff and queue locally as a last resort — a registration
 // must never be silently discarded.
+// Profile rows are now created server-side by the handle_new_user() trigger on
+// auth.users (runs even before email confirmation, with the real user id). The
+// client no longer inserts into farmers — that INSERT is locked by RLS. Kept as
+// a no-op for backward compatibility and to clear any stale offline queue.
 async function saveProfileWithRetry(profile, attempts) {
-  attempts = attempts || 3;
-  for (var i = 0; i < attempts; i++) {
-    if (await sbInsert('farmers', profile)) return true;
-    if (i < attempts - 1) {
-      await new Promise(function(ok){ setTimeout(ok, 500 * Math.pow(2, i)); });
-    }
-  }
-  try {
-    var q = JSON.parse(localStorage.getItem('ab_pending_profiles') || '[]');
-    q.push(profile);
-    localStorage.setItem('ab_pending_profiles', JSON.stringify(q));
-  } catch (e) {}
-  return false;
+  try { localStorage.removeItem('ab_pending_profiles'); } catch (e) {}
+  return true;
 }
 
-// Re-send any profiles that could not be saved on an earlier visit.
 async function flushPendingProfiles() {
-  var q;
-  try { q = JSON.parse(localStorage.getItem('ab_pending_profiles') || '[]'); } catch (e) { return; }
-  if (!q.length) return;
-  var remaining = [];
-  for (var i = 0; i < q.length; i++) {
-    if (!(await sbInsert('farmers', q[i]))) remaining.push(q[i]);
-  }
-  try { localStorage.setItem('ab_pending_profiles', JSON.stringify(remaining)); } catch (e) {}
+  try { localStorage.removeItem('ab_pending_profiles'); } catch (e) {}
 }
 
 // ── GLOBAL STATE ──────────────────────────────────────────────────
