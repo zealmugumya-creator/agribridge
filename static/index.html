@@ -78,6 +78,14 @@ img{max-width:100%}
 .btn-sm:hover{opacity:0.85}
 .btn-sm.outline{background:transparent;border:1px solid var(--green);color:var(--green)}
 .btn-sm.outline:hover{background:var(--green-dim)}
+.btn-sm{cursor:pointer}
+.btn-sm.ghost{background:transparent;border:1px solid var(--border);color:var(--text2)}
+.btn-sm.ghost:hover{border-color:#e05555;color:#e05555;opacity:1}
+.status-badge{display:inline-block;padding:2px 10px;border-radius:999px;font-size:0.72rem;font-weight:700;text-transform:capitalize;background:var(--bg3);color:var(--text2);white-space:nowrap}
+.status-badge.pending{background:rgba(240,180,40,0.15);color:#e0a91e}
+.status-badge.confirmed{background:rgba(70,140,240,0.15);color:#5b9bff}
+.status-badge.delivered{background:rgba(40,190,110,0.15);color:var(--green)}
+.status-badge.cancelled,.status-badge.failed{background:rgba(224,85,85,0.15);color:#e05555}
 
 /* ── PRICE TICKER ── */
 .ticker-wrap{background:var(--bg2);border-bottom:1px solid var(--border);overflow:hidden;padding:6px 0;white-space:nowrap}
@@ -1458,6 +1466,8 @@ async function sb(table, opts = {}) {
     const res = await fetch(url, { method, headers, body: body ? JSON.stringify(body) : undefined });
     if (count) return parseInt(res.headers.get('content-range')?.split('/')[1] || '0');
     if (!res.ok) return null;
+    // PATCH/DELETE with return=minimal reply 204 No Content — no body to parse.
+    if (res.status === 204) return true;
     const json = await res.json();
     return single ? (Array.isArray(json) ? json[0] : json) : json;
   } catch { return null; }
@@ -2861,12 +2871,19 @@ async function renderRoleHome() {
 }
 async function loadFarmerKpis() {
   if(!currentUser) return;
-  const [listings,orders]=await Promise.all([sb('listings',{ select:'id,price_per_kg,quantity_kg', filters:[['farmer_phone',`eq.${currentUser.phone||''}`]] }),sb('orders',{ select:'id,total_price,total_amount,quantity_kg,price_per_kg,status', filters:currentUser.supaId?[['farmer_id','eq.'+currentUser.supaId]]:[['limit','eq.0']] })]);
+  const [listings,orders]=await Promise.all([sb('listings',{ select:'id,price_per_kg,quantity_kg', filters:currentUser.supaId?[['farmer_id','eq.'+currentUser.supaId]]:[['limit','eq.0']] }),sb('orders',{ select:'id,total_price,total_amount,quantity_kg,price_per_kg,status', filters:currentUser.supaId?[['farmer_id','eq.'+currentUser.supaId]]:[['limit','eq.0']] })]);
   const lEl=document.getElementById('fk-listings'), oEl=document.getElementById('fk-orders'), eEl=document.getElementById('fk-earned');
   if(lEl) lEl.textContent=listings?.length||0;
   if(oEl) oEl.textContent=orders?.length||0;
   const earned=(orders||[]).reduce((s,o)=>s+Number(o.total_price||o.total_amount||0),0);
   if(eEl) eEl.textContent=earned>0?'UGX '+Math.round(earned/1000)+'k':'UGX 0';
+}
+// Farmer advances an order's status (RLS allows only the order's farmer).
+async function updateOrderStatus(id, status, btn){
+  if(btn){ btn.disabled=true; btn.dataset.orig=btn.textContent; btn.textContent='…'; }
+  const ok=await sbUpdate('orders', { status, updated_at:new Date().toISOString() }, 'id', id);
+  if(ok){ showToast('Order marked '+status+' ✅'); loadDashboard(); }
+  else { showToast('Could not update the order — please try again'); if(btn){ btn.disabled=false; btn.textContent=btn.dataset.orig||'Retry'; } }
 }
 async function loadDashboard() {
   const el=document.getElementById('dash-content');
@@ -2874,20 +2891,27 @@ async function loadDashboard() {
   if(!currentUser){ el.innerHTML='<div style="text-align:center;padding:40px"><div style="font-size:3rem">📭</div><p style="color:var(--text2);margin:12px 0">Log in to see your dashboard</p><button class="btn-primary" style="width:auto;padding:12px 24px" onclick="openModal(\'loginModal\')">Log In</button></div>'; return; }
   el.innerHTML='<div class="loader"><div class="spinner"></div>Loading…</div>';
   if(currentUser.role==='farmer') {
-    const [listings,orders]=await Promise.all([sb('listings',{ select:'id,crop_name,quantity_kg,price_per_kg,is_available,views', filters:[['farmer_phone',`eq.${currentUser.phone||''}`],['order','created_at.desc'],['limit','20']] }),sb('orders',{ select:'id,quantity_kg,price_per_kg,total_price,total_amount,status,payment_status,created_at', filters:currentUser.supaId?[['farmer_id','eq.'+currentUser.supaId],['order','created_at.desc'],['limit','10']]:[['limit','eq.0']] })]);
+    const [listings,orders]=await Promise.all([sb('listings',{ select:'id,crop_name,quantity_kg,price_per_kg,is_available,views', filters:currentUser.supaId?[['farmer_id','eq.'+currentUser.supaId],['order','created_at.desc'],['limit','20']]:[['limit','eq.0']] }),sb('orders',{ select:'id,quantity_kg,price_per_kg,total_price,total_amount,status,payment_status,created_at', filters:currentUser.supaId?[['farmer_id','eq.'+currentUser.supaId],['order','created_at.desc'],['limit','10']]:[['limit','eq.0']] })]);
     let html=`<div style="margin-bottom:20px"><h3 style="font-size:1rem;font-weight:700;margin-bottom:12px">🌾 My Listings (${listings?.length||0})</h3>`;
     if(listings?.length) html+=listings.map(l=>`<div class="dash-row"><span>${escHtml(l.crop_name||'Item')}</span><span style="color:var(--green)">UGX ${(l.price_per_kg||0).toLocaleString()}/kg</span><span style="color:var(--text2);font-size:0.8rem">${l.quantity_kg||0}kg · ${l.views||0} views</span></div>`).join('');
     else html+=`<p style="color:var(--text2);font-size:0.9rem">No listings yet. <button class="btn-sm" onclick="openListProduceModal()">List Produce</button></p>`;
     html+=`</div><div><h3 style="font-size:1rem;font-weight:700;margin-bottom:12px">📥 Orders Received (${orders?.length||0})</h3>`;
-    if(orders?.length) html+=orders.map(o=>{ const amt=o.total_price||o.total_amount||(o.quantity_kg*(o.price_per_kg||0))||0; return `<div class="dash-row"><span>${o.quantity_kg||0} kg</span><span style="color:var(--green)">UGX ${Number(amt).toLocaleString()}</span><span class="status-badge ${o.status||'pending'}">${o.status||'pending'}</span></div>`; }).join('');
+    if(orders?.length) html+=orders.map(o=>{ const amt=o.total_price||o.total_amount||(o.quantity_kg*(o.price_per_kg||0))||0; const st=o.status||'pending'; let act=''; if(st==='pending') act=`<button class="btn-sm" onclick="updateOrderStatus('${o.id}','confirmed',this)">✅ Confirm</button><button class="btn-sm ghost" onclick="updateOrderStatus('${o.id}','cancelled',this)">✕ Reject</button>`; else if(st==='confirmed') act=`<button class="btn-sm" onclick="updateOrderStatus('${o.id}','delivered',this)">🚚 Mark Delivered</button>`; return `<div class="dash-row" style="flex-wrap:wrap;gap:6px"><span>${o.quantity_kg||0} kg</span><span style="color:var(--green)">UGX ${Number(amt).toLocaleString()}</span><span class="status-badge ${st}">${st}</span>${act?`<span style="flex-basis:100%;display:flex;gap:6px;margin-top:6px">${act}</span>`:''}</div>`; }).join('');
     else html+=`<p style="color:var(--text2);font-size:0.9rem">No orders yet.</p>`;
     html+=`</div>`;
     el.innerHTML=html;
   } else {
-    const orders=JSON.parse(localStorage.getItem('ab_orders')||'[]');
-    let html=`<h3 style="font-size:1rem;font-weight:700;margin-bottom:12px">📦 My Orders (${orders.length})</h3>`;
-    if(orders.length) html+=orders.map(o=>`<div class="dash-row"><span style="font-size:0.82rem">${o.items.map(i=>i.name).join(', ')}</span><span style="color:var(--green)">UGX ${Number(o.total).toLocaleString()}</span><span class="status-badge confirmed">${o.status}</span></div>`).join('');
-    else html+=`<p style="color:var(--text2);font-size:0.9rem">No orders placed yet. <button class="btn-sm" onclick="showPage('market')">Browse Market</button></p>`;
+    // Authoritative orders come from the DB (survive across devices, show the
+    // farmer's live status). Local cache is the fallback when offline / not synced.
+    const dbOrders = currentUser.supaId ? (await sb('orders',{ select:'id,quantity_kg,price_per_kg,total_price,total_amount,status,item_category,notes,created_at', filters:[['buyer_id','eq.'+currentUser.supaId],['order','created_at.desc'],['limit','20']] })||[]) : [];
+    const local=JSON.parse(localStorage.getItem('ab_orders')||'[]');
+    const count = dbOrders.length || local.length;
+    let html=`<h3 style="font-size:1rem;font-weight:700;margin-bottom:12px">📦 My Orders (${count})</h3>`;
+    if(dbOrders.length){
+      html+=dbOrders.map(o=>{ const amt=o.total_price||o.total_amount||0; const nm=((/Item:(.*)$/.exec(o.notes||'')||[])[1]||o.item_category||'Order').trim(); const st=o.status||'pending'; const u=o.item_category==='animal'?'':'kg'; return `<div class="dash-row"><span style="font-size:0.82rem">${escHtml(nm)} · ${o.quantity_kg||0}${u}</span><span style="color:var(--green)">UGX ${Number(amt).toLocaleString()}</span><span class="status-badge ${st}">${st}</span></div>`; }).join('');
+    } else if(local.length){
+      html+=local.map(o=>`<div class="dash-row"><span style="font-size:0.82rem">${escHtml(o.items.map(i=>i.name).join(', '))}</span><span style="color:var(--green)">UGX ${Number(o.total).toLocaleString()}</span><span class="status-badge ${o.status||'pending'}">${o.status||'pending'}</span></div>`).join('');
+    } else html+=`<p style="color:var(--text2);font-size:0.9rem">No orders placed yet. <button class="btn-sm" onclick="showPage('market')">Browse Market</button></p>`;
     el.innerHTML=html;
   }
 }
