@@ -1673,7 +1673,20 @@ async function loadListings() {
   });
   allListings = (data && data.length) ? data.map(normalise) : sampleListings();
   renderListings();
+  loadFarmerRatings();
   if(!allPrices.length && navigator.onLine){ loadPrices(true).then(renderListings); }
+}
+
+// Public seller reputation (avg rating + count), shown on marketplace cards.
+async function loadFarmerRatings(){
+  try{
+    const rows = await sb('farmer_ratings', { select:'farmer_id,avg_rating,review_count' });
+    if(Array.isArray(rows)){
+      window.farmerRatings = {};
+      rows.forEach(r=>{ if(r.farmer_id) window.farmerRatings[r.farmer_id]=r; });
+      renderListings();
+    }
+  }catch(e){}
 }
 
 function renderListings() {
@@ -1697,6 +1710,8 @@ function listingCard(l) {
   const emoji   = getCropEmoji(name);
   const initials= (farmer||'F').split(' ').map(w=>w[0]||'').join('').slice(0,2).toUpperCase();
   const verified= l.is_verified ? ' ✅' : '';
+  const _rt     = (window.farmerRatings && l.farmer_id) ? window.farmerRatings[l.farmer_id] : null;
+  const ratingHtml = _rt ? `<span style="font-size:0.72rem;color:#f0a020;margin-left:auto;white-space:nowrap">⭐ ${_rt.avg_rating} <span style="color:var(--text2)">(${_rt.review_count})</span></span>` : '';
   const flash   = (l.discount_pct||0) > 0;
   const terms   = [ (l.min_order_kg>0)?('Min '+l.min_order_kg+'kg'):'', l.delivery_available?'🚚 Delivers':'', l.payment_terms?('💳 '+escHtml(l.payment_terms)):'' ].filter(Boolean).join(' · ');
   const mktPrice= marketPriceFor(name);
@@ -1723,6 +1738,7 @@ function listingCard(l) {
         <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px">
           <div style="width:24px;height:24px;border-radius:50%;background:var(--green-dim);display:flex;align-items:center;justify-content:center;font-size:0.68rem;font-weight:700;color:var(--green);flex-shrink:0">${initials}</div>
           <span style="font-size:0.8rem">${escHtml(farmer)}</span>
+          ${ratingHtml}
         </div>
         <div style="font-size:0.78rem;color:var(--text2)">📍 ${escHtml(district)} · 📦 ${Number(qty).toLocaleString()} kg</div>
       </div>
@@ -1732,7 +1748,7 @@ function listingCard(l) {
         <div style="display:flex;gap:5px;flex-wrap:wrap;justify-content:flex-end;margin-top:6px">
           <a href="https://wa.me/256755966690?text=${waMsg}" target="_blank" class="btn-card" style="background:#25D366;font-size:0.75rem;padding:5px 8px">💬</a>
           <button class="btn-card" onclick="event.stopPropagation();addToBasket('${l.id||Date.now()}','${escHtml(name)}',${salePrice},'kg','${emoji}','produce')" style="background:var(--green-dim);color:var(--green);border:1px solid var(--green);font-size:0.76rem">🛒</button>
-          <button class="btn-card" onclick="event.stopPropagation();openOrderModal(${l.id||0},'${escHtml(name)}','${escHtml(farmer)}',${price})" style="font-size:0.76rem">Order</button>
+          <button class="btn-card" onclick="event.stopPropagation();openOrderModal('${l.id||0}','${escHtml(name)}','${escHtml(farmer)}',${price})" style="font-size:0.76rem">Order</button>
         </div>
       </div>
     </div>
@@ -2793,6 +2809,28 @@ async function submitOrder() {
   else showToast('Order failed — please try again');
 }
 
+// ── Reviews ────────────────────────────────────────────────
+var _reviewCtx = { orderId:null, farmerId:null, listingId:null, rating:0 };
+function openReviewModal(orderId, farmerId, listingId){
+  _reviewCtx = { orderId:orderId, farmerId:farmerId, listingId:listingId||null, rating:0 };
+  setReviewStar(0);
+  var c=document.getElementById('reviewComment'); if(c) c.value='';
+  openModal('reviewModal');
+}
+function setReviewStar(n){
+  _reviewCtx.rating = n;
+  var wrap=document.getElementById('reviewStars'); if(!wrap) return;
+  Array.from(wrap.children).forEach(function(s,i){ s.textContent = (i < n) ? '★' : '☆'; s.style.color = (i < n) ? '#f0a020' : 'var(--text2)'; });
+}
+async function submitReview(){
+  if(!_reviewCtx.rating){ showToast('Please tap a star rating'); return; }
+  if(!currentUser?.supaId){ showToast('Please log in first'); return; }
+  var comment=(document.getElementById('reviewComment')?.value||'').trim().slice(0,500);
+  var ok=await sbInsert('reviews', { order_id:_reviewCtx.orderId, farmer_id:_reviewCtx.farmerId, listing_id:_reviewCtx.listingId||null, buyer_id:currentUser.supaId, rating:_reviewCtx.rating, comment:comment||null });
+  if(ok){ closeModal('reviewModal'); showToast('Thanks for your review! ⭐'); loadDashboard(); loadFarmerRatings(); }
+  else showToast('Could not submit — only delivered orders can be reviewed.');
+}
+
 // ─────────────────────────────────────────────────────────────────
 // CONTACT
 // ─────────────────────────────────────────────────────────────────
@@ -2903,12 +2941,14 @@ async function loadDashboard() {
   } else {
     // Authoritative orders come from the DB (survive across devices, show the
     // farmer's live status). Local cache is the fallback when offline / not synced.
-    const dbOrders = currentUser.supaId ? (await sb('orders',{ select:'id,quantity_kg,price_per_kg,total_price,total_amount,status,item_category,notes,created_at', filters:[['buyer_id','eq.'+currentUser.supaId],['order','created_at.desc'],['limit','20']] })||[]) : [];
+    const dbOrders = currentUser.supaId ? (await sb('orders',{ select:'id,farmer_id,listing_id,quantity_kg,price_per_kg,total_price,total_amount,status,item_category,notes,created_at', filters:[['buyer_id','eq.'+currentUser.supaId],['order','created_at.desc'],['limit','20']] })||[]) : [];
+    const myReviews = currentUser.supaId ? (await sb('reviews',{ select:'order_id', filters:[['buyer_id','eq.'+currentUser.supaId]] })||[]) : [];
+    const reviewed = new Set(myReviews.map(r=>r.order_id));
     const local=JSON.parse(localStorage.getItem('ab_orders')||'[]');
     const count = dbOrders.length || local.length;
     let html=`<h3 style="font-size:1rem;font-weight:700;margin-bottom:12px">📦 My Orders (${count})</h3>`;
     if(dbOrders.length){
-      html+=dbOrders.map(o=>{ const amt=o.total_price||o.total_amount||0; const nm=((/Item:(.*)$/.exec(o.notes||'')||[])[1]||o.item_category||'Order').trim(); const st=o.status||'pending'; const u=o.item_category==='animal'?'':'kg'; return `<div class="dash-row"><span style="font-size:0.82rem">${escHtml(nm)} · ${o.quantity_kg||0}${u}</span><span style="color:var(--green)">UGX ${Number(amt).toLocaleString()}</span><span class="status-badge ${st}">${st}</span></div>`; }).join('');
+      html+=dbOrders.map(o=>{ const amt=o.total_price||o.total_amount||0; const nm=((/Item:(.*)$/.exec(o.notes||'')||[])[1]||o.item_category||'Order').trim(); const st=o.status||'pending'; const u=o.item_category==='animal'?'':'kg'; let act=''; if(st==='delivered'&&o.id&&o.farmer_id){ act = reviewed.has(o.id) ? `<span style="flex-basis:100%;font-size:0.72rem;color:#f0a020;margin-top:4px">★ Reviewed</span>` : `<span style="flex-basis:100%;margin-top:6px"><button class="btn-sm" onclick="openReviewModal('${o.id}','${o.farmer_id}','${o.listing_id||''}')">⭐ Rate this order</button></span>`; } return `<div class="dash-row" style="flex-wrap:wrap;gap:6px"><span style="font-size:0.82rem">${escHtml(nm)} · ${o.quantity_kg||0}${u}</span><span style="color:var(--green)">UGX ${Number(amt).toLocaleString()}</span><span class="status-badge ${st}">${st}</span>${act}</div>`; }).join('');
     } else if(local.length){
       html+=local.map(o=>`<div class="dash-row"><span style="font-size:0.82rem">${escHtml(o.items.map(i=>i.name).join(', '))}</span><span style="color:var(--green)">UGX ${Number(o.total).toLocaleString()}</span><span class="status-badge ${o.status||'pending'}">${o.status||'pending'}</span></div>`).join('');
     } else html+=`<p style="color:var(--text2);font-size:0.9rem">No orders placed yet. <button class="btn-sm" onclick="showPage('market')">Browse Market</button></p>`;
@@ -5061,6 +5101,24 @@ Just ask anything!</div>
       <select id="orderPayment"><option value="momo">MTN Mobile Money</option><option value="airtel">Airtel Money</option><option value="cash">Cash on Delivery</option></select>
     </div>
     <button class="btn-submit" onclick="submitOrder()">Confirm Order 🛒</button>
+  </div>
+</div>
+
+<!-- ══ REVIEW MODAL ══════════════════════════════════════════ -->
+<div class="modal-overlay" id="reviewModal" onclick="handleOverlay(event,'reviewModal')" role="dialog" aria-label="Rate order">
+  <div class="modal-box">
+    <button class="modal-close" onclick="closeModal('reviewModal')">✕</button>
+    <h3>Rate your order</h3>
+    <p style="color:var(--text2);font-size:0.85rem;margin-bottom:12px">How was your experience with this seller?</p>
+    <div id="reviewStars" style="display:flex;gap:10px;justify-content:center;font-size:2.2rem;margin-bottom:14px;color:var(--text2)">
+      <span onclick="setReviewStar(1)" style="cursor:pointer">☆</span>
+      <span onclick="setReviewStar(2)" style="cursor:pointer">☆</span>
+      <span onclick="setReviewStar(3)" style="cursor:pointer">☆</span>
+      <span onclick="setReviewStar(4)" style="cursor:pointer">☆</span>
+      <span onclick="setReviewStar(5)" style="cursor:pointer">☆</span>
+    </div>
+    <div class="form-group"><label>Comment (optional)</label><textarea id="reviewComment" rows="3" placeholder="Fresh produce, delivered on time…"></textarea></div>
+    <button class="btn-submit" onclick="submitReview()">Submit Review ⭐</button>
   </div>
 </div>
 
