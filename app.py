@@ -1098,6 +1098,36 @@ def ai_chat():
         return jsonify({'reply': None, 'error': 'ai unavailable'}), 200
 
 
+@app.route('/api/notify-order', methods=['POST'])
+@rate_limit(max_req=30, window=300)
+def notify_order():
+    """Best-effort SMS to a farmer when a new order comes in. Looks up the farmer's
+    phone server-side (never trusts the client for it). Always returns ok so the
+    order flow is never blocked; SMS only actually sends once Africa's Talking is
+    live (in sandbox this is a no-op)."""
+    data = request.get_json(force=True, silent=True) or {}
+    farmer_id = (data.get('farmer_id') or '').strip()
+    item = (data.get('item') or 'produce').strip()[:60]
+    qty = (data.get('qty') or '').strip()[:20]
+    if not at_sms or not farmer_id:
+        return jsonify({'ok': True, 'sent': False}), 200
+    rows = supa_get('farmers', filters={'id': f'eq.{farmer_id}', 'select': 'phone'}, limit=1)
+    phone = (rows[0].get('phone') if rows else '') or ''
+    if not phone:
+        return jsonify({'ok': True, 'sent': False}), 200
+    try:
+        at_sms.send(
+            message=(f"AgriBridge: New order!\n{qty} {item}. "
+                     f"Log in to confirm: agribridge.com"),
+            recipients=[phone],
+            sender_id=AT_SMS_SENDER,
+        )
+        return jsonify({'ok': True, 'sent': True}), 200
+    except Exception as e:
+        print(f"notify-order SMS error: {e}")
+        return jsonify({'ok': True, 'sent': False}), 200
+
+
 # ══════════════════════════════════════════════════════════════════════════════
 # ENTRY POINT
 # ══════════════════════════════════════════════════════════════════════════════
