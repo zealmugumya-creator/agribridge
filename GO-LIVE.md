@@ -1,0 +1,95 @@
+# AgriBridge — Go-Live Checklist
+
+Everything you (Zeal) need to switch AgriBridge from "built" to "fully live".
+Nothing here is code — these are accounts, keys, and toggles only you can set.
+Each item says **where** and **why**. Do them in any order; none break the live site.
+
+---
+
+## 1. Supabase — data safety (do first)
+
+| Task | Where | Why |
+|------|-------|-----|
+| **Turn on backups** | GitHub repo → Settings → Secrets and variables → Actions | You currently have no backups. See section 4. |
+| **Leaked-password protection** ✅ (done) | Supabase → Authentication → Policies | Blocks known-breached passwords. |
+
+---
+
+## 2. Render — backend environment variables
+
+Service **agribridge-1** → **Environment** tab → add/confirm each, then "Save Changes"
+(Render redeploys automatically).
+
+**Already needed (confirm they're set):**
+- `SUPABASE_URL` = https://vyrctsiyaihsysgpozdm.supabase.co
+- `SUPABASE_KEY` = your Supabase **service_role** key (Supabase → Project Settings → API)
+- `JWT_SECRET` = a long random string
+- `GROQ_API_KEY` = your Groq key (for the AI assistant)
+
+**Africa's Talking (SMS + USSD) — for real messages:**
+- `AT_USERNAME` = your live username (not `sandbox`) once approved
+- `AT_API_KEY` = your live API key
+- `AT_SMS_SENDER` = your approved sender ID (e.g. `AgriBridge`)
+
+> Until Africa's Talking is out of sandbox, order SMS is a safe no-op — the code is
+> already wired and starts sending automatically once these are live keys.
+
+**Payments — Flutterwave (only when you're ready to accept online money):**
+- `FLW_SECRET_KEY` = Flutterwave → Settings → API Keys → Secret Key
+- `FLW_WEBHOOK_HASH` = any secret string you invent (also paste it in Flutterwave, see §5)
+- `PUBLIC_BASE_URL` = https://agribridge.com
+
+> Leave the Flutterwave vars empty to keep online payments OFF. With them empty,
+> checkout uses Cash on Delivery / pay-farmer-direct exactly as today.
+
+---
+
+## 3. Secrets to rotate (anything shared in plain text is compromised)
+
+- **Groq key** — rotated ✅ (you changed it). Make sure the new one is in Render as `GROQ_API_KEY`.
+- **Supabase service key** — if it was ever pasted anywhere public, rotate it in
+  Supabase → Project Settings → API, then update `SUPABASE_KEY` in Render.
+
+---
+
+## 4. Backups (free, no paid plan) — GitHub secrets
+
+GitHub → repo **agribridge** → Settings → Secrets and variables → Actions → New repository secret:
+
+1. `SUPABASE_DB_URL` — Supabase dashboard → green **Connect** button (top bar) → change the
+   **Client** dropdown to a connection-string view → **Session pooler** tab → copy the URI.
+   Replace `[YOUR-PASSWORD]` with your DB password (reset it on Settings → Database if unknown — safe).
+2. `BACKUP_PASSPHRASE` — any strong phrase you save somewhere safe (needed to open a backup).
+
+Then: GitHub → **Actions** tab → **Database backup** → **Run workflow** to test.
+Runs automatically every Sunday. Restore instructions are in
+`.github/workflows/db-backup.yml`.
+
+---
+
+## 5. Flutterwave setup (only when accepting online payments)
+
+1. Create an account at **flutterwave.com** (sandbox works immediately; live needs business/KYC).
+2. Copy your **Secret Key** → put it in Render as `FLW_SECRET_KEY` (see §2).
+3. Invent a webhook secret → put the **same value** in Render `FLW_WEBHOOK_HASH` **and** in
+   Flutterwave → Settings → **Webhooks** → "Secret hash".
+4. Flutterwave → Settings → Webhooks → **URL**:
+   `https://agribridge-1-og7a.onrender.com/api/pay/webhook/flutterwave`
+5. **Test in sandbox first**: place an order choosing MoMo/Airtel → you're sent to Flutterwave →
+   pay with a test number → you return to the site and the order flips to **paid**.
+6. Only after sandbox works, switch to **live** Flutterwave keys.
+
+> Checkout automatically detects when Flutterwave is enabled. No code change needed —
+> add the keys and online payment turns on; remove them and it turns off.
+
+---
+
+## 6. Still to come (future phases — not blocking launch)
+
+- **Payout to farmers on delivery** + escrow hold (needs your commission % and Flutterwave payouts).
+- **Pesapal / MTN direct** payment options (wired into the router; completed against their sandboxes).
+
+---
+
+_Health check any time:_ `https://agribridge-1-og7a.onrender.com/` should return **200**.
+_Payment status:_ `https://agribridge-1-og7a.onrender.com/api/pay/providers` shows which methods are live.

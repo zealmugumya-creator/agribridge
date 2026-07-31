@@ -2168,6 +2168,22 @@ function notifyFarmer(farmerId, item, qty){
   if(!farmerId) return;
   try{ fetch(USSD_API+'/api/notify-order',{ method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({ farmer_id:farmerId, item:item||'produce', qty:String(qty||'') }) }).catch(function(){}); }catch(e){}
 }
+// Which online payment gateways are live (cached). Empty/unknown => none, so
+// checkout falls back to cash / pay-farmer-direct.
+async function getEnabledProviders(){
+  if(window._payProviders) return window._payProviders;
+  try{ const r=await fetch(USSD_API+'/api/pay/providers'); const j=await r.json(); window._payProviders=(j&&j.providers)||{}; return window._payProviders; }catch(e){ return {}; }
+}
+// Start an online payment; returns a hosted-payment link, or null to fall back.
+async function startOnlinePayment(ref, amount){
+  try{
+    const prov=await getEnabledProviders();
+    if(!prov||!prov.flutterwave) return null;
+    const r=await fetch(USSD_API+'/api/pay/initiate',{ method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({ provider:'flutterwave', order_ref:ref, amount:Math.round(amount||0), email:currentUser?.email||'', phone:currentUser?.phone||'' }) });
+    const j=await r.json().catch(function(){return null;});
+    return (j&&j.ok&&j.link)?j.link:null;
+  }catch(e){ return null; }
+}
 async function placeOrder() {
   if (!currentUser?.supaId) { showToast('Please log in to place your order 🔐'); closeCheckout && closeCheckout(); setTimeout(()=>openModal('loginModal'),500); return; }
   const addr = document.getElementById('checkoutAddr')?.value.trim();
@@ -2214,6 +2230,13 @@ async function placeOrder() {
   const saved = JSON.parse(localStorage.getItem('ab_orders')||'[]');
   saved.unshift({ ref, track, date:new Date().toISOString(), items:basketItems.map(i=>({name:i.name,qty:i.qty,price:i.price})), total, addr, payment:selectedPayMethod, status:'confirmed' });
   localStorage.setItem('ab_orders', JSON.stringify(saved.slice(0,20)));
+  // If an online gateway is live and the buyer chose an online method, send them
+  // to pay. When no gateway is configured this returns null and we fall back to
+  // the normal (cash / pay-farmer-direct) confirmation below — live flow unchanged.
+  if (selectedPayMethod && selectedPayMethod !== 'cash') {
+    const payLink = await startOnlinePayment(ref, total);
+    if (payLink) { basketItems=[]; appliedPromo=null; saveBasket(); updateBasketBadge(); showToast('Redirecting to secure payment…'); window.location.href = payLink; return; }
+  }
   if (btn) { btn.textContent = 'Place Order 🛒'; btn.disabled = false; }
   // Show success
   const step1 = document.getElementById('checkoutStep1');
@@ -2818,7 +2841,11 @@ async function submitOrder() {
   const track='TRK-'+Math.random().toString(36).substr(2,6).toUpperCase();
   const ref='AB-'+Date.now().toString(36).toUpperCase().slice(-6);
   const result=await sbInsert('orders',{ listing_id:currentListingId, farmer_id:listing?.farmer_id||null, buyer_id:currentUser?.supaId||null, buyer_phone:currentUser?.phone||null, quantity_kg:qty, price_per_kg:listing?.price_per_kg||0, total_price:qty*(listing?.price_per_kg||0), delivery_address:addr, payment_method:pay, status:'pending', payment_status:'unpaid', payment_ref:ref, tracking_code:track });
-  if(result){ notifyFarmer(listing?.farmer_id, listing?.crop_name, qty); closeModal('orderModal'); showToast('Order placed! Track: '+track+' ✅ Farmer will confirm'); }
+  if(result){
+    notifyFarmer(listing?.farmer_id, listing?.crop_name, qty);
+    if(pay && pay!=='cash'){ const link=await startOnlinePayment(ref, qty*(listing?.price_per_kg||0)); if(link){ closeModal('orderModal'); showToast('Redirecting to secure payment…'); window.location.href=link; return; } }
+    closeModal('orderModal'); showToast('Order placed! Track: '+track+' ✅ Farmer will confirm');
+  }
   else showToast('Order failed — please try again');
 }
 
