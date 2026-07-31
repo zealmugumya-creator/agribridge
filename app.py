@@ -10,6 +10,7 @@
 import os
 import datetime
 import json as _json
+import hmac
 import requests
 
 import jwt
@@ -41,6 +42,14 @@ AT_SMS_SENDER  = os.environ.get('AT_SMS_SENDER',  'AgriBridge')
 SUPABASE_URL   = os.environ.get('SUPABASE_URL',   'https://vyrctsiyaihsysgpozdm.supabase.co')
 SUPABASE_KEY   = os.environ.get('SUPABASE_KEY',   '')
 GEMINI_KEY     = os.environ.get('GEMINI_API_KEY', '')
+
+# ── Payments (pluggable; each provider stays OFF until its keys are set) ───────
+FLW_SECRET_KEY   = os.environ.get('FLW_SECRET_KEY',   '')  # Flutterwave secret key
+FLW_WEBHOOK_HASH = os.environ.get('FLW_WEBHOOK_HASH', '')  # must match the hash set in the FLW dashboard
+PESAPAL_KEY      = os.environ.get('PESAPAL_CONSUMER_KEY',    '')
+PESAPAL_SECRET   = os.environ.get('PESAPAL_CONSUMER_SECRET', '')
+MTN_MOMO_KEY     = os.environ.get('MTN_MOMO_SUBSCRIPTION_KEY', '')
+PUBLIC_BASE_URL  = os.environ.get('PUBLIC_BASE_URL', 'https://agribridge.com')
 
 at_sms = None
 if AT_AVAILABLE and AT_API_KEY and AT_API_KEY != 'atsk_REPLACE_ME':
@@ -1126,6 +1135,107 @@ def notify_order():
     except Exception as e:
         print(f"notify-order SMS error: {e}")
         return jsonify({'ok': True, 'sent': False}), 200
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# PAYMENTS  (pluggable; providers are OFF until their env keys are set, so this
+# never affects the live checkout until you deliberately enable one)
+# ══════════════════════════════════════════════════════════════════════════════
+def _enabled_providers():
+    return {
+        'cod':         True,   # cash on delivery — no gateway needed
+        'direct':      True,   # pay the farmer's MoMo directly — no gateway needed
+        'flutterwave': bool(FLW_SECRET_KEY),
+        'pesapal':     bool(PESAPAL_KEY and PESAPAL_SECRET),
+        'mtn_momo':    bool(MTN_MOMO_KEY),
+    }
+
+
+@app.route('/api/pay/providers', methods=['GET'])
+def pay_providers():
+    """The client asks which online-payment methods are live so it only shows
+    those; when none are configured it falls back to COD / direct MoMo."""
+    return jsonify({'providers': _enabled_providers()}), 200
+
+
+@app.route('/api/pay/initiate', methods=['POST'])
+@rate_limit(max_req=20, window=300)
+def pay_initiate():
+    data = request.get_json(force=True, silent=True) or {}
+    provider  = (data.get('provider')  or '').strip().lower()
+    order_ref = (data.get('order_ref') or '').strip()[:60]
+    email     = (data.get('email')     or '').strip()[:120]
+    phone     = (data.get('phone')     or '').strip()[:20]
+    try:
+        amount = int(float(data.get('amount')))
+    except Exception:
+        return jsonify({'ok': False, 'error': 'invalid amount'}), 400
+    if amount <= 0 or not order_ref:
+        return jsonify({'ok': False, 'error': 'missing order_ref or amount'}), 400
+
+    if provider in ('cod', 'direct'):
+        return jsonify({'ok': True, 'mode': provider, 'message': 'No online payment needed.'}), 200
+    if provider == 'flutterwave':
+        return _flw_initiate(order_ref, amount, email, phone)
+    if provider in ('pesapal', 'mtn_momo'):
+        # Structured for completion against the provider's sandbox once keys exist.
+        return jsonify({'ok': False, 'enabled': False, 'error': provider + ' not configured yet'}), 200
+    return jsonify({'ok': False, 'error': 'unknown provider'}), 400
+
+
+def _flw_initiate(order_ref, amount, email, phone):
+    if not FLW_SECRET_KEY:
+        return jsonify({'ok': False, 'enabled': False, 'error': 'flutterwave not configured'}), 200
+    try:
+        res = requests.post(
+            'https://api.flutterwave.com/v3/payments',
+            headers={'Authorization': 'Bearer ' + FLW_SECRET_KEY, 'Content-Type': 'application/json'},
+            json={
+                'tx_ref':       order_ref,
+                'amount':       str(amount),
+                'currency':     'UGX',
+                'redirect_url': PUBLIC_BASE_URL + '/?pay=done',
+                'customer':     {'email': email or 'buyer@agribridge.com', 'phonenumber': phone},
+                'customizations': {'title': 'AgriBridge', 'description': 'Order ' + order_ref},
+                'payment_options': 'mobilemoneyuganda,card',
+            },
+            timeout=25,
+        )
+        j = res.json() if res.ok else {}
+        link = ((j.get('data') or {}).get('link')) if isinstance(j, dict) else None
+        if link:
+            return jsonify({'ok': True, 'provider': 'flutterwave', 'link': link}), 200
+        return jsonify({'ok': False, 'error': 'could not start payment'}), 200
+    except Exception as e:
+        print(f"flutterwave initiate error: {e}")
+        return jsonify({'ok': False, 'error': 'payment gateway unavailable'}), 200
+
+
+@app.route('/api/pay/webhook/flutterwave', methods=['POST'])
+def pay_webhook_flw():
+    # Only trust calls carrying the secret hash we configured in the FLW dashboard.
+    sig = request.headers.get('verif-hash', '')
+    if not FLW_WEBHOOK_HASH or not sig or not hmac.compare_digest(sig, FLW_WEBHOOK_HASH):
+        return jsonify({'status': 'unauthorized'}), 401
+    data = request.get_json(force=True, silent=True) or {}
+    ev = data.get('data') or {}
+    tx_ref = ev.get('tx_ref') or ''
+    flw_id = ev.get('id')
+    if (ev.get('status') or '').lower() == 'successful' and tx_ref and flw_id:
+        # Never trust the webhook body alone — re-verify with Flutterwave server-side.
+        try:
+            v = requests.get(
+                'https://api.flutterwave.com/v3/transactions/' + str(flw_id) + '/verify',
+                headers={'Authorization': 'Bearer ' + FLW_SECRET_KEY}, timeout=20)
+            vj = v.json() if v.ok else {}
+            vdata = vj.get('data') or {}
+            if (vdata.get('status') or '').lower() == 'successful':
+                # Mark every order row of this checkout paid (they share payment_ref).
+                # Idempotent: re-running just re-sets 'paid'; the match key is stable.
+                supa_update('orders', {'payment_status': 'paid'}, 'payment_ref', tx_ref)
+        except Exception as e:
+            print(f"flw verify error: {e}")
+    return jsonify({'status': 'ok'}), 200
 
 
 # ══════════════════════════════════════════════════════════════════════════════

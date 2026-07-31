@@ -2205,6 +2205,7 @@ async function placeOrder() {
       item_category:    item.category || 'produce',
       status:           'pending',
       payment_status:   'unpaid',
+      payment_ref:      ref,
       tracking_code:    track,
       notes:            `Ref:${ref} Track:${track} Item:${item.name}`
     });
@@ -2815,8 +2816,9 @@ async function submitOrder() {
   if(!currentUser?.supaId){ closeModal('orderModal'); openModal('loginModal'); showToast('Please log in to place an order'); return; }
   const listing=allListings.find(l=>l.id===currentListingId);
   const track='TRK-'+Math.random().toString(36).substr(2,6).toUpperCase();
-  const result=await sbInsert('orders',{ listing_id:currentListingId, farmer_id:listing?.farmer_id||null, buyer_id:currentUser?.supaId||null, buyer_phone:currentUser?.phone||null, quantity_kg:qty, price_per_kg:listing?.price_per_kg||0, total_price:qty*(listing?.price_per_kg||0), delivery_address:addr, payment_method:pay, status:'pending', payment_status:'unpaid', tracking_code:track });
-  if(result){ notifyFarmer(listing?.farmer_id, listing?.crop_name, qty); closeModal('orderModal'); const ref='AB-'+Date.now().toString(36).toUpperCase().slice(-6); showToast('Order placed! Track: '+track+' ✅ Farmer will confirm'); }
+  const ref='AB-'+Date.now().toString(36).toUpperCase().slice(-6);
+  const result=await sbInsert('orders',{ listing_id:currentListingId, farmer_id:listing?.farmer_id||null, buyer_id:currentUser?.supaId||null, buyer_phone:currentUser?.phone||null, quantity_kg:qty, price_per_kg:listing?.price_per_kg||0, total_price:qty*(listing?.price_per_kg||0), delivery_address:addr, payment_method:pay, status:'pending', payment_status:'unpaid', payment_ref:ref, tracking_code:track });
+  if(result){ notifyFarmer(listing?.farmer_id, listing?.crop_name, qty); closeModal('orderModal'); showToast('Order placed! Track: '+track+' ✅ Farmer will confirm'); }
   else showToast('Order failed — please try again');
 }
 
