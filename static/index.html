@@ -2980,6 +2980,13 @@ async function loadDashboard() {
     if(orders?.length) html+=orders.map(o=>{ const amt=o.total_price||o.total_amount||(o.quantity_kg*(o.price_per_kg||0))||0; const st=o.status||'pending'; let act=''; if(st==='pending') act=`<button class="btn-sm" onclick="updateOrderStatus('${o.id}','confirmed',this)">✅ Confirm</button><button class="btn-sm ghost" onclick="updateOrderStatus('${o.id}','cancelled',this)">✕ Reject</button>`; else if(st==='confirmed') act=`<button class="btn-sm" onclick="updateOrderStatus('${o.id}','delivered',this)">🚚 Mark Delivered</button>`; return `<div class="dash-row" style="flex-wrap:wrap;gap:6px"><span>${o.quantity_kg||0} kg</span><span style="color:var(--green)">UGX ${Number(amt).toLocaleString()}</span><span class="status-badge ${st}">${st}</span>${act?`<span style="flex-basis:100%;display:flex;gap:6px;margin-top:6px">${act}</span>`:''}</div>`; }).join('');
     else html+=`<p style="color:var(--text2);font-size:0.9rem">No orders yet.</p>`;
     html+=`</div>`;
+    // Payouts owed to this farmer (created on delivered + paid orders, net of commission).
+    const payouts = currentUser.supaId ? (await sb('payouts',{ select:'net_amount,status', filters:[['farmer_id','eq.'+currentUser.supaId]] })||[]) : [];
+    if(payouts.length){
+      const pend=payouts.filter(p=>p.status==='pending').reduce((s,p)=>s+Number(p.net_amount||0),0);
+      const paid=payouts.filter(p=>p.status==='paid').reduce((s,p)=>s+Number(p.net_amount||0),0);
+      html+=`<div style="margin-top:18px;background:var(--bg3);border:1px solid var(--border);border-radius:10px;padding:14px"><h3 style="font-size:0.95rem;font-weight:700;margin-bottom:8px">💰 Payouts</h3><div class="dash-row"><span>Pending</span><span style="color:var(--green)">UGX ${Number(pend).toLocaleString()}</span></div><div class="dash-row"><span>Paid out</span><span style="color:var(--text2)">UGX ${Number(paid).toLocaleString()}</span></div><div style="font-size:0.72rem;color:var(--text2);margin-top:6px">Net of platform commission. Settled after delivery is confirmed.</div></div>`;
+    }
     el.innerHTML=html;
   } else {
     // Authoritative orders come from the DB (survive across devices, show the
