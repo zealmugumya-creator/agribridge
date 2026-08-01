@@ -1137,6 +1137,36 @@ def notify_order():
         return jsonify({'ok': True, 'sent': False}), 200
 
 
+def _sms_receipt(phone, ref, total, kind='order'):
+    """Best-effort SMS receipt to a buyer. No-op unless Africa's Talking is live."""
+    if not at_sms or not phone:
+        return False
+    try:
+        head = 'Payment received' if kind == 'payment' else 'Order confirmed'
+        msg = (f"AgriBridge: {head}!\n"
+               f"Ref {ref}. Total UGX {int(total or 0):,}.\n"
+               f"Track at agribridge.com")
+        at_sms.send(message=msg, recipients=[phone], sender_id=AT_SMS_SENDER)
+        return True
+    except Exception as e:
+        print(f"sms receipt error: {e}")
+        return False
+
+
+@app.route('/api/sms-receipt', methods=['POST'])
+@rate_limit(max_req=30, window=300)
+def sms_receipt():
+    data = request.get_json(force=True, silent=True) or {}
+    phone = (data.get('phone') or '').strip()[:20]
+    ref   = (data.get('ref')   or '').strip()[:40]
+    kind  = (data.get('kind')  or 'order').strip()[:20]
+    try:
+        total = int(float(data.get('total') or 0))
+    except Exception:
+        total = 0
+    return jsonify({'ok': True, 'sent': _sms_receipt(phone, ref, total, kind)}), 200
+
+
 # ══════════════════════════════════════════════════════════════════════════════
 # PAYMENTS  (pluggable; providers are OFF until their env keys are set, so this
 # never affects the live checkout until you deliberately enable one)
@@ -1245,13 +1275,14 @@ def _send_payment_receipt(payment_ref):
     try:
         orows = supa_get('orders', filters={
             'payment_ref': f'eq.{payment_ref}',
-            'select': 'buyer_id,quantity_kg,price_per_kg,total_price,tracking_code,notes',
+            'select': 'buyer_id,buyer_phone,quantity_kg,price_per_kg,total_price,tracking_code,notes',
         })
         if not orows:
             return
         buyer_id = orows[0].get('buyer_id')
         total = sum(float(o.get('total_price') or 0) for o in orows)
         tracking = orows[0].get('tracking_code') or ''
+        _sms_receipt(orows[0].get('buyer_phone'), payment_ref, total, 'payment')
         email, name = '', 'there'
         if buyer_id:
             frows = supa_get('farmers', filters={'id': f'eq.{buyer_id}', 'select': 'email,full_name'}, limit=1)

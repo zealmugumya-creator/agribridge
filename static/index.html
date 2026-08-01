@@ -2174,6 +2174,11 @@ async function getEnabledProviders(){
   if(window._payProviders) return window._payProviders;
   try{ const r=await fetch(USSD_API+'/api/pay/providers'); const j=await r.json(); window._payProviders=(j&&j.providers)||{}; return window._payProviders; }catch(e){ return {}; }
 }
+// Best-effort SMS receipt to the buyer (no-op until Africa's Talking is live).
+function sendSmsReceipt(phone, ref, total, kind){
+  if(!phone) return;
+  try{ fetch(USSD_API+'/api/sms-receipt',{ method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({ phone:phone, ref:ref, total:total, kind:kind||'order' }) }).catch(function(){}); }catch(e){}
+}
 // Best-effort receipt/confirmation email via the Supabase Edge Function
 // (safe no-op until an email provider key is set). Never blocks the order.
 function sendReceiptEmail(payload){
@@ -2243,6 +2248,7 @@ async function placeOrder() {
   saved.unshift({ ref, track, date:new Date().toISOString(), items:basketItems.map(i=>({name:i.name,qty:i.qty,price:i.price})), total, addr, payment:selectedPayMethod, status:'confirmed' });
   localStorage.setItem('ab_orders', JSON.stringify(saved.slice(0,20)));
   sendReceiptEmail({ type:'booking', email:currentUser?.email, name:currentUser?.name, ref, total, tracking:track, items:basketItems.map(i=>({name:i.name,qty:i.qty,price:i.price})) });
+  sendSmsReceipt(currentUser?.phone, ref, total, 'order');
   // If an online gateway is live and the buyer chose an online method, send them
   // to pay. When no gateway is configured this returns null and we fall back to
   // the normal (cash / pay-farmer-direct) confirmation below — live flow unchanged.
@@ -2857,6 +2863,7 @@ async function submitOrder() {
   if(result){
     notifyFarmer(listing?.farmer_id, listing?.crop_name, qty);
     sendReceiptEmail({ type:'booking', email:currentUser?.email, name:currentUser?.name, ref, total:qty*(listing?.price_per_kg||0), tracking:track, items:[{name:listing?.crop_name||'Order', qty:qty, price:listing?.price_per_kg||0}] });
+    sendSmsReceipt(currentUser?.phone, ref, qty*(listing?.price_per_kg||0), 'order');
     if(pay && pay!=='cash'){ const link=await startOnlinePayment(ref, qty*(listing?.price_per_kg||0)); if(link){ closeModal('orderModal'); showToast('Redirecting to secure payment…'); window.location.href=link; return; } }
     closeModal('orderModal'); showToast('Order placed! Track: '+track+' ✅ Farmer will confirm');
   }

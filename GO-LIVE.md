@@ -103,7 +103,24 @@ payment webhook, both automatically.
 
 ---
 
-## 7. Still to come (future phases — not blocking launch)
+## 7. Admin dashboard
+
+A private admin panel is live at **https://agribridge.com/admin.html**.
+
+- Log in with your **admin password** = the `ADMIN_PASSWORD` env var in Render.
+- **⚠️ Change it now:** it defaults to `agribridge2026`. In Render → `agribridge-1` →
+  Environment → set `ADMIN_PASSWORD` to something strong.
+- Shows totals (users, listings, orders, paid revenue), all **orders** (with a status
+  dropdown you can change), **users**, and **listings**.
+- The page is marked `noindex` and every action requires the admin token — but treat
+  the URL + password as sensitive.
+
+> SMS receipts (buyer confirmation on booking + payment) also go through Africa's
+> Talking — they start sending once §2's AT live keys are set.
+
+---
+
+## 8. Still to come (future phases — not blocking launch)
 
 - **Payout to farmers on delivery** + escrow hold (needs your commission % and Flutterwave payouts).
 - **Pesapal / MTN direct** payment options (wired into the router; completed against their sandboxes).
