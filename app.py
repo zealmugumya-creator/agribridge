@@ -27,7 +27,6 @@ except ImportError:
 app = Flask(__name__)
 CORS(app, resources={r"/api/*": {"origins": [
     "https://agribrige.com", "https://www.agribrige.com",
-    "https://agribridge.com", "https://www.agribridge.com",
     "https://agribridge-1-og7a.onrender.com",
     "http://localhost:3000", "http://127.0.0.1:3000",
 ]}})
@@ -49,7 +48,7 @@ FLW_WEBHOOK_HASH = os.environ.get('FLW_WEBHOOK_HASH', '')  # must match the hash
 PESAPAL_KEY      = os.environ.get('PESAPAL_CONSUMER_KEY',    '')
 PESAPAL_SECRET   = os.environ.get('PESAPAL_CONSUMER_SECRET', '')
 MTN_MOMO_KEY     = os.environ.get('MTN_MOMO_SUBSCRIPTION_KEY', '')
-PUBLIC_BASE_URL  = os.environ.get('PUBLIC_BASE_URL', 'https://agribridge.com')
+PUBLIC_BASE_URL  = os.environ.get('PUBLIC_BASE_URL', 'https://agribrige.com')
 
 at_sms = None
 if AT_AVAILABLE and AT_API_KEY and AT_API_KEY != 'atsk_REPLACE_ME':
@@ -290,7 +289,7 @@ def ussd_route(parts, depth, last, session_id, phone):
                 f"Retail:    UGX {fmt(rt)}/{unit}\n\n"
                 f"Updated: Today 08:00\n"
                 f"Source: AgriBridge Markets\n"
-                f"More: agribridge.com"
+                f"More: agribrige.com"
             )
 
     # ── 2. ANIMAL PRICES ──────────────────────────────────────────────────────
@@ -316,7 +315,7 @@ def ussd_route(parts, depth, last, session_id, phone):
                 f"Max: UGX {fmt(mx)}/{unit}\n\n"
                 f"Source: AgriBridge Livestock\n"
                 f"Updated: Today\n\n"
-                f"Buy/sell: agribridge.com\n"
+                f"Buy/sell: agribrige.com\n"
                 f"Call: +256 755 966 690"
             )
 
@@ -340,7 +339,7 @@ def ussd_route(parts, depth, last, session_id, phone):
                     "Call: +256 755 966 690\n"
                     "WhatsApp: +256 755 966 690\n"
                     "Email: orders@agribridge.ug\n"
-                    "Web: agribridge.com/bulk\n\n"
+                    "Web: agribrige.com/bulk\n\n"
                     "Farm-to-door within 24hrs"
                 )
             if last == '4':
@@ -354,7 +353,7 @@ def ussd_route(parts, depth, last, session_id, phone):
                 )
             return (
                 "END Browse all listings:\n"
-                "agribridge.com\n\n"
+                "agribrige.com\n\n"
                 "Or call us:\n"
                 "+256 755 966 690\n"
                 "Mon-Sat 7am-8pm"
@@ -446,7 +445,7 @@ def ussd_route(parts, depth, last, session_id, phone):
                         message=(
                             f"AgriBridge: Listing posted!\n"
                             f"{qty}kg {crop} @ UGX {price}/kg.\n"
-                            f"Buyers will contact you. agribridge.com"
+                            f"Buyers will contact you. agribrige.com"
                         ),
                         recipients=[phone],
                         sender_id=AT_SMS_SENDER
@@ -489,7 +488,7 @@ def ussd_route(parts, depth, last, session_id, phone):
                     "Add sulfur to lower pH.\n\n"
                     "Season A: Plant Mar-Apr\n"
                     "Season B: Plant Aug-Sep\n\n"
-                    "More: agribridge.com/training"
+                    "More: agribrige.com/training"
                 ),
                 '2': (
                     "END PEST ALERT - 2026\n\n"
@@ -539,7 +538,7 @@ def ussd_route(parts, depth, last, session_id, phone):
                     "Fever 39-41C, swollen\n"
                     "lymph nodes, not eating.\n\n"
                     "ACT FAST - call vet!\n"
-                    "Book: agribridge.com/vet"
+                    "Book: agribrige.com/vet"
                 ),
             }
             return tips.get(last, "END Invalid option.\nDial *789# to retry.")
@@ -584,7 +583,7 @@ def ussd_route(parts, depth, last, session_id, phone):
                     "ECF - Central/Western UG\n"
                     "FMD - sporadic outbreaks\n"
                     "NCD (chickens) - reported\n\n"
-                    "Full info: agribridge.com"
+                    "Full info: agribrige.com"
                 )
             if last == '4':
                 return (
@@ -596,7 +595,7 @@ def ussd_route(parts, depth, last, session_id, phone):
                     "Vaccination: from 5,000\n"
                     "Disease testing available\n"
                     "MAAIF certificates\n\n"
-                    "Book: agribridge.com/vet"
+                    "Book: agribrige.com/vet"
                 )
         if depth == 3:
             if parts[1] == '1':
@@ -651,7 +650,7 @@ def ussd_route(parts, depth, last, session_id, phone):
                         "Fix: Apply CAN fertilizer\n"
                         "150kg/ha. Control\n"
                         "leafhopper insects.\n\n"
-                        "More: agribridge.com"
+                        "More: agribrige.com"
                     ),
                     '2': (
                         f"END {crop.upper()} - Brown Spots\n\n"
@@ -659,7 +658,7 @@ def ussd_route(parts, depth, last, session_id, phone):
                         "Fix: Spray Mancozeb 80WP\n"
                         "40g per 20L water\n"
                         "every 10-14 days.\n\n"
-                        "More: agribridge.com"
+                        "More: agribrige.com"
                     ),
                     '3': (
                         f"END {crop.upper()} - Wilting\n\n"
@@ -676,7 +675,7 @@ def ussd_route(parts, depth, last, session_id, phone):
                         "Fix: Spray sulphur-based\n"
                         "fungicide. Improve air\n"
                         "circulation.\n\n"
-                        "More: agribridge.com"
+                        "More: agribrige.com"
                     ),
                     '5': (
                         f"END {crop.upper()} - Pest Damage\n\n"
@@ -685,7 +684,7 @@ def ussd_route(parts, depth, last, session_id, phone):
                         "200ml per 20L water.\n"
                         "Spray into whorl at dusk.\n"
                         "Repeat after 7 days.\n\n"
-                        "More: agribridge.com"
+                        "More: agribrige.com"
                     ),
                     '6': (
                         f"END {crop.upper()} - Rotting\n\n"
@@ -704,13 +703,13 @@ def ussd_route(parts, depth, last, session_id, phone):
                         "Apply NPK fertilizer.\n"
                         "For CMD: plant resistant\n"
                         "varieties (NAROCAS 1).\n\n"
-                        "More: agribridge.com"
+                        "More: agribrige.com"
                     ),
                 }
                 USSD_SESSIONS.pop(session_id, None)
                 return diagnoses.get(last, (
                     "END For detailed diagnosis\n"
-                    "visit: agribridge.com\n\n"
+                    "visit: agribrige.com\n\n"
                     "Call: +256 755 966 690\n"
                     "Mon-Sat 7am-8pm"
                 ))
@@ -735,7 +734,7 @@ def ussd_route(parts, depth, last, session_id, phone):
                         "Normal cattle: 38.5C\n"
                         "If above 39C: call vet\n\n"
                         "Call: +256 755 966 690\n"
-                        "Book: agribridge.com/vet"
+                        "Book: agribrige.com/vet"
                     ),
                     '3': (
                         f"END {animal.upper()} - Diarrhoea\n\n"
@@ -784,7 +783,7 @@ def ussd_route(parts, depth, last, session_id, phone):
                 USSD_SESSIONS.pop(session_id, None)
                 return diagnoses.get(last, (
                     "END For detailed diagnosis\n"
-                    "visit: agribridge.com\n\n"
+                    "visit: agribrige.com\n\n"
                     "Emergency vet:\n"
                     "+256 755 966 690 (24/7)"
                 ))
@@ -812,7 +811,7 @@ def ussd_route(parts, depth, last, session_id, phone):
                 f"END Register as {role}\n\n"
                 f"Your number: {phone}\n\n"
                 "OPTION 1 - Website:\n"
-                "agribridge.com -> Join Free\n\n"
+                "agribrige.com -> Join Free\n\n"
                 "OPTION 2 - SMS:\n"
                 "Send: REG [Name] [District]\n"
                 "To: 789\n\n"
@@ -843,7 +842,7 @@ def ussd_route(parts, depth, last, session_id, phone):
                     "+256 755 966 690\n\n"
                     "Email:\n"
                     "hello@agribridge.ug\n\n"
-                    "Website: agribridge.com\n\n"
+                    "Website: agribrige.com\n\n"
                     "Hours: Mon-Sat 7am-8pm\n"
                     "Emergency vet: 24/7"
                 )
@@ -857,7 +856,7 @@ def ussd_route(parts, depth, last, session_id, phone):
                     "zero middlemen.\n\n"
                     "Crops AND Animals.\n"
                     "Works on ANY phone.\n\n"
-                    "agribridge.com"
+                    "agribrige.com"
                 )
             if last == '3':
                 return (
@@ -883,11 +882,11 @@ def ussd_route(parts, depth, last, session_id, phone):
                         f"UGX{int(l.get('price_per_kg', 0)):,}"
                         for l in listings[:3]
                     )
-                    return f"END Your Listings:\n\n{lines}\n\nManage: agribridge.com"
+                    return f"END Your Listings:\n\n{lines}\n\nManage: agribrige.com"
                 return (
                     "END No listings found.\n\n"
                     "List produce free:\n"
-                    "agribridge.com\n"
+                    "agribrige.com\n"
                     "Or dial back & choose 4"
                 )
             if last == '2':
@@ -902,11 +901,11 @@ def ussd_route(parts, depth, last, session_id, phone):
                         f"{o.get('status', 'pending').upper()}"
                         for o in orders[:3]
                     )
-                    return f"END Your Recent Orders:\n\n{lines}\n\nTrack: agribridge.com"
+                    return f"END Your Recent Orders:\n\n{lines}\n\nTrack: agribrige.com"
                 return (
                     "END No orders found.\n\n"
                     "Browse marketplace:\n"
-                    "agribridge.com\n"
+                    "agribrige.com\n"
                     "Or call: +256 755 966 690"
                 )
 
@@ -916,7 +915,7 @@ def ussd_route(parts, depth, last, session_id, phone):
         "Dial *789# to start again.\n\n"
         "Need help?\n"
         "Call: +256 755 966 690\n"
-        "Web: agribridge.com"
+        "Web: agribrige.com"
     )
 
 
@@ -1127,7 +1126,7 @@ def notify_order():
     try:
         at_sms.send(
             message=(f"AgriBridge: New order!\n{qty} {item}. "
-                     f"Log in to confirm: agribridge.com"),
+                     f"Log in to confirm: agribrige.com"),
             recipients=[phone],
             sender_id=AT_SMS_SENDER,
         )
@@ -1145,7 +1144,7 @@ def _sms_receipt(phone, ref, total, kind='order'):
         head = 'Payment received' if kind == 'payment' else 'Order confirmed'
         msg = (f"AgriBridge: {head}!\n"
                f"Ref {ref}. Total UGX {int(total or 0):,}.\n"
-               f"Track at agribridge.com")
+               f"Track at agribrige.com")
         at_sms.send(message=msg, recipients=[phone], sender_id=AT_SMS_SENDER)
         return True
     except Exception as e:
@@ -1225,7 +1224,7 @@ def _flw_initiate(order_ref, amount, email, phone):
                 'amount':       str(amount),
                 'currency':     'UGX',
                 'redirect_url': PUBLIC_BASE_URL + '/?pay=done',
-                'customer':     {'email': email or 'buyer@agribridge.com', 'phonenumber': phone},
+                'customer':     {'email': email or 'buyer@agribrige.com', 'phonenumber': phone},
                 'customizations': {'title': 'AgriBridge', 'description': 'Order ' + order_ref},
                 'payment_options': 'mobilemoneyuganda,card',
             },

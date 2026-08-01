@@ -37,7 +37,7 @@ Service **agribridge-1** → **Environment** tab → add/confirm each, then "Sav
 **Payments — Flutterwave (only when you're ready to accept online money):**
 - `FLW_SECRET_KEY` = Flutterwave → Settings → API Keys → Secret Key
 - `FLW_WEBHOOK_HASH` = any secret string you invent (also paste it in Flutterwave, see §5)
-- `PUBLIC_BASE_URL` = https://agribridge.com
+- `PUBLIC_BASE_URL` = https://agribrige.com
 
 > Leave the Flutterwave vars empty to keep online payments OFF. With them empty,
 > checkout uses Cash on Delivery / pay-farmer-direct exactly as today.
@@ -105,7 +105,7 @@ payment webhook, both automatically.
 
 ## 7. Admin dashboard
 
-A private admin panel is live at **https://agribridge.com/admin.html**.
+A private admin panel is live at **https://agribrige.com/admin.html**.
 
 - Log in with your **admin password** = the `ADMIN_PASSWORD` env var in Render.
 - **⚠️ Change it now:** it defaults to `agribridge2026`. In Render → `agribridge-1` →

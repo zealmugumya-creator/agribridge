@@ -4,7 +4,7 @@ Farm-to-table agri-tech platform connecting Ugandan smallholder farmers directly
 buyers — crops **and** livestock — with live market prices, an AI crop/animal doctor,
 delivery tracking, reviews, mobile-money payments, and USSD access for basic phones.
 
-- **Live site:** https://agribridge.com
+- **Live site:** https://agribrige.com
 - **Backend API:** https://agribridge-1-og7a.onrender.com
 - **USSD:** `*789#`
 
