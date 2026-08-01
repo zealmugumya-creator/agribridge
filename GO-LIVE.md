@@ -84,7 +84,26 @@ Runs automatically every Sunday. Restore instructions are in
 
 ---
 
-## 6. Still to come (future phases — not blocking launch)
+## 6. Email receipts (Resend) — optional
+
+Booking + payment confirmation emails are sent by the Supabase Edge Function
+`send-receipt`. It's a **safe no-op until you add an email key** — no emails send,
+nothing breaks. To turn it on:
+
+1. Create a free account at **resend.com** and verify a sending domain (or use their
+   test sender to start).
+2. Copy your **API key**.
+3. Supabase dashboard → **Edge Functions** → **Manage secrets** (or Project Settings →
+   Edge Functions → Secrets) → add:
+   - `RESEND_API_KEY` = your Resend key
+   - `RESEND_FROM` = e.g. `AgriBridge <orders@yourdomain.com>` (must be a verified sender)
+
+That's it — booking emails send from the web app, payment receipts send from the
+payment webhook, both automatically.
+
+---
+
+## 7. Still to come (future phases — not blocking launch)
 
 - **Payout to farmers on delivery** + escrow hold (needs your commission % and Flutterwave payouts).
 - **Pesapal / MTN direct** payment options (wired into the router; completed against their sandboxes).
@@ -93,3 +112,4 @@ Runs automatically every Sunday. Restore instructions are in
 
 _Health check any time:_ `https://agribridge-1-og7a.onrender.com/` should return **200**.
 _Payment status:_ `https://agribridge-1-og7a.onrender.com/api/pay/providers` shows which methods are live.
+_Email status:_ receipts send only once `RESEND_API_KEY` is set (see §6); otherwise a safe no-op.

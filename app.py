@@ -1233,9 +1233,47 @@ def pay_webhook_flw():
                 # Mark every order row of this checkout paid (they share payment_ref).
                 # Idempotent: re-running just re-sets 'paid'; the match key is stable.
                 supa_update('orders', {'payment_status': 'paid'}, 'payment_ref', tx_ref)
+                _send_payment_receipt(tx_ref)
         except Exception as e:
             print(f"flw verify error: {e}")
     return jsonify({'status': 'ok'}), 200
+
+
+def _send_payment_receipt(payment_ref):
+    """Look up the paid order's buyer + items and email a receipt via the
+    send-receipt Edge Function. Best-effort; never raises to the webhook."""
+    try:
+        orows = supa_get('orders', filters={
+            'payment_ref': f'eq.{payment_ref}',
+            'select': 'buyer_id,quantity_kg,price_per_kg,total_price,tracking_code,notes',
+        })
+        if not orows:
+            return
+        buyer_id = orows[0].get('buyer_id')
+        total = sum(float(o.get('total_price') or 0) for o in orows)
+        tracking = orows[0].get('tracking_code') or ''
+        email, name = '', 'there'
+        if buyer_id:
+            frows = supa_get('farmers', filters={'id': f'eq.{buyer_id}', 'select': 'email,full_name'}, limit=1)
+            if frows:
+                email = frows[0].get('email') or ''
+                name = frows[0].get('full_name') or 'there'
+        if not email:
+            return
+        items = [{
+            'name': ((o.get('notes') or '').split('Item:')[-1].strip() or 'Order'),
+            'qty': o.get('quantity_kg'),
+            'price': o.get('price_per_kg'),
+        } for o in orows]
+        requests.post(
+            SUPABASE_URL + '/functions/v1/send-receipt',
+            headers={'Authorization': f'Bearer {SUPABASE_KEY}', 'Content-Type': 'application/json'},
+            json={'type': 'payment', 'email': email, 'name': name, 'ref': payment_ref,
+                  'total': total, 'tracking': tracking, 'items': items},
+            timeout=15,
+        )
+    except Exception as e:
+        print(f"payment receipt email error: {e}")
 
 
 # ══════════════════════════════════════════════════════════════════════════════

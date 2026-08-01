@@ -2174,6 +2174,18 @@ async function getEnabledProviders(){
   if(window._payProviders) return window._payProviders;
   try{ const r=await fetch(USSD_API+'/api/pay/providers'); const j=await r.json(); window._payProviders=(j&&j.providers)||{}; return window._payProviders; }catch(e){ return {}; }
 }
+// Best-effort receipt/confirmation email via the Supabase Edge Function
+// (safe no-op until an email provider key is set). Never blocks the order.
+function sendReceiptEmail(payload){
+  if(!payload || !payload.email) return;
+  try{
+    fetch(SUPA_URL+'/functions/v1/send-receipt', {
+      method:'POST',
+      headers:{ 'Content-Type':'application/json', 'apikey':SUPA_KEY, 'Authorization':'Bearer '+(_authToken||SUPA_KEY) },
+      body:JSON.stringify(payload)
+    }).catch(function(){});
+  }catch(e){}
+}
 // Start an online payment; returns a hosted-payment link, or null to fall back.
 async function startOnlinePayment(ref, amount){
   try{
@@ -2230,6 +2242,7 @@ async function placeOrder() {
   const saved = JSON.parse(localStorage.getItem('ab_orders')||'[]');
   saved.unshift({ ref, track, date:new Date().toISOString(), items:basketItems.map(i=>({name:i.name,qty:i.qty,price:i.price})), total, addr, payment:selectedPayMethod, status:'confirmed' });
   localStorage.setItem('ab_orders', JSON.stringify(saved.slice(0,20)));
+  sendReceiptEmail({ type:'booking', email:currentUser?.email, name:currentUser?.name, ref, total, tracking:track, items:basketItems.map(i=>({name:i.name,qty:i.qty,price:i.price})) });
   // If an online gateway is live and the buyer chose an online method, send them
   // to pay. When no gateway is configured this returns null and we fall back to
   // the normal (cash / pay-farmer-direct) confirmation below — live flow unchanged.
@@ -2843,6 +2856,7 @@ async function submitOrder() {
   const result=await sbInsert('orders',{ listing_id:currentListingId, farmer_id:listing?.farmer_id||null, buyer_id:currentUser?.supaId||null, buyer_phone:currentUser?.phone||null, quantity_kg:qty, price_per_kg:listing?.price_per_kg||0, total_price:qty*(listing?.price_per_kg||0), delivery_address:addr, payment_method:pay, status:'pending', payment_status:'unpaid', payment_ref:ref, tracking_code:track });
   if(result){
     notifyFarmer(listing?.farmer_id, listing?.crop_name, qty);
+    sendReceiptEmail({ type:'booking', email:currentUser?.email, name:currentUser?.name, ref, total:qty*(listing?.price_per_kg||0), tracking:track, items:[{name:listing?.crop_name||'Order', qty:qty, price:listing?.price_per_kg||0}] });
     if(pay && pay!=='cash'){ const link=await startOnlinePayment(ref, qty*(listing?.price_per_kg||0)); if(link){ closeModal('orderModal'); showToast('Redirecting to secure payment…'); window.location.href=link; return; } }
     closeModal('orderModal'); showToast('Order placed! Track: '+track+' ✅ Farmer will confirm');
   }
