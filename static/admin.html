@@ -8,81 +8,115 @@
 <style>
   :root{--bg:#0f1310;--bg2:#171c18;--bg3:#1e2620;--border:#2c352b;--text:#e8efe8;--text2:#9fb0a2;--green:#2ecc71;--green-dim:#123821;--amber:#f0a020;--red:#e05555}
   *{box-sizing:border-box;margin:0;padding:0}
-  body{font-family:-apple-system,Segoe UI,Roboto,Arial,sans-serif;background:var(--bg);color:var(--text);line-height:1.5;padding:0}
+  body{font-family:-apple-system,Segoe UI,Roboto,Arial,sans-serif;background:var(--bg);color:var(--text);line-height:1.5}
   a{color:var(--green)}
-  .wrap{max-width:1100px;margin:0 auto;padding:20px}
-  header{display:flex;align-items:center;justify-content:space-between;padding:16px 20px;background:var(--bg2);border-bottom:1px solid var(--border)}
+  .wrap{max-width:1150px;margin:0 auto;padding:20px}
+  header{display:flex;align-items:center;justify-content:space-between;padding:16px 20px;background:var(--bg2);border-bottom:1px solid var(--border);flex-wrap:wrap;gap:8px}
   header h1{font-size:1.1rem;font-weight:800}
   header .sub{color:var(--text2);font-size:.8rem}
   button{font-family:inherit;cursor:pointer;border:none;border-radius:8px;font-weight:700}
   .btn{background:var(--green);color:#04210f;padding:10px 16px}
   .btn.ghost{background:transparent;border:1px solid var(--border);color:var(--text2);padding:8px 12px}
+  .btn.amber{background:var(--amber);color:#3a2600}
+  .btn.red{background:transparent;border:1px solid var(--red);color:var(--red)}
   .btn.sm{padding:5px 10px;font-size:.78rem}
-  input,select{font-family:inherit;background:var(--bg3);border:1px solid var(--border);color:var(--text);border-radius:8px;padding:10px 12px;width:100%;font-size:.95rem}
+  input,select,textarea{font-family:inherit;background:var(--bg3);border:1px solid var(--border);color:var(--text);border-radius:8px;padding:10px 12px;width:100%;font-size:.95rem}
+  label{display:block;font-size:.8rem;color:var(--text2);margin:10px 0 4px}
   .card{background:var(--bg2);border:1px solid var(--border);border-radius:12px;padding:18px;margin-bottom:16px}
-  /* login */
   #login{max-width:380px;margin:8vh auto}
   #login h2{font-size:1.3rem;margin-bottom:6px}
   #login p{color:var(--text2);font-size:.85rem;margin-bottom:18px}
-  .field{margin-bottom:12px}
   .err{color:var(--red);font-size:.85rem;min-height:1.2em;margin-top:8px}
-  /* stats */
-  .stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:12px;margin-bottom:18px}
+  .stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:12px;margin-bottom:18px}
   .stat{background:var(--bg2);border:1px solid var(--border);border-radius:12px;padding:16px}
-  .stat .n{font-size:1.6rem;font-weight:800;color:var(--green)}
-  .stat .l{color:var(--text2);font-size:.78rem;text-transform:uppercase;letter-spacing:.03em}
-  /* tabs */
+  .stat .n{font-size:1.5rem;font-weight:800;color:var(--green)}
+  .stat .l{color:var(--text2);font-size:.74rem;text-transform:uppercase;letter-spacing:.03em}
   .tabs{display:flex;gap:8px;margin-bottom:14px;flex-wrap:wrap}
   .tab{background:var(--bg3);color:var(--text2);padding:8px 14px;border-radius:20px;font-size:.85rem}
   .tab.active{background:var(--green-dim);color:var(--green)}
-  /* table */
+  .toolbar{display:flex;justify-content:space-between;align-items:center;gap:10px;margin-bottom:12px;flex-wrap:wrap}
+  .toolbar input{max-width:260px}
   .tblwrap{overflow-x:auto}
-  table{width:100%;border-collapse:collapse;font-size:.85rem;min-width:560px}
-  th,td{text-align:left;padding:10px 8px;border-bottom:1px solid var(--border);white-space:nowrap}
+  table{width:100%;border-collapse:collapse;font-size:.85rem;min-width:640px}
+  th,td{text-align:left;padding:10px 8px;border-bottom:1px solid var(--border);vertical-align:middle}
   th{color:var(--text2);font-weight:700;font-size:.72rem;text-transform:uppercase}
+  td .thumb{width:44px;height:44px;border-radius:8px;object-fit:cover;background:var(--bg3)}
   .badge{display:inline-block;padding:2px 9px;border-radius:999px;font-size:.72rem;font-weight:700;text-transform:capitalize;background:var(--bg3);color:var(--text2)}
   .badge.pending{background:rgba(240,180,40,.15);color:#e0a91e}
   .badge.confirmed{background:rgba(70,140,240,.15);color:#5b9bff}
   .badge.in_transit{background:rgba(120,110,240,.15);color:#8f86ff}
-  .badge.delivered{background:rgba(40,190,110,.15);color:var(--green)}
-  .badge.cancelled{background:rgba(224,85,85,.15);color:var(--red)}
+  .badge.delivered,.badge.available,.badge.paid{background:rgba(40,190,110,.15);color:var(--green)}
+  .badge.cancelled,.badge.failed,.badge.sold{background:rgba(224,85,85,.15);color:var(--red)}
   .muted{color:var(--text2)}
   .hidden{display:none}
   .loading{color:var(--text2);padding:20px;text-align:center}
+  .rowbtns{display:flex;gap:6px;white-space:nowrap}
+  /* modal */
+  .overlay{position:fixed;inset:0;background:rgba(0,0,0,.6);display:none;align-items:flex-start;justify-content:center;padding:24px;z-index:100;overflow-y:auto}
+  .overlay.open{display:flex}
+  .modal{background:var(--bg2);border:1px solid var(--border);border-radius:14px;padding:20px;width:100%;max-width:520px;margin-top:2vh}
+  .modal h3{font-size:1.1rem;margin-bottom:4px}
+  .modal .close{float:right;background:none;color:var(--text2);font-size:1.2rem}
+  .media-preview{margin-top:6px}
+  .media-preview img,.media-preview video{max-width:100%;max-height:160px;border-radius:8px}
+  .savebar{display:flex;gap:8px;margin-top:16px}
+  .up-status{font-size:.75rem;color:var(--text2);margin-top:4px}
 </style>
 </head>
 <body>
 
-<!-- LOGIN -->
 <div id="login" class="card">
   <h2>🌾 AgriBridge Admin</h2>
   <p>Enter the admin password to continue.</p>
-  <div class="field"><input type="password" id="pwd" placeholder="Admin password" autocomplete="current-password" onkeydown="if(event.key==='Enter')doLogin()"></div>
-  <button class="btn" style="width:100%" onclick="doLogin()">Log In</button>
+  <input type="password" id="pwd" placeholder="Admin password" autocomplete="current-password" onkeydown="if(event.key==='Enter')doLogin()">
+  <button class="btn" style="width:100%;margin-top:12px" onclick="doLogin()">Log In</button>
   <div class="err" id="loginErr"></div>
 </div>
 
-<!-- DASHBOARD -->
 <div id="dash" class="hidden">
   <header>
-    <div><h1>🌾 AgriBridge Admin</h1><div class="sub" id="who">Signed in</div></div>
+    <div><h1>🌾 AgriBridge Admin</h1><div class="sub">Full management console</div></div>
     <div style="display:flex;gap:8px"><button class="btn ghost sm" onclick="refreshAll()">↻ Refresh</button><button class="btn ghost sm" onclick="logout()">Log out</button></div>
   </header>
   <div class="wrap">
     <div class="stats" id="stats"></div>
     <div class="tabs">
-      <div class="tab active" data-tab="orders" onclick="showTab('orders',this)">Orders</div>
-      <div class="tab" data-tab="farmers" onclick="showTab('farmers',this)">Users</div>
-      <div class="tab" data-tab="listings" onclick="showTab('listings',this)">Listings</div>
+      <div class="tab active" data-tab="orders"   onclick="showTab('orders',this)">Orders</div>
+      <div class="tab" data-tab="listings" onclick="showTab('listings',this)">Crop Listings</div>
+      <div class="tab" data-tab="animals"  onclick="showTab('animals',this)">Animals</div>
+      <div class="tab" data-tab="farmers"  onclick="showTab('farmers',this)">Users</div>
     </div>
-    <div class="card"><div id="panel" class="tblwrap"><div class="loading">Loading…</div></div></div>
+    <div class="card">
+      <div class="toolbar">
+        <input id="search" placeholder="Filter…" oninput="renderCurrent()">
+        <button class="btn sm amber" id="addBtn" onclick="openCreate()">+ Add</button>
+      </div>
+      <div id="panel" class="tblwrap"><div class="loading">Loading…</div></div>
+    </div>
+  </div>
+</div>
+
+<!-- Edit / create modal -->
+<div class="overlay" id="editOverlay">
+  <div class="modal">
+    <button class="close" onclick="closeEdit()">✕</button>
+    <h3 id="editTitle">Edit</h3>
+    <div id="editFields"></div>
+    <div class="savebar">
+      <button class="btn" style="flex:1" id="saveBtn" onclick="saveEdit()">Save</button>
+    </div>
+    <div class="err" id="editErr"></div>
   </div>
 </div>
 
 <script>
   var API = 'https://agribridge-1-og7a.onrender.com';
+  var SUPA_URL = 'https://vyrctsiyaihsysgpozdm.supabase.co';
+  var SUPA_KEY = 'sb_publishable_gIo704Cn8Kf7IAK3CReEGg_ZD_LJq6k';
   var TOKEN = sessionStorage.getItem('ab_admin_token') || '';
   var currentTab = 'orders';
+  var DATA = { orders:[], listings:[], animals:[], farmers:[] };
+  var editState = null; // {table, id, isNew}
 
   function h(s){return String(s==null?'':s).replace(/[<>&"]/g,function(c){return {'<':'&lt;','>':'&gt;','&':'&amp;','"':'&quot;'}[c];});}
   function fmt(n){return 'UGX '+(Number(n)||0).toLocaleString('en-UG');}
@@ -92,109 +126,222 @@
     return fetch(API+path, opts).then(function(r){ if(r.status===401){ logout(); throw new Error('unauthorized'); } return r.json().catch(function(){return null;}); });
   }
 
+  // ── Field definitions per table ─────────────────────────────────
+  var FIELDS = {
+    listings: [
+      {k:'crop_name',label:'Crop name',t:'text'},
+      {k:'category',label:'Category',t:'select',opts:['staples','vegetables','fruits','cash crops']},
+      {k:'price_per_kg',label:'Price (UGX/kg)',t:'number'},
+      {k:'quantity_kg',label:'Quantity (kg)',t:'number'},
+      {k:'unit',label:'Unit',t:'text'},
+      {k:'district',label:'District',t:'text'},
+      {k:'description',label:'Description',t:'textarea'},
+      {k:'discount_pct',label:'Discount %',t:'number'},
+      {k:'is_available',label:'Available (shown in market)',t:'check'},
+      {k:'is_organic',label:'Organic',t:'check'},
+      {k:'is_verified',label:'Verified',t:'check'},
+      {k:'farmer_name',label:'Seller name',t:'text'},
+      {k:'farmer_phone',label:'Seller phone',t:'text'},
+      {k:'image_url',label:'Photo',t:'image'},
+      {k:'video_url',label:'Video',t:'video'}
+    ],
+    animal_listings: [
+      {k:'name',label:'Animal / listing name',t:'text'},
+      {k:'species',label:'Species',t:'text'},
+      {k:'category',label:'Category',t:'select',opts:['livestock','poultry','dairy','aqua','apiary','pigs']},
+      {k:'price',label:'Price (UGX)',t:'number'},
+      {k:'qty',label:'Quantity available',t:'number'},
+      {k:'unit',label:'Unit',t:'text'},
+      {k:'district',label:'District',t:'text'},
+      {k:'description',label:'Description',t:'textarea'},
+      {k:'status',label:'Status',t:'select',opts:['available','sold','hidden']},
+      {k:'health_cert',label:'Health certificate',t:'check'},
+      {k:'maaif_certified',label:'MAAIF certified',t:'check'},
+      {k:'farmer_name',label:'Seller name',t:'text'},
+      {k:'farmer_phone',label:'Seller phone',t:'text'},
+      {k:'image_url',label:'Photo',t:'image'},
+      {k:'video_url',label:'Video',t:'video'}
+    ],
+    farmers: [
+      {k:'full_name',label:'Name',t:'text'},
+      {k:'phone',label:'Phone',t:'text'},
+      {k:'email',label:'Email',t:'text'},
+      {k:'district',label:'District',t:'text'},
+      {k:'is_verified',label:'Verified',t:'check'},
+      {k:'is_premium',label:'Premium',t:'check'}
+    ],
+    orders: [
+      {k:'status',label:'Order status',t:'select',opts:['pending','confirmed','in_transit','delivered','cancelled']},
+      {k:'payment_status',label:'Payment status',t:'select',opts:['unpaid','paid']},
+      {k:'delivery_address',label:'Delivery address',t:'text'},
+      {k:'notes',label:'Notes',t:'textarea'}
+    ]
+  };
+  var TABLE_OF = { orders:'orders', listings:'listings', animals:'animal_listings', farmers:'farmers' };
+
+  // ── Auth ────────────────────────────────────────────────────────
   async function doLogin(){
-    var pwd = document.getElementById('pwd').value;
-    var errEl = document.getElementById('loginErr');
-    errEl.textContent = '';
-    if(!pwd){ errEl.textContent='Enter the password.'; return; }
+    var pwd=document.getElementById('pwd').value, e=document.getElementById('loginErr'); e.textContent='';
+    if(!pwd){ e.textContent='Enter the password.'; return; }
     try{
-      var res = await fetch(API+'/api/admin/login',{ method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({password:pwd}) });
-      var j = await res.json().catch(function(){return null;});
-      if(res.ok && j && j.token){
-        TOKEN = j.token; sessionStorage.setItem('ab_admin_token', TOKEN);
-        showDash();
-      } else {
-        errEl.textContent = (j && j.error) ? j.error : 'Login failed.';
-      }
-    }catch(e){ errEl.textContent = 'Could not reach the server. Try again in ~30s (it may be waking up).'; }
+      var res=await fetch(API+'/api/admin/login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({password:pwd})});
+      var j=await res.json().catch(function(){return null;});
+      if(res.ok&&j&&j.token){ TOKEN=j.token; sessionStorage.setItem('ab_admin_token',TOKEN); showDash(); }
+      else e.textContent=(j&&j.error)?j.error:'Login failed.';
+    }catch(err){ e.textContent='Could not reach the server. Wait ~30s (it may be waking up) and retry.'; }
   }
+  function showDash(){ document.getElementById('login').classList.add('hidden'); document.getElementById('dash').classList.remove('hidden'); refreshAll(); }
+  function logout(){ TOKEN=''; sessionStorage.removeItem('ab_admin_token'); document.getElementById('dash').classList.add('hidden'); document.getElementById('login').classList.remove('hidden'); }
 
-  function showDash(){
-    document.getElementById('login').classList.add('hidden');
-    document.getElementById('dash').classList.remove('hidden');
-    refreshAll();
-  }
-  function logout(){
-    TOKEN=''; sessionStorage.removeItem('ab_admin_token');
-    document.getElementById('dash').classList.add('hidden');
-    document.getElementById('login').classList.remove('hidden');
-  }
-
-  async function refreshAll(){ await loadStats(); await loadTab(currentTab); }
+  async function refreshAll(){ await loadStats(); await Promise.all([load('orders'),load('listings'),load('animals'),load('farmers')]); renderCurrent(); }
 
   async function loadStats(){
-    var el = document.getElementById('stats');
     try{
-      var s = await api('/api/admin/stats');
-      if(!s){ el.innerHTML=''; return; }
-      var cards = [['Users',s.farmers],['Listings',s.listings],['Animals',s.animals],['Orders',s.orders],['Paid revenue',fmt(s.revenue_ugx)]];
-      el.innerHTML = cards.map(function(c){ return '<div class="stat"><div class="n">'+(typeof c[1]==='number'?c[1]:h(c[1]))+'</div><div class="l">'+c[0]+'</div></div>'; }).join('');
-    }catch(e){ /* handled */ }
+      var s=await api('/api/admin/stats'); if(!s) return;
+      var cards=[['Users',s.farmers],['Crop listings',s.listings],['Animals',s.animals],['Orders',s.orders],['Paid revenue',fmt(s.revenue_ugx)]];
+      document.getElementById('stats').innerHTML=cards.map(function(c){return '<div class="stat"><div class="n">'+(typeof c[1]==='number'?c[1]:h(c[1]))+'</div><div class="l">'+c[0]+'</div></div>';}).join('');
+    }catch(e){}
+  }
+  async function load(tab){
+    var path = tab==='orders'?'/api/admin/orders':tab==='listings'?'/api/admin/listings':tab==='animals'?'/api/admin/animals':'/api/admin/farmers';
+    try{ var rows=await api(path); DATA[tab]=Array.isArray(rows)?rows:[]; }catch(e){ DATA[tab]=[]; }
   }
 
-  function showTab(t, node){
-    currentTab = t;
-    document.querySelectorAll('.tab').forEach(function(x){x.classList.remove('active');});
-    if(node) node.classList.add('active');
-    loadTab(t);
+  function showTab(t,node){ currentTab=t; document.querySelectorAll('.tab').forEach(function(x){x.classList.remove('active');}); if(node)node.classList.add('active'); document.getElementById('search').value=''; document.getElementById('addBtn').style.display=(t==='orders')?'none':'inline-block'; renderCurrent(); }
+
+  function match(row,q){ if(!q)return true; q=q.toLowerCase(); return JSON.stringify(row).toLowerCase().indexOf(q)>-1; }
+
+  function renderCurrent(){
+    var q=document.getElementById('search').value;
+    var rows=(DATA[currentTab]||[]).filter(function(r){return match(r,q);});
+    if(currentTab==='orders')   return renderOrders(rows);
+    if(currentTab==='listings') return renderListings(rows);
+    if(currentTab==='animals')  return renderAnimals(rows);
+    if(currentTab==='farmers')  return renderFarmers(rows);
   }
 
-  async function loadTab(t){
-    var panel = document.getElementById('panel');
-    panel.innerHTML = '<div class="loading">Loading…</div>';
-    try{
-      if(t==='orders')   return renderOrders(await api('/api/admin/orders'));
-      if(t==='farmers')  return renderFarmers(await api('/api/admin/farmers'));
-      if(t==='listings') return renderListings(await api('/api/admin/listings'));
-    }catch(e){ panel.innerHTML = '<div class="loading">Could not load.</div>'; }
+  function actionsCell(tab,id){
+    var edit='<button class="btn sm ghost" onclick="openEdit(\''+tab+'\',\''+h(id)+'\')">Edit</button>';
+    var del = tab==='orders' ? '' : '<button class="btn sm red" onclick="delRow(\''+tab+'\',\''+h(id)+'\')">Delete</button>';
+    return '<div class="rowbtns">'+edit+del+'</div>';
   }
 
   function renderOrders(rows){
-    rows = Array.isArray(rows)?rows:[];
-    if(!rows.length){ document.getElementById('panel').innerHTML='<div class="loading">No orders yet.</div>'; return; }
-    var opts = ['pending','confirmed','in_transit','delivered','cancelled'];
-    var body = rows.map(function(o){
-      var st = o.status||'pending';
-      var amt = o.total_price||o.total_amount||0;
-      var sel = '<select class="sm" style="width:auto;padding:5px 8px" onchange="setStatus(\''+h(o.id)+'\',this.value)">'+opts.map(function(v){return '<option value="'+v+'"'+(v===st?' selected':'')+'>'+v+'</option>';}).join('')+'</select>';
-      return '<tr><td>'+h(o.payment_ref || (o.tracking_code||'') || (o.id||'').slice(0,8))+'</td>'
-        +'<td>'+h(o.buyer_phone||'—')+'</td>'
-        +'<td>'+(o.quantity_kg||0)+' kg</td>'
-        +'<td>'+fmt(amt)+'</td>'
-        +'<td><span class="badge '+st+'">'+st+'</span></td>'
-        +'<td><span class="badge '+(o.payment_status==='paid'?'delivered':'pending')+'">'+h(o.payment_status||'unpaid')+'</span></td>'
-        +'<td>'+sel+'</td></tr>';
+    if(!rows.length){ panelMsg('No orders.'); return; }
+    var body=rows.map(function(o){var st=o.status||'pending';var amt=o.total_price||o.total_amount||0;
+      return '<tr><td>'+h(o.payment_ref||(o.tracking_code||'')||(o.id||'').slice(0,8))+'</td><td>'+h(o.buyer_phone||'—')+'</td><td>'+(o.quantity_kg||0)+'</td><td>'+fmt(amt)+'</td><td><span class="badge '+st+'">'+st+'</span></td><td><span class="badge '+(o.payment_status==='paid'?'paid':'pending')+'">'+h(o.payment_status||'unpaid')+'</span></td><td>'+actionsCell('orders',o.id)+'</td></tr>';
     }).join('');
-    document.getElementById('panel').innerHTML = '<table><thead><tr><th>Ref</th><th>Buyer</th><th>Qty</th><th>Amount</th><th>Status</th><th>Payment</th><th>Set status</th></tr></thead><tbody>'+body+'</tbody></table>';
+    setPanel('<table><thead><tr><th>Ref</th><th>Buyer</th><th>Qty</th><th>Amount</th><th>Status</th><th>Payment</th><th></th></tr></thead><tbody>'+body+'</tbody></table>');
   }
-
-  async function setStatus(id, status){
-    try{
-      var r = await api('/api/admin/order/'+encodeURIComponent(id)+'/status',{ method:'PATCH', body:JSON.stringify({status:status}) });
-      loadStats();
-    }catch(e){ alert('Could not update status.'); }
-  }
-
-  function renderFarmers(rows){
-    rows = Array.isArray(rows)?rows:[];
-    if(!rows.length){ document.getElementById('panel').innerHTML='<div class="loading">No users yet.</div>'; return; }
-    var body = rows.map(function(f){
-      return '<tr><td>'+h(f.full_name||'—')+'</td><td>'+h(f.phone||'—')+'</td><td>'+h(f.email||'—')+'</td><td>'+h(f.district||'—')+'</td><td>'+(f.is_verified?'✅':'—')+'</td></tr>';
-    }).join('');
-    document.getElementById('panel').innerHTML = '<table><thead><tr><th>Name</th><th>Phone</th><th>Email</th><th>District</th><th>Verified</th></tr></thead><tbody>'+body+'</tbody></table>';
-  }
-
   function renderListings(rows){
-    rows = Array.isArray(rows)?rows:[];
-    if(!rows.length){ document.getElementById('panel').innerHTML='<div class="loading">No listings yet.</div>'; return; }
-    var body = rows.map(function(l){
-      return '<tr><td>'+h(l.crop_name||l.title||'—')+'</td><td>'+h(l.category||'—')+'</td><td>'+(l.quantity_kg||0)+' kg</td><td>'+fmt(l.price_per_kg)+'/kg</td><td>'+h(l.district||'—')+'</td><td>'+(l.is_available?'✅':'—')+'</td></tr>';
+    if(!rows.length){ panelMsg('No crop listings.'); return; }
+    var body=rows.map(function(l){var img=l.image_url?'<img class="thumb" src="'+h(l.image_url)+'">':'🌾';
+      return '<tr><td>'+img+'</td><td>'+h(l.crop_name||'—')+(l.video_url?' 🎥':'')+'</td><td>'+fmt(l.price_per_kg)+'</td><td>'+(l.quantity_kg||0)+'kg</td><td>'+h(l.district||'—')+'</td><td>'+(l.is_available?'<span class="badge available">live</span>':'<span class="badge sold">hidden</span>')+'</td><td>'+actionsCell('listings',l.id)+'</td></tr>';
     }).join('');
-    document.getElementById('panel').innerHTML = '<table><thead><tr><th>Crop</th><th>Category</th><th>Qty</th><th>Price</th><th>District</th><th>Live</th></tr></thead><tbody>'+body+'</tbody></table>';
+    setPanel('<table><thead><tr><th></th><th>Crop</th><th>Price</th><th>Qty</th><th>District</th><th>Status</th><th></th></tr></thead><tbody>'+body+'</tbody></table>');
+  }
+  function renderAnimals(rows){
+    if(!rows.length){ panelMsg('No animal listings.'); return; }
+    var body=rows.map(function(a){var img=a.image_url?'<img class="thumb" src="'+h(a.image_url)+'">':'🐄';var st=a.status||'available';
+      return '<tr><td>'+img+'</td><td>'+h(a.name||'—')+(a.video_url?' 🎥':'')+'</td><td>'+h(a.species||a.category||'—')+'</td><td>'+fmt(a.price)+'</td><td>'+(a.qty||0)+'</td><td>'+h(a.district||'—')+'</td><td><span class="badge '+st+'">'+st+'</span></td><td>'+actionsCell('animals',a.id)+'</td></tr>';
+    }).join('');
+    setPanel('<table><thead><tr><th></th><th>Name</th><th>Type</th><th>Price</th><th>Qty</th><th>District</th><th>Status</th><th></th></tr></thead><tbody>'+body+'</tbody></table>');
+  }
+  function renderFarmers(rows){
+    if(!rows.length){ panelMsg('No users.'); return; }
+    var body=rows.map(function(f){
+      return '<tr><td>'+h(f.full_name||'—')+'</td><td>'+h(f.phone||'—')+'</td><td>'+h(f.email||'—')+'</td><td>'+h(f.district||'—')+'</td><td>'+(f.is_verified?'✅':'—')+'</td><td>'+actionsCell('farmers',f.id)+'</td></tr>';
+    }).join('');
+    setPanel('<table><thead><tr><th>Name</th><th>Phone</th><th>Email</th><th>District</th><th>Verified</th><th></th></tr></thead><tbody>'+body+'</tbody></table>');
+  }
+  function setPanel(html){ document.getElementById('panel').innerHTML=html; }
+  function panelMsg(m){ setPanel('<div class="loading">'+m+'</div>'); }
+
+  // ── Edit / create ───────────────────────────────────────────────
+  function rowById(tab,id){ return (DATA[tab]||[]).find(function(r){return String(r.id)===String(id);}) || {}; }
+
+  function openEdit(tab,id){ buildForm(tab, rowById(tab,id), false); }
+  function openCreate(){ if(currentTab==='orders')return; buildForm(currentTab, {}, true); }
+
+  function buildForm(tab,row,isNew){
+    editState={ tab:tab, table:TABLE_OF[tab], id:row.id, isNew:isNew };
+    document.getElementById('editTitle').textContent=(isNew?'Add ':'Edit ')+tab.replace('s','');
+    document.getElementById('editErr').textContent='';
+    var fields=FIELDS[TABLE_OF[tab]]||[];
+    var html=fields.map(function(f){
+      var v=row[f.k];
+      if(f.t==='textarea') return fieldWrap(f,'<textarea id="ef_'+f.k+'">'+h(v||'')+'</textarea>');
+      if(f.t==='check')    return fieldWrap(f,'<label style="display:flex;align-items:center;gap:8px;color:var(--text)"><input type="checkbox" id="ef_'+f.k+'" style="width:auto" '+(v?'checked':'')+'> '+h(f.label)+'</label>',true);
+      if(f.t==='select')   return fieldWrap(f,'<select id="ef_'+f.k+'">'+f.opts.map(function(o){return '<option '+(String(v)===o?'selected':'')+'>'+o+'</option>';}).join('')+'</select>');
+      if(f.t==='image'||f.t==='video'){
+        var accept=f.t==='image'?'image/*':'video/*';
+        var prev=v?(f.t==='image'?'<img src="'+h(v)+'">':'<video src="'+h(v)+'" controls></video>'):'';
+        return '<label>'+h(f.label)+'</label>'+
+          '<input type="hidden" id="ef_'+f.k+'" value="'+h(v||'')+'">'+
+          '<input type="file" accept="'+accept+'" onchange="uploadField(this,\''+f.k+'\',\''+f.t+'\')">'+
+          '<div class="up-status" id="up_'+f.k+'"></div>'+
+          '<div class="media-preview" id="pv_'+f.k+'">'+prev+'</div>';
+      }
+      return fieldWrap(f,'<input type="'+(f.t==='number'?'number':'text')+'" id="ef_'+f.k+'" value="'+h(v==null?'':v)+'">');
+    }).join('');
+    document.getElementById('editFields').innerHTML=html;
+    document.getElementById('editOverlay').classList.add('open');
+  }
+  function fieldWrap(f,inner,noLabel){ return (noLabel?'':'<label>'+h(f.label)+'</label>')+inner; }
+  function closeEdit(){ document.getElementById('editOverlay').classList.remove('open'); editState=null; }
+
+  async function uploadField(input,key,kind){
+    var file=input.files&&input.files[0]; if(!file) return;
+    var maxMB=kind==='video'?25:5;
+    if(file.size> maxMB*1024*1024){ document.getElementById('up_'+key).textContent=(kind==='video'?'Video':'Image')+' too large (max '+maxMB+'MB)'; return; }
+    document.getElementById('up_'+key).textContent='Uploading…';
+    var url=await uploadToStorage(file, kind==='video'?'admin-video':'admin-photo');
+    if(url){ document.getElementById('ef_'+key).value=url; document.getElementById('up_'+key).textContent='✓ uploaded';
+      document.getElementById('pv_'+key).innerHTML=kind==='image'?'<img src="'+h(url)+'">':'<video src="'+h(url)+'" controls></video>';
+    } else document.getElementById('up_'+key).textContent='Upload failed';
+  }
+  async function uploadToStorage(file, prefix){
+    try{
+      var ext=((file.name||'file').split('.').pop()||'bin').toLowerCase().replace(/[^a-z0-9]/g,'')||'bin';
+      var path=prefix+'/'+Date.now()+'-'+Math.random().toString(36).slice(2,8)+'.'+ext;
+      var res=await fetch(SUPA_URL+'/storage/v1/object/uploads/'+path,{method:'POST',headers:{apikey:SUPA_KEY,Authorization:'Bearer '+SUPA_KEY,'Content-Type':file.type||'application/octet-stream','x-upsert':'true'},body:file});
+      if(!res.ok) return null;
+      return SUPA_URL+'/storage/v1/object/public/uploads/'+path;
+    }catch(e){ return null; }
   }
 
-  // Auto-enter if a valid token is already stored.
-  if(TOKEN){ api('/api/admin/verify').then(function(v){ if(v && v.valid){ showDash(); } else { logout(); } }).catch(function(){ logout(); }); }
+  async function saveEdit(){
+    if(!editState) return;
+    var fields={};
+    (FIELDS[editState.table]||[]).forEach(function(f){
+      var el=document.getElementById('ef_'+f.k); if(!el) return;
+      if(f.t==='check') fields[f.k]=el.checked;
+      else if(f.t==='number'){ var n=el.value===''?null:Number(el.value); fields[f.k]=n; }
+      else fields[f.k]=el.value;
+    });
+    document.getElementById('editErr').textContent='';
+    document.getElementById('saveBtn').disabled=true; document.getElementById('saveBtn').textContent='Saving…';
+    try{
+      var body={ table:editState.table, fields:fields };
+      var method='PATCH';
+      if(editState.isNew){ method='POST'; } else { body.id=editState.id; }
+      var r=await api('/api/admin/row',{ method:method, body:JSON.stringify(body) });
+      if(r&&r.ok){ closeEdit(); await load(editState.tab); await loadStats(); renderCurrent(); }
+      else document.getElementById('editErr').textContent=(r&&r.error)?r.error:'Save failed.';
+    }catch(e){ document.getElementById('editErr').textContent='Save failed.'; }
+    document.getElementById('saveBtn').disabled=false; document.getElementById('saveBtn').textContent='Save';
+  }
+
+  async function delRow(tab,id){
+    if(!confirm('Delete this '+tab.replace('s','')+'? This cannot be undone.')) return;
+    try{
+      var r=await api('/api/admin/row',{ method:'DELETE', body:JSON.stringify({ table:TABLE_OF[tab], id:id }) });
+      if(r&&r.ok){ await load(tab); await loadStats(); renderCurrent(); }
+      else alert((r&&r.error)||'Delete failed.');
+    }catch(e){ alert('Delete failed.'); }
+  }
+
+  if(TOKEN){ api('/api/admin/verify').then(function(v){ if(v&&v.valid) showDash(); else logout(); }).catch(function(){ logout(); }); }
 </script>
 </body>
 </html>

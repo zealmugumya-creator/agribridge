@@ -154,6 +154,22 @@ def supa_update(table, data, eq_col, eq_val):
         print(f"Supabase UPDATE error: {e}")
         return False
 
+def supa_delete(table, eq_col, eq_val):
+    if not SUPABASE_KEY:
+        return False
+    url = f"{SUPABASE_URL}/rest/v1/{table}"
+    headers = {
+        'apikey': SUPABASE_KEY,
+        'Authorization': f'Bearer {SUPABASE_KEY}',
+    }
+    params = {eq_col: f'eq.{eq_val}'}
+    try:
+        res = requests.delete(url, params=params, headers=headers, timeout=8)
+        return res.status_code < 300
+    except Exception as e:
+        print(f"Supabase DELETE error: {e}")
+        return False
+
 # ── JWT helpers ───────────────────────────────────────────────────────────────
 def make_token(payload_extra, hours=24):
     payload = {
@@ -1012,6 +1028,64 @@ def update_order_status(order_id):
     if ok:
         return jsonify({'message': f'Order {order_id} updated to {new_status}'}), 200
     return jsonify({'error': 'Update failed'}), 500
+
+@app.route('/api/admin/animals', methods=['GET'])
+def admin_animals():
+    payload, err = verify_token(required_role='admin')
+    if err:
+        return err
+    return jsonify(supa_get('animal_listings', {'order': 'created_at.desc'}, limit=300) or [])
+
+# Generic admin editor for the console. Only whitelisted tables + columns can be
+# written, so the admin token cannot set protected fields (id, timestamps, ownership).
+_ADMIN_COLS = {
+    'listings':        ['crop_name', 'category', 'quantity_kg', 'price_per_kg', 'unit', 'district',
+                        'is_organic', 'is_available', 'is_verified', 'description', 'discount_pct',
+                        'sale_unit', 'min_order_kg', 'delivery_available', 'payment_terms',
+                        'image_url', 'video_url', 'farmer_id', 'farmer_name', 'farmer_phone'],
+    'animal_listings': ['name', 'species', 'category', 'price', 'unit', 'qty', 'district',
+                        'description', 'health_cert', 'maaif_certified', 'status',
+                        'image_url', 'video_url', 'farmer_id', 'farmer_name', 'farmer_phone'],
+    'farmers':         ['full_name', 'phone', 'email', 'district', 'is_verified', 'is_premium'],
+    'orders':          ['status', 'payment_status', 'delivery_address', 'notes'],
+    'market_prices':   ['crop_name', 'price', 'unit', 'district', 'market'],
+}
+
+def _filter_cols(table, data):
+    allowed = _ADMIN_COLS.get(table, [])
+    return {k: v for k, v in (data or {}).items() if k in allowed}
+
+@app.route('/api/admin/row', methods=['POST', 'PATCH', 'DELETE'])
+def admin_row():
+    payload, err = verify_token(required_role='admin')
+    if err:
+        return err
+    data = request.get_json(force=True, silent=True) or {}
+    table = data.get('table')
+    if table not in _ADMIN_COLS:
+        return jsonify({'error': 'Table not allowed'}), 400
+
+    if request.method == 'DELETE':
+        row_id = data.get('id')
+        if not row_id:
+            return jsonify({'error': 'Missing id'}), 400
+        return (jsonify({'ok': True}), 200) if supa_delete(table, 'id', row_id) \
+            else (jsonify({'error': 'Delete failed'}), 500)
+
+    fields = _filter_cols(table, data.get('fields'))
+    if not fields:
+        return jsonify({'error': 'No editable fields provided'}), 400
+
+    if request.method == 'POST':
+        row = supa_insert(table, fields)
+        return (jsonify({'ok': True, 'row': row}), 200) if row else (jsonify({'error': 'Create failed'}), 500)
+
+    # PATCH
+    row_id = data.get('id')
+    if not row_id:
+        return jsonify({'error': 'Missing id'}), 400
+    return (jsonify({'ok': True}), 200) if supa_update(table, fields, 'id', row_id) \
+        else (jsonify({'error': 'Update failed'}), 500)
 
 # ══════════════════════════════════════════════════════════════════════════════
 # PUBLIC PRICES
