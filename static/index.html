@@ -1493,9 +1493,9 @@ async function uploadMedia(file, prefix, maxMB){
     var ext=((file.name||'file').split('.').pop()||(isVideo?'mp4':'jpg')).toLowerCase().replace(/[^a-z0-9]/g,'')||(isVideo?'mp4':'jpg');
     var path=(prefix||'misc')+'/'+Date.now()+'-'+Math.random().toString(36).slice(2,8)+'.'+ext;
     var res=await fetch(SUPA_URL+'/storage/v1/object/uploads/'+path,{ method:'POST', headers:{ apikey:SUPA_KEY, Authorization:'Bearer '+(_authToken||SUPA_KEY), 'Content-Type':file.type||'application/octet-stream', 'x-upsert':'true' }, body:file });
-    if(!res.ok) return null;
+    if(!res.ok){ showToast('Photo/video upload failed — please try again'); return null; }
     return SUPA_URL+'/storage/v1/object/public/uploads/'+path;
-  }catch(e){ return null; }
+  }catch(e){ showToast('Upload error — check your connection'); return null; }
 }
 async function sbUpdate(t, d, col, val) { return sb(t, { method:'PATCH', body:d, filters:[[col, `eq.${val}`]] }); }
 
@@ -3210,10 +3210,16 @@ document.addEventListener('keydown', e => {
 // ─────────────────────────────────────────────────────────────────
 // SERVICE WORKER
 // ─────────────────────────────────────────────────────────────────
+// We do NOT use a service worker. Proactively remove any stale one left by an
+// earlier version — a leftover SW can keep serving old cached HTML/images, which
+// is why fresh changes may "not reflect". This self-heals on the next online load.
 if ('serviceWorker' in navigator) {
-  window.addEventListener('load', () => {
-    navigator.serviceWorker.register('/sw.js').then(r=>console.log('SW:',r.scope)).catch(e=>console.log('SW fail:',e));
-  });
+  navigator.serviceWorker.getRegistrations().then(function(regs){
+    regs.forEach(function(r){ r.unregister(); });
+  }).catch(function(){});
+  if (window.caches && caches.keys) {
+    caches.keys().then(function(keys){ keys.forEach(function(k){ caches.delete(k); }); }).catch(function(){});
+  }
 }
 
 // ─────────────────────────────────────────────────────────────────
