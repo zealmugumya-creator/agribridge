@@ -1683,13 +1683,17 @@ async function loadHomeStats() {
 // MARKETPLACE
 // ─────────────────────────────────────────────────────────────────
 async function loadListings() {
-  if (allListings.length > 0) { renderListings(); return; }
+  // Only skip the fetch once the FULL marketplace list has loaded. (The home page
+  // preloads just 6 featured items into allListings, so we must not treat that as
+  // "already loaded" or the marketplace would show only those 6.)
+  if (window._listingsFull) { renderListings(); return; }
   document.getElementById('marketListings').innerHTML = '<div class="loader"><div class="spinner"></div>Loading…</div>';
   const data = await sb('listings', {
     select:'id,farmer_id,crop_name,category,quantity_kg,price_per_kg,unit,district,is_organic,is_verified,description,discount_pct,sale_unit,min_order_kg,delivery_available,payment_terms,image_url,video_url,created_at,farmers(full_name,is_verified)',
     filters:[['is_available','eq.true']]
   });
   allListings = (data && data.length) ? data.map(normalise) : sampleListings();
+  window._listingsFull = true;
   renderListings();
   loadFarmerRatings();
   if(!allPrices.length && navigator.onLine){ loadPrices(true).then(renderListings); }
@@ -1778,7 +1782,7 @@ function setMarketFilter(f,btn){ marketFilter=f; document.querySelectorAll('#mar
 function filterListings(){ renderListings(); }
 function filterByDistrict(v){ activeDistrict=v; renderListings(); }
 function sortListings(v){ if(v==='price_asc') allListings.sort((a,b)=>a.price_per_kg-b.price_per_kg); if(v==='price_desc') allListings.sort((a,b)=>b.price_per_kg-a.price_per_kg); if(v==='newest') allListings.sort((a,b)=>new Date(b.created_at||0)-new Date(a.created_at||0)); renderListings(); }
-function refreshListings(){ allListings=[]; loadListings(); showToast('Refreshing listings…'); }
+function refreshListings(){ allListings=[]; window._listingsFull=false; loadListings(); showToast('Refreshing listings…'); }
 
 // ─────────────────────────────────────────────────────────────────
 // ANIMALS MARKETPLACE — FULL ENGINE
