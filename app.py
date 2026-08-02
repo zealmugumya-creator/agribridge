@@ -1042,7 +1042,7 @@ _ADMIN_COLS = {
     'listings':        ['crop_name', 'category', 'quantity_kg', 'price_per_kg', 'unit', 'district',
                         'is_organic', 'is_available', 'is_verified', 'description', 'discount_pct',
                         'sale_unit', 'min_order_kg', 'delivery_available', 'payment_terms',
-                        'image_url', 'video_url', 'farmer_id', 'farmer_name', 'farmer_phone'],
+                        'image_url', 'video_url', 'farmer_id', 'farmer_phone'],
     'animal_listings': ['name', 'species', 'category', 'price', 'unit', 'qty', 'district',
                         'description', 'health_cert', 'maaif_certified', 'status',
                         'image_url', 'video_url', 'farmer_id', 'farmer_name', 'farmer_phone'],
