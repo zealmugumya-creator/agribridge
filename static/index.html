@@ -1571,7 +1571,10 @@ function getCropEmoji(name) {
     passion:'🍈',watermelon:'🍉',papaya:'🍈',orange:'🍊',rice:'🍚',millet:'🌾',
     sorghum:'🌾',vanilla:'🌿',tea:'🍵',cotton:'🌱',cocoa:'🍫',sunflower:'🌻',
     groundnut:'🥜',peanut:'🥜',soybean:'🫘',sesame:'🌱',sugarcane:'🎋',
-    pepper:'🌶️',eggplant:'🍆',pumpkin:'🎃',sweet:'🍠',jackfruit:'🍈',beans:'🫘' };
+    pepper:'🌶️',eggplant:'🍆',pumpkin:'🎃',sweet:'🍠',jackfruit:'🍈',beans:'🫘',
+    wheat:'🌾',barley:'🌾',ginger:'🫚',garlic:'🧄',cocoyam:'🥔',yam:'🍠',
+    cowpea:'🫘',pigeon:'🫘',pea:'🫛',okra:'🌱',dodo:'🥬',amaranth:'🥬',nakati:'🥬',
+    gonja:'🍌',guava:'🍈',lemon:'🍋',lime:'🍋',chili:'🌶️',chilli:'🌶️',tobacco:'🌿' };
   const lc = (name||'').toLowerCase();
   for (const [k,v] of Object.entries(map)) { if (lc.includes(k)) return v; }
   return '🌱';
@@ -1588,7 +1591,10 @@ function getAnimalEmoji(name) {
   if(n.includes('honey')||n.includes('hive')) return '🍯';
   if(n.includes('bee')) return '🐝';
   if(n.includes('duck')||n.includes('goose')) return '🦆';
-  if(n.includes('sheep')) return '🐑';
+  if(n.includes('sheep')||n.includes('lamb')||n.includes('mutton')) return '🐑';
+  if(n.includes('turkey')) return '🦃';
+  if(n.includes('guinea')||n.includes('fowl')) return '🐦';
+  if(n.includes('quail')) return '🐦';
   return '🐾';
 }
 function normalise(l) {
