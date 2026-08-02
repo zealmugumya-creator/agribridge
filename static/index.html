@@ -1412,6 +1412,14 @@ AgriBridge service</div>
       <label>Description (breed, age, vaccinations, etc.)</label>
       <textarea id="laDesc" placeholder="e.g. '2.5yr Ankole heifer. Vaccinated FMD + ECF. 320kg. Ready for dairy or beef. Health cert available.'" style="min-height:70px"></textarea>
     </div>
+    <div class="form-group">
+      <label>📷 Photo (optional, max 5MB)</label>
+      <input type="file" id="laPhoto" accept="image/*" style="width:100%;padding:8px;border:1px solid var(--border);border-radius:8px;background:var(--bg3);color:var(--text)">
+    </div>
+    <div class="form-group">
+      <label>🎥 Short video (optional, max 25MB)</label>
+      <input type="file" id="laVideo" accept="video/*" style="width:100%;padding:8px;border:1px solid var(--border);border-radius:8px;background:var(--bg3);color:var(--text)">
+    </div>
     <button class="btn-submit" style="background:var(--amber)" onclick="submitListAnimal()">📤 Post Animal Listing Free</button>
   </div>
 </div>
@@ -1474,13 +1482,17 @@ async function sb(table, opts = {}) {
 }
 async function sbInsert(t, d) { return sb(t, { method:'POST', body:d }); }
 // Upload an image to the public 'uploads' bucket; returns its public URL (or null).
-async function uploadImage(file, prefix){
+async function uploadImage(file, prefix){ return uploadMedia(file, prefix, 5); }
+// Upload a photo (<=5MB) or short video (<=25MB) to the public uploads bucket.
+async function uploadMedia(file, prefix, maxMB){
   if(!file) return null;
-  if(file.size > 2097152){ showToast('Image too large (max 2MB)'); return null; }
+  var isVideo=(file.type||'').indexOf('video')===0;
+  var limit=(maxMB||(isVideo?25:5))*1024*1024;
+  if(file.size > limit){ showToast((isVideo?'Video':'Image')+' too large (max '+(maxMB||(isVideo?25:5))+'MB)'); return null; }
   try{
-    var ext=((file.name||'img').split('.').pop()||'jpg').toLowerCase().replace(/[^a-z0-9]/g,'')||'jpg';
+    var ext=((file.name||'file').split('.').pop()||(isVideo?'mp4':'jpg')).toLowerCase().replace(/[^a-z0-9]/g,'')||(isVideo?'mp4':'jpg');
     var path=(prefix||'misc')+'/'+Date.now()+'-'+Math.random().toString(36).slice(2,8)+'.'+ext;
-    var res=await fetch(SUPA_URL+'/storage/v1/object/uploads/'+path,{ method:'POST', headers:{ apikey:SUPA_KEY, Authorization:'Bearer '+SUPA_KEY, 'Content-Type':file.type||'image/jpeg', 'x-upsert':'true' }, body:file });
+    var res=await fetch(SUPA_URL+'/storage/v1/object/uploads/'+path,{ method:'POST', headers:{ apikey:SUPA_KEY, Authorization:'Bearer '+(_authToken||SUPA_KEY), 'Content-Type':file.type||'application/octet-stream', 'x-upsert':'true' }, body:file });
     if(!res.ok) return null;
     return SUPA_URL+'/storage/v1/object/public/uploads/'+path;
   }catch(e){ return null; }
@@ -1668,7 +1680,7 @@ async function loadListings() {
   if (allListings.length > 0) { renderListings(); return; }
   document.getElementById('marketListings').innerHTML = '<div class="loader"><div class="spinner"></div>Loading…</div>';
   const data = await sb('listings', {
-    select:'id,farmer_id,crop_name,category,quantity_kg,price_per_kg,unit,district,is_organic,is_verified,description,discount_pct,sale_unit,min_order_kg,delivery_available,payment_terms,image_url,created_at,farmers(full_name,is_verified)',
+    select:'id,farmer_id,crop_name,category,quantity_kg,price_per_kg,unit,district,is_organic,is_verified,description,discount_pct,sale_unit,min_order_kg,delivery_available,payment_terms,image_url,video_url,created_at,farmers(full_name,is_verified)',
     filters:[['is_available','eq.true']]
   });
   allListings = (data && data.length) ? data.map(normalise) : sampleListings();
@@ -1743,6 +1755,7 @@ function listingCard(l) {
         <div style="font-size:0.78rem;color:var(--text2)">📍 ${escHtml(district)} · 📦 ${Number(qty).toLocaleString()} kg</div>
       </div>
       ${terms ? `<div style="font-size:0.72rem;color:var(--green);margin:2px 0 6px;padding:0 2px">${terms}</div>` : ''}
+      ${l.video_url ? `<a href="${escHtml(l.video_url)}" target="_blank" rel="noopener" style="display:inline-block;font-size:0.72rem;color:var(--green);margin:0 0 6px">🎥 Watch video</a>` : ''}
       <div class="card-footer">
         <div>${priceHtml}${cmpHtml}</div>
         <div style="display:flex;gap:5px;flex-wrap:wrap;justify-content:flex-end;margin-top:6px">
@@ -1788,15 +1801,15 @@ async function loadAnimals() {
   if (!el) return;
   el.innerHTML = '<div class="loader"><div class="spinner"></div>Loading animals…</div>';
   const data = await sb('animal_listings', {
-    select:'id,farmer_id,name,category,price,unit,district,quantity,description,breed,is_certified,has_health_cert,emoji,farmer_phone,is_available',
-    filters:[['is_available','eq.true']]
+    select:'id,farmer_id,farmer_name,farmer_phone,name,species,category,price,unit,qty,district,description,health_cert,maaif_certified,status,image_url,video_url,created_at',
+    filters:[['status','eq.available']]
   });
   if (data && data.length) {
     allAnimals = data.map(a => ({
-      id:String(a.id), farmer_id:a.farmer_id||null, name:a.name, cat:a.category, emoji:a.emoji||getAnimalEmoji(a.name),
-      price:Number(a.price), unit:a.unit||'head', district:a.district, qty:a.quantity,
-      desc:a.description, certified:a.is_certified, health_cert:a.has_health_cert,
-      breed:a.breed, farmer_phone:a.farmer_phone
+      id:String(a.id), farmer_id:a.farmer_id||null, name:a.name, cat:a.category, emoji:getAnimalEmoji(a.name),
+      price:Number(a.price), unit:a.unit||'head', district:a.district, qty:a.qty,
+      desc:a.description, certified:a.maaif_certified, health_cert:a.health_cert,
+      breed:a.species, farmer_phone:a.farmer_phone, image_url:a.image_url||'', video_url:a.video_url||''
     }));
   } else {
     allAnimals = SAMPLE_ANIMALS.map(a => ({...a, id:String(a.id)}));
@@ -1832,7 +1845,8 @@ function animalCard(a) {
     <div class="animal-info">
       <div class="animal-name">${safeName}</div>
       <span class="animal-tag ${tagCls[a.cat]||'tag-livestock'}">${catLabel[a.cat]||a.cat}</span>
-      <div class="animal-desc">${escHtml(a.desc||'')}${a.breed?`<br><b>Breed:</b> ${escHtml(a.breed)}`:''}</div>
+      <div class="animal-desc">${escHtml(a.desc||'')}${a.breed?`<br><b>Type:</b> ${escHtml(a.breed)}`:''}</div>
+      ${a.video_url?`<a href="${escHtml(a.video_url)}" target="_blank" rel="noopener" style="display:inline-block;font-size:0.76rem;color:var(--green);margin:2px 0 6px">🎥 Watch video</a>`:''}
       <div class="animal-price">UGX ${Number(a.price).toLocaleString()} <small>/ ${escHtml(a.unit||'head')}</small></div>
       <div class="animal-district">📍 ${escHtml(a.district||'Uganda')} · 📦 ${Number(a.qty||0).toLocaleString()} available</div>
       ${a.health_cert ? '<div class="animal-vet">📄 Health certificate available on purchase</div>' : ''}
@@ -1874,7 +1888,12 @@ async function submitListAnimal() {
   if (!name || !(qty>0) || !(price>0)) { showToast('Enter an animal name, and a quantity and price greater than 0'); return; }
   if (qty>100000) { showToast('That quantity looks too large — please double-check'); return; }
   if (price>500000000) { showToast('That price looks too high — please double-check'); return; }
-  const result = await sbInsert('animal_listings', { name, category:cat, quantity:qty, price, unit, district:dist, is_certified:cert, has_health_cert:hcert, description:desc, farmer_id:currentUser?.supaId||null, farmer_name:currentUser?.name||null, farmer_phone:currentUser?.phone||null, is_available:true, emoji:getAnimalEmoji(name) });
+  const photoFile=document.getElementById('laPhoto')?.files?.[0]||null;
+  const videoFile=document.getElementById('laVideo')?.files?.[0]||null;
+  if(photoFile||videoFile) showToast('Uploading media…');
+  const imageUrl = photoFile ? await uploadMedia(photoFile,'animals',5)  : null;
+  const videoUrl = videoFile ? await uploadMedia(videoFile,'animals',25) : null;
+  const result = await sbInsert('animal_listings', { name, species:cat, category:cat, qty, price, unit, district:dist, maaif_certified:cert, health_cert:hcert, description:desc, farmer_id:currentUser?.supaId||null, farmer_name:currentUser?.name||null, farmer_phone:currentUser?.phone||null, status:'available', image_url:imageUrl, video_url:videoUrl });
   if (result) {
     closeModal('listAnimalModal');
     showToast(`✅ ${name} listing posted! Buyers can now find you.`);
@@ -2927,8 +2946,10 @@ async function submitListProduce() {
   const pays=[]; if(document.getElementById('lpPayMomo')?.checked)pays.push('MoMo'); if(document.getElementById('lpPayCash')?.checked)pays.push('Cash'); if(document.getElementById('lpPayBank')?.checked)pays.push('Bank');
   const photoFile=document.getElementById('lpPhoto')?.files?.[0]||null;
   if(photoFile) showToast('Uploading photo…');
-  const imageUrl=photoFile ? await uploadImage(photoFile,'listings') : null;
-  const result=await sbInsert('listings',{ farmer_id:currentUser?.supaId||null, crop_name:crop, category:cat, quantity_kg:qty, price_per_kg:price, unit:'kg', district, is_organic:organic, is_available:true, description:desc||null, sale_unit:saleUnit, min_order_kg:minOrder, delivery_available:delivery, payment_terms:pays.join(', ')||null, image_url:imageUrl });
+  const imageUrl=photoFile ? await uploadMedia(photoFile,'listings',5) : null;
+  const videoFile=document.getElementById('lpVideo')?.files?.[0]||null;
+  const videoUrl=videoFile ? await uploadMedia(videoFile,'listings',25) : null;
+  const result=await sbInsert('listings',{ farmer_id:currentUser?.supaId||null, crop_name:crop, category:cat, quantity_kg:qty, price_per_kg:price, unit:'kg', district, is_organic:organic, is_available:true, description:desc||null, sale_unit:saleUnit, min_order_kg:minOrder, delivery_available:delivery, payment_terms:pays.join(', ')||null, image_url:imageUrl, video_url:videoUrl });
   if(result){ closeModal('listProduceModal'); showToast(`✅ ${crop} listing posted! Buyers can now find you.`); allListings=[]; if(document.querySelector('.page.active')?.id==='page-market') loadListings(); }
   else showToast('Could not post listing — please try again');
 }
@@ -5118,7 +5139,10 @@ Just ask anything!</div>
     <div class="form-group"><label>Description (optional)</label><textarea id="lpDesc" placeholder="e.g. Grade A tomatoes, freshly harvested…" style="min-height:60px"></textarea></div>
     <div class="form-group"><label>Photo of your produce (optional)</label>
       <input type="file" id="lpPhoto" accept="image/*" style="width:100%;padding:8px;border:1px solid var(--border);border-radius:8px;background:var(--card);color:var(--text)">
-      <div style="font-size:0.72rem;color:var(--text2);margin-top:4px">A real photo helps buyers trust your listing. Max 2MB.</div>
+      <div style="font-size:0.72rem;color:var(--text2);margin-top:4px">A real photo helps buyers trust your listing. Max 5MB.</div>
+    </div>
+    <div class="form-group"><label>🎥 Short video (optional, max 25MB)</label>
+      <input type="file" id="lpVideo" accept="video/*" style="width:100%;padding:8px;border:1px solid var(--border);border-radius:8px;background:var(--card);color:var(--text)">
     </div>
     <div class="form-group"><label>How do you sell? (optional)</label>
       <div class="form-row">
