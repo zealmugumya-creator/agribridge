@@ -1471,7 +1471,7 @@ async function sb(table, opts = {}) {
     'Prefer': method === 'POST' ? 'return=representation' : (count ? 'count=exact' : 'return=minimal')
   };
   try {
-    const res = await fetch(url, { method, headers, body: body ? JSON.stringify(body) : undefined });
+    const res = await fetch(url, { method, headers, cache:'no-store', body: body ? JSON.stringify(body) : undefined });
     if (count) return parseInt(res.headers.get('content-range')?.split('/')[1] || '0');
     if (!res.ok) return null;
     // PATCH/DELETE with return=minimal reply 204 No Content — no body to parse.
@@ -3214,12 +3214,18 @@ document.addEventListener('keydown', e => {
 // earlier version — a leftover SW can keep serving old cached HTML/images, which
 // is why fresh changes may "not reflect". This self-heals on the next online load.
 if ('serviceWorker' in navigator) {
-  navigator.serviceWorker.getRegistrations().then(function(regs){
-    regs.forEach(function(r){ r.unregister(); });
+  var _hadController = !!navigator.serviceWorker.controller;
+  Promise.all([
+    navigator.serviceWorker.getRegistrations().then(function(regs){ return Promise.all(regs.map(function(r){ return r.unregister(); })); }).catch(function(){}),
+    (window.caches && caches.keys) ? caches.keys().then(function(keys){ return Promise.all(keys.map(function(k){ return caches.delete(k); })); }).catch(function(){}) : Promise.resolve()
+  ]).then(function(){
+    // If a stale service worker was controlling this page, reload ONCE so the user
+    // gets fully fresh content (guarded against reload loops).
+    if (_hadController && !sessionStorage.getItem('ab_sw_purged')) {
+      sessionStorage.setItem('ab_sw_purged','1');
+      location.reload();
+    }
   }).catch(function(){});
-  if (window.caches && caches.keys) {
-    caches.keys().then(function(keys){ keys.forEach(function(k){ caches.delete(k); }); }).catch(function(){});
-  }
 }
 
 // ─────────────────────────────────────────────────────────────────
