@@ -1802,7 +1802,7 @@ async function loadAnimals() {
   el.innerHTML = '<div class="loader"><div class="spinner"></div>Loading animals…</div>';
   const data = await sb('animal_listings', {
     select:'id,farmer_id,farmer_name,farmer_phone,name,species,category,price,unit,qty,district,description,health_cert,maaif_certified,status,image_url,video_url,created_at',
-    filters:[['status','eq.available']]
+    filters:[['status','eq.active']]
   });
   if (data && data.length) {
     allAnimals = data.map(a => ({
@@ -1893,7 +1893,7 @@ async function submitListAnimal() {
   if(photoFile||videoFile) showToast('Uploading media…');
   const imageUrl = photoFile ? await uploadMedia(photoFile,'animals',5)  : null;
   const videoUrl = videoFile ? await uploadMedia(videoFile,'animals',25) : null;
-  const result = await sbInsert('animal_listings', { name, species:cat, category:cat, qty, price, unit, district:dist, maaif_certified:cert, health_cert:hcert, description:desc, farmer_id:currentUser?.supaId||null, farmer_name:currentUser?.name||null, farmer_phone:currentUser?.phone||null, status:'available', image_url:imageUrl, video_url:videoUrl });
+  const result = await sbInsert('animal_listings', { name, species:cat, category:cat, qty, price, unit, district:dist, maaif_certified:cert, health_cert:hcert, description:desc, farmer_id:currentUser?.supaId||null, farmer_name:currentUser?.name||null, farmer_phone:currentUser?.phone||null, status:'active', image_url:imageUrl, video_url:videoUrl });
   if (result) {
     closeModal('listAnimalModal');
     showToast(`✅ ${name} listing posted! Buyers can now find you.`);
