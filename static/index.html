@@ -563,6 +563,10 @@ body{background:
 .of-eye:nth-child(1){left:31%}.of-eye:nth-child(2){right:31%}
 .of-smile{position:absolute;top:53%;left:34%;width:32%;height:9px;border:2px solid var(--green-light);border-top:none;border-radius:0 0 20px 20px}
 .ai-fab{display:none !important} /* replaced by the center AI orb in the nav */
+.ai-orb-head{position:relative;width:44px;height:44px;border-radius:50%;flex-shrink:0;
+  background:radial-gradient(circle at 36% 30%,#0c3b22,#041007 72%) !important;
+  box-shadow:0 0 0 2px rgba(23,224,107,.55),0 0 22px rgba(23,224,107,.7);animation:navorb 5s ease-in-out infinite}
+.ai-chip{border-radius:999px}
 
 /* ══ More sheet ══ */
 .more-overlay{position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:399;opacity:0;pointer-events:none;transition:opacity .25s}
@@ -4972,7 +4976,7 @@ document.addEventListener('DOMContentLoaded', function() {
 <div class="ai-overlay" id="aiOverlay" onclick="closeAI()"></div>
 <div class="ai-panel" id="aiPanel" role="dialog" aria-label="AI Assistant">
   <div class="ai-panel-header">
-    <div class="ai-avatar">🤖</div>
+    <div class="ai-avatar ai-orb-head"><span class="of-eye"></span><span class="of-eye"></span><span class="of-smile"></span></div>
     <div class="ai-info">
       <div class="ai-name">AgriBridge AI</div>
       <div class="ai-status" id="aiStatus">● Online — knows the entire platform</div>
