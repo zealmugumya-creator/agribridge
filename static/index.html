@@ -4894,55 +4894,6 @@ document.addEventListener('DOMContentLoaded', function() {
   <button class="nav-item"        id="nav-export"    onclick="showPage('export')">    <span class="nav-icon">🌍</span><span>Export</span></button>
 </nav>
 
-<!-- ══ BASKET DRAWER ═══════════════════════════════════════ -->
-<div class="basket-overlay" id="basketOverlay" onclick="closeBasket()"></div>
-<div class="basket-drawer" id="basketDrawer">
-  <div class="basket-header">
-    <div>
-      <div style="font-weight:800;font-size:1rem">🛒 My Basket</div>
-      <div style="font-size:0.78rem;color:var(--text2)" id="basketItemCount">0 items</div>
-    </div>
-    <button onclick="closeBasket()" style="background:none;border:none;color:var(--text2);font-size:1.4rem;cursor:pointer">✕</button>
-  </div>
-  <div class="basket-body" id="basketBody"></div>
-  <div class="basket-footer" id="basketFooter" style="display:none">
-    <div class="promo-row">
-      <input type="text" id="promoInput" placeholder="Promo code (e.g. FRESH10)" style="text-transform:uppercase">
-      <button class="btn-sm" onclick="applyPromo()">Apply</button>
-    </div>
-    <div id="promoTagArea"></div>
-    <div id="basketTotals"></div>
-    <button class="btn-submit" onclick="openCheckout()" style="margin-top:10px">Checkout →</button>
-  </div>
-</div>
-
-<!-- ══ CHECKOUT MODAL ════════════════════════════════════════ -->
-<div class="checkout-modal" id="checkoutModal">
-  <div class="checkout-box">
-    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
-      <h3>Checkout</h3>
-      <button onclick="closeCheckout()" style="background:none;border:none;color:var(--text2);font-size:1.3rem;cursor:pointer">✕</button>
-    </div>
-    <div class="checkout-summary" id="checkoutSummary"></div>
-    <div class="form-group"><label>Delivery Address</label><input type="text" id="checkoutAddr" placeholder="e.g. Nakasero Market, Kampala"></div>
-    <div class="form-group"><label>Payment Method</label>
-      <div class="pay-methods">
-        <div class="pay-method selected" onclick="selectPayMethod(this,'momo')">📱 MTN MoMo</div>
-        <div class="pay-method" onclick="selectPayMethod(this,'airtel')">📲 Airtel Money</div>
-        <div class="pay-method" onclick="selectPayMethod(this,'cash')">💵 Cash on Delivery</div>
-        <div class="pay-method" onclick="selectPayMethod(this,'escrow')">🛡 Escrow</div>
-      </div>
-    </div>
-    <div id="checkoutSuccess" class="order-success" style="display:none">
-      <div class="ok-icon">✅</div>
-      <h3>Order Placed!</h3>
-      <p id="checkoutOrderRef" style="color:var(--green);font-weight:700"></p>
-      <p style="color:var(--text2);font-size:0.88rem;margin-top:6px">You will receive an SMS confirmation shortly</p>
-      <button class="btn-sm" onclick="closeCheckout();showPage('delivery')" style="margin-top:14px">Track Order</button>
-    </div>
-    <button class="btn-submit" id="placeOrderBtn" onclick="placeOrder()">Place Order 🛒</button>
-  </div>
-</div>
 
 <!-- ══ FABs ════════════════════════════════════════════════ -->
 <button class="basket-fab" id="basketFab" onclick="toggleBasket()" aria-label="My Basket" style="position:relative">
@@ -5182,34 +5133,6 @@ Just ask anything!</div>
   </div>
 </div>
 
-<!-- ══ LIST ANIMAL MODAL ═════════════════════════════════════ -->
-<div class="modal-overlay" id="listAnimalModal" onclick="handleOverlay(event,'listAnimalModal')" role="dialog" aria-label="List animal">
-  <div class="modal-box">
-    <button class="modal-close" onclick="closeModal('listAnimalModal')">✕</button>
-    <h3>🐄 List Your Animal</h3>
-    <div class="form-row">
-      <div class="form-group"><label>Animal Type</label>
-        <select id="laType"><option value="">Select animal…</option><option>Ankole Cattle</option><option>Friesian Dairy Cow</option><option>Boer Goat</option><option>Broiler Chickens</option><option>Layer Hens</option><option>Tilapia Fish</option><option>Catfish</option><option>Honey Bee Colony</option><option>Pigs</option><option>Rabbits</option><option>Sheep</option><option>Ducks</option></select>
-      </div>
-      <div class="form-group"><label>Category</label>
-        <select id="laCat"><option value="livestock">Livestock</option><option value="poultry">Poultry</option><option value="dairy">Dairy</option><option value="aqua">Aquaculture</option><option value="apiary">Beekeeping</option></select>
-      </div>
-    </div>
-    <div class="form-row">
-      <div class="form-group"><label>Quantity / Number</label><input type="number" id="laQty" placeholder="e.g. 5 heads" min="1"></div>
-      <div class="form-group"><label>Price (UGX)</label><input type="number" id="laPrice" placeholder="e.g. 2800000" min="1000"></div>
-    </div>
-    <div class="form-group"><label>District</label>
-      <select id="laDistrict"><option>Kampala</option><option>Wakiso</option><option>Mbarara</option><option>Kiruhura</option><option>Bushenyi</option><option>Kabale</option><option>Jinja</option><option>Gulu</option><option>Lira</option><option>Other</option></select>
-    </div>
-    <div class="form-group"><label>Description</label><textarea id="laDesc" placeholder="e.g. Healthy Ankole bull, 4 years old, 380kg, vaccinated against ECF…" style="min-height:60px"></textarea></div>
-    <div style="display:flex;gap:12px;margin-bottom:14px">
-      <label style="display:flex;align-items:center;gap:8px;cursor:pointer"><input type="checkbox" id="laHealthCert"> 🏥 Has health certificate</label>
-      <label style="display:flex;align-items:center;gap:8px;cursor:pointer"><input type="checkbox" id="laMaaif"> 🏛 MAAIF certified breeder</label>
-    </div>
-    <button class="btn-submit" onclick="submitListAnimal()">📤 List Animal Free</button>
-  </div>
-</div>
 
 <!-- ══ ORDER MODAL ═══════════════════════════════════════════ -->
 <div class="modal-overlay" id="orderModal" onclick="handleOverlay(event,'orderModal')" role="dialog" aria-label="Place order">
