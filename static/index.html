@@ -546,6 +546,36 @@ body{background:
   box-shadow:0 18px 40px -20px rgba(0,0,0,.85),0 0 0 1px rgba(23,224,107,.12)}
 /* Glassy nav + subtle emerald hairline */
 .status-badge{border-radius:999px}
+
+/* ══ 5-tab bottom nav + center AI orb ══ */
+.bottom-nav--tabs{overflow:visible;justify-content:space-around;align-items:flex-end;
+  background:linear-gradient(to top,rgba(5,11,8,.98),rgba(5,11,8,.74));backdrop-filter:blur(12px)}
+.bottom-nav--tabs .nav-item{flex:1;min-width:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;padding:6px 2px}
+.bottom-nav--tabs .nav-item.active .nav-icon{filter:drop-shadow(0 0 8px rgba(23,224,107,.7))}
+.nav-ai{flex:0 0 auto;background:none;border:none;cursor:pointer;transform:translateY(-18px);padding:0}
+.nav-ai-orb{position:relative;display:block;width:54px;height:54px;border-radius:50%;
+  background:radial-gradient(circle at 36% 30%,#0c3b22,#041007 72%);
+  box-shadow:0 0 0 2px rgba(23,224,107,.6),0 10px 26px -6px rgba(23,224,107,.85),0 0 0 5px rgba(5,11,8,.95);
+  animation:navorb 5s ease-in-out infinite}
+@keyframes navorb{50%{transform:translateY(-4px)}}
+@media(prefers-reduced-motion:reduce){.nav-ai-orb{animation:none}}
+.of-eye{position:absolute;top:37%;width:8px;height:8px;border-radius:50%;background:var(--green-light);box-shadow:0 0 8px var(--green)}
+.of-eye:nth-child(1){left:31%}.of-eye:nth-child(2){right:31%}
+.of-smile{position:absolute;top:53%;left:34%;width:32%;height:9px;border:2px solid var(--green-light);border-top:none;border-radius:0 0 20px 20px}
+.ai-fab{display:none !important} /* replaced by the center AI orb in the nav */
+
+/* ══ More sheet ══ */
+.more-overlay{position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:399;opacity:0;pointer-events:none;transition:opacity .25s}
+.more-overlay.open{opacity:1;pointer-events:auto}
+.more-sheet{position:fixed;left:0;right:0;bottom:0;z-index:400;background:var(--bg2);border-top:1px solid var(--border);
+  border-radius:24px 24px 0 0;padding:12px 18px calc(20px + env(safe-area-inset-bottom,0px));transform:translateY(115%);transition:transform .3s cubic-bezier(.2,.8,.2,1)}
+.more-sheet.open{transform:none}
+.more-grip{width:40px;height:4px;border-radius:999px;background:var(--border);margin:2px auto 12px}
+.more-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:12px}
+.more-grid button{display:flex;flex-direction:column;align-items:center;gap:7px;padding:14px 4px;border-radius:16px;
+  background:var(--card);border:1px solid var(--border);color:var(--text2);font-size:.7rem;font-weight:700;cursor:pointer;font-family:inherit;line-height:1.15}
+.more-grid button span{font-size:1.4rem}
+.more-grid button:active{transform:scale(.96);border-color:rgba(23,224,107,.4);color:var(--green)}
 </style>
 </head>
 <body>
@@ -1634,6 +1664,9 @@ setInterval(() => { document.querySelectorAll('.flash-countdown').forEach(el => 
 // PAGE NAVIGATION
 // ─────────────────────────────────────────────────────────────────
 let _navHistory = ['home'];
+function openMore(){ var o=document.getElementById('moreOverlay'),s=document.getElementById('moreSheet'); if(o)o.classList.add('open'); if(s)s.classList.add('open'); }
+function closeMore(){ var o=document.getElementById('moreOverlay'),s=document.getElementById('moreSheet'); if(o)o.classList.remove('open'); if(s)s.classList.remove('open'); }
+function mnav(n){ closeMore(); showPage(n); }
 function showPage(name) {
   if (_navHistory[_navHistory.length-1] !== name) _navHistory.push(name);
   document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
@@ -4894,25 +4927,38 @@ document.addEventListener('DOMContentLoaded', function() {
 
 
 <!-- ══ BOTTOM NAVIGATION ══════════════════════════════════ -->
-<nav class="bottom-nav" aria-label="Main navigation">
-  <button class="nav-item active" id="nav-home"      onclick="showPage('home')">      <span class="nav-icon">🏠</span><span>Home</span></button>
-  <button class="nav-item"        id="nav-market"    onclick="showPage('market')">    <span class="nav-icon">🛒</span><span>Market</span></button>
-  <button class="nav-item"        id="nav-prices"    onclick="showPage('prices')">    <span class="nav-icon">📊</span><span>Prices</span></button>
-  <button class="nav-item"        id="nav-crops"     onclick="showPage('crops')">     <span class="nav-icon">🌿</span><span>Crops</span></button>
-  <button class="nav-item"        id="nav-animals"   onclick="showPage('animals')">   <span class="nav-icon">🐄</span><span>Animals</span></button>
-  <button class="nav-item"        id="nav-training"  onclick="showPage('training')">  <span class="nav-icon">🎓</span><span>Learn</span></button>
-  <button class="nav-item"        id="nav-delivery"  onclick="showPage('delivery')">  <span class="nav-icon">🚚</span><span>Track</span></button>
-  <button class="nav-item"        id="nav-ussd"      onclick="showPage('ussd')">      <span class="nav-icon">📱</span><span>USSD</span></button>
-  <button class="nav-item"        id="nav-doctor"    onclick="showPage('doctor')">    <span class="nav-icon">🩺</span><span>AI Doc</span></button>
-  <button class="nav-item"        id="nav-supply"    onclick="showPage('supply')">    <span class="nav-icon">🏪</span><span>Supply</span></button>
-  <button class="nav-item"        id="nav-community" onclick="showPage('community')"> <span class="nav-icon">🌱</span><span>Community</span></button>
-  <button class="nav-item"        id="nav-about"     onclick="showPage('about')">     <span class="nav-icon">💡</span><span>About</span></button>
-  <button class="nav-item"        id="nav-contact"   onclick="showPage('contact')">   <span class="nav-icon">✉️</span><span>Contact</span></button>
-  <button class="nav-item"        id="nav-b2b"       onclick="showPage('b2b')">      <span class="nav-icon">🏢</span><span>B2B</span></button>
-  <button class="nav-item"        id="nav-finance"   onclick="showPage('finance')">   <span class="nav-icon">💰</span><span>Finance</span></button>
-  <button class="nav-item"        id="nav-coldchain" onclick="showPage('coldchain')"> <span class="nav-icon">❄️</span><span>Cold</span></button>
-  <button class="nav-item"        id="nav-export"    onclick="showPage('export')">    <span class="nav-icon">🌍</span><span>Export</span></button>
+<nav class="bottom-nav bottom-nav--tabs" aria-label="Main navigation">
+  <button class="nav-item active" id="nav-home"   onclick="showPage('home')"><span class="nav-icon">🏠</span><span>Home</span></button>
+  <button class="nav-item"        id="nav-market" onclick="showPage('market')"><span class="nav-icon">🛒</span><span>Market</span></button>
+  <button class="nav-ai" onclick="toggleAI()" aria-label="AI Assistant">
+    <span class="nav-ai-orb"><span class="of-eye"></span><span class="of-eye"></span><span class="of-smile"></span></span>
+  </button>
+  <button class="nav-item"        id="nav-prices" onclick="showPage('prices')"><span class="nav-icon">📊</span><span>Prices</span></button>
+  <button class="nav-item"        id="nav-more"   onclick="openMore()"><span class="nav-icon">☰</span><span>More</span></button>
 </nav>
+
+<!-- MORE sheet: all the other pages -->
+<div class="more-overlay" id="moreOverlay" onclick="closeMore()"></div>
+<div class="more-sheet" id="moreSheet" role="dialog" aria-label="All features">
+  <div class="more-grip"></div>
+  <h3 style="font-size:1.05rem;font-weight:800;margin:2px 4px 14px">All features</h3>
+  <div class="more-grid">
+    <button onclick="mnav('crops')"><span>🌿</span>Crops</button>
+    <button onclick="mnav('animals')"><span>🐄</span>Animals</button>
+    <button onclick="mnav('doctor')"><span>🩺</span>AI Doctor</button>
+    <button onclick="mnav('training')"><span>🎓</span>Learn</button>
+    <button onclick="mnav('delivery')"><span>🚚</span>Track</button>
+    <button onclick="mnav('supply')"><span>🏪</span>Supply</button>
+    <button onclick="mnav('finance')"><span>💰</span>Finance</button>
+    <button onclick="mnav('b2b')"><span>🏢</span>B2B</button>
+    <button onclick="mnav('community')"><span>🌱</span>Community</button>
+    <button onclick="mnav('coldchain')"><span>❄️</span>Cold Chain</button>
+    <button onclick="mnav('export')"><span>🌍</span>Export</button>
+    <button onclick="mnav('ussd')"><span>📱</span>USSD</button>
+    <button onclick="mnav('about')"><span>💡</span>About</button>
+    <button onclick="mnav('contact')"><span>✉️</span>Contact</button>
+  </div>
+</div>
 
 
 <!-- ══ FABs ════════════════════════════════════════════════ -->
