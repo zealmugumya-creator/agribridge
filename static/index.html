@@ -528,6 +528,24 @@ body{overscroll-behavior-y:none}
 .role-action-btn:active{transform:scale(0.96)}
 .role-action-btn.primary{background:var(--green);border-color:var(--green);color:#04160c}
 @media(max-width:420px){.role-action-btn{font-size:0.72rem;padding:10px 4px}.role-info h3{font-size:1.05rem}}
+
+/* ══ Design phase 1 — premium polish (additive, safe) ══ */
+body{background:
+  radial-gradient(1100px 640px at 84% -8%, rgba(23,224,107,.13), transparent 55%),
+  radial-gradient(760px 520px at 3% 2%, rgba(23,224,107,.06), transparent 55%),
+  var(--bg) !important}
+/* Main action buttons → emerald gradient + glow (variants like .ghost/.outline untouched) */
+.btn-primary,.btn-submit,.role-action-btn.primary{
+  background-image:linear-gradient(145deg,var(--green-light),var(--green));
+  color:var(--g-ink);border:none;box-shadow:0 10px 26px -10px rgba(23,224,107,.7)}
+.btn-primary:active,.btn-submit:active{transform:translateY(1px)}
+/* Cards → softer radius, depth, and a green-lit hover */
+.card{border-radius:20px;box-shadow:0 14px 34px -22px rgba(0,0,0,.8);
+  transition:transform .2s ease,border-color .2s ease,box-shadow .2s ease}
+.card:hover{transform:translateY(-2px);border-color:rgba(23,224,107,.32);
+  box-shadow:0 18px 40px -20px rgba(0,0,0,.85),0 0 0 1px rgba(23,224,107,.12)}
+/* Glassy nav + subtle emerald hairline */
+.status-badge{border-radius:999px}
 </style>
 </head>
 <body>
