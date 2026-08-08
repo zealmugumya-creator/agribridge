@@ -3422,7 +3422,11 @@ function openSettings(){
       '<input id="setName" placeholder="Full name" style="'+inp+'">'+
       '<input id="setPhone" placeholder="Phone" style="'+inp+'">'+
       '<input id="setDistrict" placeholder="District" style="'+inp+'">'+
-      '<div style="font-size:0.72rem;color:var(--text2);margin-bottom:10px">'+escHtml(currentUser.email||'')+(currentUser.role?' · '+escHtml(currentUser.role):'')+'</div>'+
+      '<div style="font-size:0.72rem;color:var(--text2);margin:2px 0 6px">Account type — this decides which features you see</div>'+
+      '<select id="setRole" onchange="setAccountRole(this.value)" style="'+inp+'">'+
+        ['farmer','vendor','hotel'].map(function(r){ var lbls={farmer:"🌾 Farmer (I sell produce)",vendor:"🛒 Buyer (I buy produce)",hotel:"🏨 Hotel / Restaurant (B2B)"}; return '<option value="'+r+'"'+(getCurrentRole()===r?' selected':'')+'>'+lbls[r]+'</option>'; }).join('')+
+      '</select>'+
+      '<div style="font-size:0.72rem;color:var(--text2);margin-bottom:10px">'+escHtml(currentUser.email||'')+'</div>'+
       '<button class="btn-sm" style="width:100%" onclick="saveProfile()">Save changes</button></div>';
     if(getCurrentRole()==='farmer'){
       html+='<div style="'+sec+'"><span style="'+lbl+'">🌾 My selling</span><div style="display:flex;gap:8px;flex-wrap:wrap">'+
@@ -3465,6 +3469,19 @@ function saveProfile(){
   if(typeof updateNavUser==='function') updateNavUser(currentUser);
   showToast('Profile saved ✓');
   closeModal('settingsModal');
+}
+// Let a user set/correct their own account type. Older accounts were created
+// without a role and defaulted to a seller view; this makes the choice stick
+// (auth metadata + local) and instantly re-tailors the nav, More menu and home.
+async function setAccountRole(r){
+  if(!currentUser||!r) return;
+  currentUser.role=r;
+  try{ localStorage.setItem('ab_user',JSON.stringify(currentUser)); }catch(e){}
+  try{ if(sbAuth&&sbAuth.auth&&sbAuth.auth.updateUser) await sbAuth.auth.updateUser({ data:{ role:r } }); }catch(e){}
+  if(typeof applyRoleUI==='function') applyRoleUI();
+  if(typeof updateNavUser==='function') updateNavUser(currentUser);
+  if(typeof renderRoleHome==='function') renderRoleHome();
+  showToast('Account type set — features updated ✓');
 }
 function shareListing(name,district,price){ const text='🌾 Fresh '+name+' from '+district+' at UGX '+Number(price).toLocaleString()+'/kg on AgriBridge!\nhttps://agribrige.com · Dial *789# on any phone'; if(navigator.share) navigator.share({title:name+' on AgriBridge',text,url:'https://agribrige.com'}).catch(()=>{}); else window.open('https://wa.me/?text='+encodeURIComponent(text),'_blank'); }
 function updateOnlineStatus(){ const b=document.getElementById('offlineBanner'); if(b) b.style.display=navigator.onLine?'none':'block'; }
@@ -4412,7 +4429,7 @@ function initSupabase() {
     _authToken = (session && session.access_token) ? session.access_token : null;
     if (session && session.user) {
       var u = session.user;
-      currentUser = { name: (u.user_metadata&&u.user_metadata.name)||u.email.split('@')[0], role: (u.user_metadata&&u.user_metadata.role)||'farmer', phone: (u.user_metadata&&u.user_metadata.phone)||'', email: u.email, supaId: u.id };
+      currentUser = { name: (u.user_metadata&&u.user_metadata.name)||u.email.split('@')[0], role: (u.user_metadata&&u.user_metadata.role)||'vendor', phone: (u.user_metadata&&u.user_metadata.phone)||'', email: u.email, supaId: u.id };
       localStorage.setItem('ab_user', JSON.stringify(currentUser));
       updateNavUser(currentUser.name, currentUser.role);
       hydrateUserProfile();
@@ -4427,7 +4444,7 @@ function initSupabase() {
     _authToken = (s && s.access_token) ? s.access_token : null;
     if (s && s.user) {
       var u = s.user;
-      currentUser = { name: (u.user_metadata&&u.user_metadata.name)||u.email.split('@')[0], role: (u.user_metadata&&u.user_metadata.role)||'farmer', phone: (u.user_metadata&&u.user_metadata.phone)||'', email: u.email, supaId: u.id };
+      currentUser = { name: (u.user_metadata&&u.user_metadata.name)||u.email.split('@')[0], role: (u.user_metadata&&u.user_metadata.role)||'vendor', phone: (u.user_metadata&&u.user_metadata.phone)||'', email: u.email, supaId: u.id };
       localStorage.setItem('ab_user', JSON.stringify(currentUser));
       updateNavUser(currentUser.name, currentUser.role);
       hydrateUserProfile();
