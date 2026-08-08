@@ -696,6 +696,30 @@ input:focus,select:focus,textarea:focus{outline:none;border-color:var(--green) !
 .trk-driver-meta{font-size:.78rem;color:var(--text2)}
 .trk-call{width:44px;height:44px;border-radius:50%;flex-shrink:0;display:flex;align-items:center;justify-content:center;
   font-size:1.15rem;text-decoration:none;background:var(--green);color:var(--g-ink);box-shadow:var(--glow)}
+
+/* ═══════════ RESPONSIVE — adapt to tablet & desktop ═══════════ */
+/* The app is built phone-first; on a wide screen the mobile-sized content
+   stretches edge to edge and looks sparse. Cap each page in a centered column
+   and turn the bottom bar into a floating pill so it feels like a real app on
+   any gadget. */
+@media(min-width:900px){
+  .page{max-width:1160px;margin-left:auto;margin-right:auto;padding:0 24px 12px}
+  /* Full-bleed the coloured page header within the centered column. */
+  .page-header{margin-left:-24px;margin-right:-24px;border-radius:0}
+  /* Keep the guest landing hero edge-to-edge. */
+  .hero{width:100vw;margin-left:calc(50% - 50vw);min-height:74vh}
+  #howItWorks{max-width:1160px}
+  /* Floating, centered bottom-nav pill instead of a stretched full-width bar. */
+  .bottom-nav--tabs{left:50%;right:auto;transform:translateX(-50%);
+    width:min(560px,calc(100% - 48px));border-radius:22px 22px 0 0;
+    border:1px solid var(--border);border-bottom:none;
+    box-shadow:0 -14px 44px -20px rgba(0,0,0,.9)}
+  .cards-grid{grid-template-columns:repeat(auto-fill,minmax(300px,1fr))}
+}
+@media(min-width:1280px){
+  .page{max-width:1240px}
+  #howItWorks{max-width:1240px}
+}
 </style>
 </head>
 <body>
@@ -3413,7 +3437,9 @@ async function uploadAvatar(inp){
   var f=inp&&inp.files&&inp.files[0]; if(!f||!currentUser) return;
   showToast('Uploading photo…');
   var url=await uploadImage(f,'avatars');
-  if(url){ currentUser.avatar_url=url; localStorage.setItem('ab_user',JSON.stringify(currentUser)); if(typeof updateNavUser==='function') updateNavUser(currentUser.name,currentUser.role||'vendor'); showToast('Photo updated ✓'); openSettings(); }
+  if(url){ currentUser.avatar_url=url; localStorage.setItem('ab_user',JSON.stringify(currentUser));
+    if(currentUser.supaId) sbUpdate('farmers',{ profile_photo:url },'id',currentUser.supaId);
+    if(typeof updateNavUser==='function') updateNavUser(currentUser); showToast('Photo updated ✓'); openSettings(); }
   else showToast('Upload failed — try a smaller image');
 }
 function saveProfile(){
@@ -3423,7 +3449,9 @@ function saveProfile(){
   currentUser.phone=g('setPhone');
   currentUser.district=g('setDistrict');
   localStorage.setItem('ab_user',JSON.stringify(currentUser));
-  if(typeof updateNavUser==='function') updateNavUser(currentUser.name,currentUser.role||'vendor');
+  // Persist to the farmers row so edits survive re-login and reach other devices.
+  if(currentUser.supaId) sbUpdate('farmers',{ full_name:currentUser.name||null, phone:currentUser.phone||null, district:currentUser.district||null },'id',currentUser.supaId);
+  if(typeof updateNavUser==='function') updateNavUser(currentUser);
   showToast('Profile saved ✓');
   closeModal('settingsModal');
 }
@@ -4350,6 +4378,7 @@ function initSupabase() {
       currentUser = { name: (u.user_metadata&&u.user_metadata.name)||u.email.split('@')[0], role: (u.user_metadata&&u.user_metadata.role)||'farmer', phone: (u.user_metadata&&u.user_metadata.phone)||'', email: u.email, supaId: u.id };
       localStorage.setItem('ab_user', JSON.stringify(currentUser));
       updateNavUser(currentUser.name, currentUser.role);
+      hydrateUserProfile();
     } else {
       currentUser = null;
       localStorage.removeItem('ab_user');
@@ -4364,6 +4393,7 @@ function initSupabase() {
       currentUser = { name: (u.user_metadata&&u.user_metadata.name)||u.email.split('@')[0], role: (u.user_metadata&&u.user_metadata.role)||'farmer', phone: (u.user_metadata&&u.user_metadata.phone)||'', email: u.email, supaId: u.id };
       localStorage.setItem('ab_user', JSON.stringify(currentUser));
       updateNavUser(currentUser.name, currentUser.role);
+      hydrateUserProfile();
       if (typeof syncCloudBasket === 'function') syncCloudBasket();
     }
   });
@@ -4454,6 +4484,20 @@ function _toEmail(v){
 }
 
 // ── updateNavUser — compatible with original calls ────
+// Pull the saved profile (photo, district, phone, name) from the farmers row so
+// a user's uploaded picture and details persist across devices and reloads —
+// the auth token alone doesn't carry them.
+async function hydrateUserProfile() {
+  if (!currentUser || !currentUser.supaId) return;
+  var row = await sb('farmers', { select:'full_name,phone,district,profile_photo', filters:[['id','eq.'+currentUser.supaId]], single:true });
+  if (!row) return;
+  if (row.profile_photo) currentUser.avatar_url = row.profile_photo;
+  if (row.full_name && !currentUser.name) currentUser.name = row.full_name;
+  if (row.phone && !currentUser.phone) currentUser.phone = row.phone;
+  if (row.district && !currentUser.district) currentUser.district = row.district;
+  try { localStorage.setItem('ab_user', JSON.stringify(currentUser)); } catch (e) {}
+  updateNavUser(currentUser);
+}
 function updateNavUser(nameOrUser, role) {
   var btns = document.querySelector('.nav-btns');
   if (!btns) return;
@@ -4465,7 +4509,9 @@ function updateNavUser(nameOrUser, role) {
   if (name) {
     var init = name.charAt(0).toUpperCase();
     var first = name.split(' ')[0];
-    btns.innerHTML = "<div style=\"width:34px;height:34px;border-radius:50%;background:var(--green);color:#000;font-weight:800;font-size:0.9rem;display:flex;align-items:center;justify-content:center;cursor:pointer\" onclick=\"openModal('myAccountModal')\" title=\"My Account\">" + init + "</div>" +
+    var photo = (currentUser && currentUser.avatar_url) || (nameOrUser && typeof nameOrUser === 'object' && nameOrUser.avatar_url) || '';
+    var avInner = photo ? "<img src=\"" + photo + "\" alt=\"\" style=\"width:100%;height:100%;object-fit:cover\">" : init;
+    btns.innerHTML = "<div style=\"width:34px;height:34px;border-radius:50%;overflow:hidden;background:var(--green);color:#000;font-weight:800;font-size:0.9rem;display:flex;align-items:center;justify-content:center;cursor:pointer\" onclick=\"openModal('myAccountModal')\" title=\"My Account\">" + avInner + "</div>" +
       "<button class=\"btn-sm outline\" onclick=\"openModal('myAccountModal')\" style=\"font-size:0.8rem\">" + first + "</button>";
   } else {
     btns.innerHTML = "<button class=\"btn-sm outline\" onclick=\"openModal('loginModal')\">Log In</button>" +
