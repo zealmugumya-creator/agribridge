@@ -573,6 +573,17 @@ body{background:
 .role-kpi{background:linear-gradient(160deg,rgba(23,224,107,.06),var(--bg3)) !important;border-color:rgba(23,224,107,.18) !important;border-radius:16px !important;padding:13px 8px !important}
 .rk-num{font-size:1.5rem !important;letter-spacing:-.02em}
 .role-avatar{background:linear-gradient(145deg,var(--green-light),var(--green)) !important;box-shadow:0 8px 22px -8px rgba(23,224,107,.7)}
+/* AI Farm Assistant card (logged-in home) */
+.ai-farm-card{position:relative;display:flex;align-items:center;justify-content:space-between;gap:10px;overflow:hidden;
+  margin:0 0 14px;padding:15px 16px;border-radius:20px;cursor:pointer;
+  background:linear-gradient(135deg,rgba(23,224,107,.20),rgba(3,20,10,.35));border:1px solid rgba(23,224,107,.34);
+  box-shadow:0 0 40px -14px rgba(23,224,107,.5)}
+.ai-farm-card h4{font-weight:800;font-size:1rem;color:var(--text)}
+.ai-farm-card p{font-size:.78rem;color:var(--text2);margin:3px 0 11px}
+.afc-btn{display:inline-block;background:linear-gradient(145deg,var(--green-light),var(--green));color:var(--g-ink);font-weight:800;font-size:.8rem;padding:9px 15px;border-radius:12px}
+.afc-orb{position:relative;width:66px;height:66px;flex-shrink:0;border-radius:50%;
+  background:radial-gradient(circle at 36% 30%,#0c3b22,#041007 72%);
+  box-shadow:0 0 0 2px rgba(23,224,107,.55),0 0 26px rgba(23,224,107,.7);animation:navorb 5s ease-in-out infinite}
 /* Hero → deep emerald (was washing out gray), text pops, subtle field texture */
 .hero{min-height:78vh !important;background:
   linear-gradient(to bottom, rgba(5,11,8,.82) 0%, rgba(5,11,8,.93) 55%, var(--bg) 100%),
@@ -3062,12 +3073,13 @@ async function renderRoleHome() {
   panel.style.display='block';
   const role=currentUser.role||'buyer', name=currentUser.name||'there', firstName=name.split(' ')[0];
   const hour=new Date().getHours(); const greeting=hour<12?'Good morning':hour<17?'Good afternoon':'Good evening';
+  const aiFarmCard=`<div class="ai-farm-card" onclick="toggleAI()"><div class="afc-txt"><h4>AI Farm Assistant</h4><p>Prices, disease, weather &amp; more</p><span class="afc-btn">Ask AgriBridge AI</span></div><div class="afc-orb"><span class="of-eye"></span><span class="of-eye"></span><span class="of-smile"></span></div></div>`;
   if(role==='farmer') {
-    panel.innerHTML=`<div class="role-panel"><div class="role-welcome"><div class="role-avatar">🌾</div><div class="role-info"><h3>${greeting}, ${escHtml(firstName)}!</h3><p>Farmer · ${escHtml(currentUser.district||'Uganda')}</p></div></div><div class="role-kpis"><div class="role-kpi"><div class="rk-num" id="fk-listings">–</div><div class="rk-lbl">My Listings</div></div><div class="role-kpi"><div class="rk-num" id="fk-orders">–</div><div class="rk-lbl">Orders</div></div><div class="role-kpi"><div class="rk-num" id="fk-earned">–</div><div class="rk-lbl">Earned</div></div></div><div class="role-actions"><button class="role-action-btn primary" onclick="openListProduceModal()">🌾 List Produce</button><button class="role-action-btn" onclick="showPage('animals');openListAnimalModal()">🐄 List Animal</button><button class="role-action-btn" onclick="showPage('prices')">📊 Prices</button></div><div class="role-actions"><button class="role-action-btn" onclick="showPage('doctor')">🩺 Crop Doctor</button><button class="role-action-btn" onclick="showPage('animals')">🐾 Animal Doctor</button><button class="role-action-btn" onclick="showPage('dashboard')">📈 Dashboard</button></div></div>`;
+    panel.innerHTML=`<div class="role-panel"><div class="role-welcome"><div class="role-avatar">🌾</div><div class="role-info"><h3>${greeting}, ${escHtml(firstName)}!</h3><p>Farmer · ${escHtml(currentUser.district||'Uganda')}</p></div></div>${aiFarmCard}<div class="role-kpis"><div class="role-kpi"><div class="rk-num" id="fk-listings">–</div><div class="rk-lbl">My Listings</div></div><div class="role-kpi"><div class="rk-num" id="fk-orders">–</div><div class="rk-lbl">Orders</div></div><div class="role-kpi"><div class="rk-num" id="fk-earned">–</div><div class="rk-lbl">Earned</div></div></div><div class="role-actions"><button class="role-action-btn primary" onclick="openListProduceModal()">🌾 List Produce</button><button class="role-action-btn" onclick="showPage('animals');openListAnimalModal()">🐄 List Animal</button><button class="role-action-btn" onclick="showPage('prices')">📊 Prices</button></div><div class="role-actions"><button class="role-action-btn" onclick="showPage('doctor')">🩺 Crop Doctor</button><button class="role-action-btn" onclick="showPage('animals')">🐾 Animal Doctor</button><button class="role-action-btn" onclick="showPage('dashboard')">📈 Dashboard</button></div></div>`;
     loadFarmerKpis();
   } else {
     const bc=basketItems.reduce((s,i)=>s+i.qty,0);
-    panel.innerHTML=`<div class="role-panel"><div class="role-welcome"><div class="role-avatar">🛒</div><div class="role-info"><h3>${greeting}, ${escHtml(firstName)}!</h3><p>${role==='hotel'?'Hotel/Restaurant':'Buyer'} · ${bc} item${bc!==1?'s':''} in basket</p></div></div><div class="role-actions"><button class="role-action-btn primary" onclick="showPage('market')">🛒 Browse Produce</button><button class="role-action-btn primary" style="background:var(--amber);border-color:var(--amber);color:#3a2600" onclick="showPage('animals')">🐄 Browse Animals</button></div><div class="role-actions"><button class="role-action-btn" onclick="toggleBasket()">🧺 My Basket ${bc>0?'('+bc+')':''}</button><button class="role-action-btn" onclick="showPage('delivery')">🚚 Track Orders</button><button class="role-action-btn" onclick="showPage('prices')">📊 Prices</button></div></div>`;
+    panel.innerHTML=`<div class="role-panel"><div class="role-welcome"><div class="role-avatar">🛒</div><div class="role-info"><h3>${greeting}, ${escHtml(firstName)}!</h3><p>${role==='hotel'?'Hotel/Restaurant':'Buyer'} · ${bc} item${bc!==1?'s':''} in basket</p></div></div>${aiFarmCard}<div class="role-actions"><button class="role-action-btn primary" onclick="showPage('market')">🛒 Browse Produce</button><button class="role-action-btn primary" style="background:var(--amber);border-color:var(--amber);color:#3a2600" onclick="showPage('animals')">🐄 Browse Animals</button></div><div class="role-actions"><button class="role-action-btn" onclick="toggleBasket()">🧺 My Basket ${bc>0?'('+bc+')':''}</button><button class="role-action-btn" onclick="showPage('delivery')">🚚 Track Orders</button><button class="role-action-btn" onclick="showPage('prices')">📊 Prices</button></div></div>`;
   }
 }
 async function loadFarmerKpis() {
