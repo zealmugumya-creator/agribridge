@@ -643,6 +643,59 @@ input:focus,select:focus,textarea:focus{outline:none;border-color:var(--green) !
   background:var(--card);border:1px solid var(--border);color:var(--text2);font-size:.7rem;font-weight:700;cursor:pointer;font-family:inherit;line-height:1.15}
 .more-grid button span{font-size:1.4rem}
 .more-grid button:active{transform:scale(.96);border-color:rgba(23,224,107,.4);color:var(--green)}
+
+/* ═══════════ ORDER TRACKING (premium) ═══════════ */
+.trk{margin-top:14px;display:flex;flex-direction:column;gap:14px}
+.trk-hero{position:relative;overflow:hidden;border-radius:20px;padding:20px;
+  background:radial-gradient(120% 140% at 15% -10%,rgba(23,224,107,.22),transparent 60%),linear-gradient(160deg,var(--bg3),var(--bg2));
+  border:1px solid var(--border);box-shadow:var(--glow)}
+.trk-hero-top{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;flex-wrap:wrap}
+.trk-code{font-family:monospace;font-size:.82rem;color:var(--text2);letter-spacing:.5px}
+.trk-code b{color:var(--green-light)}
+.trk-badge{font-size:.7rem;font-weight:800;text-transform:uppercase;letter-spacing:.6px;padding:5px 11px;border-radius:999px;
+  background:var(--green-dim);color:var(--green-light);border:1px solid var(--border);white-space:nowrap}
+.trk-eta-label{margin-top:16px;font-size:.72rem;text-transform:uppercase;letter-spacing:1px;color:var(--text2)}
+.trk-eta{font-size:1.7rem;font-weight:800;line-height:1.1;background:linear-gradient(90deg,var(--green-light),var(--green));-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent}
+.trk-eta-sub{font-size:.82rem;color:var(--text2);margin-top:3px}
+/* stepper */
+.trk-steps{list-style:none;padding:6px 4px;margin:0;display:flex;flex-direction:column;gap:0}
+.trk-step{position:relative;display:flex;gap:14px;padding-bottom:22px}
+.trk-step:last-child{padding-bottom:0}
+.trk-step-rail{position:relative;display:flex;flex-direction:column;align-items:center;flex-shrink:0}
+.trk-node{width:34px;height:34px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:1rem;
+  background:var(--bg3);border:2px solid var(--border);color:var(--text2);z-index:2;transition:.3s}
+.trk-line{position:absolute;top:34px;bottom:-2px;width:2px;background:var(--border)}
+.trk-step:last-child .trk-line{display:none}
+.trk-step.done .trk-node{background:var(--green);border-color:var(--green);color:var(--g-ink);box-shadow:0 0 16px -3px rgba(23,224,107,.7)}
+.trk-step.done .trk-line{background:linear-gradient(var(--green),var(--green))}
+.trk-step.active .trk-node{border-color:var(--green);color:var(--green-light);background:var(--green-dim);
+  animation:trkPulse 1.6s ease-in-out infinite}
+@keyframes trkPulse{0%,100%{box-shadow:0 0 0 0 rgba(23,224,107,.45)}50%{box-shadow:0 0 0 8px rgba(23,224,107,0)}}
+.trk-step-body{padding-top:5px}
+.trk-step-title{font-weight:700;font-size:.92rem;color:var(--text)}
+.trk-step.pending .trk-step-title{color:var(--text2)}
+.trk-step-time{font-size:.76rem;color:var(--text2);margin-top:2px}
+.trk-step.active .trk-step-time{color:var(--green-light);font-weight:600}
+/* route */
+.trk-route{background:var(--card);border:1px solid var(--border);border-radius:16px;padding:16px}
+.trk-route-row{display:flex;gap:12px;align-items:flex-start}
+.trk-route-rail{display:flex;flex-direction:column;align-items:center;padding-top:3px}
+.trk-pin{width:12px;height:12px;border-radius:50%;border:2px solid var(--green)}
+.trk-pin.fill{background:var(--green)}
+.trk-route-dash{width:2px;height:26px;background:repeating-linear-gradient(var(--green) 0 4px,transparent 4px 8px);opacity:.6}
+.trk-route-txt{flex:1}
+.trk-route-txt .lbl{font-size:.68rem;text-transform:uppercase;letter-spacing:.6px;color:var(--text2)}
+.trk-route-txt .val{font-weight:700;font-size:.9rem;margin-bottom:14px}
+.trk-route-txt .val.last{margin-bottom:0}
+/* driver */
+.trk-driver{display:flex;align-items:center;gap:14px;background:var(--card);border:1px solid var(--border);border-radius:16px;padding:14px 16px}
+.trk-driver-av{width:48px;height:48px;border-radius:50%;flex-shrink:0;display:flex;align-items:center;justify-content:center;
+  font-size:1.3rem;font-weight:800;color:var(--green);background:var(--green-dim);border:1px solid var(--border)}
+.trk-driver-info{flex:1;min-width:0}
+.trk-driver-name{font-weight:700;font-size:.95rem}
+.trk-driver-meta{font-size:.78rem;color:var(--text2)}
+.trk-call{width:44px;height:44px;border-radius:50%;flex-shrink:0;display:flex;align-items:center;justify-content:center;
+  font-size:1.15rem;text-decoration:none;background:var(--green);color:var(--g-ink);box-shadow:var(--glow)}
 </style>
 </head>
 <body>
@@ -2925,10 +2978,72 @@ function resetUssd(){ resetUssdState(); updateUssdScreen('Enter *789# to start\n
 async function trackDelivery() {
   const ref=document.getElementById('trackingInput')?.value.trim(); if(!ref){ showToast('Enter a delivery reference'); return; }
   const el=document.getElementById('trackingResult'); el.innerHTML='<div class="loader"><div class="spinner"></div>Tracking…</div>';
-  const data=await sb('deliveries',{ select:'id,status,pickup_location,delivery_location,tracking_code,estimated_arrival,driver_name,driver_phone', filters:[['tracking_code',`eq.${ref.toUpperCase()}`]], single:true });
-  if(data&&data.id){ const steps=['Scheduled','Picked Up','In Transit','At Checkpoint','Delivered']; const statusMap={scheduled:0,picked_up:1,in_transit:2,at_checkpoint:3,delivered:4}; const cur=statusMap[data.status]??2;
-    el.innerHTML=`<div style="background:var(--bg3);border-radius:12px;padding:16px;margin-top:8px"><div style="display:flex;justify-content:space-between;margin-bottom:16px;flex-wrap:wrap;gap:8px"><div><strong>Ref:</strong> ${data.tracking_code||ref}</div><div style="color:var(--green);font-weight:700">${(data.status||'in_transit').replace(/_/g,' ').toUpperCase()}</div></div><div class="timeline">${steps.map((s,i)=>`<div class="timeline-step"><div class="tl-dot ${i<=cur?'done':''} ${i===cur?'active':''}"></div><div class="tl-text"><div class="tl-label" style="color:${i<=cur?'var(--green)':'var(--text2)'}">${s}</div>${i<=cur?`<div class="tl-time">${i===cur?'Current location':'Completed'}</div>`:''}</div></div>${i<steps.length-1?`<div class="tl-line ${i<cur?'done':''}"></div>`:''}`).join('')}</div>${data.driver_name?`<div style="margin-top:12px;font-size:0.88rem;color:var(--text2)">🚚 Driver: <strong style="color:var(--text)">${data.driver_name}</strong> · 📞 ${data.driver_phone||'+256 755 966 690'}</div>`:''}</div>`;
-  } else { el.innerHTML=`<div style="padding:16px;background:var(--bg3);border-radius:10px;color:var(--text2)">No delivery found for <strong>${ref}</strong>. Try: DEL-2026-001 or DEL-2026-002.</div>`; }
+  const data=await sb('deliveries',{ select:'id,status,pickup_location,delivery_location,tracking_code,estimated_arrival,driver_name,driver_phone,created_at', filters:[['tracking_code',`eq.${ref.toUpperCase()}`]], single:true });
+  if(data&&data.id){ el.innerHTML=renderTrackingCard(data, ref); return; }
+  el.innerHTML=`<div style="padding:16px;background:var(--bg3);border-radius:10px;color:var(--text2)">No delivery found for <strong>${escHtml(ref)}</strong>. Try: <b style="color:var(--green)">DEL-2026-001</b> or <b style="color:var(--green)">DEL-2026-002</b>.</div>`;
+}
+// Premium order-tracking card: status stepper + ETA + route + driver/vehicle.
+function renderTrackingCard(d, ref){
+  // Reference stepper: Confirmed → Packed → In Transit → Delivered.
+  const steps=[
+    {key:'confirmed', title:'Order Confirmed', icon:'✓', done:['scheduled','picked_up','in_transit','at_checkpoint','delivered']},
+    {key:'packed',    title:'Packed & Picked Up', icon:'📦', done:['picked_up','in_transit','at_checkpoint','delivered']},
+    {key:'transit',   title:'In Transit', icon:'🚚', done:['in_transit','at_checkpoint','delivered']},
+    {key:'delivered', title:'Delivered', icon:'🏠', done:['delivered']}
+  ];
+  const st=(d.status||'in_transit').toLowerCase();
+  // current = the last step that isn't complete yet (first non-done), else final.
+  let curIdx=steps.findIndex(s=>!s.done.includes(st)); if(curIdx<0) curIdx=steps.length-1;
+  const isDelivered=st==='delivered';
+  // ETA
+  let etaBig='Calculating…', etaSub='We\'ll update you by SMS';
+  if(isDelivered){ etaBig='Delivered'; etaSub='Thank you for using AgriBridge'; }
+  else if(d.estimated_arrival){ const t=new Date(d.estimated_arrival);
+    if(!isNaN(t)){ etaBig=t.toLocaleTimeString('en-UG',{hour:'numeric',minute:'2-digit'}); etaSub='Estimated arrival · '+t.toLocaleDateString('en-UG',{weekday:'short',day:'numeric',month:'short'}); } }
+  const started=d.created_at?new Date(d.created_at):null;
+  const stepsHtml=steps.map((s,i)=>{
+    const done=s.done.includes(st);
+    const active=(i===curIdx)&&!done&&!isDelivered;
+    const cls=done?'done':(active?'active':'pending');
+    let time='';
+    if(done) time = (s.key==='confirmed'&&started) ? started.toLocaleString('en-UG',{day:'numeric',month:'short',hour:'numeric',minute:'2-digit'}) : 'Completed';
+    else if(active) time='In progress…';
+    else time='Pending';
+    return `<li class="trk-step ${cls}"><div class="trk-step-rail"><div class="trk-node">${done?'✓':s.icon}</div><div class="trk-line"></div></div><div class="trk-step-body"><div class="trk-step-title">${s.title}</div><div class="trk-step-time">${time}</div></div></li>`;
+  }).join('');
+  const driver = d.driver_name || 'AgriBridge Rider';
+  const driverPhone = d.driver_phone || '+256 755 966 690';
+  const vehicle = d.vehicle || 'Refrigerated van · UAX 123K';
+  const initials = driver.split(/\s+/).map(w=>w[0]).slice(0,2).join('').toUpperCase();
+  return `<div class="trk">
+    <div class="trk-hero">
+      <div class="trk-hero-top">
+        <div class="trk-code">Tracking&nbsp;<b>${escHtml(d.tracking_code||ref)}</b></div>
+        <div class="trk-badge">${st.replace(/_/g,' ')}</div>
+      </div>
+      <div class="trk-eta-label">${isDelivered?'Status':'Estimated delivery'}</div>
+      <div class="trk-eta">${escHtml(etaBig)}</div>
+      <div class="trk-eta-sub">${escHtml(etaSub)}</div>
+    </div>
+    <ul class="trk-steps">${stepsHtml}</ul>
+    <div class="trk-route">
+      <div class="trk-route-row">
+        <div class="trk-route-rail"><div class="trk-pin fill"></div><div class="trk-route-dash"></div><div class="trk-pin"></div></div>
+        <div class="trk-route-txt">
+          <div class="lbl">Pickup</div><div class="val">${escHtml(d.pickup_location||'Farm')}</div>
+          <div class="lbl">Destination</div><div class="val last">${escHtml(d.delivery_location||'Delivery address')}</div>
+        </div>
+      </div>
+    </div>
+    <div class="trk-driver">
+      <div class="trk-driver-av">${escHtml(initials||'🚚')}</div>
+      <div class="trk-driver-info">
+        <div class="trk-driver-name">${escHtml(driver)}</div>
+        <div class="trk-driver-meta">${escHtml(vehicle)}</div>
+      </div>
+      <a class="trk-call" href="tel:${escHtml(driverPhone.replace(/\s+/g,''))}" aria-label="Call driver">📞</a>
+    </div>
+  </div>`;
 }
 async function loadAlerts() {
   // Only show the signed-in user's own deliveries (by their order tracking codes),
@@ -4181,6 +4296,11 @@ function applyHomeMode() {
     if (keep[ch.id]) return;
     ch.style.display = authed ? 'none' : '';
   });
+  // #howItWorks (the "How it works" steps + "Register as Farmer/Buyer" cards)
+  // sits OUTSIDE #page-home as a sibling, so the loop above never reaches it.
+  // Hide it for logged-in users too — they already have an account.
+  var hiw = document.getElementById('howItWorks');
+  if (hiw) hiw.style.display = authed ? 'none' : '';
   if (authed) hideGuestCta();
 }
 
@@ -4604,7 +4724,9 @@ window.showPage = function(name) {
   // page below the fold and making every nav look like "back to the first page".
   // Hide it unless we're on home, and always scroll to the top of the new page.
   var _hiw = document.getElementById('howItWorks');
-  if (_hiw) _hiw.style.display = (name === 'home') ? '' : 'none';
+  // Only guests see the marketing "How it works" + "Register as…" cards. A
+  // logged-in user already has an account, so hide it for them even on home.
+  if (_hiw) _hiw.style.display = (name === 'home' && !currentUser) ? '' : 'none';
   window.scrollTo(0, 0);
 };
 
