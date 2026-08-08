@@ -579,6 +579,29 @@ body{background:
 /* Inputs → subtle premium */
 input,select,textarea{border-radius:12px}
 input:focus,select:focus,textarea:focus{outline:none;border-color:var(--green) !important;box-shadow:0 0 0 3px rgba(23,224,107,.15)}
+/* Marketplace product rows (reference layout) */
+.mk-row{display:flex;align-items:center;gap:12px;padding:11px;border-radius:18px;background:var(--card);
+  border:1px solid var(--border);margin-bottom:11px;cursor:pointer;transition:border-color .2s,transform .2s,box-shadow .2s}
+.mk-row:hover,.mk-row:active{border-color:rgba(23,224,107,.34);transform:translateY(-1px);box-shadow:0 12px 30px -22px rgba(0,0,0,.85)}
+.mk-thumb{position:relative;width:78px;height:78px;border-radius:14px;overflow:hidden;flex-shrink:0;background:var(--bg3);display:grid;place-items:center}
+.mk-thumb img{width:100%;height:100%;object-fit:cover}
+.mk-emoji{width:100%;height:100%;align-items:center;justify-content:center;font-size:2.3rem}
+.mk-org{position:absolute;top:4px;left:4px;font-size:.8rem;filter:drop-shadow(0 1px 2px #000)}
+.mk-info{flex:1;min-width:0}
+.mk-name{font-weight:750;font-size:.95rem;display:flex;align-items:center;gap:7px;flex-wrap:wrap;letter-spacing:-.01em}
+.mk-verif{font-size:.58rem;font-weight:800;color:var(--green);background:var(--green-dim);border:1px solid rgba(23,224,107,.25);padding:2px 7px;border-radius:999px;white-space:nowrap}
+.mk-price{color:var(--green);font-weight:850;font-size:1.02rem;margin-top:3px;font-variant-numeric:tabular-nums}
+.mk-price small{color:var(--text2);font-weight:600;font-size:.72rem}
+.mk-off{color:#ff8f8f;font-weight:800;font-size:.72rem;margin-left:7px}
+.mk-seller{font-size:.8rem;color:var(--text);margin-top:2px}
+.mk-meta{font-size:.72rem;color:var(--text2);margin-top:1px}
+.mk-star{color:var(--amber);font-weight:700}
+.mk-vid{display:inline-block;font-size:.7rem;color:var(--green);margin-top:5px}
+.mk-cart{flex-shrink:0;width:46px;height:46px;border-radius:14px;background:linear-gradient(145deg,var(--green-light),var(--green));
+  color:var(--g-ink);border:none;font-size:1.6rem;font-weight:800;cursor:pointer;line-height:1;box-shadow:0 8px 20px -8px rgba(23,224,107,.75)}
+.mk-cart:active{transform:scale(.94)}
+/* Marketplace list becomes a single column of rows */
+#marketListings{display:block !important}
 /* Farmer analytics dashboard */
 .an-card{background:linear-gradient(160deg,rgba(23,224,107,.08),var(--card));border:1px solid rgba(23,224,107,.18);border-radius:20px;padding:18px;box-shadow:0 16px 40px -24px rgba(0,0,0,.8)}
 .an-top{display:flex;align-items:center;justify-content:space-between}
@@ -1844,34 +1867,22 @@ function listingCard(l) {
   const priceHtml = flash
     ? `<div class="card-price" style="color:#f44336">UGX ${salePrice.toLocaleString()}</div><div class="card-unit" style="text-decoration:line-through;color:var(--text2)">UGX ${price.toLocaleString()} · 🔻${l.discount_pct}% OFF</div>`
     : `<div class="card-price">UGX ${price.toLocaleString()}</div><div class="card-unit">per kg</div>`;
-  return `<div class="card" onclick="trackInterest('${escHtml(name)}')">
-    <div style="position:relative;overflow:hidden;height:140px;background:var(--bg3)">
-      ${imgUrl ? `<img src="${imgUrl}" alt="${escHtml(name)}" style="width:100%;height:100%;object-fit:cover" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'">` : ''}
-      <div style="display:${imgUrl?'none':'flex'};width:100%;height:100%;align-items:center;justify-content:center;font-size:4rem">${emoji}</div>
-      ${flash ? `<div class="flash-badge">⚡ ${l.discount_pct}% OFF <span class="flash-countdown">${getFlashCountdown()}</span></div>` : ''}
-      ${l.is_organic ? `<div style="position:absolute;top:8px;right:8px;background:#007a33;color:#fff;font-size:0.65rem;font-weight:700;padding:2px 7px;border-radius:20px">🌱 ORGANIC</div>` : ''}
+  const rt2 = _rt ? `<span class="mk-star">★ ${_rt.avg_rating}${_rt.review_count?` (${_rt.review_count})`:''}</span>` : '';
+  return `<div class="mk-row" onclick="openOrderModal('${l.id||0}','${escHtml(name)}','${escHtml(farmer)}',${price})">
+    <div class="mk-thumb">
+      ${imgUrl ? `<img src="${imgUrl}" alt="${escHtml(name)}" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'">` : ''}
+      <div class="mk-emoji" style="display:${imgUrl?'none':'flex'}">${emoji}</div>
+      ${l.is_organic ? `<span class="mk-org" title="Organic">🌱</span>` : ''}
     </div>
-    <div class="card-body">
-      <div class="card-title">${escHtml(name)}${verified}</div>
-      <div class="card-desc">
-        <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px">
-          <div style="width:24px;height:24px;border-radius:50%;background:var(--green-dim);display:flex;align-items:center;justify-content:center;font-size:0.68rem;font-weight:700;color:var(--green);flex-shrink:0">${initials}</div>
-          <span style="font-size:0.8rem">${escHtml(farmer)}</span>
-          ${ratingHtml}
-        </div>
-        <div style="font-size:0.78rem;color:var(--text2)">📍 ${escHtml(district)} · 📦 ${Number(qty).toLocaleString()} kg</div>
-      </div>
-      ${terms ? `<div style="font-size:0.72rem;color:var(--green);margin:2px 0 6px;padding:0 2px">${terms}</div>` : ''}
-      ${l.video_url ? `<a href="${escHtml(l.video_url)}" target="_blank" rel="noopener" style="display:inline-block;font-size:0.72rem;color:var(--green);margin:0 0 6px">🎥 Watch video</a>` : ''}
-      <div class="card-footer">
-        <div>${priceHtml}${cmpHtml}</div>
-        <div style="display:flex;gap:5px;flex-wrap:wrap;justify-content:flex-end;margin-top:6px">
-          <a href="https://wa.me/256755966690?text=${waMsg}" target="_blank" class="btn-card" style="background:#25D366;font-size:0.75rem;padding:5px 8px">💬</a>
-          <button class="btn-card" onclick="event.stopPropagation();addToBasket('${l.id||Date.now()}','${escHtml(name)}',${salePrice},'kg','${emoji}','produce')" style="background:var(--green-dim);color:var(--green);border:1px solid var(--green);font-size:0.76rem">🛒</button>
-          <button class="btn-card" onclick="event.stopPropagation();openOrderModal('${l.id||0}','${escHtml(name)}','${escHtml(farmer)}',${price})" style="font-size:0.76rem">Order</button>
-        </div>
-      </div>
+    <div class="mk-info">
+      <div class="mk-name">${escHtml(name)}${l.is_verified ? `<span class="mk-verif">✔ Verified</span>` : ''}</div>
+      <div class="mk-price">UGX ${salePrice.toLocaleString()}<small> /kg</small>${flash ? `<span class="mk-off">−${l.discount_pct}%</span>` : ''}</div>
+      <div class="mk-seller">${escHtml(farmer)}</div>
+      <div class="mk-meta">📍 ${escHtml(district)} · ${Number(qty).toLocaleString()}kg ${rt2}</div>
+      ${cmpHtml}
+      ${l.video_url ? `<a href="${escHtml(l.video_url)}" target="_blank" rel="noopener" onclick="event.stopPropagation()" class="mk-vid">🎥 Watch video</a>` : ''}
     </div>
+    <button class="mk-cart" aria-label="Add ${escHtml(name)} to basket" onclick="event.stopPropagation();addToBasket('${l.id||Date.now()}','${escHtml(name)}',${salePrice},'kg','${emoji}','produce')">＋</button>
   </div>`;
 }
 
