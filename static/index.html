@@ -1808,7 +1808,7 @@ setInterval(() => { document.querySelectorAll('.flash-countdown').forEach(el => 
 // PAGE NAVIGATION
 // ─────────────────────────────────────────────────────────────────
 let _navHistory = ['home'];
-function openMore(){ var o=document.getElementById('moreOverlay'),s=document.getElementById('moreSheet'); if(o)o.classList.add('open'); if(s)s.classList.add('open'); }
+function openMore(){ if(typeof renderMoreGrid==='function') renderMoreGrid(); var o=document.getElementById('moreOverlay'),s=document.getElementById('moreSheet'); if(o)o.classList.add('open'); if(s)s.classList.add('open'); }
 function closeMore(){ var o=document.getElementById('moreOverlay'),s=document.getElementById('moreSheet'); if(o)o.classList.remove('open'); if(s)s.classList.remove('open'); }
 function mnav(n){ closeMore(); showPage(n); }
 function showPage(name) {
@@ -3069,6 +3069,17 @@ function renderTrackingCard(d, ref){
     </div>
   </div>`;
 }
+// Track an order right inside the dashboard (no jump to the Delivery page).
+async function trackInDashboard(code){
+  var c=document.getElementById('dashTrack'); if(!c||!code) return;
+  // Toggle off if the same code is already open.
+  if(c.getAttribute('data-code')===code){ c.innerHTML=''; c.removeAttribute('data-code'); return; }
+  c.setAttribute('data-code',code);
+  c.innerHTML='<div class="loader"><div class="spinner"></div>Tracking…</div>';
+  var data=await sb('deliveries',{ select:'id,status,pickup_location,delivery_location,tracking_code,estimated_arrival,driver_name,driver_phone,created_at', filters:[['tracking_code','eq.'+code.toUpperCase()]], single:true });
+  c.innerHTML=(data&&data.id)?renderTrackingCard(data,code):'<div style="padding:14px;background:var(--bg3);border-radius:12px;color:var(--text2);margin-top:8px">🚚 A rider hasn\'t been assigned yet. We\'ll update this as soon as your order is on the way.</div>';
+  c.scrollIntoView({behavior:'smooth',block:'nearest'});
+}
 async function loadAlerts() {
   // Only show the signed-in user's own deliveries (by their order tracking codes),
   // never the global delivery feed. Falls back to sample activity for the demo.
@@ -3332,9 +3343,9 @@ async function loadDashboard() {
     const reviewed = new Set(myReviews.map(r=>r.order_id));
     const local=JSON.parse(localStorage.getItem('ab_orders')||'[]');
     const count = dbOrders.length || local.length;
-    let html=`<h3 style="font-size:1rem;font-weight:700;margin-bottom:12px">📦 My Orders (${count})</h3>`;
+    let html=`<h3 style="font-size:1rem;font-weight:700;margin-bottom:12px">📦 My Orders (${count})</h3><div id="dashTrack"></div>`;
     if(dbOrders.length){
-      html+=dbOrders.map(o=>{ const amt=o.total_price||o.total_amount||0; const nm=((/Item:(.*)$/.exec(o.notes||'')||[])[1]||o.item_category||'Order').trim(); const st=o.status||'pending'; const u=o.item_category==='animal'?'':'kg'; let act=''; const canTrack=(st==='confirmed'||st==='delivered')&&o.tracking_code; const trk=canTrack?`<button class="btn-sm outline" onclick="showPage('delivery');var t=document.getElementById('trackingInput');if(t)t.value='${o.tracking_code}';trackDelivery()">📍 Track</button>`:''; let rate=''; if(st==='delivered'&&o.id&&o.farmer_id){ rate = reviewed.has(o.id) ? `<span style="font-size:0.72rem;color:#f0a020">★ Reviewed</span>` : `<button class="btn-sm" onclick="openReviewModal('${o.id}','${o.farmer_id}','${o.listing_id||''}')">⭐ Rate</button>`; } if(trk||rate) act=`<span style="flex-basis:100%;display:flex;gap:6px;margin-top:6px;align-items:center">${trk}${rate}</span>`; return `<div class="dash-row" style="flex-wrap:wrap;gap:6px"><span style="font-size:0.82rem">${escHtml(nm)} · ${o.quantity_kg||0}${u}</span><span style="color:var(--green)">UGX ${Number(amt).toLocaleString()}</span><span class="status-badge ${st}">${st}</span>${act}</div>`; }).join('');
+      html+=dbOrders.map(o=>{ const amt=o.total_price||o.total_amount||0; const nm=((/Item:(.*)$/.exec(o.notes||'')||[])[1]||o.item_category||'Order').trim(); const st=o.status||'pending'; const u=o.item_category==='animal'?'':'kg'; let act=''; const canTrack=(st==='confirmed'||st==='delivered')&&o.tracking_code; const trk=canTrack?`<button class="btn-sm outline" onclick="trackInDashboard('${o.tracking_code}')">📍 Track</button>`:''; let rate=''; if(st==='delivered'&&o.id&&o.farmer_id){ rate = reviewed.has(o.id) ? `<span style="font-size:0.72rem;color:#f0a020">★ Reviewed</span>` : `<button class="btn-sm" onclick="openReviewModal('${o.id}','${o.farmer_id}','${o.listing_id||''}')">⭐ Rate</button>`; } if(trk||rate) act=`<span style="flex-basis:100%;display:flex;gap:6px;margin-top:6px;align-items:center">${trk}${rate}</span>`; return `<div class="dash-row" style="flex-wrap:wrap;gap:6px"><span style="font-size:0.82rem">${escHtml(nm)} · ${o.quantity_kg||0}${u}</span><span style="color:var(--green)">UGX ${Number(amt).toLocaleString()}</span><span class="status-badge ${st}">${st}</span>${act}</div>`; }).join('');
     } else if(local.length){
       html+=local.map(o=>`<div class="dash-row"><span style="font-size:0.82rem">${escHtml(o.items.map(i=>i.name).join(', '))}</span><span style="color:var(--green)">UGX ${Number(o.total).toLocaleString()}</span><span class="status-badge ${o.status||'pending'}">${o.status||'pending'}</span></div>`).join('');
     } else html+=`<p style="color:var(--text2);font-size:0.9rem">No orders placed yet. <button class="btn-sm" onclick="showPage('market')">Browse Market</button></p>`;
@@ -4176,6 +4187,32 @@ var ROLE_NAV = {
   vendor: [{page:'home',icon:'🏠',label:'Home'},{page:'market',icon:'🛒',label:'Market'},{page:'prices',icon:'📊',label:'Prices'},{page:'animals',icon:'🐄',label:'Animals'},{page:'delivery',icon:'🚚',label:'Orders'}],
   hotel:  [{page:'home',icon:'🏠',label:'Home'},{page:'b2b',icon:'🏢',label:'B2B Portal'},{page:'market',icon:'🛒',label:'Browse'},{page:'delivery',icon:'🚚',label:'Deliveries'},{page:'contact',icon:'✉️',label:'Support'}],
 };
+
+// The "More" sheet is tailored to the signed-in role — a buyer shouldn't be
+// shown farmer-only selling tools, and a farmer shouldn't be shown the B2B
+// bulk-buying portal. Every page is still reachable directly; this only curates
+// what each role sees surfaced.
+var MORE_ITEMS = {
+  crops:{icon:'🌿',label:'Crops'}, animals:{icon:'🐄',label:'Animals'},
+  doctor:{icon:'🩺',label:'AI Doctor'}, training:{icon:'🎓',label:'Learn'},
+  delivery:{icon:'🚚',label:'Track'}, supply:{icon:'🏪',label:'Supply'},
+  finance:{icon:'💰',label:'Finance'}, b2b:{icon:'🏢',label:'B2B'},
+  community:{icon:'🌱',label:'Community'}, coldchain:{icon:'❄️',label:'Cold Chain'},
+  export:{icon:'🌍',label:'Export'}, ussd:{icon:'📱',label:'USSD'},
+  about:{icon:'💡',label:'About'}, contact:{icon:'✉️',label:'Contact'}
+};
+var MORE_BY_ROLE = {
+  guest:  ['crops','animals','doctor','training','delivery','supply','finance','b2b','community','coldchain','export','ussd','about','contact'],
+  farmer: ['crops','animals','doctor','training','finance','supply','coldchain','export','delivery','community','ussd','about','contact'],
+  vendor: ['crops','animals','delivery','training','community','coldchain','ussd','about','contact'],
+  hotel:  ['b2b','supply','delivery','coldchain','finance','community','training','ussd','about','contact']
+};
+function renderMoreGrid(){
+  var grid=document.querySelector('#moreSheet .more-grid'); if(!grid) return;
+  var role=(typeof getCurrentRole==='function')?getCurrentRole():'guest';
+  var keys=MORE_BY_ROLE[role]||MORE_BY_ROLE.guest;
+  grid.innerHTML=keys.map(function(k){ var it=MORE_ITEMS[k]; return it?'<button onclick="mnav(\''+k+'\')"><span>'+it.icon+'</span>'+it.label+'</button>':''; }).join('');
+}
 
 function getCurrentRole() {
   if (!currentUser) return 'guest';
