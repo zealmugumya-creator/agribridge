@@ -3448,14 +3448,41 @@ function openSettings(){
   openModal('settingsModal');
 }
 function setLangFromSettings(code){ setLang(code); openSettings(); }
+// Shrink an image in the browser to a square-ish max dimension and re-encode as
+// JPEG. Phone photos are often 4–12MB — far over the upload limit — so resizing
+// first is what makes profile photos actually upload, and keeps avatars fast.
+function downscaleImage(file, maxDim, quality){
+  return new Promise(function(resolve, reject){
+    var url=URL.createObjectURL(file);
+    var img=new Image();
+    img.onload=function(){
+      URL.revokeObjectURL(url);
+      var w=img.naturalWidth||img.width, h=img.naturalHeight||img.height;
+      var scale=Math.min(1, (maxDim||512)/Math.max(w,h));
+      var cw=Math.max(1,Math.round(w*scale)), ch=Math.max(1,Math.round(h*scale));
+      var c=document.createElement('canvas'); c.width=cw; c.height=ch;
+      c.getContext('2d').drawImage(img,0,0,cw,ch);
+      c.toBlob(function(b){ b?resolve(b):reject(new Error('encode failed')); }, 'image/jpeg', quality||0.85);
+    };
+    img.onerror=function(){ URL.revokeObjectURL(url); reject(new Error('load failed')); };
+    img.src=url;
+  });
+}
 async function uploadAvatar(inp){
   var f=inp&&inp.files&&inp.files[0]; if(!f||!currentUser) return;
   showToast('Uploading photo…');
-  var url=await uploadImage(f,'avatars');
-  if(url){ currentUser.avatar_url=url; localStorage.setItem('ab_user',JSON.stringify(currentUser));
-    if(currentUser.supaId) sbUpdate('farmers',{ profile_photo:url },'id',currentUser.supaId);
-    if(typeof updateNavUser==='function') updateNavUser(currentUser); showToast('Photo updated ✓'); openSettings(); }
-  else showToast('Upload failed — try a smaller image');
+  // Resize before upload so large phone photos don't get rejected by the size cap.
+  var toSend=f;
+  try{ var small=await downscaleImage(f,512,0.85); toSend=new File([small],'avatar.jpg',{type:'image/jpeg'}); }catch(e){ toSend=f; }
+  var url=await uploadImage(toSend,'avatars');
+  if(!url){ showToast('Upload failed — check your connection and try again'); return; }
+  currentUser.avatar_url=url;
+  try{ localStorage.setItem('ab_user',JSON.stringify(currentUser)); }catch(e){}
+  if(typeof updateNavUser==='function') updateNavUser(currentUser);
+  // Persist to the account and confirm it saved so the photo survives reloads.
+  var saved = currentUser.supaId ? await sbUpdate('farmers',{ profile_photo:url },'id',currentUser.supaId) : true;
+  showToast(saved ? 'Photo updated ✓' : 'Photo shown, but saving to your account failed — try again');
+  openSettings();
 }
 function saveProfile(){
   if(!currentUser) return;
