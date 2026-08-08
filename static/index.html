@@ -1727,7 +1727,7 @@ function showPage(name) {
   if (name === 'delivery') { loadAlerts(); loadMyOrders(); }
   if (name === 'crops')    { renderCrops(); renderCalendar(); }
   if (name === 'animals')  loadAnimals();
-  if (name === 'home')     { loadHomeStats(); renderRoleHome(); renderRecommendations(); }
+  if (name === 'home')     { loadHomeStats(); renderRoleHome(); renderRecommendations(); applyHomeMode(); }
   if (name === 'dashboard') loadDashboard();
   if (name === 'pitch')    guardPitch();
   if (name === 'supply')   renderSupply();
@@ -4072,6 +4072,9 @@ function applyRoleUI() {
     if (cur) cur.classList.add('active');
   }
 
+  // Home shows the dashboard for logged-in users, marketing for guests
+  applyHomeMode();
+
   // 3. Show/hide nav buttons (Log In vs user avatar)
   // updateNavUser already handles this — just refresh it
   if (currentUser) {
@@ -4152,6 +4155,22 @@ function renderFarmerQuickLinks() {
     '<button class="btn-sm outline" onclick="showPage(&quot;dashboard&quot;)">📊 Dashboard</button>' +
     '</div>';
   home.insertBefore(div, home.firstChild);
+}
+
+// Logged-in users see their DASHBOARD on Home, not the guest marketing pages.
+// Hide the hero + marketing sections when authed (keep the role panel + quick
+// links); restore them for guests. This also removes the "Register as Farmer/
+// Buyer" cards and the empty gap the guest banner left behind.
+function applyHomeMode() {
+  var home = document.getElementById('page-home');
+  if (!home) return;
+  var authed = !!currentUser;
+  var keep = { roleHomePanel: 1, farmerQuickLinks: 1, guestCta: 1 };
+  Array.prototype.forEach.call(home.children, function(ch) {
+    if (keep[ch.id]) return;
+    ch.style.display = authed ? 'none' : '';
+  });
+  if (authed) hideGuestCta();
 }
 
 // Override showPage to enforce role gating
