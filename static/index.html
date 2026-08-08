@@ -573,6 +573,11 @@ body{background:
 .role-kpi{background:linear-gradient(160deg,rgba(23,224,107,.06),var(--bg3)) !important;border-color:rgba(23,224,107,.18) !important;border-radius:16px !important;padding:13px 8px !important}
 .rk-num{font-size:1.5rem !important;letter-spacing:-.02em}
 .role-avatar{background:linear-gradient(145deg,var(--green-light),var(--green)) !important;box-shadow:0 8px 22px -8px rgba(23,224,107,.7)}
+/* Hero → deep emerald (was washing out gray), text pops, subtle field texture */
+.hero{min-height:78vh !important;background:
+  linear-gradient(to bottom, rgba(5,11,8,.82) 0%, rgba(5,11,8,.93) 55%, var(--bg) 100%),
+  radial-gradient(760px 480px at 50% 6%, rgba(23,224,107,.16), transparent 62%),
+  url('https://images.unsplash.com/photo-1500937386664-56d1dfef3854?auto=format&fit=crop&w=1920&q=80') center/cover no-repeat !important}
 
 /* ══ More sheet ══ */
 .more-overlay{position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:399;opacity:0;pointer-events:none;transition:opacity .25s}
@@ -3980,15 +3985,23 @@ function applyRoleUI() {
   }
   indicator.className = 'nav-role-indicator ' + role;
 
-  // 2. Rebuild bottom nav for this role
+  // 2. Rebuild bottom nav for this role — premium 5-slot layout with a center
+  //    AI orb. 3 role tabs + a "More" tab (opens the sheet of every other page),
+  //    with the glowing AI orb in the middle.
   var nav = document.querySelector('.bottom-nav');
   if (nav) {
-    var items = ROLE_NAV[role] || ROLE_NAV.guest;
-    nav.innerHTML = items.map(function(item) {
-      return '<button class="nav-item" id="nav-' + item.page + '" onclick="showPage(\'' + item.page + '\')">' +
+    nav.classList.add('bottom-nav--tabs');
+    var it = (ROLE_NAV[role] || ROLE_NAV.guest).slice(0, 3);
+    function navBtn(item) {
+      var oc = item.more ? 'openMore()' : ('showPage(\'' + item.page + '\')');
+      return '<button class="nav-item" id="nav-' + item.page + '" onclick="' + oc + '">' +
         '<span class="nav-icon">' + item.icon + '</span><span>' + item.label + '</span></button>';
-    }).join('');
-    // Mark current page active
+    }
+    var orb = '<button class="nav-ai" onclick="toggleAI()" aria-label="AI Assistant">' +
+      '<span class="nav-ai-orb"><span class="of-eye"></span><span class="of-eye"></span><span class="of-smile"></span></span></button>';
+    var left  = it.slice(0, 2).map(navBtn).join('');
+    var right = it.slice(2, 3).map(navBtn).join('') + navBtn({ page:'more', icon:'☰', label:'More', more:true });
+    nav.innerHTML = left + orb + right;
     var cur = nav.querySelector('#nav-home');
     if (cur) cur.classList.add('active');
   }
