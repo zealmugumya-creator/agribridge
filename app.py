@@ -1036,6 +1036,13 @@ def admin_animals():
         return err
     return jsonify(supa_get('animal_listings', {'order': 'created_at.desc'}, limit=300) or [])
 
+@app.route('/api/admin/deliveries', methods=['GET'])
+def admin_deliveries():
+    payload, err = verify_token(required_role='admin')
+    if err:
+        return err
+    return jsonify(supa_get('deliveries', {'order': 'created_at.desc'}, limit=300) or [])
+
 # Generic admin editor for the console. Only whitelisted tables + columns can be
 # written, so the admin token cannot set protected fields (id, timestamps, ownership).
 _ADMIN_COLS = {
@@ -1049,6 +1056,8 @@ _ADMIN_COLS = {
     'farmers':         ['full_name', 'phone', 'email', 'district', 'is_verified', 'is_premium'],
     'orders':          ['status', 'payment_status', 'delivery_address', 'notes'],
     'market_prices':   ['crop_name', 'price', 'unit', 'district', 'market'],
+    'deliveries':      ['status', 'driver_name', 'driver_phone', 'pickup_location',
+                        'delivery_location', 'estimated_arrival', 'tracking_code', 'notes'],
 }
 
 def _filter_cols(table, data):

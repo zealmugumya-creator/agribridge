@@ -84,6 +84,7 @@
       <div class="tab active" data-tab="orders"   onclick="showTab('orders',this)">Orders</div>
       <div class="tab" data-tab="listings" onclick="showTab('listings',this)">Crop Listings</div>
       <div class="tab" data-tab="animals"  onclick="showTab('animals',this)">Animals</div>
+      <div class="tab" data-tab="deliveries" onclick="showTab('deliveries',this)">Deliveries</div>
       <div class="tab" data-tab="farmers"  onclick="showTab('farmers',this)">Users</div>
     </div>
     <div class="card">
@@ -174,9 +175,19 @@
       {k:'payment_status',label:'Payment status',t:'select',opts:['unpaid','paid']},
       {k:'delivery_address',label:'Delivery address',t:'text'},
       {k:'notes',label:'Notes',t:'textarea'}
+    ],
+    deliveries: [
+      {k:'tracking_code',label:'Tracking code',t:'text'},
+      {k:'status',label:'Delivery status',t:'select',opts:['scheduled','picked_up','in_transit','at_checkpoint','delivered','failed']},
+      {k:'driver_name',label:'Driver name',t:'text'},
+      {k:'driver_phone',label:'Driver phone',t:'text'},
+      {k:'pickup_location',label:'Pickup location',t:'text'},
+      {k:'delivery_location',label:'Delivery location',t:'text'},
+      {k:'estimated_arrival',label:'Estimated arrival',t:'text'},
+      {k:'notes',label:'Notes',t:'textarea'}
     ]
   };
-  var TABLE_OF = { orders:'orders', listings:'listings', animals:'animal_listings', farmers:'farmers' };
+  var TABLE_OF = { orders:'orders', listings:'listings', animals:'animal_listings', deliveries:'deliveries', farmers:'farmers' };
 
   // ── Auth ────────────────────────────────────────────────────────
   async function doLogin(){
@@ -192,7 +203,7 @@
   function showDash(){ document.getElementById('login').classList.add('hidden'); document.getElementById('dash').classList.remove('hidden'); refreshAll(); }
   function logout(){ TOKEN=''; sessionStorage.removeItem('ab_admin_token'); document.getElementById('dash').classList.add('hidden'); document.getElementById('login').classList.remove('hidden'); }
 
-  async function refreshAll(){ await loadStats(); await Promise.all([load('orders'),load('listings'),load('animals'),load('farmers')]); renderCurrent(); }
+  async function refreshAll(){ await loadStats(); await Promise.all([load('orders'),load('listings'),load('animals'),load('deliveries'),load('farmers')]); renderCurrent(); }
 
   async function loadStats(){
     try{
@@ -202,7 +213,7 @@
     }catch(e){}
   }
   async function load(tab){
-    var path = tab==='orders'?'/api/admin/orders':tab==='listings'?'/api/admin/listings':tab==='animals'?'/api/admin/animals':'/api/admin/farmers';
+    var path = tab==='orders'?'/api/admin/orders':tab==='listings'?'/api/admin/listings':tab==='animals'?'/api/admin/animals':tab==='deliveries'?'/api/admin/deliveries':'/api/admin/farmers';
     try{ var rows=await api(path); DATA[tab]=Array.isArray(rows)?rows:[]; }catch(e){ DATA[tab]=[]; }
   }
 
@@ -216,6 +227,7 @@
     if(currentTab==='orders')   return renderOrders(rows);
     if(currentTab==='listings') return renderListings(rows);
     if(currentTab==='animals')  return renderAnimals(rows);
+    if(currentTab==='deliveries') return renderDeliveries(rows);
     if(currentTab==='farmers')  return renderFarmers(rows);
   }
 
@@ -245,6 +257,15 @@
       return '<tr><td>'+img+'</td><td>'+h(a.name||'—')+(a.video_url?' 🎥':'')+'</td><td>'+h(a.species||a.category||'—')+'</td><td>'+fmt(a.price)+'</td><td>'+(a.qty||0)+'</td><td>'+h(a.district||'—')+'</td><td><span class="badge '+st+'">'+st+'</span></td><td>'+actionsCell('animals',a.id)+'</td></tr>';
     }).join('');
     setPanel('<table><thead><tr><th></th><th>Name</th><th>Type</th><th>Price</th><th>Qty</th><th>District</th><th>Status</th><th></th></tr></thead><tbody>'+body+'</tbody></table>');
+  }
+  function renderDeliveries(rows){
+    if(!rows.length){ panelMsg('No deliveries yet.'); return; }
+    var body=rows.map(function(d){var st=d.status||'scheduled';
+      var route=h(d.pickup_location||'—')+' → '+h(d.delivery_location||'—');
+      var driver=d.driver_name?h(d.driver_name)+(d.driver_phone?' · '+h(d.driver_phone):''):'—';
+      return '<tr><td>'+h(d.tracking_code||(d.id||'').slice(0,8))+'</td><td>'+route+'</td><td>'+driver+'</td><td><span class="badge '+st+'">'+h(st.replace(/_/g,' '))+'</span></td><td>'+h(d.estimated_arrival||'—')+'</td><td>'+actionsCell('deliveries',d.id)+'</td></tr>';
+    }).join('');
+    setPanel('<table><thead><tr><th>Tracking</th><th>Route</th><th>Driver</th><th>Status</th><th>ETA</th><th></th></tr></thead><tbody>'+body+'</tbody></table>');
   }
   function renderFarmers(rows){
     if(!rows.length){ panelMsg('No users.'); return; }
