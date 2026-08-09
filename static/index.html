@@ -3233,11 +3233,74 @@ let supplyFilter='all', supplySearch='';
 let _supplyItems = SUPPLY_ITEMS.slice();
 let _suppliesLoaded = false;
 async function loadSupplies(){
-  const rows = await sb('supplier_products', { select:'category,name,brand,price,unit,badge,description,image_id,in_stock', filters:[['order','category.asc'],['limit','300']] });
+  const rows = await sb('supplier_products', { select:'category,name,brand,price,unit,badge,description,image_id,image_url,in_stock,stock_qty,supplier_name', filters:[['order','category.asc'],['limit','300']] });
   if(Array.isArray(rows) && rows.length){
-    _supplyItems = rows.filter(r=>r.in_stock!==false).map(r=>({ cat:r.category, name:r.name, brand:r.brand, price:Number(r.price)||0, unit:r.unit, img:r.image_id, badge:r.badge, desc:r.description }));
+    _supplyItems = rows.filter(r=>r.in_stock!==false).map(r=>({ cat:r.category, name:r.name, brand:r.brand||'', price:Number(r.price)||0, unit:r.unit, img:(r.image_url||r.image_id||''), badge:r.badge, desc:r.description||'', stock:r.stock_qty, supplier:r.supplier_name }));
   }
   renderSupply();
+}
+// Resolve a supply item's photo: a full uploaded URL as-is, else an Unsplash id.
+function supplyImg(img){ if(!img) return ''; return (String(img).indexOf('http')===0) ? img : 'https://images.unsplash.com/photo-'+img+'?auto=format&fit=crop&w=400&h=180&q=75'; }
+
+// ── Supplier: manage my own products (supplier_products, owned by supplier_id) ──
+async function loadMyProducts(){
+  if(!currentUser||!currentUser.supaId){ window._myProducts=[]; return []; }
+  const rows = await sb('supplier_products', { select:'id,category,name,brand,price,unit,badge,description,image_id,image_url,in_stock,stock_qty,created_at', filters:[['supplier_id','eq.'+currentUser.supaId],['order','created_at.desc'],['limit','200']] });
+  window._myProducts = Array.isArray(rows)?rows:[];
+  return window._myProducts;
+}
+function openSupplierProductModal(id){
+  if(!currentUser||!currentUser.supaId){ showToast('Please log in to sell inputs'); openModal('loginModal'); return; }
+  var p = id ? (window._myProducts||[]).find(function(x){return String(x.id)===String(id);}) : null;
+  var set=function(el,v){ var e=document.getElementById(el); if(e) e.value=(v==null?'':v); };
+  document.getElementById('spTitle').textContent = p?'✏️ Edit Product':'🏪 Add Product';
+  set('spId', p?p.id:''); set('spName', p&&p.name); set('spBrand', p&&p.brand);
+  set('spPrice', p&&p.price); set('spUnit', p&&p.unit); set('spStock', p&&p.stock_qty);
+  set('spBadge', p&&p.badge); set('spDesc', p&&p.description);
+  var cat=document.getElementById('spCat'); if(cat) cat.value=(p&&p.category)||'fertilizer';
+  var ph=document.getElementById('spPhoto'); if(ph) ph.value='';
+  var del=document.getElementById('spDelBtn'); if(del) del.style.display=p?'inline-block':'none';
+  if(del) del.setAttribute('data-id', p?p.id:'');
+  openModal('supplierProductModal');
+}
+async function submitSupplierProduct(){
+  if(!currentUser||!currentUser.supaId){ showToast('Please log in'); return; }
+  var name=sanitiseInput((document.getElementById('spName')||{}).value,120);
+  var price=parseFloat((document.getElementById('spPrice')||{}).value||0);
+  var unit=sanitiseInput((document.getElementById('spUnit')||{}).value,40);
+  if(!name){ showToast('Enter a product name'); return; }
+  if(!(price>0)){ showToast('Enter a valid price'); return; }
+  if(!checkRateLimit('supplierProduct',20)) return;
+  var btn=document.getElementById('spSaveBtn'); if(btn){ btn.disabled=true; btn.textContent='Saving…'; }
+  var stockV=parseFloat((document.getElementById('spStock')||{}).value);
+  var fields={
+    supplier_id: currentUser.supaId,
+    supplier_name: currentUser.name||null,
+    category: (document.getElementById('spCat')||{}).value||'fertilizer',
+    name: name,
+    brand: sanitiseInput((document.getElementById('spBrand')||{}).value,80)||null,
+    price: price,
+    unit: unit||'unit',
+    badge: sanitiseInput((document.getElementById('spBadge')||{}).value,40)||null,
+    description: sanitiseInput((document.getElementById('spDesc')||{}).value,500)||null,
+    stock_qty: isNaN(stockV)?null:stockV,
+    in_stock: true
+  };
+  var f=(document.getElementById('spPhoto')||{}).files; f=f&&f[0];
+  if(f){ showToast('Uploading photo…'); try{ var small=await downscaleImage(f,800,0.82); var file=new File([small],'product.jpg',{type:'image/jpeg'}); var url=await uploadImage(file,'supplies'); if(url) fields.image_url=url; }catch(e){} }
+  var id=(document.getElementById('spId')||{}).value;
+  var ok = id ? await sbUpdate('supplier_products', fields, 'id', id) : await sbInsert('supplier_products', fields);
+  if(btn){ btn.disabled=false; btn.textContent='📤 Save Product'; }
+  if(ok){ closeModal('supplierProductModal'); showToast('✅ Product saved'); _suppliesLoaded=false; await loadMyProducts(); if(typeof loadDashboard==='function') loadDashboard(); }
+  else { showToast('Could not save — please try again'); }
+}
+async function deleteSupplierProduct(id){
+  id = id || (document.getElementById('spDelBtn')||{}).getAttribute && document.getElementById('spDelBtn').getAttribute('data-id');
+  if(!id) return;
+  if(!confirm('Remove this product from your store?')) return;
+  var ok=await sb('supplier_products',{ method:'DELETE', filters:[['id','eq.'+id]] });
+  if(ok){ closeModal('supplierProductModal'); showToast('Product removed'); _suppliesLoaded=false; await loadMyProducts(); if(typeof loadDashboard==='function') loadDashboard(); }
+  else showToast('Could not remove — try again');
 }
 function setSupplyFilter(f,btn){ supplyFilter=f; document.querySelectorAll('#supplyFilters .filter-btn').forEach(b=>b.classList.remove('active')); btn.classList.add('active'); renderSupply(); }
 function filterSupply(q){ supplySearch=q.toLowerCase(); renderSupply(); }
@@ -3250,7 +3313,7 @@ function renderSupply() {
   const catLabel = { seeds:'🌱 Seeds', fertilizer:'🧪 Fertilizer', pesticide:'🐛 Pesticide', tool:'🔧 Tool', animal_supply:'🐾 Animal Care' };
   const el = document.getElementById('supplyGrid');
   if (!el) return;
-  el.innerHTML = items.map(item => `<div class="card"><img class="card-img" src="https://images.unsplash.com/photo-${item.img}?auto=format&fit=crop&w=400&h=180&q=75" alt="${item.name}" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'"><div class="card-img-placeholder" style="display:none">${catLabel[item.cat]}</div><div class="card-body">${item.badge?`<span class="card-tag">${item.badge}</span>`:`<span class="card-tag">${catLabel[item.cat]}</span>`}<div class="card-title">${item.name}</div><div class="card-desc">${item.desc}</div><div style="font-size:0.78rem;color:var(--text2);margin-bottom:12px">🏷️ ${item.brand} · Per ${item.unit}</div><div class="card-footer"><div><div class="card-price">UGX ${item.price.toLocaleString()}</div><div class="card-unit">per ${item.unit}</div></div><button class="btn-card" onclick="addToBasket('supply-${encodeURIComponent(item.name)}','${escHtml(item.name)}',${item.price},'${item.unit}','${catLabel[item.cat].split(' ')[0]}','supply')">🛒 Order</button></div></div></div>`).join('');
+  el.innerHTML = items.map(item => { const src=supplyImg(item.img); const meta=[item.brand?('🏷️ '+item.brand):'', item.supplier?('🏪 '+item.supplier):'', (item.stock!=null&&item.stock!=='')?('📦 '+Number(item.stock).toLocaleString()+' in stock'):''].filter(Boolean).join(' · '); return `<div class="card"><img class="card-img" src="${src}" alt="${item.name}" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'"><div class="card-img-placeholder" style="display:${src?'none':'flex'}">${catLabel[item.cat]||'📦'}</div><div class="card-body">${item.badge?`<span class="card-tag">${item.badge}</span>`:`<span class="card-tag">${catLabel[item.cat]||''}</span>`}<div class="card-title">${item.name}</div><div class="card-desc">${item.desc}</div><div style="font-size:0.78rem;color:var(--text2);margin-bottom:12px">${meta||('Per '+item.unit)}</div><div class="card-footer"><div><div class="card-price">UGX ${item.price.toLocaleString()}</div><div class="card-unit">per ${item.unit}</div></div><button class="btn-card" onclick="addToBasket('supply-${encodeURIComponent(item.name)}','${escHtml(item.name)}',${item.price},'${item.unit}','${(catLabel[item.cat]||'📦').split(' ')[0]}','supply')">🛒 Order</button></div></div></div>`; }).join('');
 }
 
 // ─────────────────────────────────────────────────────────────────
@@ -3606,6 +3669,24 @@ async function renderRoleHome() {
         <button onclick="showPage('prices')"><span>🔔</span>Price Alerts</button>
       </div></div>`;
     loadFarmerKpis(); renderHomePrices();
+  } else if(role==='supplier') {
+    panel.innerHTML=`<div class="hd">${greet}${aiCard}
+      <div class="hd-tiles">
+        <div class="hd-tile" onclick="showPage('dashboard')"><div class="hd-ic">📦</div><div class="hd-t-lbl">My Products</div><div class="hd-t-num" id="hd-products">–</div><div class="hd-t-sub">Manage ›</div></div>
+        <div class="hd-tile" onclick="openSupplierProductModal()"><div class="hd-ic">➕</div><div class="hd-t-lbl">Add Product</div><div class="hd-t-num">New</div><div class="hd-t-sub">List an input ›</div></div>
+        <div class="hd-tile" onclick="showPage('supply')"><div class="hd-ic">🌱</div><div class="hd-t-lbl">Supplies</div><div class="hd-t-num">Store</div><div class="hd-t-sub">Browse ›</div></div>
+        <div class="hd-tile" onclick="showPage('delivery')"><div class="hd-ic">🚚</div><div class="hd-t-lbl">Orders</div><div class="hd-t-num">Track</div><div class="hd-t-sub">Deliveries ›</div></div>
+      </div>
+      <div class="hd-sec-head"><span>Market Prices <small>Today</small></span><a onclick="showPage('prices')">See all ›</a></div>
+      <div class="hd-prices" id="hd-prices"></div>
+      <div class="hd-sec-head"><span>Quick Actions</span></div>
+      <div class="hd-qa">
+        <button onclick="openSupplierProductModal()"><span>➕</span>Add Product</button>
+        <button onclick="showPage('dashboard')"><span>🏪</span>My Store</button>
+        <button onclick="showPage('supply')"><span>🌱</span>Supplies</button>
+        <button onclick="showPage('prices')"><span>📊</span>Prices</button>
+      </div></div>`;
+    loadSupplierKpis(); renderHomePrices();
   } else {
     const bc=basketItems.reduce((s,i)=>s+i.qty,0);
     const isHotel=role==='hotel';
@@ -3657,6 +3738,11 @@ async function loadBuyerKpis() {
   const now=new Date(), ms=new Date(now.getFullYear(),now.getMonth(),1);
   const spent=orders.filter(o=>new Date(o.created_at)>=ms).reduce((s,o)=>s+Number(o.total_price||o.total_amount||0),0);
   set('hd-spent', 'UGX '+fmtShort(spent));
+}
+async function loadSupplierKpis() {
+  const set=(id,v)=>{ const e=document.getElementById(id); if(e) e.textContent=v; };
+  const prods=await loadMyProducts();
+  set('hd-products', prods.length);
 }
 // Farmer advances an order's status (RLS allows only the order's farmer).
 async function updateOrderStatus(id, status, btn){
@@ -3767,6 +3853,16 @@ async function loadDashboard() {
       html+=`<div style="margin-top:18px;background:var(--bg3);border:1px solid var(--border);border-radius:10px;padding:14px"><h3 style="font-size:0.95rem;font-weight:700;margin-bottom:8px">💰 Payouts</h3><div class="dash-row"><span>Pending</span><span style="color:var(--green)">UGX ${Number(pend).toLocaleString()}</span></div><div class="dash-row"><span>Paid out</span><span style="color:var(--text2)">UGX ${Number(paid).toLocaleString()}</span></div><div style="font-size:0.72rem;color:var(--text2);margin-top:6px">Net of platform commission. Settled after delivery is confirmed.</div></div>`;
     }
     el.innerHTML=html;
+  } else if(getCurrentRole()==='supplier'){
+    const prods=await loadMyProducts();
+    const catLabel={seeds:'🌱 Seeds',fertilizer:'🧪 Fertilizer',pesticide:'🐛 Pesticide',tool:'🔧 Tools',animal_supply:'🐾 Animal care'};
+    let html=`<div class="an-card"><div class="an-top"><span class="an-lbl">🏪 My Store</span><span class="an-chip">${prods.length} product${prods.length!==1?'s':''}</span></div><div class="an-rev tnum" style="font-size:1.35rem">${escHtml(currentUser.name||'My Store')}</div><p style="color:var(--text2);font-size:.8rem;margin-top:6px">Your products show in the Supplies store for farmers to buy.</p><button class="btn-sm" style="margin-top:12px" onclick="openSupplierProductModal()">➕ Add Product</button></div>`;
+    html+=`<div style="margin-top:18px"><h3 style="font-size:1rem;font-weight:700;margin-bottom:12px">📦 Products (${prods.length})</h3>`;
+    if(prods.length){
+      html+=prods.map(p=>{ const src=supplyImg(p.image_url||p.image_id); const thumb=src?`<img src="${src}" style="width:42px;height:42px;border-radius:10px;object-fit:cover;flex-shrink:0" onerror="this.style.visibility='hidden'">`:`<span style="font-size:1.6rem">📦</span>`; return `<div class="dash-row" style="align-items:center;gap:10px">${thumb}<span style="flex:1;min-width:0">${escHtml(p.name)}<div style="font-size:.72rem;color:var(--text2)">${catLabel[p.category]||p.category}${p.stock_qty!=null?' · '+Number(p.stock_qty).toLocaleString()+' in stock':''}</div></span><span style="color:var(--green);font-weight:700;white-space:nowrap">UGX ${Number(p.price||0).toLocaleString()}</span><button class="btn-sm outline" onclick="openSupplierProductModal('${p.id}')">Edit</button></div>`; }).join('');
+    } else html+=`<p style="color:var(--text2);font-size:.9rem">No products yet. <button class="btn-sm" onclick="openSupplierProductModal()">Add your first product</button></p>`;
+    html+=`</div>`;
+    el.innerHTML=html;
   } else {
     // Authoritative orders come from the DB (survive across devices, show the
     // farmer's live status). Local cache is the fallback when offline / not synced.
@@ -3856,7 +3952,7 @@ function openSettings(){
       '<input id="setDistrict" placeholder="District" style="'+inp+'">'+
       '<div style="font-size:0.72rem;color:var(--text2);margin:2px 0 6px">Account type — this decides which features you see</div>'+
       '<select id="setRole" onchange="setAccountRole(this.value)" style="'+inp+'">'+
-        ['farmer','vendor','hotel'].map(function(r){ var lbls={farmer:"🌾 Farmer (I sell produce)",vendor:"🛒 Buyer (I buy produce)",hotel:"🏨 Hotel / Restaurant (B2B)"}; return '<option value="'+r+'"'+(getCurrentRole()===r?' selected':'')+'>'+lbls[r]+'</option>'; }).join('')+
+        ['farmer','vendor','hotel','supplier'].map(function(r){ var lbls={farmer:"🌾 Farmer (I sell produce)",vendor:"🛒 Buyer (I buy produce)",hotel:"🏨 Hotel / Restaurant (B2B)",supplier:"🏪 Supplier (I sell farm inputs)"}; return '<option value="'+r+'"'+(getCurrentRole()===r?' selected':'')+'>'+lbls[r]+'</option>'; }).join('')+
       '</select>'+
       '<div style="font-size:0.72rem;color:var(--text2);margin-bottom:10px">'+escHtml(currentUser.email||'')+'</div>'+
       '<button class="btn-sm" style="width:100%" onclick="saveProfile()">Save changes</button></div>';
@@ -4664,6 +4760,7 @@ var ROLE_NAV = {
   farmer: [{page:'home',icon:'🏠',label:'Home'},{page:'market',icon:'🌾',label:'Listings'},{page:'dashboard',icon:'📊',label:'Dashboard'},{page:'doctor',icon:'🩺',label:'AI Doc'},{page:'finance',icon:'💰',label:'Finance'}],
   vendor: [{page:'home',icon:'🏠',label:'Home'},{page:'market',icon:'🛒',label:'Market'},{page:'prices',icon:'📊',label:'Prices'},{page:'animals',icon:'🐄',label:'Animals'},{page:'delivery',icon:'🚚',label:'Orders'}],
   hotel:  [{page:'home',icon:'🏠',label:'Home'},{page:'b2b',icon:'🏢',label:'B2B Portal'},{page:'market',icon:'🛒',label:'Browse'},{page:'delivery',icon:'🚚',label:'Deliveries'},{page:'contact',icon:'✉️',label:'Support'}],
+  supplier:[{page:'home',icon:'🏠',label:'Home'},{page:'dashboard',icon:'🏪',label:'My Store'},{page:'supply',icon:'🌱',label:'Supplies'},{page:'delivery',icon:'🚚',label:'Orders'},{page:'market',icon:'🛒',label:'Market'}],
 };
 
 // The "More" sheet is tailored to the signed-in role — a buyer shouldn't be
@@ -4683,7 +4780,8 @@ var MORE_BY_ROLE = {
   guest:  ['crops','animals','doctor','training','delivery','supply','finance','b2b','community','coldchain','export','ussd','about','contact'],
   farmer: ['crops','animals','doctor','training','finance','supply','coldchain','export','delivery','community','ussd','about','contact'],
   vendor: ['crops','animals','delivery','training','community','coldchain','ussd','about','contact'],
-  hotel:  ['b2b','supply','delivery','coldchain','finance','community','training','ussd','about','contact']
+  hotel:  ['b2b','supply','delivery','coldchain','finance','community','training','ussd','about','contact'],
+  supplier:['supply','delivery','community','training','coldchain','finance','ussd','about','contact']
 };
 function renderMoreGrid(){
   var grid=document.querySelector('#moreSheet .more-grid'); if(!grid) return;
@@ -4697,6 +4795,7 @@ function getCurrentRole() {
   var role = (currentUser.role || (currentUser.user_metadata && currentUser.user_metadata.role) || 'vendor');
   if (role === 'hotel' || role === 'restaurant' || role === 'b2b') return 'hotel';
   if (role === 'farmer') return 'farmer';
+  if (role === 'supplier' || role === 'input_seller') return 'supplier';
   return 'vendor';
 }
 
@@ -5862,7 +5961,7 @@ document.addEventListener('DOMContentLoaded', function() {
       <div class="form-group"><label>Email Address</label><input type="email" id="regEmail" placeholder="your@email.com" autocomplete="email"></div>
       <div class="form-row">
         <div class="form-group"><label>I am a…</label>
-          <select id="regRole"><option value="farmer">Farmer 🌾</option><option value="vendor">Vendor / Buyer 🛒</option><option value="hotel">Hotel / Restaurant 🏨</option></select>
+          <select id="regRole"><option value="farmer">Farmer 🌾</option><option value="vendor">Vendor / Buyer 🛒</option><option value="hotel">Hotel / Restaurant 🏨</option><option value="supplier">Supplier / Input Seller 🏪</option></select>
         </div>
         <div class="form-group"><label>District</label>
           <select id="regDistrict"><option>Kampala</option><option>Wakiso</option><option>Mukono</option><option>Jinja</option><option>Mbarara</option><option>Bushenyi</option><option>Kabale</option><option>Gulu</option><option>Lira</option><option>Mbale</option><option>Kasese</option><option>Masaka</option><option>Hoima</option><option>Arua</option><option>Other</option></select>
@@ -5987,6 +6086,39 @@ document.addEventListener('DOMContentLoaded', function() {
   </div>
 </div>
 
+
+<!-- ══ SUPPLIER PRODUCT MODAL ════════════════════════════════ -->
+<div class="modal-overlay" id="supplierProductModal" onclick="handleOverlay(event,'supplierProductModal')" role="dialog" aria-label="List product">
+  <div class="modal-box">
+    <button class="modal-close" onclick="closeModal('supplierProductModal')">✕</button>
+    <h3 id="spTitle">🏪 Add Product</h3>
+    <input type="hidden" id="spId">
+    <div class="form-group"><label>Product name</label><input type="text" id="spName" placeholder="e.g. NPK 17:17:17 Fertilizer"></div>
+    <div class="form-row">
+      <div class="form-group"><label>Category</label>
+        <select id="spCat"><option value="seeds">🌱 Seeds</option><option value="fertilizer">🧪 Fertilizer</option><option value="pesticide">🐛 Pesticide</option><option value="tool">🔧 Tools</option><option value="animal_supply">🐾 Animal care</option></select>
+      </div>
+      <div class="form-group"><label>Brand (optional)</label><input type="text" id="spBrand" placeholder="e.g. Yara"></div>
+    </div>
+    <div class="form-row">
+      <div class="form-group"><label>Price (UGX)</label><input type="number" id="spPrice" placeholder="e.g. 140000" min="0"></div>
+      <div class="form-group"><label>Unit</label><input type="text" id="spUnit" placeholder="e.g. 50kg bag"></div>
+    </div>
+    <div class="form-row">
+      <div class="form-group"><label>In stock (qty, optional)</label><input type="number" id="spStock" placeholder="e.g. 120" min="0"></div>
+      <div class="form-group"><label>Tag (optional)</label><input type="text" id="spBadge" placeholder="e.g. Best Seller"></div>
+    </div>
+    <div class="form-group"><label>Description (optional)</label><textarea id="spDesc" placeholder="What it does, how to use it…" style="min-height:60px"></textarea></div>
+    <div class="form-group"><label>Photo (optional)</label>
+      <input type="file" id="spPhoto" accept="image/*" style="width:100%;padding:8px;border:1px solid var(--border);border-radius:8px;background:var(--card);color:var(--text)">
+      <div style="font-size:0.72rem;color:var(--text2);margin-top:4px">A clear product photo helps buyers. Max 5MB.</div>
+    </div>
+    <div style="display:flex;gap:10px">
+      <button class="btn-submit" id="spSaveBtn" onclick="submitSupplierProduct()" style="flex:1">📤 Save Product</button>
+      <button class="btn-sm ghost" id="spDelBtn" data-id="" onclick="deleteSupplierProduct()" style="display:none;padding:12px 16px">🗑 Delete</button>
+    </div>
+  </div>
+</div>
 
 <!-- ══ ORDER MODAL ═══════════════════════════════════════════ -->
 <div class="modal-overlay" id="orderModal" onclick="handleOverlay(event,'orderModal')" role="dialog" aria-label="Place order">
