@@ -29,8 +29,21 @@
   .err{color:var(--red);font-size:.85rem;min-height:1.2em;margin-top:8px}
   .stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:12px;margin-bottom:18px}
   .stat{background:var(--bg2);border:1px solid var(--border);border-radius:12px;padding:16px}
-  .stat .n{font-size:1.5rem;font-weight:800;color:var(--green)}
+  .stat .n{font-size:1.6rem;font-weight:800;color:var(--green)}
   .stat .l{color:var(--text2);font-size:.74rem;text-transform:uppercase;letter-spacing:.03em}
+  #overviewExtras{display:grid;grid-template-columns:1fr;gap:16px;margin-bottom:18px}
+  @media(min-width:760px){ #overviewExtras{grid-template-columns:1.5fr 1fr} }
+  .ov-card{background:var(--bg2);border:1px solid var(--border);border-radius:12px;padding:18px}
+  .ov-head{font-weight:800;font-size:.95rem;margin-bottom:16px}
+  .ov-head small{color:var(--text2);font-weight:600;font-size:.72rem;text-transform:uppercase;letter-spacing:.04em;margin-left:6px}
+  .ov-chart{display:flex;align-items:flex-end;gap:10px;height:150px}
+  .ov-bar{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;height:100%;gap:6px}
+  .ov-bar-fill{width:100%;max-width:34px;border-radius:6px 6px 3px 3px;background:linear-gradient(180deg,#4be08a,var(--green));min-height:4px;transition:height .4s}
+  .ov-bar-val{font-size:.72rem;font-weight:700;color:var(--text)}
+  .ov-bar-lbl{font-size:.7rem;color:var(--text2)}
+  .ov-qa{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+  .ov-qa button{display:flex;align-items:center;gap:8px;justify-content:flex-start;background:var(--bg3);border:1px solid var(--border);color:var(--text);padding:12px 14px;border-radius:10px;font-size:.85rem;font-weight:700}
+  .ov-qa button:hover{border-color:var(--green);color:var(--green)}
   .tabs{display:flex;gap:8px;margin-bottom:14px;flex-wrap:wrap}
   .tab{background:var(--bg3);color:var(--text2);padding:8px 14px;border-radius:20px;font-size:.85rem}
   .tab.active{background:var(--green-dim);color:var(--green)}
@@ -80,6 +93,7 @@
   </header>
   <div class="wrap">
     <div class="stats" id="stats"></div>
+    <div id="overviewExtras"></div>
     <div class="tabs">
       <div class="tab active" data-tab="orders"   onclick="showTab('orders',this)">Orders</div>
       <div class="tab" data-tab="listings" onclick="showTab('listings',this)">Crop Listings</div>
@@ -215,12 +229,41 @@
   function showDash(){ document.getElementById('login').classList.add('hidden'); document.getElementById('dash').classList.remove('hidden'); refreshAll(); }
   function logout(){ TOKEN=''; sessionStorage.removeItem('ab_admin_token'); document.getElementById('dash').classList.add('hidden'); document.getElementById('login').classList.remove('hidden'); }
 
-  async function refreshAll(){ await loadStats(); await Promise.all([load('orders'),load('listings'),load('animals'),load('deliveries'),load('supplies'),load('farmers')]); renderCurrent(); }
+  async function refreshAll(){ await loadStats(); await Promise.all([load('orders'),load('listings'),load('animals'),load('deliveries'),load('supplies'),load('farmers')]); renderOverviewExtras(); renderCurrent(); }
+
+  function showTabByName(t){ var node=document.querySelector('.tab[data-tab="'+t+'"]'); showTab(t,node||undefined); if(node) node.scrollIntoView({behavior:'smooth',block:'nearest'}); }
+
+  // Platform Overview chart (real orders/month) + Quick Actions, mockup style.
+  function renderOverviewExtras(){
+    var el=document.getElementById('overviewExtras'); if(!el) return;
+    var orders=DATA.orders||[];
+    var now=new Date(), months=[], idx={};
+    for(var k=6;k>=0;k--){ var d=new Date(now.getFullYear(), now.getMonth()-k, 1);
+      var key=d.getFullYear()+'-'+d.getMonth();
+      idx[key]=months.length;
+      months.push({label:d.toLocaleString('en-US',{month:'short'}), count:0}); }
+    for(var i=0;i<orders.length;i++){ var o=orders[i]; if(!o.created_at) continue;
+      var od=new Date(o.created_at); var ky=od.getFullYear()+'-'+od.getMonth();
+      if(ky in idx) months[idx[ky]].count++; }
+    var counts=months.map(function(m){return m.count;});
+    var max=Math.max.apply(null, counts.concat([1]));
+    var bars=months.map(function(m){ var hp=Math.round(m.count/max*100);
+      return '<div class="ov-bar"><div class="ov-bar-val">'+m.count+'</div><div class="ov-bar-fill" style="height:'+Math.max(4,hp)+'%"></div><div class="ov-bar-lbl">'+m.label+'</div></div>';
+    }).join('');
+    el.innerHTML=
+      '<div class="ov-card"><div class="ov-head">Platform Overview<small>orders / month</small></div><div class="ov-chart">'+bars+'</div></div>'+
+      '<div class="ov-card"><div class="ov-head">Quick Actions</div><div class="ov-qa">'+
+        '<button onclick="showTabByName(\'farmers\')">👤 Verify Users</button>'+
+        '<button onclick="showTabByName(\'orders\')">📦 Manage Orders</button>'+
+        '<button onclick="showTabByName(\'deliveries\')">🚚 Deliveries</button>'+
+        '<button onclick="showTabByName(\'supplies\')">🏪 Supplies</button>'+
+      '</div></div>';
+  }
 
   async function loadStats(){
     try{
       var s=await api('/api/admin/stats'); if(!s) return;
-      var cards=[['Users',s.farmers],['Crop listings',s.listings],['Animals',s.animals],['Orders',s.orders],['Paid revenue',fmt(s.revenue_ugx)]];
+      var cards=[['Total Users',s.farmers],['Crop Listings',s.listings],['Animals',s.animals],['Total Orders',s.orders],['Total Revenue',fmt(s.revenue_ugx)]];
       document.getElementById('stats').innerHTML=cards.map(function(c){return '<div class="stat"><div class="n">'+(typeof c[1]==='number'?c[1]:h(c[1]))+'</div><div class="l">'+c[0]+'</div></div>';}).join('');
     }catch(e){}
   }
