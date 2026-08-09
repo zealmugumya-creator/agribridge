@@ -85,6 +85,7 @@
       <div class="tab" data-tab="listings" onclick="showTab('listings',this)">Crop Listings</div>
       <div class="tab" data-tab="animals"  onclick="showTab('animals',this)">Animals</div>
       <div class="tab" data-tab="deliveries" onclick="showTab('deliveries',this)">Deliveries</div>
+      <div class="tab" data-tab="supplies" onclick="showTab('supplies',this)">Supplies</div>
       <div class="tab" data-tab="farmers"  onclick="showTab('farmers',this)">Users</div>
     </div>
     <div class="card">
@@ -185,9 +186,20 @@
       {k:'delivery_location',label:'Delivery location',t:'text'},
       {k:'estimated_arrival',label:'Estimated arrival',t:'text'},
       {k:'notes',label:'Notes',t:'textarea'}
+    ],
+    supplier_products: [
+      {k:'name',label:'Product name',t:'text'},
+      {k:'category',label:'Category',t:'select',opts:['seeds','fertilizer','pesticide','tool','animal_supply']},
+      {k:'brand',label:'Brand',t:'text'},
+      {k:'price',label:'Price (UGX)',t:'number'},
+      {k:'unit',label:'Unit',t:'text'},
+      {k:'badge',label:'Badge / tag',t:'text'},
+      {k:'description',label:'Description',t:'textarea'},
+      {k:'image_id',label:'Unsplash photo id',t:'text'},
+      {k:'in_stock',label:'In stock (shown in app)',t:'check'}
     ]
   };
-  var TABLE_OF = { orders:'orders', listings:'listings', animals:'animal_listings', deliveries:'deliveries', farmers:'farmers' };
+  var TABLE_OF = { orders:'orders', listings:'listings', animals:'animal_listings', deliveries:'deliveries', supplies:'supplier_products', farmers:'farmers' };
 
   // ── Auth ────────────────────────────────────────────────────────
   async function doLogin(){
@@ -203,7 +215,7 @@
   function showDash(){ document.getElementById('login').classList.add('hidden'); document.getElementById('dash').classList.remove('hidden'); refreshAll(); }
   function logout(){ TOKEN=''; sessionStorage.removeItem('ab_admin_token'); document.getElementById('dash').classList.add('hidden'); document.getElementById('login').classList.remove('hidden'); }
 
-  async function refreshAll(){ await loadStats(); await Promise.all([load('orders'),load('listings'),load('animals'),load('deliveries'),load('farmers')]); renderCurrent(); }
+  async function refreshAll(){ await loadStats(); await Promise.all([load('orders'),load('listings'),load('animals'),load('deliveries'),load('supplies'),load('farmers')]); renderCurrent(); }
 
   async function loadStats(){
     try{
@@ -213,7 +225,7 @@
     }catch(e){}
   }
   async function load(tab){
-    var path = tab==='orders'?'/api/admin/orders':tab==='listings'?'/api/admin/listings':tab==='animals'?'/api/admin/animals':tab==='deliveries'?'/api/admin/deliveries':'/api/admin/farmers';
+    var path = tab==='orders'?'/api/admin/orders':tab==='listings'?'/api/admin/listings':tab==='animals'?'/api/admin/animals':tab==='deliveries'?'/api/admin/deliveries':tab==='supplies'?'/api/admin/supplies':'/api/admin/farmers';
     try{ var rows=await api(path); DATA[tab]=Array.isArray(rows)?rows:[]; }catch(e){ DATA[tab]=[]; }
   }
 
@@ -228,6 +240,7 @@
     if(currentTab==='listings') return renderListings(rows);
     if(currentTab==='animals')  return renderAnimals(rows);
     if(currentTab==='deliveries') return renderDeliveries(rows);
+    if(currentTab==='supplies')  return renderSupplies(rows);
     if(currentTab==='farmers')  return renderFarmers(rows);
   }
 
@@ -266,6 +279,14 @@
       return '<tr><td>'+h(d.tracking_code||(d.id||'').slice(0,8))+'</td><td>'+route+'</td><td>'+driver+'</td><td><span class="badge '+st+'">'+h(st.replace(/_/g,' '))+'</span></td><td>'+h(d.estimated_arrival||'—')+'</td><td>'+actionsCell('deliveries',d.id)+'</td></tr>';
     }).join('');
     setPanel('<table><thead><tr><th>Tracking</th><th>Route</th><th>Driver</th><th>Status</th><th>ETA</th><th></th></tr></thead><tbody>'+body+'</tbody></table>');
+  }
+  function renderSupplies(rows){
+    if(!rows.length){ panelMsg('No supply products.'); return; }
+    var catLabel={seeds:'🌱 Seeds',fertilizer:'🧪 Fertilizer',pesticide:'🐛 Pesticide',tool:'🔧 Tool',animal_supply:'🐾 Animal care'};
+    var body=rows.map(function(p){var img=p.image_id?'<img class="thumb" src="https://images.unsplash.com/photo-'+h(p.image_id)+'?auto=format&fit=crop&w=80&h=80&q=60">':'📦';
+      return '<tr><td>'+img+'</td><td>'+h(p.name||'—')+(p.badge?' <span class="badge">'+h(p.badge)+'</span>':'')+'</td><td>'+h(catLabel[p.category]||p.category||'—')+'</td><td>'+h(p.brand||'—')+'</td><td>'+fmt(p.price)+'</td><td>'+h(p.unit||'—')+'</td><td>'+(p.in_stock!==false?'<span class="badge available">in stock</span>':'<span class="badge sold">hidden</span>')+'</td><td>'+actionsCell('supplies',p.id)+'</td></tr>';
+    }).join('');
+    setPanel('<table><thead><tr><th></th><th>Product</th><th>Category</th><th>Brand</th><th>Price</th><th>Unit</th><th>Status</th><th></th></tr></thead><tbody>'+body+'</tbody></table>');
   }
   function renderFarmers(rows){
     if(!rows.length){ panelMsg('No users.'); return; }

@@ -3228,11 +3228,23 @@ const SUPPLY_ITEMS = [
   { cat:'animal_supply', name:'Fish Feed (Tilapia Pellets)',  brand:'FICA Uganda',      price:85000,  unit:'25kg bag',  img:'1625246174804-de40b2fae23d',badge:'🐟 Fish Feed',  desc:'35% protein floating pellets. Optimal growth for Nile tilapia in ponds and cages.' },
 ];
 let supplyFilter='all', supplySearch='';
+// The input-supply catalogue is now managed in the DB (supplier_products) via the
+// admin panel. Load it live (falling back to the built-in list offline/on error).
+let _supplyItems = SUPPLY_ITEMS.slice();
+let _suppliesLoaded = false;
+async function loadSupplies(){
+  const rows = await sb('supplier_products', { select:'category,name,brand,price,unit,badge,description,image_id,in_stock', filters:[['order','category.asc'],['limit','300']] });
+  if(Array.isArray(rows) && rows.length){
+    _supplyItems = rows.filter(r=>r.in_stock!==false).map(r=>({ cat:r.category, name:r.name, brand:r.brand, price:Number(r.price)||0, unit:r.unit, img:r.image_id, badge:r.badge, desc:r.description }));
+  }
+  renderSupply();
+}
 function setSupplyFilter(f,btn){ supplyFilter=f; document.querySelectorAll('#supplyFilters .filter-btn').forEach(b=>b.classList.remove('active')); btn.classList.add('active'); renderSupply(); }
 function filterSupply(q){ supplySearch=q.toLowerCase(); renderSupply(); }
 function filterSupplyCategory(cat){ supplyFilter=cat||'all'; renderSupply(); }
 function renderSupply() {
-  let items = SUPPLY_ITEMS;
+  if (!_suppliesLoaded) { _suppliesLoaded = true; loadSupplies(); }
+  let items = _supplyItems;
   if (supplyFilter !== 'all') items = items.filter(i=>i.cat===supplyFilter);
   if (supplySearch) items = items.filter(i=>i.name.toLowerCase().includes(supplySearch)||i.brand.toLowerCase().includes(supplySearch)||i.desc.toLowerCase().includes(supplySearch));
   const catLabel = { seeds:'🌱 Seeds', fertilizer:'🧪 Fertilizer', pesticide:'🐛 Pesticide', tool:'🔧 Tool', animal_supply:'🐾 Animal Care' };
