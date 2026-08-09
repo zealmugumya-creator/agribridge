@@ -721,6 +721,75 @@ input:focus,select:focus,textarea:focus{outline:none;border-color:var(--green) !
   #howItWorks{max-width:1240px}
 }
 
+/* ═══════════ HOME DASHBOARD (mockup layout) ═══════════ */
+.hd{display:flex;flex-direction:column;gap:14px;padding:2px 0 8px}
+.hd-greet h3{font-family:'Syne',sans-serif;font-size:1.4rem;font-weight:800;color:#fff;line-height:1.15}
+.hd-greet p{color:var(--text2);font-size:.9rem;margin-top:2px}
+.afc2{position:relative;overflow:hidden;display:flex;align-items:center;gap:14px;border-radius:20px;padding:18px;cursor:pointer;
+  background:radial-gradient(130% 130% at 88% 8%,rgba(23,224,107,.28),transparent 55%),linear-gradient(150deg,var(--bg3),var(--card));
+  border:1px solid var(--border);box-shadow:var(--glow)}
+.afc2-txt{flex:1;min-width:0}
+.afc2-title{font-weight:800;font-size:1.05rem;color:#fff}
+.afc2-sub{color:var(--text2);font-size:.86rem;margin:3px 0 12px}
+.afc2-btn{display:inline-block;background:linear-gradient(135deg,var(--green-light),var(--green));color:var(--g-ink);
+  font-weight:800;font-size:.82rem;padding:8px 15px;border-radius:11px}
+.afc2-orb{position:relative;width:70px;height:70px;flex-shrink:0;border-radius:50%;
+  background:radial-gradient(circle at 36% 30%,#0d4227,#03130a 72%);
+  box-shadow:0 0 0 2px rgba(23,224,107,.55),0 0 40px rgba(23,224,107,.55);animation:navorb 5s ease-in-out infinite}
+.afc2-orb .of-eye{top:40%;width:9px;height:9px}
+.afc2-orb .of-eye:nth-child(1){left:30%}.afc2-orb .of-eye:nth-child(2){right:30%}
+.afc2-orb .of-smile{top:56%;left:33%;width:34%;height:10px}
+.hd-tiles{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.hd-tile{background:linear-gradient(160deg,rgba(23,224,107,.06),var(--bg3));border:1px solid var(--border);border-radius:16px;padding:14px;cursor:pointer;transition:border-color .2s,transform .2s}
+.hd-tile:active{transform:scale(.98)}
+.hd-tile:hover{border-color:rgba(23,224,107,.32)}
+.hd-ic{font-size:1.3rem;margin-bottom:6px}
+.hd-t-lbl{font-size:.76rem;color:var(--text2);font-weight:600}
+.hd-t-num{font-size:1.55rem;font-weight:800;color:#fff;letter-spacing:-.02em;line-height:1.1;margin-top:2px}
+.hd-t-sub{font-size:.72rem;color:var(--green-light);margin-top:2px}
+.hd-sec-head{display:flex;align-items:center;justify-content:space-between;margin-top:6px}
+.hd-sec-head>span{font-weight:800;font-size:1.02rem;color:#fff}
+.hd-sec-head small{color:var(--text2);font-weight:600;font-size:.74rem;margin-left:4px}
+.hd-sec-head a{color:var(--green-light);font-size:.82rem;font-weight:700;cursor:pointer}
+.hd-prices{display:flex;gap:10px;overflow-x:auto;padding-bottom:4px;scrollbar-width:none}
+.hd-prices::-webkit-scrollbar{display:none}
+.hd-price{flex:0 0 auto;min-width:132px;background:var(--card);border:1px solid var(--border);border-radius:15px;padding:12px;cursor:pointer}
+.hd-price-top{display:flex;align-items:center;gap:7px;font-size:.86rem;font-weight:700;color:#fff}
+.hd-price-top span{font-size:1.2rem}
+.hd-price-val{font-size:.98rem;font-weight:800;color:#fff;margin:8px 0 4px}
+.hd-price-val small{color:var(--text2);font-weight:500;font-size:.72rem}
+.hd-price-chg{font-size:.78rem;font-weight:700}
+.hd-price-chg.up{color:var(--green)}
+.hd-price-chg.dn{color:#f4655a}
+.hd-qa{display:grid;grid-template-columns:repeat(4,1fr);gap:10px}
+.hd-qa button{display:flex;flex-direction:column;align-items:center;gap:7px;padding:14px 4px;border-radius:15px;
+  background:var(--card);border:1px solid var(--border);color:var(--text2);font-size:.72rem;font-weight:700;cursor:pointer;font-family:inherit;line-height:1.15}
+.hd-qa button span{font-size:1.4rem}
+.hd-qa button:active{transform:scale(.96);border-color:rgba(23,224,107,.4);color:var(--green-light)}
+@media(min-width:760px){ .hd-tiles{grid-template-columns:repeat(4,1fr)} }
+
+/* ═══════════ AI ASSISTANT welcome hero (mockup) ═══════════ */
+.aiw{display:flex;flex-direction:column;align-items:center;text-align:center;padding:22px 10px 6px}
+.aiw-orb{position:relative;width:120px;height:120px;border-radius:50%;margin-bottom:20px;
+  background:radial-gradient(circle at 36% 30%,#0e4b2b,#03130a 72%);
+  box-shadow:0 0 0 2px rgba(23,224,107,.5),0 0 60px rgba(23,224,107,.55),0 0 0 12px rgba(23,224,107,.06);
+  animation:navorb 5s ease-in-out infinite}
+.aiw-orb::before,.aiw-orb::after{content:'';position:absolute;inset:-14px;border-radius:50%;border:2px solid rgba(23,224,107,.22);animation:aiwPulse 2.6s ease-out infinite}
+.aiw-orb::after{animation-delay:1.3s}
+@keyframes aiwPulse{0%{transform:scale(.85);opacity:.7}100%{transform:scale(1.35);opacity:0}}
+.aiw-orb .of-eye{top:40%;width:15px;height:15px}
+.aiw-orb .of-eye:nth-child(1){left:30%}.aiw-orb .of-eye:nth-child(2){right:30%}
+.aiw-orb .of-smile{top:56%;left:32%;width:36%;height:16px;border-width:3px}
+.aiw-greet{font-family:'Syne',sans-serif;font-size:1.5rem;font-weight:800;color:#fff;line-height:1.25}
+.aiw-greet b{color:var(--green-light)}
+.aiw-sub{color:var(--text2);font-size:.95rem;margin:8px 0 22px}
+.aiw-prompts{display:flex;flex-direction:column;gap:10px;width:100%;max-width:420px}
+.aiw-prompts button{display:flex;align-items:center;gap:12px;text-align:left;padding:14px 16px;border-radius:14px;
+  background:var(--card);border:1px solid var(--border);color:var(--text);font-size:.92rem;font-weight:600;cursor:pointer;font-family:inherit;transition:border-color .2s,transform .15s}
+.aiw-prompts button:hover{border-color:rgba(23,224,107,.4)}
+.aiw-prompts button:active{transform:scale(.98)}
+.aiw-prompts button span{font-size:1.15rem}
+
 /* ═══════════════ WEB LANDING (marketing site for browser visitors) ═══════════════ */
 #webLanding{display:none}
 html.is-web:not(.app-entered) #webLanding{display:block;position:fixed;inset:0;z-index:6000;overflow-y:auto;-webkit-overflow-scrolling:touch;
@@ -2702,6 +2771,8 @@ function toggleAI() { aiOpen ? closeAI() : openAI(); }
 
 function openAI() {
   aiOpen = true;
+  const hn = document.getElementById('aiHiName');
+  if (hn) hn.textContent = (currentUser && currentUser.name) ? currentUser.name.split(' ')[0] : 'there';
   const p = document.getElementById('aiPanel');
   const o = document.getElementById('aiOverlay');
   if (p) { p.style.display='flex'; setTimeout(()=>p.classList.add('open'),10); }
@@ -2720,6 +2791,7 @@ function closeAI() {
 function addAIMsg(text, role) {
   const msgs = document.getElementById('aiMessages');
   if (!msgs) return null;
+  const w = document.getElementById('aiWelcome'); if (w) w.style.display = 'none';
   const div = document.createElement('div');
   div.className = 'ai-msg ' + (role||'bot');
   div.textContent = text;
@@ -3459,28 +3531,85 @@ function renderRecommendations() {
 // ─────────────────────────────────────────────────────────────────
 // ROLE DASHBOARD
 // ─────────────────────────────────────────────────────────────────
+// Compact money format: 2.4M / 850k / 250.
+function fmtShort(n){ n=Number(n||0); if(n>=1e6) return (n/1e6).toFixed(n>=1e7?0:1).replace(/\.0$/,'')+'M'; if(n>=1e3) return Math.round(n/1e3)+'k'; return String(Math.round(n)); }
 async function renderRoleHome() {
   const panel=document.getElementById('roleHomePanel'); if(!panel||!currentUser) return;
   panel.style.display='block';
-  const role=currentUser.role||'buyer', name=currentUser.name||'there', firstName=name.split(' ')[0];
+  const role=(typeof getCurrentRole==='function')?getCurrentRole():(currentUser.role||'vendor');
+  const name=currentUser.name||'there', firstName=name.split(' ')[0];
   const hour=new Date().getHours(); const greeting=hour<12?'Good morning':hour<17?'Good afternoon':'Good evening';
-  const aiFarmCard=`<div class="ai-farm-card" onclick="toggleAI()"><div class="afc-txt"><h4>AI Farm Assistant</h4><p>Prices, disease, weather &amp; more</p><span class="afc-btn">Ask AgriBridge AI</span></div><div class="afc-orb"><span class="of-eye"></span><span class="of-eye"></span><span class="of-smile"></span></div></div>`;
+  const aiCard=`<div class="afc2" onclick="toggleAI()"><div class="afc2-txt"><div class="afc2-title">AI Farm Assistant</div><div class="afc2-sub">How can I help you today?</div><span class="afc2-btn">Ask AgriBridge AI ›</span></div><div class="afc2-orb"><span class="of-eye"></span><span class="of-eye"></span><span class="of-smile"></span></div></div>`;
+  const greet=`<div class="hd-greet"><h3>Hello, ${escHtml(firstName)} 👋</h3><p>${greeting}! Let's grow more today.</p></div>`;
   if(role==='farmer') {
-    panel.innerHTML=`<div class="role-panel"><div class="role-welcome"><div class="role-avatar">🌾</div><div class="role-info"><h3>${greeting}, ${escHtml(firstName)}!</h3><p>Farmer · ${escHtml(currentUser.district||'Uganda')}</p></div></div>${aiFarmCard}<div class="role-kpis"><div class="role-kpi"><div class="rk-num" id="fk-listings">–</div><div class="rk-lbl">My Listings</div></div><div class="role-kpi"><div class="rk-num" id="fk-orders">–</div><div class="rk-lbl">Orders</div></div><div class="role-kpi"><div class="rk-num" id="fk-earned">–</div><div class="rk-lbl">Earned</div></div></div><div class="role-actions"><button class="role-action-btn primary" onclick="openListProduceModal()">🌾 List Produce</button><button class="role-action-btn" onclick="showPage('animals');openListAnimalModal()">🐄 List Animal</button><button class="role-action-btn" onclick="showPage('prices')">📊 Prices</button></div><div class="role-actions"><button class="role-action-btn" onclick="showPage('doctor')">🩺 Crop Doctor</button><button class="role-action-btn" onclick="showPage('animals')">🐾 Animal Doctor</button><button class="role-action-btn" onclick="showPage('dashboard')">📈 Dashboard</button></div></div>`;
-    loadFarmerKpis();
+    panel.innerHTML=`<div class="hd">${greet}${aiCard}
+      <div class="hd-tiles">
+        <div class="hd-tile"><div class="hd-ic">🌱</div><div class="hd-t-lbl">My Listings</div><div class="hd-t-num" id="hd-listings">–</div><div class="hd-t-sub">Active</div></div>
+        <div class="hd-tile"><div class="hd-ic">🌦️</div><div class="hd-t-lbl">Weather</div><div class="hd-t-num">24°C</div><div class="hd-t-sub">Good to plant</div></div>
+        <div class="hd-tile"><div class="hd-ic">💰</div><div class="hd-t-lbl">Income</div><div class="hd-t-num" id="hd-income">–</div><div class="hd-t-sub">This month</div></div>
+        <div class="hd-tile" onclick="showPage('dashboard')"><div class="hd-ic">🛒</div><div class="hd-t-lbl">Orders</div><div class="hd-t-num" id="hd-orders">–</div><div class="hd-t-sub">View all ›</div></div>
+      </div>
+      <div class="hd-sec-head"><span>Market Prices <small>Today</small></span><a onclick="showPage('prices')">See all ›</a></div>
+      <div class="hd-prices" id="hd-prices"></div>
+      <div class="hd-sec-head"><span>Quick Actions</span></div>
+      <div class="hd-qa">
+        <button onclick="openListProduceModal()"><span>🌾</span>Sell Produce</button>
+        <button onclick="showPage('doctor')"><span>🩺</span>Scan Disease</button>
+        <button onclick="showPage('finance')"><span>🧾</span>Add Expense</button>
+        <button onclick="showPage('prices')"><span>🔔</span>Price Alerts</button>
+      </div></div>`;
+    loadFarmerKpis(); renderHomePrices();
   } else {
     const bc=basketItems.reduce((s,i)=>s+i.qty,0);
-    panel.innerHTML=`<div class="role-panel"><div class="role-welcome"><div class="role-avatar">🛒</div><div class="role-info"><h3>${greeting}, ${escHtml(firstName)}!</h3><p>${role==='hotel'?'Hotel/Restaurant':'Buyer'} · ${bc} item${bc!==1?'s':''} in basket</p></div></div>${aiFarmCard}<div class="role-actions"><button class="role-action-btn primary" onclick="showPage('market')">🛒 Browse Produce</button><button class="role-action-btn primary" style="background:var(--amber);border-color:var(--amber);color:#3a2600" onclick="showPage('animals')">🐄 Browse Animals</button></div><div class="role-actions"><button class="role-action-btn" onclick="toggleBasket()">🧺 My Basket ${bc>0?'('+bc+')':''}</button><button class="role-action-btn" onclick="showPage('delivery')">🚚 Track Orders</button><button class="role-action-btn" onclick="showPage('prices')">📊 Prices</button></div></div>`;
+    const isHotel=role==='hotel';
+    panel.innerHTML=`<div class="hd">${greet}${aiCard}
+      <div class="hd-tiles">
+        <div class="hd-tile" onclick="showPage('market')"><div class="hd-ic">🛒</div><div class="hd-t-lbl">Marketplace</div><div class="hd-t-num">Shop</div><div class="hd-t-sub">Fresh produce ›</div></div>
+        <div class="hd-tile" onclick="toggleBasket()"><div class="hd-ic">🧺</div><div class="hd-t-lbl">My Basket</div><div class="hd-t-num">${bc}</div><div class="hd-t-sub">item${bc!==1?'s':''}</div></div>
+        <div class="hd-tile" onclick="showPage('dashboard')"><div class="hd-ic">📦</div><div class="hd-t-lbl">Orders</div><div class="hd-t-num" id="hd-orders">–</div><div class="hd-t-sub">Track ›</div></div>
+        <div class="hd-tile" onclick="showPage('dashboard')"><div class="hd-ic">💳</div><div class="hd-t-lbl">Spent</div><div class="hd-t-num" id="hd-spent">–</div><div class="hd-t-sub">This month</div></div>
+      </div>
+      <div class="hd-sec-head"><span>Market Overview <small>Today</small></span><a onclick="showPage('prices')">See all ›</a></div>
+      <div class="hd-prices" id="hd-prices"></div>
+      <div class="hd-sec-head"><span>Quick Actions</span></div>
+      <div class="hd-qa">
+        <button onclick="showPage('market')"><span>🛒</span>Browse</button>
+        <button onclick="showPage('animals')"><span>🐄</span>Animals</button>
+        ${isHotel?`<button onclick="showPage('b2b')"><span>🏢</span>B2B Portal</button>`:`<button onclick="showPage('delivery')"><span>🚚</span>Track</button>`}
+        <button onclick="showPage('prices')"><span>📊</span>Prices</button>
+      </div></div>`;
+    loadBuyerKpis(); renderHomePrices();
   }
+}
+function renderHomePrices(){
+  const el=document.getElementById('hd-prices'); if(!el) return;
+  const src=(typeof allPrices!=='undefined'&&allPrices&&allPrices.length)?allPrices:samplePrices();
+  const want=['Maize','Beans','Rice','Coffee','Tomatoes','Matooke'];
+  let rows=want.map(n=>src.find(p=>(p.crop_name||'').toLowerCase()===n.toLowerCase())).filter(Boolean);
+  if(rows.length<3) rows=src.slice();
+  el.innerHTML=rows.slice(0,5).map(p=>{ const ch=Number(p.change_pct||0), up=ch>=0;
+    return `<div class="hd-price" onclick="showPage('prices')"><div class="hd-price-top"><span>${getCropEmoji(p.crop_name)}</span><b>${escHtml(p.crop_name)}</b></div><div class="hd-price-val">UGX ${Number(p.price_per_kg||0).toLocaleString()}<small>/kg</small></div><div class="hd-price-chg ${up?'up':'dn'}">${up?'▲':'▼'} ${Math.abs(ch)}%</div></div>`; }).join('');
+  if((typeof allPrices==='undefined'||!allPrices||!allPrices.length)&&navigator.onLine&&typeof loadPrices==='function'){ loadPrices(true).then(function(){ renderHomePrices(); }); }
 }
 async function loadFarmerKpis() {
   if(!currentUser) return;
-  const [listings,orders]=await Promise.all([sb('listings',{ select:'id,price_per_kg,quantity_kg', filters:currentUser.supaId?[['farmer_id','eq.'+currentUser.supaId]]:[['limit','eq.0']] }),sb('orders',{ select:'id,total_price,total_amount,quantity_kg,price_per_kg,status', filters:currentUser.supaId?[['farmer_id','eq.'+currentUser.supaId]]:[['limit','eq.0']] })]);
-  const lEl=document.getElementById('fk-listings'), oEl=document.getElementById('fk-orders'), eEl=document.getElementById('fk-earned');
-  if(lEl) lEl.textContent=listings?.length||0;
-  if(oEl) oEl.textContent=orders?.length||0;
-  const earned=(orders||[]).reduce((s,o)=>s+Number(o.total_price||o.total_amount||0),0);
-  if(eEl) eEl.textContent=earned>0?'UGX '+Math.round(earned/1000)+'k':'UGX 0';
+  const [listings,orders]=await Promise.all([sb('listings',{ select:'id,price_per_kg,quantity_kg', filters:currentUser.supaId?[['farmer_id','eq.'+currentUser.supaId]]:[['limit','eq.0']] }),sb('orders',{ select:'id,total_price,total_amount,quantity_kg,price_per_kg,status,created_at', filters:currentUser.supaId?[['farmer_id','eq.'+currentUser.supaId]]:[['limit','eq.0']] })]);
+  const set=(id,v)=>{ const e=document.getElementById(id); if(e) e.textContent=v; };
+  set('hd-listings', listings?.length||0);
+  set('hd-orders', orders?.length||0);
+  const now=new Date(), ms=new Date(now.getFullYear(),now.getMonth(),1);
+  const monthEarned=(orders||[]).filter(o=>new Date(o.created_at)>=ms).reduce((s,o)=>s+Number(o.total_price||o.total_amount||0),0);
+  set('hd-income', 'UGX '+fmtShort(monthEarned));
+}
+async function loadBuyerKpis() {
+  if(!currentUser) return;
+  const set=(id,v)=>{ const e=document.getElementById(id); if(e) e.textContent=v; };
+  if(!currentUser.supaId){ set('hd-orders','0'); set('hd-spent','UGX 0'); return; }
+  const orders=await sb('orders',{ select:'total_price,total_amount,created_at', filters:[['buyer_id','eq.'+currentUser.supaId]] })||[];
+  set('hd-orders', orders.length);
+  const now=new Date(), ms=new Date(now.getFullYear(),now.getMonth(),1);
+  const spent=orders.filter(o=>new Date(o.created_at)>=ms).reduce((s,o)=>s+Number(o.total_price||o.total_amount||0),0);
+  set('hd-spent', 'UGX '+fmtShort(spent));
 }
 // Farmer advances an order's status (RLS allows only the order's farmer).
 async function updateOrderStatus(id, status, btn){
@@ -4586,22 +4715,9 @@ function hideGuestCta() {
 }
 
 function renderFarmerQuickLinks() {
-  var home = document.getElementById('page-home');
-  if (!home) return;
-  var existing = document.getElementById('farmerQuickLinks');
-  if (existing) { existing.style.display = 'block'; return; }
-  var div = document.createElement('div');
-  div.id = 'farmerQuickLinks';
-  div.style.cssText = 'background:var(--green-dim);border-bottom:1px solid var(--green);padding:14px 16px';
-  div.innerHTML = '<div style="font-size:0.85rem;font-weight:700;color:var(--green);margin-bottom:10px">🌾 Farmer Quick Actions</div>' +
-    '<div style="display:flex;gap:8px;flex-wrap:wrap">' +
-    '<button class="btn-sm" onclick="openListProduceModal()">+ List Crop</button>' +
-    '<button class="btn-sm outline" onclick="openListAnimalModal()">+ List Animal</button>' +
-    '<button class="btn-sm outline" onclick="showPage(&quot;doctor&quot;)">🩺 AI Doctor</button>' +
-    '<button class="btn-sm outline" onclick="showPage(&quot;finance&quot;)">💰 Get Loan</button>' +
-    '<button class="btn-sm outline" onclick="showPage(&quot;dashboard&quot;)">📊 Dashboard</button>' +
-    '</div>';
-  home.insertBefore(div, home.firstChild);
+  // Superseded by the Home dashboard's own Quick Actions row. Remove any legacy
+  // bar so it doesn't duplicate the new layout.
+  var el = document.getElementById('farmerQuickLinks'); if (el) el.remove();
 }
 
 // Logged-in users see their DASHBOARD on Home, not the guest marketing pages.
@@ -5571,18 +5687,17 @@ document.addEventListener('DOMContentLoaded', function() {
     <div class="ai-chip" onclick="showPage('export')">🌍 Export Tools</div>
   </div>
   <div class="ai-messages" id="aiMessages">
-    <div class="ai-msg bot">👋 Hello! I am the AgriBridge AI — I know the entire platform!
-
-I can help you:
-🌾 Browse crops and animals
-📊 Check live prices
-🛒 Manage your basket
-🩺 Diagnose crop and animal diseases
-💰 Apply for farm loans and insurance
-❄️ Find cold storage
-🌍 Export your produce
-
-Just ask anything!</div>
+    <div id="aiWelcome" class="aiw">
+      <div class="aiw-orb"><span class="of-eye"></span><span class="of-eye"></span><span class="of-smile"></span></div>
+      <div class="aiw-greet">Hi <span id="aiHiName">there</span>,<br>I'm <b>AgriBridge AI</b>.</div>
+      <div class="aiw-sub">How can I help your farm grow?</div>
+      <div class="aiw-prompts">
+        <button onclick="sendAIChip('When should I plant maize?')"><span>🌱</span>When should I plant maize?</button>
+        <button onclick="sendAIChip('What are today&#39;s bean prices?')"><span>📊</span>Show today&#39;s bean prices</button>
+        <button onclick="showPage('doctor');closeAI()"><span>📷</span>Diagnose this plant</button>
+        <button onclick="showPage('dashboard');closeAI()"><span>📄</span>Generate farm report</button>
+      </div>
+    </div>
   </div>
   <div class="ai-voice-status" id="aiVoiceStatus" style="display:none;padding:4px 16px;font-size:0.78rem;color:var(--amber)">🎤 Listening…</div>
   <div class="ai-input-row">
