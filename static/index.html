@@ -1891,13 +1891,13 @@ async function loadHomeStats() {
   ['sp-listings'].forEach(id => { const el=document.getElementById(id); if(el) el.textContent=lc+'+'; });
   const ac = (animalCount||0).toLocaleString() + '+';
   ['an-count','h-animals'].forEach(id => { const el=document.getElementById(id); if(el) el.textContent=ac; });
-  if (listings && listings.length) {
-    allListings = listings.map(normalise);
-    document.getElementById('homeFeatured').innerHTML = allListings.slice(0,4).map(listingCard).join('');
-  } else {
-    allListings = sampleListings();
-    document.getElementById('homeFeatured').innerHTML = allListings.slice(0,4).map(listingCard).join('');
-  }
+  // Render the home "Featured" strip from its own small fetch WITHOUT clobbering
+  // the shared marketplace cache. Previously this overwrote allListings with just
+  // 6 items, so after visiting Home the marketplace (which skips re-fetching once
+  // loaded) was stuck showing only those 6 — whole categories looked empty.
+  const featured = (listings && listings.length) ? listings.map(normalise) : sampleListings();
+  if (!window._listingsFull) allListings = featured;
+  document.getElementById('homeFeatured').innerHTML = featured.slice(0,4).map(listingCard).join('');
 }
 
 // ─────────────────────────────────────────────────────────────────
