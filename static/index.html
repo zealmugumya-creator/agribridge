@@ -1937,7 +1937,7 @@ const USSD_API = 'https://agribridge-1-og7a.onrender.com';
 let _authToken = null;
 
 async function sb(table, opts = {}) {
-  const { method='GET', select='*', filters=[], body, single=false, count=false } = opts;
+  const { method='GET', select='*', filters=[], body, single=false, count=false, minimal=false } = opts;
   let url = `${SUPA_URL}/rest/v1/${table}`;
   const params = new URLSearchParams();
   if (select) params.set('select', select);
@@ -1948,7 +1948,7 @@ async function sb(table, opts = {}) {
   const headers = {
     'apikey': SUPA_KEY, 'Authorization': 'Bearer ' + (_authToken || SUPA_KEY),
     'Content-Type': 'application/json',
-    'Prefer': method === 'POST' ? 'return=representation' : (count ? 'count=exact' : 'return=minimal')
+    'Prefer': method === 'POST' ? (minimal ? 'return=minimal' : 'return=representation') : (count ? 'count=exact' : 'return=minimal')
   };
   try {
     let res = await fetch(url, { method, headers, cache:'no-store', body: body ? JSON.stringify(body) : undefined });
@@ -1965,7 +1965,9 @@ async function sb(table, opts = {}) {
     }
     if (count) return parseInt(res.headers.get('content-range')?.split('/')[1] || '0');
     if (!res.ok) return null;
-    // PATCH/DELETE with return=minimal reply 204 No Content — no body to parse.
+    // return=minimal inserts (write-only tables with no SELECT policy) reply 201
+    // with no body; PATCH/DELETE reply 204. Nothing to parse — success is enough.
+    if (minimal) return true;
     if (res.status === 204) return true;
     const json = await res.json();
     return single ? (Array.isArray(json) ? json[0] : json) : json;
@@ -1984,7 +1986,7 @@ async function refreshAuthToken() {
   } catch (e) {}
   return null;
 }
-async function sbInsert(t, d) { return sb(t, { method:'POST', body:d }); }
+async function sbInsert(t, d, opts) { return sb(t, { method:'POST', body:d, minimal: !!(opts && opts.minimal) }); }
 // Upload an image to the public 'uploads' bucket; returns its public URL (or null).
 async function uploadImage(file, prefix){ return uploadMedia(file, prefix, 5); }
 // Upload a photo (<=5MB) or short video (<=25MB) to the public uploads bucket.
@@ -2460,12 +2462,12 @@ async function saveDiseaseReportAnimal() {
   const district= document.getElementById('anDrDistrict')?.value;
   const notes   = document.getElementById('anDrDesc')?.value;
   const diagName= document.getElementById('anDiagName')?.textContent?.replace('?? ','');
-  await sbInsert('disease_reports', { farmer_phone:currentUser?.phone||null, crop_name:animal, symptom, diagnosis_name:diagName, district, description:notes, reported_to_extension:true });
+  await sbInsert('disease_reports', { farmer_phone:currentUser?.phone||null, crop_name:animal, symptom, diagnosis_name:diagName, district, description:notes, reported_to_extension:true }, {minimal:true});
   showToast('Report saved! DVO will follow up within 48hrs ✅');
 }
 
 async function bookVetService(service) {
-  await sbInsert('vet_bookings', { service_type:service, farmer_phone:currentUser?.phone||null, status:'pending' });
+  await sbInsert('vet_bookings', { service_type:service, farmer_phone:currentUser?.phone||null, status:'pending' }, {minimal:true});
   showToast(`✅ ${service} booked! Vet will call within 2 hours ✅`);
 }
 
@@ -3346,7 +3348,7 @@ async function saveDiseaseReport() {
   const crop=document.getElementById('drCrop')?.value, part=document.getElementById('drPart')?.value, symptom=document.getElementById('drSymptom')?.value;
   const district=document.getElementById('drDistrict')?.value, weather=document.getElementById('drWeather')?.value, notes=document.getElementById('drDesc')?.value;
   const diagName=document.getElementById('drDiagName')?.textContent?.replace('?? ','');
-  await sbInsert('disease_reports',{ farmer_phone:currentUser?.phone||null, crop_name:crop, affected_part:part, symptom, diagnosis_name:diagName, district, weather_cond:weather, description:notes, reported_to_extension:true });
+  await sbInsert('disease_reports',{ farmer_phone:currentUser?.phone||null, crop_name:crop, affected_part:part, symptom, diagnosis_name:diagName, district, weather_cond:weather, description:notes, reported_to_extension:true }, {minimal:true});
   showToast('Report saved! Extension officer will follow up within 48hrs ✅');
 }
 
@@ -3498,9 +3500,14 @@ async function saveAlert() {
   const price=parseFloat(document.getElementById('alertPrice')?.value||0), dir=document.getElementById('alertDir')?.value||'above';
   if(!crop||!price){ showToast('Select a crop and enter a target price'); return; }
   if(!currentUser){ showToast('Please log in to set price alerts'); openModal('loginModal'); return; }
-  await sbInsert('price_alerts',{ farmer_phone:currentUser.phone, crop_name:crop, district, target_price:price, direction:dir, is_active:true });
-  showToast('🔔 Alert set! We\'ll SMS you when '+crop+' in '+district+' '+(dir==='above'?'rises above':'falls below')+' UGX '+price.toLocaleString()+'/kg');
-  ['alertCrop','alertPrice'].forEach(id=>{ const el=document.getElementById(id); if(el) el.value=''; });
+  const phone=currentUser.phone||'';
+  if(!phone){ showToast('Add your phone number in Settings first, so we can SMS you'); return; }
+  // Real columns are: phone, crop_name, target_price, direction, is_active.
+  const ok=await sbInsert('price_alerts',{ phone:phone, crop_name:crop, target_price:price, direction:dir, is_active:true }, {minimal:true});
+  if(ok){
+    showToast('🔔 Alert set! We\'ll SMS you when '+crop+(district?' in '+district:'')+' '+(dir==='above'?'rises above':'falls below')+' UGX '+price.toLocaleString()+'/kg');
+    ['alertCrop','alertPrice'].forEach(id=>{ const el=document.getElementById(id); if(el) el.value=''; });
+  } else showToast('Could not save the alert — please try again');
 }
 
 // ─────────────────────────────────────────────────────────────────
@@ -3585,7 +3592,7 @@ async function sendContactMsg() {
   const name=document.getElementById('cName')?.value.trim(), contact=document.getElementById('cContact')?.value.trim();
   const role=document.getElementById('cRole')?.value||'visitor', msg=document.getElementById('cMessage')?.value.trim();
   if(!name||!contact||!msg){ showToast('Please fill all fields'); return; }
-  const result=await sbInsert('contact_messages',{ full_name:name, contact, role, message:msg });
+  const result=await sbInsert('contact_messages',{ full_name:name, contact, role, message:msg }, {minimal:true});
   if(result){ showToast('Message sent! We\'ll reply within 24 hours ✅'); ['cName','cContact','cMessage'].forEach(id=>{ const el=document.getElementById(id); if(el) el.value=''; }); }
   else showToast('Saved locally. We\'ll follow up soon ✅');
 }
@@ -4076,7 +4083,7 @@ function commReply(btn){ const text=document.getElementById('commText'); if(!tex
 async function submitCommPost() {
   const text=document.getElementById('commText')?.value.trim(); if(!text){ showToast('Write something first'); return; }
   if(!currentUser){ showToast('Please log in to post'); openModal('loginModal'); return; }
-  await sbInsert('community_posts',{ author_phone:currentUser.phone, author_name:currentUser.name, content:text, category:'general' });
+  await sbInsert('community_posts',{ author_name:currentUser.name, content:text, category:'general' }, {minimal:true});
   showToast('✅ Post shared with the community!');
   const el=document.getElementById('commText'); if(el) el.value='';
   const feed=document.getElementById('comm-feed'); if(!feed) return;
