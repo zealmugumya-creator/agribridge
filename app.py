@@ -11,6 +11,7 @@ import os
 import datetime
 import json as _json
 import hmac
+import secrets
 import requests
 
 import jwt
@@ -32,8 +33,15 @@ CORS(app, resources={r"/api/*": {"origins": [
 ]}})
 
 # ── Config ────────────────────────────────────────────────────────────────────
-JWT_SECRET     = os.environ.get('JWT_SECRET',     'CHANGE_ME_IN_RENDER_ENV_VARS')
-ADMIN_PASSWORD = os.environ.get('ADMIN_PASSWORD', 'agribridge2026')
+JWT_SECRET     = os.environ.get('JWT_SECRET', '')
+if not JWT_SECRET or JWT_SECRET == 'CHANGE_ME_IN_RENDER_ENV_VARS':
+    # Fail SAFE, not open: a random per-boot secret means tokens forged with the
+    # (public) repo default are rejected. Set JWT_SECRET in Render so admin
+    # sessions persist across restarts.
+    JWT_SECRET = secrets.token_hex(32)
+    print("WARNING: JWT_SECRET not set — using a random per-boot secret.")
+# Empty (not a public default) so admin login fails CLOSED when unconfigured.
+ADMIN_PASSWORD = os.environ.get('ADMIN_PASSWORD', '')
 AT_USERNAME    = os.environ.get('AT_USERNAME',    'sandbox')
 AT_API_KEY     = os.environ.get('AT_API_KEY',     'atsk_REPLACE_ME')
 AT_SHORTCODE   = os.environ.get('AT_SHORTCODE',   '*789#')
@@ -220,7 +228,10 @@ def health():
 @rate_limit(max_req=5, window=300)
 def admin_login():
     data = request.get_json(force=True, silent=True) or {}
-    if data.get('password', '') != ADMIN_PASSWORD:
+    if not ADMIN_PASSWORD:
+        return jsonify({'error': 'Admin login is disabled (ADMIN_PASSWORD not configured).'}), 503
+    # Constant-time compare to avoid timing side-channels.
+    if not hmac.compare_digest(str(data.get('password', '')), ADMIN_PASSWORD):
         return jsonify({'error': 'Invalid password'}), 401
     token = make_token({'sub': 'admin', 'role': 'admin'}, hours=24)
     return jsonify({'token': token, 'role': 'admin', 'message': 'Login successful'}), 200
