@@ -4323,13 +4323,15 @@ window.addEventListener('offline', function() {
 // ── Enhanced submitListProduce with sanitisation + rate limit ─
 var _origSubmitListProduce = window.submitListProduce;
 function submitListProduce() {
-  if (!checkRateLimit('submitListing', 5)) return;
   var crop  = sanitiseInput((document.getElementById('lpCrop')||{}).value, 100);
   var qty   = parseFloat((document.getElementById('lpQty')||{}).value||0);
   var price = parseFloat((document.getElementById('lpPrice')||{}).value||0);
   if (!crop)    { showToast('Please select a crop type'); return; }
   if (qty <= 0) { showToast('Please enter a valid quantity'); return; }
   if (price <= 0){ showToast('Please enter a valid price'); return; }
+  // Rate-limit only real, validated submissions (not incomplete attempts), and
+  // allow a farmer to list a whole catalogue in one sitting.
+  if (!checkRateLimit('submitListing', 20)) return;
   if (_origSubmitListProduce) _origSubmitListProduce();
 }
 
