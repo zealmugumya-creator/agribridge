@@ -614,6 +614,15 @@ input:focus,select:focus,textarea:focus{outline:none;border-color:var(--green) !
 .an-v{font-size:1.35rem;font-weight:850;letter-spacing:-.02em;margin-top:4px}
 .an-sect{margin-top:16px}
 .an-sect h3{font-size:.95rem;font-weight:800;margin-bottom:10px}
+.an-growth{font-size:.72rem;font-weight:800;padding:4px 10px;border-radius:999px;border:1px solid var(--border)}
+.an-growth.up{color:var(--green-light);background:var(--green-dim)}
+.an-growth.dn{color:#f4655a;background:rgba(244,101,90,.12)}
+.an-sub2{font-size:.8rem;color:var(--green-light);font-weight:600;margin-top:4px}
+.an-prods{display:flex;flex-direction:column;gap:9px}
+.an-prod{display:flex;align-items:center;gap:10px;background:var(--bg3);border:1px solid var(--border);border-radius:13px;padding:12px 14px}
+.an-prod-nm{flex:1;font-weight:700;font-size:.9rem;color:var(--text)}
+.an-prod-q{font-weight:800;font-size:.9rem;color:var(--green-light)}
+.an-prod-pct{font-size:.74rem;font-weight:700;color:var(--text2);min-width:38px;text-align:right}
 /* AI Farm Assistant card (logged-in home) */
 .ai-farm-card{position:relative;display:flex;align-items:center;justify-content:space-between;gap:10px;overflow:hidden;
   margin:0 0 14px;padding:15px 16px;border-radius:20px;cursor:pointer;
@@ -3643,10 +3652,14 @@ async function updateOrderStatus(id, status, btn){
 function renderFarmerAnalytics(orders){
   orders = orders || [];
   const amt = o => Number(o.total_price || o.total_amount || (o.quantity_kg*(o.price_per_kg||0)) || 0);
-  const now = new Date(), monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+  const now = new Date();
+  const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+  const lastStart  = new Date(now.getFullYear(), now.getMonth()-1, 1);
   const totalRev = orders.reduce((s,o)=>s+amt(o),0);
   const monthRev = orders.filter(o=>new Date(o.created_at)>=monthStart).reduce((s,o)=>s+amt(o),0);
+  const lastRev  = orders.filter(o=>{const d=new Date(o.created_at);return d>=lastStart&&d<monthStart;}).reduce((s,o)=>s+amt(o),0);
   const delivered = orders.filter(o=>o.status==='delivered').length;
+  const growth = lastRev>0 ? Math.round((monthRev-lastRev)/lastRev*100) : (monthRev>0?100:0);
   if(!orders.length){
     return `<div class="an-card"><div class="an-lbl">Revenue</div><div class="an-rev tnum">UGX 0</div><p style="color:var(--text2);font-size:.82rem;margin-top:6px">No sales yet. When buyers order your listings, your revenue, trend and top products appear here.</p></div>`;
   }
@@ -3656,23 +3669,26 @@ function renderFarmerAnalytics(orders){
   const max=Math.max(1,...buckets);
   const line=buckets.map((v,i)=>`${((i/(days-1))*300).toFixed(1)},${(66-(v/max)*56).toFixed(1)}`).join(' ');
   const area=`0,66 ${line} 300,66`;
-  // top products (item name parsed from order notes)
+  // top products (item name parsed from order notes), by kg sold
   const prod={};
   orders.forEach(o=>{ const m=/Item:(.*)$/.exec(o.notes||''); const nm=((m?m[1]:'')||'Order').trim().slice(0,26); prod[nm]=(prod[nm]||0)+(Number(o.quantity_kg)||0); });
+  const totalQty=Object.values(prod).reduce((s,q)=>s+q,0)||1;
   const top=Object.entries(prod).sort((a,b)=>b[1]-a[1]).slice(0,4);
-  const topHtml = top.map(([nm,q])=>`<div class="dash-row"><span>${escHtml(nm)}</span><span style="color:var(--green);font-weight:700">${Number(q).toLocaleString()} kg</span></div>`).join('') || '';
+  const fmtQ = q => q>=1000 ? (q/1000).toFixed(1).replace(/\.0$/,'')+' t' : Math.round(q)+' kg';
+  const topHtml = top.map(([nm,q])=>`<div class="an-prod"><span class="an-prod-nm">${escHtml(nm)}</span><span class="an-prod-q">${fmtQ(q)}</span><span class="an-prod-pct">${Math.round(q/totalQty*100)}%</span></div>`).join('') || '';
   return `
   <div class="an-card">
-    <div class="an-top"><span class="an-lbl">Revenue · all time</span><span class="an-chip">${orders.length} orders</span></div>
-    <div class="an-rev tnum">UGX ${Number(totalRev).toLocaleString()}</div>
+    <div class="an-top"><span class="an-lbl">Revenue · this month</span><span class="an-growth ${growth>=0?'up':'dn'}">${growth>=0?'▲':'▼'} ${Math.abs(growth)}%</span></div>
+    <div class="an-rev tnum">UGX ${Number(monthRev).toLocaleString()}</div>
+    <div class="an-sub2">${growth>=0?'+':''}${growth}% from last month</div>
     <svg class="an-spark" viewBox="0 0 300 70" preserveAspectRatio="none"><defs><linearGradient id="anfill" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="rgba(23,224,107,.4)"/><stop offset="1" stop-color="rgba(23,224,107,0)"/></linearGradient></defs>
       <polygon points="${area}" fill="url(#anfill)"/><polyline points="${line}" fill="none" stroke="var(--green-light)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
   </div>
   <div class="an-tiles">
-    <div class="an-tile"><div class="an-lbl">This month</div><div class="an-v tnum">UGX ${Number(monthRev).toLocaleString()}</div></div>
-    <div class="an-tile"><div class="an-lbl">Delivered</div><div class="an-v tnum">${delivered}</div></div>
+    <div class="an-tile"><div class="an-lbl">All-time revenue</div><div class="an-v tnum">UGX ${fmtShort(totalRev)}</div></div>
+    <div class="an-tile"><div class="an-lbl">Delivered orders</div><div class="an-v tnum">${delivered}</div></div>
   </div>
-  ${top.length?`<div class="an-sect"><h3>Top products</h3>${topHtml}</div>`:''}`;
+  ${top.length?`<div class="an-sect"><h3>Top sold products</h3><div class="an-prods">${topHtml}</div></div>`:''}`;
 }
 async function loadDashboard() {
   const el=document.getElementById('dash-content');
