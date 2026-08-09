@@ -5108,11 +5108,12 @@ function _toEmail(v){
 // the auth token alone doesn't carry them.
 async function hydrateUserProfile() {
   if (!currentUser || !currentUser.supaId) return;
-  var row = await sb('farmers', { select:'full_name,phone,district,profile_photo', filters:[['id','eq.'+currentUser.supaId]], single:true });
+  // Only non-PII columns: phone/email are locked down at the DB level. The
+  // user's own phone already lives in their auth session (currentUser.phone).
+  var row = await sb('farmers', { select:'full_name,district,profile_photo', filters:[['id','eq.'+currentUser.supaId]], single:true });
   if (!row) return;
   if (row.profile_photo) currentUser.avatar_url = row.profile_photo;
   if (row.full_name && !currentUser.name) currentUser.name = row.full_name;
-  if (row.phone && !currentUser.phone) currentUser.phone = row.phone;
   if (row.district && !currentUser.district) currentUser.district = row.district;
   try { localStorage.setItem('ab_user', JSON.stringify(currentUser)); } catch (e) {}
   updateNavUser(currentUser);
