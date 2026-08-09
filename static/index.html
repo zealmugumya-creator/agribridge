@@ -1665,7 +1665,18 @@ async function sb(table, opts = {}) {
     'Prefer': method === 'POST' ? 'return=representation' : (count ? 'count=exact' : 'return=minimal')
   };
   try {
-    const res = await fetch(url, { method, headers, cache:'no-store', body: body ? JSON.stringify(body) : undefined });
+    let res = await fetch(url, { method, headers, cache:'no-store', body: body ? JSON.stringify(body) : undefined });
+    // A stale/expired access token makes authenticated writes fail RLS with
+    // 401/403 (e.g. "row violates row-level security policy"). Refresh the
+    // session once and retry so orders, listings, reviews etc. don't silently
+    // fail while the user still appears logged in.
+    if ((res.status === 401 || res.status === 403) && method !== 'GET') {
+      const fresh = await refreshAuthToken();
+      if (fresh) {
+        headers['Authorization'] = 'Bearer ' + fresh;
+        res = await fetch(url, { method, headers, cache:'no-store', body: body ? JSON.stringify(body) : undefined });
+      }
+    }
     if (count) return parseInt(res.headers.get('content-range')?.split('/')[1] || '0');
     if (!res.ok) return null;
     // PATCH/DELETE with return=minimal reply 204 No Content — no body to parse.
@@ -1673,6 +1684,19 @@ async function sb(table, opts = {}) {
     const json = await res.json();
     return single ? (Array.isArray(json) ? json[0] : json) : json;
   } catch { return null; }
+}
+// Get a fresh access token from the Supabase client (auto-refreshes if the
+// current one is expired but the session is still valid). Returns null if the
+// user is truly signed out.
+async function refreshAuthToken() {
+  try {
+    if (!sbAuth || !sbAuth.auth) return null;
+    let r = await sbAuth.auth.getSession();
+    let s = r && r.data && r.data.session;
+    if (!(s && s.access_token)) { r = await sbAuth.auth.refreshSession(); s = r && r.data && r.data.session; }
+    if (s && s.access_token) { _authToken = s.access_token; return _authToken; }
+  } catch (e) {}
+  return null;
 }
 async function sbInsert(t, d) { return sb(t, { method:'POST', body:d }); }
 // Upload an image to the public 'uploads' bucket; returns its public URL (or null).
@@ -3154,7 +3178,13 @@ async function submitOrder() {
     if(pay && pay!=='cash'){ const link=await startOnlinePayment(ref, qty*(listing?.price_per_kg||0)); if(link){ closeModal('orderModal'); showToast('Redirecting to secure payment…'); window.location.href=link; return; } }
     closeModal('orderModal'); showToast('Order placed! Track: '+track+' ✅ Farmer will confirm');
   }
-  else showToast('Order failed — please try again');
+  else {
+    // sb() already tried to refresh the token; if there's still no valid
+    // session, the user must sign in again rather than see a dead-end error.
+    const tok = await refreshAuthToken();
+    if(!tok){ closeModal('orderModal'); showToast('Your session expired — please log in again to place your order'); setTimeout(function(){ openModal('loginModal'); }, 400); }
+    else showToast('Order failed — please try again');
+  }
 }
 
 // ── Reviews ────────────────────────────────────────────────
