@@ -623,6 +623,11 @@ input:focus,select:focus,textarea:focus{outline:none;border-color:var(--green) !
 .an-prod-nm{flex:1;font-weight:700;font-size:.9rem;color:var(--text)}
 .an-prod-q{font-weight:800;font-size:.9rem;color:var(--green-light)}
 .an-prod-pct{font-size:.74rem;font-weight:700;color:var(--text2);min-width:38px;text-align:right}
+.an-cats{display:flex;flex-direction:column;gap:12px}
+.an-cat-top{display:flex;justify-content:space-between;font-size:.86rem;font-weight:700;color:var(--text);margin-bottom:6px}
+.an-cat-top b{color:var(--green-light)}
+.an-cat-bar{height:8px;border-radius:999px;background:var(--bg3);border:1px solid var(--border);overflow:hidden}
+.an-cat-bar i{display:block;height:100%;border-radius:999px;background:linear-gradient(90deg,var(--green),var(--green-light))}
 /* AI Farm Assistant card (logged-in home) */
 .ai-farm-card{position:relative;display:flex;align-items:center;justify-content:space-between;gap:10px;overflow:hidden;
   margin:0 0 14px;padding:15px 16px;border-radius:20px;cursor:pointer;
@@ -3690,6 +3695,43 @@ function renderFarmerAnalytics(orders){
   </div>
   ${top.length?`<div class="an-sect"><h3>Top sold products</h3><div class="an-prods">${topHtml}</div></div>`:''}`;
 }
+// Buyer business analytics (mockup): total spent + growth, orders, suppliers, top categories.
+function renderBuyerAnalytics(orders){
+  orders = orders || [];
+  const amt = o => Number(o.total_price || o.total_amount || (o.quantity_kg*(o.price_per_kg||0)) || 0);
+  if(!orders.length){
+    return `<div class="an-card"><div class="an-lbl">Total spent</div><div class="an-rev tnum">UGX 0</div><p style="color:var(--text2);font-size:.82rem;margin-top:6px">No orders yet. Your spending, suppliers and top categories will appear here once you buy.</p></div>`;
+  }
+  const now=new Date(), ms=new Date(now.getFullYear(),now.getMonth(),1), ls=new Date(now.getFullYear(),now.getMonth()-1,1);
+  const total=orders.reduce((s,o)=>s+amt(o),0);
+  const monthSpent=orders.filter(o=>new Date(o.created_at)>=ms).reduce((s,o)=>s+amt(o),0);
+  const lastSpent=orders.filter(o=>{const d=new Date(o.created_at);return d>=ls&&d<ms;}).reduce((s,o)=>s+amt(o),0);
+  const growth=lastSpent>0?Math.round((monthSpent-lastSpent)/lastSpent*100):(monthSpent>0?100:0);
+  const suppliers=new Set(orders.map(o=>o.farmer_id).filter(Boolean)).size;
+  const days=30, buckets=new Array(days).fill(0);
+  orders.forEach(o=>{ const diff=Math.floor((now-new Date(o.created_at))/86400000); if(diff>=0&&diff<days) buckets[days-1-diff]+=amt(o); });
+  const max=Math.max(1,...buckets);
+  const line=buckets.map((v,i)=>`${((i/(days-1))*300).toFixed(1)},${(66-(v/max)*56).toFixed(1)}`).join(' ');
+  const area=`0,66 ${line} 300,66`;
+  const cats={};
+  orders.forEach(o=>{ let c=(o.item_category||'').trim(); if(!c){ const m=/Item:(.*)$/.exec(o.notes||''); c=((m?m[1]:'')||'Other').trim().split(' ')[0]||'Other'; } c=c.charAt(0).toUpperCase()+c.slice(1); cats[c]=(cats[c]||0)+amt(o); });
+  const catTotal=Object.values(cats).reduce((s,v)=>s+v,0)||1;
+  const topCats=Object.entries(cats).sort((a,b)=>b[1]-a[1]).slice(0,4);
+  const catHtml=topCats.map(([nm,v])=>{const pct=Math.round(v/catTotal*100);return `<div class="an-cat"><div class="an-cat-top"><span>${escHtml(nm)}</span><b>${pct}%</b></div><div class="an-cat-bar"><i style="width:${pct}%"></i></div></div>`;}).join('');
+  return `
+  <div class="an-card">
+    <div class="an-top"><span class="an-lbl">Total spent · this month</span><span class="an-growth ${growth>=0?'up':'dn'}">${growth>=0?'▲':'▼'} ${Math.abs(growth)}%</span></div>
+    <div class="an-rev tnum">UGX ${Number(monthSpent).toLocaleString()}</div>
+    <div class="an-sub2">${growth>=0?'+':''}${growth}% from last month · UGX ${fmtShort(total)} all-time</div>
+    <svg class="an-spark" viewBox="0 0 300 70" preserveAspectRatio="none"><defs><linearGradient id="anfillb" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="rgba(23,224,107,.4)"/><stop offset="1" stop-color="rgba(23,224,107,0)"/></linearGradient></defs>
+      <polygon points="${area}" fill="url(#anfillb)"/><polyline points="${line}" fill="none" stroke="var(--green-light)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+  </div>
+  <div class="an-tiles">
+    <div class="an-tile"><div class="an-lbl">Orders</div><div class="an-v tnum">${orders.length}</div></div>
+    <div class="an-tile"><div class="an-lbl">Suppliers</div><div class="an-v tnum">${suppliers}</div></div>
+  </div>
+  ${topCats.length?`<div class="an-sect"><h3>Top categories</h3><div class="an-cats">${catHtml}</div></div>`:''}`;
+}
 async function loadDashboard() {
   const el=document.getElementById('dash-content');
   if(!el) return;
@@ -3721,7 +3763,7 @@ async function loadDashboard() {
     const reviewed = new Set(myReviews.map(r=>r.order_id));
     const local=JSON.parse(localStorage.getItem('ab_orders')||'[]');
     const count = dbOrders.length || local.length;
-    let html=`<h3 style="font-size:1rem;font-weight:700;margin-bottom:12px">📦 My Orders (${count})</h3><div id="dashTrack"></div>`;
+    let html=renderBuyerAnalytics(dbOrders)+`<h3 style="font-size:1rem;font-weight:700;margin:20px 0 12px">📦 My Orders (${count})</h3><div id="dashTrack"></div>`;
     if(dbOrders.length){
       html+=dbOrders.map(o=>{ const amt=o.total_price||o.total_amount||0; const nm=((/Item:(.*)$/.exec(o.notes||'')||[])[1]||o.item_category||'Order').trim(); const st=o.status||'pending'; const u=o.item_category==='animal'?'':'kg'; let act=''; const canTrack=(st==='confirmed'||st==='delivered')&&o.tracking_code; const trk=canTrack?`<button class="btn-sm outline" onclick="trackInDashboard('${o.tracking_code}')">📍 Track</button>`:''; let rate=''; if(st==='delivered'&&o.id&&o.farmer_id){ rate = reviewed.has(o.id) ? `<span style="font-size:0.72rem;color:#f0a020">★ Reviewed</span>` : `<button class="btn-sm" onclick="openReviewModal('${o.id}','${o.farmer_id}','${o.listing_id||''}')">⭐ Rate</button>`; } if(trk||rate) act=`<span style="flex-basis:100%;display:flex;gap:6px;margin-top:6px;align-items:center">${trk}${rate}</span>`; return `<div class="dash-row" style="flex-wrap:wrap;gap:6px"><span style="font-size:0.82rem">${escHtml(nm)} · ${o.quantity_kg||0}${u}</span><span style="color:var(--green)">UGX ${Number(amt).toLocaleString()}</span><span class="status-badge ${st}">${st}</span>${act}</div>`; }).join('');
     } else if(local.length){
