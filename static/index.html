@@ -720,11 +720,193 @@ input:focus,select:focus,textarea:focus{outline:none;border-color:var(--green) !
   .page{max-width:1240px}
   #howItWorks{max-width:1240px}
 }
+
+/* ═══════════════ WEB LANDING (marketing site for browser visitors) ═══════════════ */
+#webLanding{display:none}
+html.is-web:not(.app-entered) #webLanding{display:block;position:fixed;inset:0;z-index:6000;overflow-y:auto;-webkit-overflow-scrolling:touch;
+  background:radial-gradient(120% 80% at 80% -10%,rgba(23,224,107,.14),transparent 55%),linear-gradient(180deg,#040a07,#02120a 60%,#040a07)}
+html.is-web:not(.app-entered) body{overflow:hidden}
+#webLanding a{color:inherit;text-decoration:none}
+.wl-nav{position:sticky;top:0;z-index:5;display:flex;align-items:center;justify-content:space-between;gap:12px;padding:14px clamp(16px,5vw,48px);
+  background:rgba(4,10,7,.72);backdrop-filter:blur(14px);border-bottom:1px solid var(--border)}
+.wl-logo{font-family:'Syne',sans-serif;font-weight:800;font-size:1.35rem;color:var(--green)}
+.wl-logo span{color:#fff}
+.wl-navlinks{display:flex;align-items:center;gap:8px}
+.wl-navlinks>a{display:none;color:var(--text2);font-weight:600;font-size:.92rem;padding:8px 12px}
+.wl-navlinks>a:hover{color:var(--green-light)}
+.wl-btn{border:none;cursor:pointer;font-family:inherit;font-weight:700;font-size:.92rem;padding:10px 18px;border-radius:12px;
+  background:linear-gradient(135deg,var(--green-light),var(--green));color:var(--g-ink);box-shadow:0 10px 26px -12px rgba(23,224,107,.8);transition:transform .15s,box-shadow .15s}
+.wl-btn:hover{transform:translateY(-2px);box-shadow:0 16px 34px -14px rgba(23,224,107,.9)}
+.wl-btn.ghost{background:transparent;border:1px solid var(--border);color:var(--text);box-shadow:none}
+.wl-btn.ghost:hover{border-color:var(--green);color:var(--green-light)}
+.wl-btn.lg{padding:14px 26px;font-size:1rem;border-radius:14px}
+.wl-hero{max-width:1180px;margin:0 auto;padding:clamp(28px,6vw,64px) clamp(16px,5vw,48px);
+  display:grid;grid-template-columns:1fr;gap:36px;align-items:center}
+.wl-tag{display:inline-block;font-size:.8rem;font-weight:700;color:var(--green-light);background:var(--green-dim);
+  border:1px solid var(--border);padding:6px 14px;border-radius:999px;margin-bottom:18px}
+.wl-h1{font-family:'Syne',sans-serif;font-weight:800;line-height:1.08;font-size:clamp(2.1rem,6.4vw,3.6rem);color:#fff;margin-bottom:16px}
+.wl-h1 em{font-style:normal;background:linear-gradient(90deg,var(--green-light),var(--green));-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent}
+.wl-sub{color:var(--text2);font-size:clamp(1rem,2.6vw,1.14rem);line-height:1.6;max-width:560px;margin-bottom:26px}
+.wl-hero-cta{display:flex;flex-wrap:wrap;gap:12px;margin-bottom:20px}
+.wl-stores{display:flex;flex-wrap:wrap;gap:12px;margin-bottom:16px}
+.wl-store{display:flex;align-items:center;gap:10px;background:#0c1712;border:1px solid var(--border);color:#fff;
+  padding:9px 16px;border-radius:12px;cursor:pointer;font-family:inherit}
+.wl-store>span:first-child{font-size:1.2rem}
+.wl-store>span:last-child{display:flex;flex-direction:column;line-height:1.15;text-align:left;font-weight:700;font-size:.95rem}
+.wl-store small{font-size:.62rem;font-weight:500;color:var(--text2);text-transform:uppercase;letter-spacing:.5px}
+.wl-ussd{font-size:.86rem;color:var(--text2)}
+.wl-ussd b{color:var(--green-light)}
+/* hero phone mock */
+.wl-hero-art{display:flex;justify-content:center}
+.wl-phone{width:min(300px,80vw);background:linear-gradient(180deg,#0a1610,#06100b);border:1px solid var(--border);
+  border-radius:30px;padding:16px 14px;box-shadow:0 40px 90px -40px rgba(0,0,0,.9),0 0 0 8px rgba(10,22,16,.6),var(--glow)}
+.wl-phone-top{display:flex;justify-content:space-between;font-size:.72rem;color:var(--text2);padding:2px 6px 12px}
+.wl-card{background:var(--card);border:1px solid var(--border);border-radius:16px;padding:12px;margin-bottom:10px}
+.wl-ai{display:flex;align-items:center;gap:12px;background:radial-gradient(120% 140% at 10% 0%,rgba(23,224,107,.2),transparent 60%),var(--card)}
+.wl-ai b{display:block;font-size:.9rem}.wl-ai small{color:var(--text2);font-size:.74rem}
+.wl-ai-orb{position:relative;width:42px;height:42px;border-radius:50%;flex-shrink:0;
+  background:radial-gradient(circle at 36% 30%,#0c3b22,#041007 72%);box-shadow:0 0 0 2px rgba(23,224,107,.5),0 0 20px rgba(23,224,107,.6)}
+.wl-ai-orb span{position:absolute;top:38%;width:7px;height:7px;border-radius:50%;background:var(--green-light);box-shadow:0 0 8px var(--green)}
+.wl-ai-orb span:nth-child(1){left:30%}.wl-ai-orb span:nth-child(2){right:30%}
+.wl-stat-row{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px}
+.wl-stat{background:var(--card);border:1px solid var(--border);border-radius:14px;padding:11px}
+.wl-stat small{color:var(--text2);font-size:.72rem}.wl-stat b{display:block;font-size:1.2rem;color:var(--green-light);margin-top:3px}
+.wl-mini{display:flex;align-items:center;gap:10px;margin-bottom:8px}
+.wl-mini>span{font-size:1.5rem}.wl-mini b{font-size:.84rem}.wl-mini small{display:block;color:var(--green);font-size:.72rem}
+.wl-mini i{margin-left:auto;width:30px;height:30px;border-radius:9px;background:var(--green);color:var(--g-ink);display:flex;align-items:center;justify-content:center;font-style:normal;font-weight:800}
+/* sections */
+.wl-features,.wl-roles,.wl-trust,.wl-final{max-width:1180px;margin:0 auto;padding:clamp(30px,6vw,60px) clamp(16px,5vw,48px)}
+.wl-h2{font-family:'Syne',sans-serif;font-weight:800;font-size:clamp(1.5rem,4.5vw,2.3rem);color:#fff;text-align:center;margin-bottom:8px}
+.wl-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:16px;margin-top:26px}
+.wl-feat{background:linear-gradient(160deg,rgba(23,224,107,.06),var(--card));border:1px solid var(--border);border-radius:18px;padding:22px}
+.wl-feat-ic{width:52px;height:52px;border-radius:14px;display:flex;align-items:center;justify-content:center;font-size:1.6rem;
+  background:var(--green-dim);border:1px solid var(--border);margin-bottom:14px}
+.wl-feat h3{font-size:1.08rem;font-weight:800;color:#fff;margin-bottom:6px}
+.wl-feat p{color:var(--text2);font-size:.9rem;line-height:1.5}
+.wl-roles-sub{color:var(--text2);text-align:center;font-size:.98rem;margin-top:2px}
+.wl-chips{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin-top:26px}
+.wl-chip{background:var(--card);border:1px solid var(--border);border-radius:16px;padding:18px 14px;text-align:center;font-weight:700;color:#fff}
+.wl-chip>span{display:block;font-size:2rem;margin-bottom:8px}
+.wl-chip small{display:block;font-weight:500;color:var(--text2);font-size:.76rem;margin-top:3px}
+.wl-trust{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:16px;
+  border-top:1px solid var(--border);border-bottom:1px solid var(--border)}
+.wl-trust-item{text-align:center}
+.wl-trust-item>span{font-size:1.6rem;display:block;margin-bottom:8px}
+.wl-trust-item b{display:block;color:#fff;font-size:.98rem;margin-bottom:3px}
+.wl-trust-item small{color:var(--text2);font-size:.82rem}
+.wl-final{text-align:center}
+.wl-foot{max-width:1180px;margin:0 auto;padding:26px clamp(16px,5vw,48px) 40px;display:flex;flex-direction:column;align-items:center;gap:12px;
+  border-top:1px solid var(--border)}
+.wl-foot-links{display:flex;gap:18px;flex-wrap:wrap;justify-content:center}
+.wl-foot-links a{color:var(--text2);font-weight:600;font-size:.9rem}
+.wl-foot-links a:hover{color:var(--green-light)}
+.wl-foot small{color:var(--text2);font-size:.8rem}
+@media(min-width:860px){
+  .wl-navlinks>a{display:inline-block}
+  .wl-hero{grid-template-columns:1.05fr .95fr;gap:48px}
+}
 </style>
 </head>
 <body>
 
-<body>
+<!-- Early web/app classifier: decide marketing SITE vs APP shell before paint so
+     there is no flash. App = installed PWA / iOS standalone / Capacitor / ?app=1.
+     Web = a normal browser tab → show the marketing landing until they enter. -->
+<script>(function(){
+  try{
+    var d=document.documentElement;
+    var isApp=(window.matchMedia&&window.matchMedia('(display-mode: standalone)').matches)||window.navigator.standalone===true||!!window.Capacitor||location.search.indexOf('app=1')>-1;
+    var loggedIn=false; try{ loggedIn=!!JSON.parse(localStorage.getItem('ab_user')||'null'); }catch(e){}
+    var entered=false; try{ entered=sessionStorage.getItem('ab_entered')==='1'; }catch(e){}
+    d.classList.add(isApp?'is-app':'is-web');
+    if(isApp||loggedIn||entered) d.classList.add('app-entered');
+  }catch(e){ document.documentElement.classList.add('is-web'); }
+})();</script>
+
+<!-- ══════════════════ WEB LANDING (browser visitors only) ══════════════════ -->
+<div id="webLanding" role="region" aria-label="AgriBridge — Bridging Farms, Building Markets">
+  <header class="wl-nav">
+    <div class="wl-logo">🌱 Agri<span>Bridge</span></div>
+    <nav class="wl-navlinks">
+      <a href="#wl-features">Features</a>
+      <a href="#wl-roles">Who it's for</a>
+      <button class="wl-btn ghost" onclick="enterApp('login')">Sign in</button>
+      <button class="wl-btn" onclick="enterApp()">Launch app →</button>
+    </nav>
+  </header>
+
+  <section class="wl-hero">
+    <div class="wl-hero-txt">
+      <div class="wl-tag">🌍 Bridging Farms. Building Markets.</div>
+      <h1 class="wl-h1">Uganda's all-in-one <em>agri&#8209;marketplace</em></h1>
+      <p class="wl-sub">Empowering farmers, buyers, transporters and agri&#8209;businesses. Buy and sell produce directly, track deliveries live, diagnose crops with AI, and grow your income — zero middlemen.</p>
+      <div class="wl-hero-cta">
+        <button class="wl-btn lg" onclick="enterApp()">Launch web app →</button>
+        <button class="wl-btn ghost lg" onclick="enterApp('register')">Create free account</button>
+      </div>
+      <div class="wl-stores">
+        <button class="wl-store" onclick="appStoreClick()"><span>▶</span><span><small>Get it on</small>Google Play</span></button>
+        <button class="wl-store" onclick="appStoreClick()"><span></span><span><small>Download on the</small>App Store</span></button>
+      </div>
+      <div class="wl-ussd">📵 No smartphone? Dial <b>*789#</b> on any MTN or Airtel phone.</div>
+    </div>
+    <div class="wl-hero-art" aria-hidden="true">
+      <div class="wl-phone">
+        <div class="wl-phone-top"><span>9:41</span><span>📶 🔋</span></div>
+        <div class="wl-card wl-ai"><div class="wl-ai-orb"><span></span><span></span></div><div><b>AI Farm Assistant</b><small>How can I help you grow today?</small></div></div>
+        <div class="wl-stat-row">
+          <div class="wl-stat"><small>🌱 Crop Health</small><b>85%</b></div>
+          <div class="wl-stat"><small>💰 Income</small><b>UGX 2.4M</b></div>
+        </div>
+        <div class="wl-card wl-mini"><span>🌽</span><div><b>Maize · UGX 850/kg</b><small>+5% today</small></div><i>＋</i></div>
+        <div class="wl-card wl-mini"><span>🫘</span><div><b>Beans · UGX 1,200/kg</b><small>+8% today</small></div><i>＋</i></div>
+      </div>
+    </div>
+  </section>
+
+  <section class="wl-features" id="wl-features">
+    <h2 class="wl-h2">Everything you need to grow</h2>
+    <div class="wl-grid">
+      <div class="wl-feat"><div class="wl-feat-ic">🤖</div><h3>AI Assistant</h3><p>Smart farm guidance, crop &amp; animal disease diagnosis, and instant answers.</p></div>
+      <div class="wl-feat"><div class="wl-feat-ic">🛒</div><h3>Marketplace</h3><p>Buy &amp; sell crops and livestock directly with verified farmers and buyers.</p></div>
+      <div class="wl-feat"><div class="wl-feat-ic">🌾</div><h3>Farm Management</h3><p>Track fields, crops, yields and expenses — all in one place.</p></div>
+      <div class="wl-feat"><div class="wl-feat-ic">🚚</div><h3>Transport &amp; Logistics</h3><p>Book transport and track every delivery live, farm to door.</p></div>
+      <div class="wl-feat"><div class="wl-feat-ic">📊</div><h3>Analytics</h3><p>Revenue, top products and market insights that grow your income.</p></div>
+      <div class="wl-feat"><div class="wl-feat-ic">📵</div><h3>Works Offline</h3><p>USSD on any phone, plus offline mode when the network is weak.</p></div>
+    </div>
+  </section>
+
+  <section class="wl-roles" id="wl-roles">
+    <h2 class="wl-h2">Built for every role</h2>
+    <p class="wl-roles-sub">One platform, a tailored experience for each person in the chain.</p>
+    <div class="wl-chips">
+      <div class="wl-chip"><span>🌾</span>Farmer<small>Sell &amp; grow</small></div>
+      <div class="wl-chip"><span>🛒</span>Buyer<small>Source &amp; order</small></div>
+      <div class="wl-chip"><span>🚚</span>Transporter<small>Deliver &amp; earn</small></div>
+      <div class="wl-chip"><span>🏪</span>Supplier<small>List &amp; sell inputs</small></div>
+      <div class="wl-chip"><span>🛡️</span>Admin / Co-op<small>Oversee &amp; support</small></div>
+    </div>
+  </section>
+
+  <section class="wl-trust">
+    <div class="wl-trust-item"><span>🛡️</span><b>Trusted &amp; Secure</b><small>Verified users &amp; safe transactions</small></div>
+    <div class="wl-trust-item"><span>📶</span><b>Offline Mode</b><small>Works without internet</small></div>
+    <div class="wl-trust-item"><span>🌐</span><b>Multi-language</b><small>English, Luganda, Runyankole &amp; more</small></div>
+    <div class="wl-trust-item"><span>💬</span><b>24/7 Support</b><small>We're here to help you grow</small></div>
+  </section>
+
+  <section class="wl-final">
+    <h2 class="wl-h2">Your Growth. Our Mission.</h2>
+    <p class="wl-sub" style="margin:0 auto 22px">Join thousands of Ugandan farmers and buyers already trading smarter on AgriBridge.</p>
+    <button class="wl-btn lg" onclick="enterApp()">Launch AgriBridge →</button>
+  </section>
+
+  <footer class="wl-foot">
+    <div class="wl-logo">🌱 Agri<span>Bridge</span></div>
+    <div class="wl-foot-links"><a href="#" onclick="enterApp();return false">Home</a><a href="#wl-features">Features</a><a href="#" onclick="enterApp('login');return false">Sign in</a></div>
+    <small>© 2026 AgriBridge Uganda · Bridging Farms. Building Markets.</small>
+  </footer>
+</div>
 
 <!-- ══ SKIP LINK ══ -->
 <a href="#page-home" class="skip-link" style="position:absolute;left:-999px;top:4px;z-index:99999;background:var(--green);color:#000;padding:6px 12px;border-radius:6px;font-weight:700;text-decoration:none;font-size:0.85rem" onfocus="this.style.left='8px'" onblur="this.style.left='-999px'">Skip to main content</a>
@@ -5791,6 +5973,23 @@ Just ask anything!</div>
   <button class="btn-sm" style="pointer-events:auto" onclick="acceptCookies()">Accept</button>
   <button class="btn-sm outline" style="pointer-events:auto" onclick="localStorage.setItem('ab_cookies','1');document.getElementById('cookieBanner').style.display='none'">Decline</button>
 </div>
+
+<!-- Web landing → app transition -->
+<script>
+// Reveal the app shell from the marketing landing (browser visitors). Installed
+// app users never see the landing, so this is a no-op for them.
+function enterApp(target){
+  try{ document.documentElement.classList.add('app-entered'); }catch(e){}
+  try{ sessionStorage.setItem('ab_entered','1'); }catch(e){}
+  try{ window.scrollTo(0,0); }catch(e){}
+  if(target==='login' && typeof openModal==='function') openModal('loginModal');
+  else if(target==='register' && typeof openModal==='function') openModal('registerModal');
+}
+function appStoreClick(){
+  if(typeof showToast==='function') showToast('📲 Coming soon to Google Play & the App Store! For now tap “Launch app”, or add AgriBridge to your home screen.');
+  else enterApp();
+}
+</script>
 
 </body>
 </html>
