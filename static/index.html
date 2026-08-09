@@ -767,6 +767,16 @@ input:focus,select:focus,textarea:focus{outline:none;border-color:var(--green) !
 .hd-qa button span{font-size:1.4rem}
 .hd-qa button:active{transform:scale(.96);border-color:rgba(23,224,107,.4);color:var(--green-light)}
 @media(min-width:760px){ .hd-tiles{grid-template-columns:repeat(4,1fr)} }
+/* Marketplace shop-by-category chips */
+.mk-cats{display:flex;gap:10px;overflow-x:auto;padding:2px 0 14px;scrollbar-width:none}
+.mk-cats::-webkit-scrollbar{display:none}
+.mk-cats button{flex:0 0 auto;display:flex;flex-direction:column;align-items:center;gap:7px;width:76px;padding:4px 4px 2px;
+  background:none;border:none;color:var(--text2);font-size:.72rem;font-weight:700;cursor:pointer;font-family:inherit;line-height:1.1}
+.mk-cats button span{width:52px;height:52px;border-radius:16px;display:flex;align-items:center;justify-content:center;font-size:1.5rem;
+  background:linear-gradient(160deg,rgba(23,224,107,.1),var(--card));border:1px solid var(--border);transition:border-color .2s,transform .15s}
+.mk-cats button:hover span{border-color:rgba(23,224,107,.4)}
+.mk-cats button:active span{transform:scale(.94)}
+.mk-cats button:active,.mk-cats button:hover{color:var(--green-light)}
 
 /* ═══════════ AI ASSISTANT welcome hero (mockup) ═══════════ */
 .aiw{display:flex;flex-direction:column;align-items:center;text-align:center;padding:22px 10px 6px}
@@ -1166,6 +1176,17 @@ html.is-web:not(.app-entered) body{overflow:hidden}
       <button class="filter-btn" onclick="setMarketFilter('organic',this)">🌱 Organic</button>
       <button class="filter-btn" onclick="setMarketFilter('verified',this)">✅ Verified</button>
     </div>
+    <div class="mk-cats" aria-label="Shop by category">
+      <button onclick="setMarketFilter('all',document.querySelector('#marketFilters .filter-btn'));document.getElementById('marketListings').scrollIntoView({behavior:'smooth',block:'start'})"><span>🌿</span>Crops</button>
+      <button onclick="showPage('animals')"><span>🐄</span>Livestock</button>
+      <button onclick="showPage('supply');filterSupplyCategory('tool')"><span>🚜</span>Equipment</button>
+      <button onclick="showPage('supply');filterSupplyCategory('seeds')"><span>🌱</span>Seeds</button>
+      <button onclick="showPage('supply');filterSupplyCategory('fertilizer')"><span>🧪</span>Fertilizer</button>
+      <button onclick="showPage('supply');filterSupplyCategory('animal_supply')"><span>🐾</span>Vet Care</button>
+      <button onclick="showPage('delivery')"><span>🚚</span>Transport</button>
+      <button onclick="openMore()"><span>⋯</span>More</button>
+    </div>
+    <div class="hd-sec-head" style="margin-bottom:10px"><span>Featured Products</span><a onclick="refreshListings()">Refresh ›</a></div>
     <div class="cards-grid" id="marketListings"><div class="loader"><div class="spinner"></div>Loading listings…</div></div>
   </div>
 </div>
@@ -2238,7 +2259,7 @@ function listingCard(l) {
   </div>`;
 }
 
-function setMarketFilter(f,btn){ marketFilter=f; document.querySelectorAll('#marketFilters .filter-btn').forEach(b=>b.classList.remove('active')); btn.classList.add('active'); renderListings(); }
+function setMarketFilter(f,btn){ marketFilter=f; document.querySelectorAll('#marketFilters .filter-btn').forEach(b=>b.classList.remove('active')); if(btn&&btn.classList) btn.classList.add('active'); renderListings(); }
 function filterListings(){ renderListings(); }
 function filterByDistrict(v){ activeDistrict=v; renderListings(); }
 function sortListings(v){ if(v==='price_asc') allListings.sort((a,b)=>a.price_per_kg-b.price_per_kg); if(v==='price_desc') allListings.sort((a,b)=>b.price_per_kg-a.price_per_kg); if(v==='newest') allListings.sort((a,b)=>new Date(b.created_at||0)-new Date(a.created_at||0)); renderListings(); }
