@@ -30,7 +30,7 @@ This file is the source of truth for progress across the 12-phase mandate. It re
 | 8 | Monitoring & incident response | 🟡 | `services/logging.py` (JSON + correlation IDs + secret redaction), `services/monitoring.py` (Sentry w/ PII scrubbing), real `/health` + `/health/live`. ⛔ Needs `SENTRY_DSN`. |
 | 9 | Payments & financial integrity | 🟡 | Existing verified webhook preserved; new server-side order API removes client-trust of totals (C1/C4). ⛔ End-to-end payment verification needs Flutterwave sandbox keys. |
 | 10 | Scalability, privacy, reliability | 🟡 | Account deletion / erasure (migration 0006 + `services/account.py` + `POST /api/account/delete` + settings-modal UI in `static/index.html`), indexes in migrations, secure headers + rate limits in `app.py`. Hard auth-purge gated behind `ACCOUNT_HARD_DELETE_ENABLED` (Rule 8). |
-| 11 | Testing & CI/CD | ✅ | 85 pytest tests passing, ruff clean, `.github/workflows/ci.yml` (lint + typecheck + test). SQL-integration tests remain ⛔ (need live DB) and are **not faked**. |
+| 11 | Testing & CI/CD | ✅ | 85 pytest tests passing, ruff clean. **CI verified green on GitHub Actions** (run 37906702540, commit `bd08bdd`): lint + mypy report + tests. SQL-integration tests remain ⛔ (need live DB) and are **not faked**. |
 | 12 | Admin command center | ⬜ | Depends on the React decision (Phase 2). Backend admin authz primitives are in place. |
 
 ---

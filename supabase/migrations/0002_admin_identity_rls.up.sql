@@ -11,6 +11,19 @@
 --    reading the verified UUID from auth.users (do NOT invent a UUID).
 --
 -- SAFETY: additive; does not drop existing policies. Review before applying.
+--
+-- ⚠️ APPLY-ORDER WARNING (read before applying):
+-- The `orders_no_direct_insert` policy below closes the authenticated INSERT
+-- path on `orders`. The CURRENT web app (static/index.html) still creates orders
+-- by direct insert for three categories: produce (listings), livestock
+-- (animal_listings) and supplier inputs. Only the produce path has a
+-- server-side price source today (`create_order_atomic`, migration 0001).
+-- Therefore apply this migration ONLY together with the client cutover to
+-- `POST /api/orders` (mandate Phase 2), or after a category-aware extension of
+-- `create_order_atomic` ships. Applying it early would break livestock/supplier
+-- checkout and the shared `payment_ref` reconciliation used by the payment
+-- webhook. Until then this file is deliberately held back (Rule 1: preserve
+-- working functionality). Migrations 0001, 0003–0006 are safe to apply now.
 
 begin;
 

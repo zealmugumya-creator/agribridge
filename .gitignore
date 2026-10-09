@@ -1,0 +1,33 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+htmlcov/
+.coverage
+
+# Secrets / local config — never commit real values (Rule 4).
+.env
+.env.*
+!.env.example
+*.p12
+*.jks
+keystore.properties
+google-services.json
+service-account.json
+
+# Node / mobile generated artifacts
+node_modules/
+mobile/www/
+mobile/android/
+mobile/ios/
+mobile/.capacitor/
+
+# Editors / OS
+.idea/
+.vscode/
+.DS_Store

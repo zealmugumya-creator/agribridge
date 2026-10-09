@@ -41,6 +41,15 @@ supabase db push            # if the project is linked with the Supabase CLI
 # or paste each 000N_*.up.sql into Supabase → SQL Editor, in numeric order.
 ```
 
+> **⚠️ APPLY ORDER — 0002 IS HELD BACK.** Apply **0001, 0003, 0004, 0005, 0006** now.
+> **Do NOT apply 0002 yet.** Its `orders_no_direct_insert` policy closes the
+> authenticated INSERT path on `orders`, which the *current* web app still uses for
+> livestock and supplier-input orders (only produce has a server-side price source
+> via `create_order_atomic`). Applying 0002 before the client cutover to
+> `POST /api/orders` (Phase 2) would break those checkouts and the shared
+> `payment_ref` reconciliation used by the payment webhook. Apply 0002 together
+> with that cutover. See the header of `0002_admin_identity_rls.up.sql`.
+
 | Migration | Adds | Fixes |
 |---|---|---|
 | 0001 | order-integrity columns, `order_events`, `stock_changes`, `create_order_atomic`, `set_order_status` | C1, C2, C4 |
