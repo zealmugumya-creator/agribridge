@@ -7,48 +7,83 @@
 #   AT_SHORTCODE, AT_SMS_SENDER, SUPABASE_URL, SUPABASE_KEY, GEMINI_API_KEY
 # ═══════════════════════════════════════════════════════════════════════════
 
-import os
 import datetime
-import json as _json
 import hmac
+import json as _json
+import os
 import secrets
-import requests
 
 import jwt
-from flask import Flask, request, jsonify, Response
+import requests
+from flask import Flask, Response, g, jsonify, request
 from flask_cors import CORS
+
+from services import monitoring
+
+# ── AgriBridge service modules (isolated integrations, Phase 10) ──────────────
+from services.account import AccountService
+from services.config import ConfigError, load_settings
+from services.discord import DiscordNotifier
+from services.logging import (
+    configure_logging,
+    get_logger,
+    new_correlation_id,
+    set_correlation_id,
+)
+from services.matching import MatchingService
+from services.notifications import NotificationDispatcher
+from services.orders import OrderService
+from services.push import build_push
+from services.supabase_client import SupabaseClient
+
+configure_logging()
+log = get_logger("app")
 
 try:
     import africastalking
     AT_AVAILABLE = True
 except ImportError:
     AT_AVAILABLE = False
-    print("WARNING: africastalking not installed. SMS disabled.")
+    log.warning("deps.africastalking_missing", note="SMS disabled")
+
+# Fail closed on missing production config (audit finding H1): never boot an
+# admin-capable API with an unstable per-boot secret.
+try:
+    SETTINGS = load_settings()
+except ConfigError as _cfg_err:
+    log.error("config.fatal", error=str(_cfg_err))
+    raise
 
 app = Flask(__name__)
-CORS(app, resources={r"/api/*": {"origins": [
-    "https://agribrige.com", "https://www.agribrige.com",
-    "https://agribridge-1-og7a.onrender.com",
-    "http://localhost:3000", "http://127.0.0.1:3000",
-]}})
+CORS(app, resources={r"/api/*": {"origins": SETTINGS.cors_origins}})
 
 # ── Config ────────────────────────────────────────────────────────────────────
-JWT_SECRET     = os.environ.get('JWT_SECRET', '')
-if not JWT_SECRET or JWT_SECRET == 'CHANGE_ME_IN_RENDER_ENV_VARS':
-    # Fail SAFE, not open: a random per-boot secret means tokens forged with the
-    # (public) repo default are rejected. Set JWT_SECRET in Render so admin
-    # sessions persist across restarts.
-    JWT_SECRET = secrets.token_hex(32)
-    print("WARNING: JWT_SECRET not set — using a random per-boot secret.")
+JWT_SECRET     = SETTINGS.jwt_secret or secrets.token_hex(32)  # dev-only fallback
 # Empty (not a public default) so admin login fails CLOSED when unconfigured.
-ADMIN_PASSWORD = os.environ.get('ADMIN_PASSWORD', '')
+ADMIN_PASSWORD = SETTINGS.admin_password
+ADMIN_ALLOWED_UUIDS = SETTINGS.admin_allowed_uuids
 AT_USERNAME    = os.environ.get('AT_USERNAME',    'sandbox')
 AT_API_KEY     = os.environ.get('AT_API_KEY',     'atsk_REPLACE_ME')
 AT_SHORTCODE   = os.environ.get('AT_SHORTCODE',   '*789#')
 AT_SMS_SENDER  = os.environ.get('AT_SMS_SENDER',  'AgriBridge')
-SUPABASE_URL   = os.environ.get('SUPABASE_URL',   'https://vyrctsiyaihsysgpozdm.supabase.co')
-SUPABASE_KEY   = os.environ.get('SUPABASE_KEY',   '')
+SUPABASE_URL   = SETTINGS.supabase_url
+SUPABASE_KEY   = SETTINGS.supabase_key
 GEMINI_KEY     = os.environ.get('GEMINI_API_KEY', '')
+
+# ── Service wiring (constructed once; used by routes and the worker) ──────────
+monitoring.init(SETTINGS.sentry_dsn, os.environ.get('SENTRY_ENVIRONMENT', SETTINGS.env),
+                float(os.environ.get('SENTRY_TRACES_SAMPLE_RATE', '0.1')))
+SUPA = SupabaseClient(SUPABASE_URL, SUPABASE_KEY)
+DISCORD = DiscordNotifier(SETTINGS.discord_webhook_url)
+# FCM push (Phase 6): sender + admin token lookup + device registry. Absent
+# credentials => a safe no-op sender (None) so the queue still drains.
+FCM_SENDER, ADMIN_TOKEN_LOOKUP, PUSH_REGISTRY = build_push(SETTINGS, SUPA)
+NOTIFY = NotificationDispatcher(supabase=SUPA, discord=DISCORD,
+                                fcm_sender=FCM_SENDER, admin_token_lookup=ADMIN_TOKEN_LOOKUP)
+ORDER_SERVICE = OrderService(supabase=SUPA, dispatcher=NOTIFY)
+MATCHING_SERVICE = MatchingService(supabase=SUPA, dispatcher=NOTIFY)
+ACCOUNT_SERVICE = AccountService(SUPA, supabase_url=SUPABASE_URL, service_key=SUPABASE_KEY,
+                                 hard_delete_enabled=SETTINGS.account_hard_delete_enabled)
 
 # ── Payments (pluggable; each provider stays OFF until its keys are set) ───────
 FLW_SECRET_KEY   = os.environ.get('FLW_SECRET_KEY',   '')  # Flutterwave secret key
@@ -56,7 +91,7 @@ FLW_WEBHOOK_HASH = os.environ.get('FLW_WEBHOOK_HASH', '')  # must match the hash
 PESAPAL_KEY      = os.environ.get('PESAPAL_CONSUMER_KEY',    '')
 PESAPAL_SECRET   = os.environ.get('PESAPAL_CONSUMER_SECRET', '')
 MTN_MOMO_KEY     = os.environ.get('MTN_MOMO_SUBSCRIPTION_KEY', '')
-PUBLIC_BASE_URL  = os.environ.get('PUBLIC_BASE_URL', 'https://agribrige.com')
+PUBLIC_BASE_URL  = SETTINGS.public_base_url
 
 at_sms = None
 if AT_AVAILABLE and AT_API_KEY and AT_API_KEY != 'atsk_REPLACE_ME':
@@ -64,7 +99,7 @@ if AT_AVAILABLE and AT_API_KEY and AT_API_KEY != 'atsk_REPLACE_ME':
         africastalking.initialize(AT_USERNAME, AT_API_KEY)
         at_sms = africastalking.SMS
     except Exception as _at_err:
-        print(f"WARNING: Africa's Talking init failed: {_at_err}")
+        log.warning("at.init_failed", error=type(_at_err).__name__)
 
 # ── Security hardening ────────────────────────────────────────────────────────
 import time as _time
@@ -95,17 +130,43 @@ def rate_limit(max_req=30, window=60):
         return wrapper
     return deco
 
+@app.before_request
+def _begin_request():
+    # Correlation ID: honour a trusted upstream header, else mint one. Attached to
+    # every log line for this request and echoed back for client-side tracing (H5).
+    cid = request.headers.get('X-Correlation-ID', '')
+    g.correlation_id = set_correlation_id(cid)
+    g.started_at = _time.time()
+
 @app.after_request
 def _security_headers(resp):
     resp.headers['X-Content-Type-Options'] = 'nosniff'
     resp.headers['X-Frame-Options'] = 'SAMEORIGIN'
     resp.headers['X-XSS-Protection'] = '1; mode=block'
     resp.headers['Referrer-Policy'] = 'strict-origin-when-cross-origin'
+    resp.headers['X-Correlation-ID'] = getattr(g, 'correlation_id', '-')
+    # Structured access log (never logs bodies/headers — secrets stay out).
+    try:
+        dur_ms = int((_time.time() - getattr(g, 'started_at', _time.time())) * 1000)
+    except Exception:
+        dur_ms = -1
+    log.info("http.request", method=request.method, path=request.path,
+             status=resp.status_code, duration_ms=dur_ms)
     return resp
 
 @app.errorhandler(404)
 def _not_found(e):
     return jsonify({'error': 'Not found'}), 404
+
+@app.errorhandler(Exception)
+def _unhandled(e):
+    # Surface a safe, honest 500 with the correlation id; capture to Sentry.
+    log.exception("http.unhandled_error", path=request.path)
+    monitoring.capture_exception(e, path=request.path)
+    if hasattr(e, 'code') and hasattr(e, 'description'):  # HTTPException
+        return e
+    return jsonify({'error': 'Internal server error',
+                    'correlation_id': getattr(g, 'correlation_id', '-')}), 500
 
 # ── Supabase helpers ──────────────────────────────────────────────────────────
 def supa_get(table, filters=None, limit=100):
@@ -203,6 +264,65 @@ def verify_token(required_role=None):
     except jwt.InvalidTokenError:
         return None, (jsonify({'error': 'Invalid token'}), 401)
 
+def _bearer_token():
+    auth = request.headers.get('Authorization', '')
+    return auth.split(' ', 1)[1].strip() if auth.startswith('Bearer ') else ''
+
+def verify_supabase_user():
+    """Resolve the caller's REAL identity from their Supabase Auth access token.
+
+    The token is validated by GoTrue (`/auth/v1/user`), so a client cannot claim
+    an arbitrary user id — the id comes from the verified session, never from the
+    request body. Returns (user_id, None) or (None, error_response).
+    """
+    token = _bearer_token()
+    if not token:
+        return None, (jsonify({'error': 'Missing token'}), 401)
+    if not SUPA.configured:
+        return None, (jsonify({'error': 'Auth unavailable'}), 503)
+    try:
+        res = requests.get(
+            f"{SUPABASE_URL}/auth/v1/user",
+            headers={'apikey': SUPABASE_KEY, 'Authorization': f'Bearer {token}'},
+            timeout=8,
+        )
+    except requests.RequestException:
+        return None, (jsonify({'error': 'Auth check failed'}), 502)
+    if res.status_code != 200:
+        return None, (jsonify({'error': 'Invalid or expired session'}), 401)
+    try:
+        uid = (res.json() or {}).get('id')
+    except ValueError:
+        uid = None
+    if not uid:
+        return None, (jsonify({'error': 'Invalid session'}), 401)
+    return uid, None
+
+def is_admin_uuid(user_id):
+    """Server-controlled admin check against the user_roles table (Phase 3).
+
+    Falls back to the ADMIN_ALLOWED_UUIDS allowlist so the very first super-admin
+    can be bootstrapped before the role row exists. Never trusts client input.
+    """
+    if not user_id:
+        return False
+    if user_id in ADMIN_ALLOWED_UUIDS:
+        return True
+    rows = SUPA.select('user_roles', {'user_id': f'eq.{user_id}', 'select': 'role'}, limit=1)
+    return bool(rows) and rows[0].get('role') in ('admin', 'superadmin')
+
+def require_admin_user():
+    """Admin authz by verified Supabase identity (replaces shared-password model).
+
+    Returns (user_id, None) for an authorized admin, or (None, error_response).
+    """
+    uid, err = verify_supabase_user()
+    if err:
+        return None, err
+    if not is_admin_uuid(uid):
+        return None, (jsonify({'error': 'Insufficient permissions'}), 403)
+    return uid, None
+
 # ── Number formatter ──────────────────────────────────────────────────────────
 def fmt(n):
     return f"{int(n):,}"
@@ -213,13 +333,28 @@ def fmt(n):
 @app.route('/')
 @app.route('/health')
 def health():
-    return jsonify({
-        'status': 'ok',
+    # M6: prove real dependency connectivity, don't just report "a key is set".
+    # A green health endpoint must not be mistaken for working business flows.
+    db = SUPA.ping()
+    healthy = db.ok
+    payload = {
+        'status': 'ok' if healthy else 'degraded',
         'service': 'AgriBridge API',
-        'version': '3.0.0',
+        'version': '3.1.0',
         'at_enabled': AT_AVAILABLE and at_sms is not None,
-        'supabase_connected': bool(SUPABASE_KEY)
-    })
+        'supabase_configured': SUPA.configured,
+        'supabase_connected': db.ok,          # actual round-trip result
+        'discord_configured': DISCORD.enabled,
+        'sentry_enabled': bool(SETTINGS.sentry_dsn),
+    }
+    if not healthy:
+        log.error("health.db_unreachable", error=db.error)
+    return jsonify(payload), (200 if healthy else 503)
+
+@app.route('/health/live')
+def health_live():
+    # Liveness only: is the process up? (Never used as proof of business health.)
+    return jsonify({'status': 'ok'}), 200
 
 # ══════════════════════════════════════════════════════════════════════════════
 # ADMIN AUTH
@@ -1158,7 +1293,7 @@ def crop_doctor():
         text = res.json()['candidates'][0]['content']['parts'][0]['text']
         text = text.strip().lstrip('```json').lstrip('```').rstrip('```').strip()
         return jsonify(_json.loads(text))
-    except Exception as e:
+    except Exception:
         return jsonify({'error': 'AI service temporarily unavailable'}), 503
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -1207,6 +1342,191 @@ def ai_chat():
         return jsonify({'reply': None, 'error': 'ai upstream ' + str(res.status_code)}), 200
     except Exception:
         return jsonify({'reply': None, 'error': 'ai unavailable'}), 200
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# SERVER-SIDE ORDER API (authoritative; fixes audit C1/C2/C4)
+# Orders are created here — never by a direct browser insert — so the price is
+# recomputed from the listing and stock is reserved atomically in Postgres.
+# ══════════════════════════════════════════════════════════════════════════════
+@app.route('/api/orders', methods=['POST'])
+@rate_limit(max_req=20, window=60)
+def create_order():
+    uid, err = verify_supabase_user()
+    if err:
+        return err
+    data = request.get_json(force=True, silent=True) or {}
+    items = data.get('items')
+    # Idempotency key prevents duplicate orders on a retried/replayed request.
+    idem = request.headers.get('Idempotency-Key', '').strip() or None
+    result = ORDER_SERVICE.create_order(
+        buyer_id=uid,
+        items=items if isinstance(items, list) else [],
+        delivery_address=str(data.get('delivery_address', '')),
+        payment_method=str(data.get('payment_method', '')),
+        idempotency_key=idem,
+        correlation_id=getattr(g, 'correlation_id', None),
+    )
+    if not result.ok:
+        return jsonify({'error': result.error}), result.status_code
+    return jsonify({
+        'ok': True, 'order_ref': result.order_ref,
+        'tracking_code': result.tracking_code, 'total_price': result.total_price,
+        'items': result.items, 'status': 'pending', 'payment_status': 'unpaid',
+    }), 201
+
+
+@app.route('/api/orders/<order_id>/status', methods=['POST'])
+@rate_limit(max_req=30, window=60)
+def transition_order_status(order_id):
+    """Move an order through its legal states via the server-side state machine.
+
+    Only a verified admin, or the farmer who owns the order, may advance it.
+    Illegal transitions are rejected by the Postgres function (22023)."""
+    uid, err = verify_supabase_user()
+    if err:
+        return err
+    data = request.get_json(force=True, silent=True) or {}
+    new_status = str(data.get('status', '')).strip()
+    if new_status not in ('confirmed', 'in_transit', 'delivered', 'cancelled'):
+        return jsonify({'error': 'Invalid status'}), 400
+
+    rows = SUPA.select('orders', {'id': f'eq.{order_id}', 'select': 'farmer_id,status'}, limit=1)
+    if not rows:
+        return jsonify({'error': 'Order not found'}), 404
+    order = rows[0]
+    if not (is_admin_uuid(uid) or order.get('farmer_id') == uid):
+        return jsonify({'error': 'Insufficient permissions'}), 403
+
+    res = SUPA.rpc('set_order_status', {'p_order_id': order_id, 'p_new_status': new_status})
+    if not res.ok:
+        code = 409 if 'illegal' in (res.error or '').lower() else 400
+        return jsonify({'error': res.error or 'transition failed'}), code
+    return jsonify({'ok': True, 'status': new_status}), 200
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# PURCHASE REQUESTS + FARMER OFFER ROUTING (Phase 5)
+# A purchase request is distinct from a confirmed paid order: it is matched to an
+# eligible farmer server-side, offers are sent, and stock is reserved atomically
+# only when a farmer accepts. The worker (services/worker.py) drives matching.
+# ══════════════════════════════════════════════════════════════════════════════
+@app.route('/api/requests', methods=['POST'])
+@rate_limit(max_req=20, window=60)
+def create_purchase_request():
+    uid, err = verify_supabase_user()
+    if err:
+        return err
+    data = request.get_json(force=True, silent=True) or {}
+    idem = request.headers.get('Idempotency-Key', '').strip() or None
+    result = MATCHING_SERVICE.create_request(
+        buyer_id=uid,
+        product=str(data.get('product', '')),
+        quantity=data.get('quantity'),
+        unit=str(data.get('unit', 'kg')),
+        delivery_address=str(data.get('delivery_address', '')),
+        delivery_district=data.get('delivery_district'),
+        target_price=data.get('target_price'),
+        idempotency_key=idem,
+        correlation_id=getattr(g, 'correlation_id', None),
+    )
+    if not result.ok:
+        return jsonify({'error': result.error}), result.status_code
+    return jsonify({'ok': True, **(result.data or {})}), 201
+
+
+@app.route('/api/offers/<offer_id>/accept', methods=['POST'])
+@rate_limit(max_req=30, window=60)
+def accept_offer(offer_id):
+    uid, err = verify_supabase_user()
+    if err:
+        return err
+    result = MATCHING_SERVICE.accept_offer(offer_id, uid)
+    if not result.ok:
+        return jsonify({'error': result.error}), result.status_code
+    return jsonify({'ok': True, **(result.data or {})}), 200
+
+
+@app.route('/api/offers/<offer_id>/reject', methods=['POST'])
+@rate_limit(max_req=30, window=60)
+def reject_offer(offer_id):
+    uid, err = verify_supabase_user()
+    if err:
+        return err
+    data = request.get_json(force=True, silent=True) or {}
+    result = MATCHING_SERVICE.reject_offer(offer_id, uid, str(data.get('reason', ''))[:200] or None)
+    if not result.ok:
+        return jsonify({'error': result.error}), result.status_code
+    return jsonify({'ok': True}), 200
+
+
+@app.route('/api/worker/match', methods=['POST'])
+def trigger_matching():
+    """Admin-only manual matching pass (also run automatically by the worker).
+
+    Useful for testing/incident recovery; requires a verified admin identity."""
+    uid, err = require_admin_user()
+    if err:
+        return err
+    result = MATCHING_SERVICE.run_matching_pass(
+        batch_size=int((request.get_json(force=True, silent=True) or {}).get('batch_size', 10)))
+    if not result.ok:
+        return jsonify({'error': result.error}), result.status_code
+    return jsonify({'ok': True, 'requests_processed': result.requests_processed,
+                    'offers': result.offers, 'expired': result.expired}), 200
+
+
+# ── Admin push device registry (Phase 6) ──────────────────────────────────────
+# A device registers its FCM token only AFTER the API has verified — from the
+# Supabase session, never from the body — that the caller is an admin (Rule 9).
+@app.route('/api/admin/devices', methods=['POST'])
+@rate_limit(max_req=30, window=60)
+def register_admin_device():
+    uid, err = require_admin_user()
+    if err:
+        return err
+    data = request.get_json(force=True, silent=True) or {}
+    token = str(data.get('token', '')).strip()
+    if not token:
+        return jsonify({'error': 'token is required'}), 400
+    provider = str(data.get('provider', 'fcm')).strip() or 'fcm'
+    platform = (str(data.get('platform', '')).strip()[:16] or None)
+    res = PUSH_REGISTRY.register(user_id=uid, token=token[:512],
+                                 provider=provider, platform=platform)
+    if not res.ok:
+        return jsonify({'error': res.error or 'registration failed'}), 400
+    return jsonify({'ok': True}), 200
+
+
+@app.route('/api/admin/devices', methods=['DELETE'])
+@rate_limit(max_req=30, window=60)
+def unregister_admin_device():
+    uid, err = require_admin_user()
+    if err:
+        return err
+    data = request.get_json(force=True, silent=True) or {}
+    token = str(data.get('token', '')).strip()
+    if not token:
+        return jsonify({'error': 'token is required'}), 400
+    ok = PUSH_REGISTRY.unregister(user_id=uid, token=token[:512])
+    return jsonify({'ok': bool(ok)}), (200 if ok else 400)
+
+
+# ── Account deletion (Phase 10 / H6 — Google Play requirement) ────────────────
+# Self-scoped: the id is taken from the verified session, never the request body.
+# By default this anonymizes the caller's data (reversible from backup); the
+# irreversible auth-user purge only runs when an operator enables it server-side.
+@app.route('/api/account/delete', methods=['POST'])
+@rate_limit(max_req=5, window=300)
+def delete_account():
+    uid, err = verify_supabase_user()
+    if err:
+        return err
+    result = ACCOUNT_SERVICE.delete_account(
+        user_id=uid, correlation_id=getattr(g, 'correlation_id', None))
+    if not result.ok:
+        return jsonify({'error': result.error, 'status': result.status}), result.status_code
+    return jsonify({'ok': True, 'status': result.status}), 200
 
 
 @app.route('/api/notify-order', methods=['POST'])

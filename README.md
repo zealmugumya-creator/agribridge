@@ -10,6 +10,12 @@ delivery tracking, reviews, mobile-money payments, and USSD access for basic pho
 
 > New here? Read this file for how the system works, then **GO-LIVE.md** for the
 > accounts/keys/toggles needed to turn everything on.
+>
+> Engineering docs: **docs/PRODUCTION_AUDIT.md** (findings + evidence),
+> **docs/IMPLEMENTATION_STATUS.md** (12-phase progress + verification boundary),
+> **docs/OPERATIONS_SETUP.md** (activate every integration, run migrations/worker),
+> **docs/PLAY_STORE_RELEASE.md** (Android build + Play submission),
+> **docs/RELEASE_READINESS_REPORT.md** (final report + verification boundary).
 
 ---
 
@@ -56,10 +62,20 @@ Repo layout:
 ```
 static/index.html   ← the entire web app (UI + logic)
 static/manifest.json, static/sw.js, static/icon-*.png  ← PWA
-app.py              ← Flask backend (USSD, SMS, AI, payments, admin)
-requirements.txt    ← Python deps
+mobile/             ← Capacitor native shell (see docs/PLAY_STORE_RELEASE.md)
+app.py              ← Flask backend (USSD, SMS, AI, payments, admin, orders)
+services/           ← backend service modules (config, logging, monitoring,
+                      supabase_client, orders, matching, notifications,
+                      discord, push, account, worker)
+supabase/migrations/← reversible SQL migrations 0001–0006 (up + down)
+tests/              ← pytest suite (85 tests)
+requirements.txt    ← Python runtime deps
+requirements-dev.txt, pytest.ini, ruff.toml  ← dev/lint/test config
 render.yaml         ← Render service config
-.github/workflows/db-backup.yml  ← weekly encrypted DB backup
+.github/workflows/  ← ci.yml (lint+test) and db-backup.yml (weekly encrypted backup)
+docs/               ← PRODUCTION_AUDIT, IMPLEMENTATION_STATUS, PLAY_STORE_RELEASE,
+                      OPERATIONS_SETUP
+.env.example        ← every env var NAME (no secrets)
 GO-LIVE.md          ← accounts/keys/toggles checklist
 ```
 
@@ -106,6 +122,13 @@ GO-LIVE.md          ← accounts/keys/toggles checklist
   - *Publishable/anon key* — safe to ship in the web app. RLS restricts what it can do.
   - *Service role key* — backend only (`SUPABASE_KEY` in Render). Never in the web app.
 - **Login required** to place an order or create a listing.
+- **Orders are server-authoritative** — `POST /api/orders` recomputes the price from
+  the listing and reserves stock atomically via a `SECURITY DEFINER` Postgres RPC
+  (`create_order_atomic`), so a tampered client cannot set its own total or oversell.
+  Direct authenticated INSERTs into `orders`/`payouts` are closed by RLS.
+- **Admin authority is server-controlled** — a `user_roles` table + `is_admin()`
+  predicate, not a client-side email check or hidden button. The owner is assigned by
+  **verified UUID** (`assign_role`), and sensitive actions write to `admin_audit_log`.
 - **Reviews are verified** — only a buyer with a *delivered* order from that farmer can review it.
 - **Payment webhooks** verify a shared secret **and** re-verify the transaction with the
   gateway server-side before marking an order paid.
@@ -138,15 +161,27 @@ button; after delivery they can **Rate** the seller.
 
 | Endpoint | Method | Purpose |
 |----------|--------|---------|
-| `/` | GET | Health check (returns 200) |
+| `/` , `/health` | GET | Real health check — DB round-trip; 200 or 503 `degraded` |
+| `/health/live` | GET | Process liveness (independent of dependencies) |
 | `/api/ussd` | POST | Africa's Talking USSD handler (`*789#`) |
 | `/api/ai` | POST | AI assistant (Groq); returns `{reply:null}` if unconfigured |
 | `/api/crop-doctor` | POST | Crop disease helper |
 | `/api/notify-order` | POST | Best-effort SMS to a farmer on a new order |
+| `/api/orders` | POST | **Server-authoritative order create** — recomputes price, reserves stock atomically, idempotent (fixes C1/C2/C4) |
+| `/api/orders/<id>/status` | POST | Order state transition via the Postgres state machine (owner/admin only) |
+| `/api/requests` | POST | Create a **purchase request** (distinct from a paid order) for matching |
+| `/api/offers/<id>/accept` | POST | Farmer accepts an offer — atomic reservation, expires sibling offers |
+| `/api/offers/<id>/reject` | POST | Farmer rejects an offer |
+| `/api/worker/match` | POST | Admin-only manual matching pass (also run by the worker) |
+| `/api/admin/devices` | POST/DELETE | Register/unregister an admin FCM push token (verified admins only) |
+| `/api/account/delete` | POST | Self-service account deletion / erasure (Play requirement, H6) |
 | `/api/pay/providers` | GET | Which payment methods are enabled |
 | `/api/pay/initiate` | POST | Start a payment (Flutterwave live; others ready) |
 | `/api/pay/webhook/flutterwave` | POST | Verified payment confirmation → mark order paid |
 | `/api/admin/*` | — | Admin login/stats/listings/orders/farmers |
+
+> The durable notification/matching **worker** runs separately: `python -m services.worker`
+> (deploy as a Render Background Worker with the same env). See `docs/OPERATIONS_SETUP.md`.
 
 ---
 

@@ -3986,6 +3986,9 @@ function openSettings(){
         '<button class="btn-sm outline" onclick="closeModal(\'settingsModal\');openListProduceModal()">List produce</button>'+
         '<button class="btn-sm outline" onclick="closeModal(\'settingsModal\');showPage(\'dashboard\')">My dashboard</button></div></div>';
     }
+    html+='<div style="'+sec+'"><span style="'+lbl+'">⚠️ Danger zone</span>'+
+      '<div style="font-size:0.72rem;color:var(--text2);margin-bottom:10px">Permanently delete your account and personal data. Order and payout records are kept for financial compliance but anonymised.</div>'+
+      '<button class="btn-sm" style="width:100%;background:#8e1b1b" onclick="deleteMyAccount()">Delete my account</button></div>';
     html+='<button class="btn-sm" onclick="logOut()" style="background:#c0392b;width:100%">Log Out</button>';
   } else {
     html+='<div style="'+sec+'"><div style="font-size:0.85rem;color:var(--text2);margin-bottom:10px">Log in to edit your profile and manage your listings.</div>'+
@@ -5301,6 +5304,28 @@ async function logOut(){
   basketItems=[]; appliedPromo=null;
   localStorage.removeItem('ab_basket'); localStorage.removeItem('ab_promo');
   renderBasket(); updateBasketBadge();
+}
+// Play-required account deletion (audit H6). Calls the server-side erasure
+// endpoint with the verified session token; the SERVER scopes it to the caller's
+// own account (migration 0006). Double-confirm to prevent accidental erasure.
+async function deleteMyAccount(){
+  if(!currentUser){ showToast('Log in first'); return; }
+  if(!confirm('Delete your AgriBridge account?\n\nYour profile, contact details and push devices are erased. Order/payout records are kept for financial compliance but anonymised.\n\nThis cannot be undone from the app.')) return;
+  var sure = prompt('Type DELETE to confirm account deletion:');
+  if((sure||'').trim().toUpperCase() !== 'DELETE'){ showToast('Deletion cancelled'); return; }
+  var tok = await refreshAuthToken();
+  if(!tok){ showToast('Session expired — log in again'); return; }
+  try{
+    var r = await fetch(USSD_API + '/api/account/delete', {
+      method:'POST',
+      headers:{ 'Authorization':'Bearer '+tok, 'Content-Type':'application/json' },
+      body:'{}'
+    });
+    var j = {}; try{ j = await r.json(); }catch(e){}
+    if(!r.ok){ showToast('⚠️ '+(j.error||('Deletion failed ('+r.status+')'))); return; }
+    showToast('🗑️ Account deleted');
+    await logOut();
+  }catch(e){ showToast('⚠️ Network error — try again'); }
 }
 
 // ── Forgot password ───────────────────────────────────
