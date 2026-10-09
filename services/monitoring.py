@@ -40,7 +40,7 @@ def _scrub(data: Any) -> Any:
             else:
                 out[k] = _scrub(v)
         return out
-    if isinstance(data, (list, tuple)):
+    if isinstance(data, list | tuple):
         return [_scrub(v) for v in data]
     if isinstance(data, str):
         s = data

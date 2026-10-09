@@ -54,7 +54,7 @@ def _redact(obj: Any) -> Any:
             k: ("[REDACTED]" if str(k).lower() in _REDACT_KEYS else _redact(v))
             for k, v in obj.items()
         }
-    if isinstance(obj, (list, tuple)):
+    if isinstance(obj, list | tuple):
         return [_redact(v) for v in obj]
     return obj
 
