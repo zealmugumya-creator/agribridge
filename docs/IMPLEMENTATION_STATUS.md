@@ -1,6 +1,6 @@
 # AgriBridge 2.0 — Implementation Status
 
-Last updated: 2026-10-09 (backend integrity & security track substantially complete)
+Last updated: 2026-10-10 (backend integrity track + legal/consent/contact track implemented; React and Android still not started)
 
 This file is the source of truth for progress across the 12-phase mandate. It records what is **done and verified locally**, what is **implemented but needs live credentials to verify**, and what is **blocked on external access/decisions only the owner (Zeal) can provide**.
 
@@ -96,3 +96,36 @@ This file is the source of truth for progress across the 12-phase mandate. It re
 - **Q1 — Frontend strategy:** full React+TS rewrite of all ~20 screens (Phase 2) vs. a phased rewrite that first migrates the critical paths (orders/stock/auth/account-deletion) and moves screens incrementally? A big-bang rewrite is the single largest risk to Rule 1/2 (don't break working features).
 - **Q2 — Worker hosting:** Render background worker (recommended, already coded) vs. Supabase scheduled Edge Functions + `pgmq`.
 - **Q3 — Hard account deletion:** keep the default reversible anonymization, or enable `ACCOUNT_HARD_DELETE_ENABLED` (irreversible) once FK cascade behaviour on `orders`/`payouts`/`reviews` is reviewed against the real schema?
+
+
+---
+
+## Legal, consent and contact track (added 2026-10-10)
+
+Full description: `docs/LEGAL_CONSENT_IMPLEMENTATION.md`. Open legal items: `docs/LEGAL_PENDING.md`.
+
+| Item | Status |
+|---|---|
+| Central contact config + removal of stale contacts | ✅ tests enforce it |
+| Privacy Policy, Terms of Use, Farmer / Buyer / Supplier terms, versioned build with hashes | ✅ built; ⛔ not reviewed by a Ugandan advocate |
+| Migration 0007 (acceptances, marketing consent, privacy requests, RLS, append-only) | ✅ verified on real PostgreSQL (PGlite, empty DB); 🟡 not applied to the live Supabase project |
+| API routes + server-side role/version checks | ✅ tested with fakes and the real Flask app |
+| Sign-up consent, login review screen, settings privacy section, footer links | ✅ tested in headless Chromium against the real page |
+| `ENFORCE_LEGAL_ACCEPTANCE` gate | 🟡 off by default; turn on after the migration and web deploy |
+| Android / Play Store legal readiness | ⬜ web build is bundled by Capacitor; no native build was run |
+
+### Commands run and real results (2026-10-10, this environment)
+
+- `python -m pytest -q` -> 197 passed (includes 19 headless-browser tests in `tests/e2e/`). Run again before release; counts change as tests are added.
+- `ruff check .` -> All checks passed.
+- `python scripts/build_legal.py --check` -> legal outputs up to date.
+- `cd tests/sql && npm install && npm test` -> 31 checks passed (migration 0007 on PGlite, PostgreSQL 18.3 in WASM).
+- Not run: GitHub Actions with the new `sql` job and Chromium install (workflow edited, never executed); mypy; any test against the live Supabase project; any Android build.
+
+### Next steps for this track
+
+1. Back up Supabase, apply `0007_legal_consent.up.sql` to a staging project first, then production.
+2. Deploy the API and the web build (`static/`), then run `python scripts/publish_legal.py --actor <your admin uuid>`.
+3. Check sign-up, login review and settings on the live site and in the Android wrapper.
+4. Set `ENFORCE_LEGAL_ACCEPTANCE=true` on Render.
+5. Send `docs/LEGAL_PENDING.md` to a Ugandan advocate; publish version 1.1.0 with the supplied company details.

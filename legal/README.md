@@ -1,41 +1,33 @@
-# AgriBridge — Legal & Consent Documents
+# AgriBridge — Legal documents
 
-This folder holds **starting-point templates** for the agreements and consents AgriBridge
-needs. They are written specifically for AgriBridge Uganda, but they are **drafts**.
+## Live documents (wired into the app)
 
-## ⚠️ Read this first
+Edit only the files in `source/`. They are built into the static site and the API manifest:
 
-- **I am not a lawyer and this is not legal advice.** These documents are a first draft to
-  save you time and money — not finished legal instruments.
-- **Have a qualified Ugandan advocate review and finalise every document before you use it.**
-  Uganda-specific laws apply, including the **Data Protection and Privacy Act, 2019** and its
-  Regulations (2021), the **Electronic Transactions Act**, and consumer-protection and
-  contract law. The **investor document especially** touches financial/securities regulation —
-  do **not** use it to raise money without a lawyer.
-- **Fill in every `[PLACEHOLDER]`** (your registered legal name, address, registration number,
-  contact email, effective date, governing law/jurisdiction, etc.).
-- Once finalised, register as a **data collector/processor** with Uganda's **Personal Data
-  Protection Office (PDPO)** if required for your scale.
+| Source | Who must accept | Type |
+|---|---|---|
+| `source/terms-of-use.md` | Every user | accept |
+| `source/privacy-policy.md` | Every user | acknowledge (read) |
+| `source/farmer-terms.md` | Role `farmer` | accept |
+| `source/buyer-terms.md` | Roles `vendor`, `hotel` | accept |
+| `source/supplier-terms.md` | Role `supplier` | accept |
 
-## What's here
+Contact details come from `services/business.py` through `{{TOKENS}}`; never type them into a document.
 
-| File | Purpose | Who accepts it |
-|------|---------|----------------|
-| `terms-of-use.md` | The main user agreement / rules of the platform | Every user (farmer, buyer, vendor) at sign-up |
-| `privacy-policy.md` | How you collect, use, and protect personal data + consent | Every user at sign-up |
-| `media-consent.md` | Consent to publish a seller's photos/videos and listing details | Anyone who submits media/listings |
-| `investor-nda.md` | Mutual non-disclosure for early investor conversations | You + a prospective investor |
+### Publishing a change
 
-## How to put them live on the app
+1. Edit the file in `source/`.
+2. **If the document was already published, bump `version` in its front matter.** The build refuses to change text under an already-published version (`legal/archive/` holds the frozen copy).
+3. Set `material: true` if users must review and accept again, `false` for a correction that need not interrupt anyone. For a material change, fill in `summary` — users see it on the review screen.
+4. Run `python scripts/build_legal.py` and commit the generated `static/legal/` and `legal/archive/` files.
+5. Run `python scripts/publish_legal.py` (needs the service-role key in the environment) to record the version and hash in the database. The API also does this lazily on first acceptance.
 
-The web app already has Terms / Privacy / Refund modals. Once these are finalised by your
-lawyer, paste the approved text into those modals (in `static/index.html`) and keep a
-"Last updated" date. Record each user's acceptance (the sign-up checkbox = their consent).
+CI runs `python scripts/build_legal.py --check` and fails on stale output.
 
-## Consent you should capture at sign-up
+## Not yet wired
 
-At minimum, the registration form should require the user to tick:
-> "I have read and agree to the **Terms of Use** and **Privacy Policy**, and I consent to
-> AgriBridge processing my personal data as described."
+`drafts/` holds the earlier templates (`media-consent.md`, `investor-nda.md`, and the old privacy/terms drafts). They still contain placeholders and are **not** shown to users.
 
-For sellers submitting photos/videos, also capture the **media consent** (see that file).
+## Review needed
+
+All live documents are unreviewed by a Ugandan advocate. See `docs/LEGAL_PENDING.md` for the open items.

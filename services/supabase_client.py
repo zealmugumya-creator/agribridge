@@ -129,6 +129,23 @@ class SupabaseClient:
             log.error("supabase.upsert_failed", table=table, error=type(exc).__name__)
             return RpcResult(ok=False, error=type(exc).__name__)
 
+    def insert(self, table: str, rows: dict | list[dict]) -> RpcResult:
+        """Plain INSERT (no merge). Used for append-only evidence tables."""
+        if not self.configured:
+            return RpcResult(ok=False, error="supabase not configured")
+        try:
+            resp = requests.post(f"{self._url}/rest/v1/{table}", json=rows,
+                                 headers=self._headers("return=representation"), timeout=_TIMEOUT)
+            if resp.status_code < 300:
+                try:
+                    return RpcResult(ok=True, data=resp.json(), status=resp.status_code)
+                except ValueError:
+                    return RpcResult(ok=True, data=None, status=resp.status_code)
+            return RpcResult(ok=False, status=resp.status_code, error=resp.text[:300])
+        except requests.RequestException as exc:
+            log.error("supabase.insert_failed", table=table, error=type(exc).__name__)
+            return RpcResult(ok=False, error=type(exc).__name__)
+
     def delete(self, table: str, filters: dict[str, Any]) -> bool:
         if not self.configured:
             return False

@@ -1,7 +1,8 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta http-equiv="Content-Security-Policy" content="default-src 'self' https: data: blob:; script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://fonts.googleapis.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://fonts.gstatic.com; img-src 'self' https: data: blob:; connect-src 'self' https://vyrctsiyaihsysgpozdm.supabase.co https://agribridge-1-og7a.onrender.com wss://vyrctsiyaihsysgpozdm.supabase.co; font-src 'self' https://fonts.gstatic.com; frame-src https://www.youtube.com;">
+<script src="business-config.js"></script>
+<meta http-equiv="Content-Security-Policy" content="default-src 'self' https: data: blob:; script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://fonts.googleapis.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://fonts.gstatic.com; img-src 'self' https: data: blob:; connect-src 'self' https://lvloaweijidgcuezdnmu.supabase.co https://agribridge-1-og7a.onrender.com wss://lvloaweijidgcuezdnmu.supabase.co; font-src 'self' https://fonts.gstatic.com; frame-src https://www.youtube.com;">
 <meta http-equiv="X-Content-Type-Options" content="nosniff">
 <meta http-equiv="X-Frame-Options" content="SAMEORIGIN">
 <meta http-equiv="Referrer-Policy" content="strict-origin-when-cross-origin">
@@ -340,6 +341,21 @@ img{max-width:100%}
 .nav-icon{font-size:1.2rem}
 
 /* ── MODALS ── */
+/* ── Legal & consent ── */
+.legal-box{background:var(--bg3);border:1px solid var(--border);border-radius:12px;padding:12px 14px;margin:6px 0 14px}
+.chk-row{display:flex;gap:12px;align-items:flex-start;font-size:0.82rem;line-height:1.5;color:var(--text);margin:0 0 8px;cursor:pointer;min-height:44px;padding:4px 0}
+.chk-row input[type=checkbox]{flex:0 0 auto;width:24px;height:24px;margin-top:1px;accent-color:var(--green);cursor:pointer}
+.chk-row a{color:var(--green);text-decoration:underline}
+.chk-sub{margin:0 0 8px 36px}
+.legal-role-line{font-size:0.78rem;color:var(--text2);margin:-2px 0 10px 36px}
+.legal-role-line a{color:var(--green)}
+.legal-err{background:#b71c1c22;border:1px solid #b71c1c;border-radius:8px;padding:8px 12px;margin:0 0 10px;font-size:0.8rem;color:#ff5252}
+.legal-note{font-size:0.74rem;color:var(--text2);margin-left:36px}
+.chk-row input[aria-invalid=true]{outline:2px solid #ff5252;outline-offset:2px}
+.legal-doc-card{border:1px solid var(--border);border-radius:10px;padding:10px 12px;margin-bottom:10px;background:var(--card)}
+.legal-doc-card h4{margin:0 0 4px;font-size:0.92rem}
+.legal-doc-card p{margin:0 0 6px;font-size:0.8rem;color:var(--text2)}
+.legal-foot-links a{margin-right:12px;font-size:0.82rem;color:var(--green)}
 .modal-overlay{display:none;position:fixed;inset:0;z-index:500;background:rgba(0,0,0,0.7);align-items:center;justify-content:center;padding:16px}
 .modal-overlay.open{display:flex;animation:fadeIn 0.25s ease}
 .modal-box{background:var(--bg2);border:1px solid var(--border);border-radius:16px;padding:24px;width:100%;max-width:440px;max-height:90vh;overflow-y:auto;position:relative}
@@ -996,7 +1012,7 @@ html.is-web:not(.app-entered) body{overflow:hidden}
 
   <footer class="wl-foot">
     <div class="wl-logo">🌱 Agri<span>Bridge</span></div>
-    <div class="wl-foot-links"><a href="#" onclick="enterApp();return false">Home</a><a href="#wl-features">Features</a><a href="#" onclick="enterApp('login');return false">Sign in</a></div>
+    <div class="wl-foot-links"><a href="#" onclick="enterApp();return false">Home</a><a href="#wl-features">Features</a><a href="#" onclick="enterApp('login');return false">Sign in</a><a href="legal/terms-of-use.html">Terms</a><a href="legal/privacy-policy.html">Privacy</a><a href="#" onclick="openPrivacyRequest();return false">Privacy requests</a></div>
     <small>© 2026 AgriBridge Uganda · Bridging Farms. Building Markets.</small>
   </footer>
 </div>
@@ -1457,7 +1473,7 @@ AgriBridge service</div>
       <p>AgriBridge connects 5M+ smallholder farmers directly to urban buyers, hotels &amp; exporters — crops AND livestock. Cutting middlemen, reducing 40% post-harvest loss.</p>
       <div style="display:flex;gap:12px;margin-top:20px;flex-wrap:wrap">
         <button class="btn-primary" onclick="openPitchDeck()" style="font-size:0.9rem;padding:10px 22px">📊 View Pitch Deck</button>
-        <a href="mailto:invest@agribridge.ug" class="btn-outline" style="font-size:0.9rem;padding:10px 22px;display:inline-block">✉️ Contact Investors</a>
+        <a href="mailto:agribrige@gmail.com" data-ab="mailto" class="btn-outline" style="font-size:0.9rem;padding:10px 22px;display:inline-block">✉️ Contact Us</a>
       </div>
     </div>
   </div>
@@ -1527,7 +1543,7 @@ AgriBridge service</div>
       <p style="color:var(--text2);max-width:480px;margin:0 auto 20px;font-size:0.9rem">Raising $1.5M to hire engineering + field ops talent, expand to 5 districts, reach 25,000 registered farmers, and scale the Animal Marketplace with MAAIF partnership.</p>
       <div style="display:flex;gap:12px;justify-content:center;flex-wrap:wrap">
         <button class="btn-primary" onclick="openPitchDeck()">📊 View Full Pitch Deck</button>
-        <a href="mailto:invest@agribridge.ug" class="btn-outline" style="padding:14px 28px;display:inline-block">✉️ invest@agribridge.ug</a>
+        <a href="mailto:agribrige@gmail.com" data-ab="mailto" class="btn-outline" style="padding:14px 28px;display:inline-block">✉️ agribrige@gmail.com</a>
       </div>
     </div>
   </div>
@@ -1545,17 +1561,18 @@ AgriBridge service</div>
       <div class="faq-item"><div class="faq-q" onclick="toggleFaq(this)">How does payment work? <span class="faq-chevron">▼</span></div><div class="faq-a">Buyers pay via MTN Mobile Money or Airtel Money. Funds are held securely until delivery is confirmed, then released to the farmer. No bank account needed.</div></div>
       <div class="faq-item"><div class="faq-q" onclick="toggleFaq(this)">How does the AI Animal Doctor work? <span class="faq-chevron">▼</span></div><div class="faq-a">Go to the Animals page → scroll down to AI Animal Doctor. Select your animal type and symptom, and the AI gives instant diagnosis with treatment and prevention advice. It covers ECF, FMD, Newcastle, Mastitis, ASF, and more. Book a real vet visit directly from the same page.</div></div>
       <div class="faq-item"><div class="faq-q" onclick="toggleFaq(this)">Do animals need health certificates? <span class="faq-chevron">▼</span></div><div class="faq-a">Health certificates are optional but recommended. Certified animals command higher prices. AgriBridge helps connect you with licensed vets who can issue MAAIF-approved certificates. Animals marked 🏥 have health certs available.</div></div>
-      <div class="faq-item"><div class="faq-q" onclick="toggleFaq(this)">How do I contact AgriBridge for support? <span class="faq-chevron">▼</span></div><div class="faq-a">📞 Call/WhatsApp: <strong>+256 755 966 690</strong><br>📧 Email: <strong>hello@agribridge.ug</strong><br>📱 USSD: Dial *789# → Option 6 → Support</div></div>
+      <div class="faq-item"><div class="faq-q" onclick="toggleFaq(this)">How do I contact AgriBridge for support? <span class="faq-chevron">▼</span></div><div class="faq-a">📞 Call/WhatsApp: <strong>+256 755 966 690</strong><br>📧 Email: <strong>agribrige@gmail.com</strong><br>📱 USSD: Dial *789# → Option 6 → Support</div></div>
     </div>
   </div>
   <div class="page-header"><h2>✉️ Get In Touch</h2><p>Farmers, buyers, investors, and partners — all welcome</p></div>
   <div class="section">
     <div class="contact-info-grid">
       <div class="contact-info-card"><div class="ci-icon">📞</div><div class="ci-label">Phone / WhatsApp</div><div class="ci-val">+256 755 966 690</div></div>
-      <div class="contact-info-card"><div class="ci-icon">✉️</div><div class="ci-label">Email</div><div class="ci-val">hello@agribridge.ug</div></div>
+      <div class="contact-info-card"><div class="ci-icon">✉️</div><div class="ci-label">Email</div><div class="ci-val">agribrige@gmail.com</div></div>
       <div class="contact-info-card"><div class="ci-icon">📍</div><div class="ci-label">Office</div><div class="ci-val">Kampala, Uganda</div></div>
       <div class="contact-info-card"><div class="ci-icon">📱</div><div class="ci-label">USSD (Any Phone)</div><div class="ci-val">*789#</div></div>
     </div>
+    <p class="legal-foot-links" style="text-align:center;margin:14px 0"><a href="legal/terms-of-use.html" target="_blank" rel="noopener">Terms of Use</a><a href="legal/privacy-policy.html" target="_blank" rel="noopener">Privacy Policy</a><a href="#" onclick="openPrivacyRequest();return false">Privacy requests</a></p>
     <div class="contact-form">
       <h3 style="margin-bottom:20px">Send a Message</h3>
       <div class="form-row">
@@ -1928,8 +1945,8 @@ AgriBridge service</div>
 // ═══════════════════════════════════════════════════════════════════
 
 // ── SUPABASE CONFIG ──────────────────────────────────────────────
-const SUPA_URL = 'https://vyrctsiyaihsysgpozdm.supabase.co';
-const SUPA_KEY = 'sb_publishable_gIo704Cn8Kf7IAK3CReEGg_ZD_LJq6k';
+const SUPA_URL = 'https://lvloaweijidgcuezdnmu.supabase.co';
+const SUPA_KEY = 'sb_publishable_lzjlixcVLCUVg9MDy5adFw_pgxTz03y';
 const USSD_API = 'https://agribridge-1-og7a.onrender.com';
 // Logged-in user's Supabase access token. Set from auth state changes below and
 // sent by sb() so PostgREST/RLS can identify the user (auth.uid()). Falls back
@@ -2968,7 +2985,7 @@ function localAIResponse(prompt) {
   if (/dashboard|my account|my.*listings|my.*orders|my.*stats/i.test(p)) return "Your personal dashboard shows your listings, orders, and earnings. [NAVIGATE:dashboard]";
   if (/community|forum|ask.*farmer|other farmer/i.test(p)) return "Join the AgriBridge Community to share tips, price updates and get advice from 10,000+ Ugandan farmers! [NAVIGATE:community]";
   if (/about|who.*agribridge|what.*platform|investor|pitch/i.test(p)) return "AgriBridge is Uganda's #1 farm-to-table platform — connecting farmers directly to buyers with live prices, mobile money, AI tools, and USSD on any phone. [NAVIGATE:about]";
-  if (/contact|phone number|email|support|help desk|call/i.test(p)) return "Contact AgriBridge:\n📞 +256 755 966 690 (call/WhatsApp)\n✉️ hello@agribridge.ug\n📱 USSD: *789#\n\nOffice hours: Mon–Sat 7am–9pm [NAVIGATE:contact]";
+  if (/contact|phone number|email|support|help desk|call/i.test(p)) return "Contact AgriBridge:\n📞 +256 755 966 690 (call/WhatsApp)\n✉️ agribrige@gmail.com\n📱 USSD: *789#\n\n[NAVIGATE:contact]";
   if (/register|sign up|join|create account/i.test(p)) return "Join AgriBridge free! You need your MTN or Airtel phone number. Registration takes under 2 minutes — tap 'Join Free' at the top of the screen.";
   if (/log.*in|login|sign in/i.test(p)) return "Tap 'Log In' at the top right. Use your phone number and password. Forgot password? Call +256 755 966 690.";
 
@@ -3986,6 +4003,7 @@ function openSettings(){
         '<button class="btn-sm outline" onclick="closeModal(\'settingsModal\');openListProduceModal()">List produce</button>'+
         '<button class="btn-sm outline" onclick="closeModal(\'settingsModal\');showPage(\'dashboard\')">My dashboard</button></div></div>';
     }
+    html+='<div style="'+sec+'" id="privacySection"><span style="'+lbl+'">🔒 Privacy &amp; legal</span><div id="privacySectionBody" style="font-size:0.82rem;color:var(--text2)">Loading…</div></div>';
     html+='<div style="'+sec+'"><span style="'+lbl+'">⚠️ Danger zone</span>'+
       '<div style="font-size:0.72rem;color:var(--text2);margin-bottom:10px">Permanently delete your account and personal data. Order and payout records are kept for financial compliance but anonymised.</div>'+
       '<button class="btn-sm" style="width:100%;background:#8e1b1b" onclick="deleteMyAccount()">Delete my account</button></div>';
@@ -4002,6 +4020,7 @@ function openSettings(){
     var d=document.getElementById('setDistrict'); if(d) d.value=currentUser.district||'';
   }
   openModal('settingsModal');
+  if(currentUser) loadPrivacySettings();
 }
 function setLangFromSettings(code){ setLang(code); openSettings(); }
 // Shrink an image in the browser to a square-ish max dimension and re-encode as
@@ -4065,6 +4084,7 @@ async function setAccountRole(r){
   if(typeof updateNavUser==='function') updateNavUser(currentUser);
   if(typeof renderRoleHome==='function') renderRoleHome();
   showToast('Account type set — features updated ✓');
+  _legalCheckedFor = null; postAuthLegalCheck('settings_review');
 }
 function shareListing(name,district,price){ const text='🌾 Fresh '+name+' from '+district+' at UGX '+Number(price).toLocaleString()+'/kg on AgriBridge!\nhttps://agribrige.com · Dial *789# on any phone'; if(navigator.share) navigator.share({title:name+' on AgriBridge',text,url:'https://agribrige.com'}).catch(()=>{}); else window.open('https://wa.me/?text='+encodeURIComponent(text),'_blank'); }
 function updateOnlineStatus(){ const b=document.getElementById('offlineBanner'); if(b) b.style.display=navigator.onLine?'none':'block'; }
@@ -4102,7 +4122,7 @@ async function submitCommPost() {
 document.addEventListener('keydown', e => {
   if (e.key === 'Escape') {
     closeVideoModal(); closePitchDeck(); closeBasket(); closeCheckout(); closeAI();
-    document.querySelectorAll('.modal-overlay.open').forEach(m=>{ m.classList.remove('open'); document.body.style.overflow=''; });
+    document.querySelectorAll('.modal-overlay.open:not(.modal-locked)').forEach(m=>{ m.classList.remove('open'); document.body.style.overflow=''; });
   }
   if (document.getElementById('pitchModal')?.classList.contains('open')) {
     if (e.key === 'ArrowRight') goToPitchSlide(Math.min(currentPitchSlide+1,4));
@@ -4181,8 +4201,8 @@ document.addEventListener('DOMContentLoaded', () => {
 // ════════════════════════════════════════════════════════════
 // ⚠ Supabase anon key is intentionally public — Row Level Security (RLS) handles access control
 // Enable RLS on all tables in Supabase dashboard: Authentication → Policies
-const SUPABASE_URL  = 'https://vyrctsiyaihsysgpozdm.supabase.co';
-const SUPABASE_ANON = 'sb_publishable_gIo704Cn8Kf7IAK3CReEGg_ZD_LJq6k';
+const SUPABASE_URL  = 'https://lvloaweijidgcuezdnmu.supabase.co';
+const SUPABASE_ANON = 'sb_publishable_lzjlixcVLCUVg9MDy5adFw_pgxTz03y';
 var sbAuth = null;
 
 
@@ -4646,7 +4666,7 @@ function downloadInvoice() { openModal('invoiceModal'); }
 
 // ── Standing Order ────────────────────────────────────────
 function setupStandingOrder() {
-  showToast('Standing order setup — contact hello@agribridge.ug or call +256 755 966 690 to set up your weekly order.');
+  showToast('Standing order setup — contact agribrige@gmail.com or call +256 755 966 690 to set up your weekly order.');
 }
 
 // ── Processing Partners ───────────────────────────────────
@@ -5008,6 +5028,7 @@ function initSupabase() {
       localStorage.setItem('ab_user', JSON.stringify(currentUser));
       updateNavUser(currentUser.name, currentUser.role);
       hydrateUserProfile();
+      if (event !== 'PASSWORD_RECOVERY' && event !== 'TOKEN_REFRESHED' && event !== 'USER_UPDATED') setTimeout(postAuthLegalCheck, 0);
     } else {
       currentUser = null;
       localStorage.removeItem('ab_user');
@@ -5024,6 +5045,7 @@ function initSupabase() {
       updateNavUser(currentUser.name, currentUser.role);
       hydrateUserProfile();
       if (typeof syncCloudBasket === 'function') syncCloudBasket();
+      setTimeout(postAuthLegalCheck, 0);
     }
   });
 }
@@ -5198,6 +5220,7 @@ async function doLogin() {
     updateNavUser(uname, urole);
     showToast('Welcome back, ' + uname + '!');
     if (typeof loadBasketFromCloud==='function') loadBasketFromCloud();
+    postAuthLegalCheck();
   } catch(e) {
     var em = (e&&e.message) ? e.message : String(e);
     if (em.indexOf('fetch')>-1||em.indexOf('network')>-1||em.indexOf('Failed')>-1) {
@@ -5236,13 +5259,24 @@ async function doRegister() {
   if (!pwd)   { _showRegErr('Please create a password.'); return; }
   if (pwd.length < 6) { _showRegErr('Password must be at least 6 characters.'); return; }
   if (pwd !== conf)   { _showRegErr('Passwords do not match.'); return; }
+  if (!(document.getElementById('regAcceptTerms')||{}).checked) {
+    showTermsErr('Please tick the box to agree to the Terms of Use and confirm you have read the Privacy Policy before creating your account.');
+    return;
+  }
+  var legalVersions = await legalVersionsForRole(role);
+  if (!legalVersions) { _showRegErr('We could not load the latest terms. Check your connection and try again.'); return; }
+  var wantsMarketing = !!(document.getElementById('regMarketing')||{}).checked;
+  var wantsSms = wantsMarketing && !!(document.getElementById('regMarketingSms')||{}).checked;
+  if (wantsMarketing && !wantsSms) { _showRegErr('You ticked promotions. Choose SMS, or untick the promotions box. Promotions are optional.'); return; }
   if (!checkRateLimit('register', 3)) return;
   var btn = document.getElementById('regSubmitBtn');
   if (btn) { btn.disabled = true; btn.textContent = 'Creating Account...'; }
   try {
     var res = await sbAuth.auth.signUp({
       email: email, password: pwd,
-      options: { data: { name: name, phone: phone, role: role, district: district } }
+      options: { data: { name: name, phone: phone, role: role, district: district,
+        legal_signup: { accepted_at: new Date().toISOString(), versions: legalVersions },
+        marketing_optin: { sms: wantsSms } } }
     });
     if (res.error) {
       var msg = res.error.message || 'Registration failed.';
@@ -5276,6 +5310,7 @@ async function doRegister() {
                       supaId: res.data.user ? res.data.user.id : null };
       updateNavUser(name, role);
       showToast('Welcome to AgriBridge, ' + name + '! Account created.');
+      postAuthLegalCheck();
     }
   } catch(e) {
     var em = (e&&e.message) ? e.message : String(e);
@@ -5744,7 +5779,7 @@ document.addEventListener('DOMContentLoaded', function() {
     <button class="modal-close" onclick="closeModal('invoiceModal')">✕</button>
     <div style="text-align:center;padding:8px 0 16px">
       <div style="font-size:1.4rem;font-weight:800;color:var(--green);font-family:'Syne',sans-serif">🌾 AgriBridge</div>
-      <div style="font-size:0.78rem;color:var(--text2)">hello@agribridge.ug · +256 755 966 690</div>
+      <div style="font-size:0.78rem;color:var(--text2)">agribrige@gmail.com · +256 755 966 690</div>
     </div>
     <div style="display:flex;justify-content:space-between;margin-bottom:16px;font-size:0.85rem">
       <div><div style="font-weight:700">Invoice To:</div><div id="invoiceToName" style="color:var(--text2)"></div></div>
@@ -5758,7 +5793,7 @@ document.addEventListener('DOMContentLoaded', function() {
     </div>
     <div id="invoiceTotals" style="text-align:right;font-size:0.88rem"></div>
     <div style="background:var(--green-dim);border:1px solid var(--green);border-radius:8px;padding:10px;margin-top:12px;font-size:0.78rem;color:var(--text2)">
-      Payment: MTN MoMo 0755966690 · Bank: AgriBridge Ltd, DFCU Bank, A/C 01234567 · Reference: Invoice number
+      Payment: Pay using the payment instructions AgriBridge confirmed to you for this order. Quote the invoice number as your reference. Questions: agribrige@gmail.com · +256 755 966 690
     </div>
     <button class="btn-submit" onclick="window.print()" style="margin-top:12px">🖨️ Print Invoice</button>
   </div>
@@ -5769,7 +5804,7 @@ document.addEventListener('DOMContentLoaded', function() {
   <div class="modal-box">
     <button class="modal-close" onclick="closeModal('refundModal')">✕</button>
     <h3>💸 Request a Refund</h3>
-    <p style="font-size:0.85rem;color:var(--text2);margin-bottom:16px">AgriBridge guarantees quality. If product is wrong or substandard, we refund within 48 hours.</p>
+    <p style="font-size:0.85rem;color:var(--text2);margin-bottom:16px">Tell us what went wrong. We review each request against the order records and reply. Contact us within 48 hours of delivery where you can, with photos. Your legal rights are not limited by this form.</p>
     <div class="form-group"><label>Order Reference</label><input id="refundOrderRef" placeholder="e.g. AB-2026-XXXXX"></div>
     <div class="form-group"><label>Refund Reason</label>
       <select id="refundReason">
@@ -5778,7 +5813,7 @@ document.addEventListener('DOMContentLoaded', function() {
         <option>Product spoiled / not fresh</option><option>Wrong processing (not cut as ordered)</option>
       </select>
     </div>
-    <div class="form-group"><label>Refund Type</label>
+    <div class="form-group"><label>Preferred outcome (subject to review)</label>
       <select id="refundType">
         <option value="full">Full refund to MoMo</option>
         <option value="credit">Store credit (faster processing)</option>
@@ -5809,45 +5844,59 @@ document.addEventListener('DOMContentLoaded', function() {
   </div>
 </div>
 
-<!-- ══ TERMS & PRIVACY MODALS ══════════════════════════════════ -->
-<div class="modal-overlay" id="termsModal" onclick="handleOverlay(event,'termsModal')" role="dialog">
-  <div class="modal-box" style="max-width:600px;max-height:85vh;overflow-y:auto">
-    <button class="modal-close" onclick="closeModal('termsModal')">✕</button>
-    <h3>📋 Terms of Service</h3>
-    <div style="font-size:0.83rem;color:var(--text2);line-height:1.8">
-      <p><strong style="color:var(--text)">Effective: May 2026</strong></p>
-      <p><strong>1. Platform Role.</strong> AgriBridge operates as a marketplace. We connect farmers with buyers but do not own the goods listed.</p>
-      <p><strong>2. Eligibility.</strong> Must be 18+ to register. Businesses must provide valid registration number.</p>
-      <p><strong>3. Commission.</strong> AgriBridge charges 2.5% on consumer transactions and 5–8% on B2B transactions. Deducted automatically before farmer payout.</p>
-      <p><strong>4. Escrow.</strong> All orders above UGX 500,000 are automatically held in escrow. Released on delivery confirmation.</p>
-      <p><strong>5. Quality Guarantee.</strong> AgriBridge guarantees product quality matches listing description. Substandard products eligible for full refund within 48 hours.</p>
-      <p><strong>6. Three-Strikes Policy.</strong> Farmers with 3 verified quality complaints within 90 days will have their account suspended for 30 days and funds withheld pending review.</p>
-      <p><strong>7. Contact Sharing Prohibited.</strong> Sharing contact details between buyers and sellers outside the platform is prohibited and will result in immediate account suspension.</p>
-      <p><strong>8. Livestock.</strong> All animal listings must comply with MAAIF regulations. Health certificates required for livestock over UGX 500,000.</p>
-      <p><strong>9. B2B Invoicing.</strong> 30-day payment terms are available to approved B2B accounts. Late payment incurs 2% monthly penalty.</p>
-      <p><strong>10. KCCA & UNBS.</strong> Processed and packaged products must comply with KCCA food safety standards and UNBS quality marks.</p>
-      <p><strong>11. Data.</strong> We comply with Uganda Data Protection Act 2019. We never sell your data. See Privacy Policy.</p>
-      <p><strong>12. Governing Law.</strong> These terms are governed by the laws of Uganda. Disputes resolved by CADER (Centre for Arbitration and Dispute Resolution), Kampala.</p>
-      <p><strong>Support:</strong> hello@agribridge.ug · +256 755 966 690</p>
-    </div>
+<!-- ══ LEGAL: viewers, review-on-login, privacy requests ═══════════════ -->
+<div class="modal-overlay" id="termsModal" onclick="handleOverlay(event,'termsModal')" role="dialog" aria-modal="true" aria-label="Terms of Use">
+  <div class="modal-box" style="max-width:640px;max-height:85vh;overflow-y:auto">
+    <button class="modal-close" onclick="closeModal('termsModal')" aria-label="Close">✕</button>
+    <div id="termsModalBody" style="font-size:0.85rem;line-height:1.7;color:var(--text2)">Loading…</div>
+    <p style="margin-top:14px"><a href="legal/terms-of-use.html" target="_blank" rel="noopener" style="color:var(--green)">Open full page ↗</a></p>
+  </div>
+</div>
+<div class="modal-overlay" id="privacyModal" onclick="handleOverlay(event,'privacyModal')" role="dialog" aria-modal="true" aria-label="Privacy Policy">
+  <div class="modal-box" style="max-width:640px;max-height:85vh;overflow-y:auto">
+    <button class="modal-close" onclick="closeModal('privacyModal')" aria-label="Close">✕</button>
+    <div id="privacyModalBody" style="font-size:0.85rem;line-height:1.7;color:var(--text2)">Loading…</div>
+    <p style="margin-top:14px"><a href="legal/privacy-policy.html" target="_blank" rel="noopener" style="color:var(--green)">Open full page ↗</a></p>
   </div>
 </div>
 
-<div class="modal-overlay" id="privacyModal" onclick="handleOverlay(event,'privacyModal')" role="dialog">
-  <div class="modal-box" style="max-width:600px;max-height:85vh;overflow-y:auto">
-    <button class="modal-close" onclick="closeModal('privacyModal')">✕</button>
-    <h3>🔒 Privacy Policy</h3>
-    <div style="font-size:0.83rem;color:var(--text2);line-height:1.8">
-      <p><strong style="color:var(--text)">Effective: May 2026 | Uganda Data Protection Act 2019 Compliant</strong></p>
-      <p><strong>What We Collect:</strong> Name, phone, district, role (farmer/buyer/B2B), transaction data, GPS delivery data, device type, AI chat logs (anonymised).</p>
-      <p><strong>What We Use It For:</strong> Connecting farmers with buyers, processing payments, sending SMS alerts, AI disease diagnosis, B2B order management, quality monitoring.</p>
-      <p><strong>Buyer-Seller Separation:</strong> Buyer identity is NEVER shared with sellers, and seller contact details are NEVER shared with buyers. Only AgriBridge administrators can see both sides of a transaction.</p>
-      <p><strong>We Share With:</strong> MTN/Airtel (payments only), Africa's Talking (SMS only), Supabase (database hosting — Uganda data stays in EU-compliant servers). We NEVER sell your data.</p>
-      <p><strong>Data Retention:</strong> Transaction records kept for 7 years (tax compliance). Account data deleted within 30 days of account closure request.</p>
-      <p><strong>Your Rights:</strong> Right to access, correct, or delete your data. Contact: privacy@agribridge.ug</p>
-      <p><strong>Cookies:</strong> We use essential cookies only. No advertising or tracking cookies. See cookie policy in settings.</p>
-      <p><strong>Data Protection Officer:</strong> Zeal Mugumya · privacy@agribridge.ug</p>
+<div class="modal-overlay modal-locked" id="legalReviewModal" role="dialog" aria-modal="true" aria-labelledby="legalReviewTitle">
+  <div class="modal-box" style="max-width:520px">
+    <h3 id="legalReviewTitle">Please review our updated terms</h3>
+    <p style="font-size:0.83rem;color:var(--text2);margin-bottom:14px">To keep using your account, please review and accept the documents below. We only ask again when something important changes.</p>
+    <div id="legalReviewDocs"></div>
+    <div class="legal-err" id="legalReviewErr" role="alert" hidden></div>
+    <button class="btn-submit" id="legalReviewBtn" onclick="submitLegalReview()">Accept and continue</button>
+    <p style="text-align:center;margin-top:12px;font-size:0.82rem;color:var(--text2)">
+      <a href="#" onclick="logOut();return false" style="color:var(--green)">Sign out instead</a> ·
+      <a href="#" onclick="openPrivacyRequest();return false" style="color:var(--green)">Make a privacy request</a> ·
+      <a id="legalReviewSupport" href="mailto:agribrige@gmail.com" style="color:var(--green)">Contact support</a>
+    </p>
+  </div>
+</div>
+
+<div class="modal-overlay" id="privacyRequestModal" onclick="handleOverlay(event,'privacyRequestModal')" role="dialog" aria-modal="true" aria-labelledby="prTitle">
+  <div class="modal-box" style="max-width:460px">
+    <button class="modal-close" onclick="closeModal('privacyRequestModal')" aria-label="Close">✕</button>
+    <h3 id="prTitle">Privacy request</h3>
+    <p style="font-size:0.82rem;color:var(--text2);margin-bottom:14px">Ask to see, correct or delete your data, withdraw promotions, or make a complaint. You do not need to be signed in.</p>
+    <div id="prForm">
+      <div class="form-group"><label for="prType">What do you need?</label>
+        <select id="prType">
+          <option value="access">Get a copy of my personal data</option>
+          <option value="correction">Correct my personal data</option>
+          <option value="deletion">Delete my account and data</option>
+          <option value="marketing_withdrawal">Stop promotional messages</option>
+          <option value="complaint">Make a privacy complaint</option>
+          <option value="other">Something else</option>
+        </select></div>
+      <div class="form-group" id="prEmailRow"><label for="prEmail">Your email (so we can reply)</label><input type="email" id="prEmail" autocomplete="email" placeholder="you@example.com"></div>
+      <div class="form-group"><label for="prDetails">Details (optional)</label><textarea id="prDetails" maxlength="2000" placeholder="Tell us what you need. Do not include passwords or payment details."></textarea></div>
+      <div class="legal-err" id="prErr" role="alert" hidden></div>
+      <button class="btn-submit" id="prBtn" onclick="submitPrivacyRequest()">Send request</button>
     </div>
+    <div id="prDone" hidden style="font-size:0.85rem;color:var(--text2)"></div>
+    <p style="font-size:0.78rem;color:var(--text2);margin-top:12px">Or contact us: <a data-ab="mailto" href="mailto:agribrige@gmail.com" style="color:var(--green)">agribrige@gmail.com</a> · <a data-ab="wa" href="https://wa.me/256755966690" target="_blank" rel="noopener" style="color:var(--green)">WhatsApp +256 755 966 690</a></p>
   </div>
 </div>
 
@@ -6012,7 +6061,7 @@ document.addEventListener('DOMContentLoaded', function() {
       <div class="form-group"><label>Email Address</label><input type="email" id="regEmail" placeholder="your@email.com" autocomplete="email"></div>
       <div class="form-row">
         <div class="form-group"><label>I am a…</label>
-          <select id="regRole"><option value="farmer">Farmer 🌾</option><option value="vendor">Vendor / Buyer 🛒</option><option value="hotel">Hotel / Restaurant 🏨</option><option value="supplier">Supplier / Input Seller 🏪</option></select>
+          <select id="regRole" onchange="updateRegRoleTerms()"><option value="farmer">Farmer 🌾</option><option value="vendor">Vendor / Buyer 🛒</option><option value="hotel">Hotel / Restaurant 🏨</option><option value="supplier">Supplier / Input Seller 🏪</option></select>
         </div>
         <div class="form-group"><label>District</label>
           <select id="regDistrict"><option>Kampala</option><option>Wakiso</option><option>Mukono</option><option>Jinja</option><option>Mbarara</option><option>Bushenyi</option><option>Kabale</option><option>Gulu</option><option>Lira</option><option>Mbale</option><option>Kasese</option><option>Masaka</option><option>Hoima</option><option>Arua</option><option>Other</option></select>
@@ -6036,6 +6085,22 @@ document.addEventListener('DOMContentLoaded', function() {
           <button type="button" onclick="togglePwdVis('regPwdConfirm','regPwdConfirmEye')" style="position:absolute;right:10px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;color:var(--text2);font-size:1.1rem" id="regPwdConfirmEye">👁</button>
         </div>
         <div id="pwdMatchMsg" style="font-size:0.76rem;margin-top:4px"></div>
+      </div>
+      <div class="legal-box" id="regLegalBox">
+        <label class="chk-row" for="regAcceptTerms">
+          <input type="checkbox" id="regAcceptTerms" required aria-required="true" aria-describedby="regRoleTermsLine regTermsErr" onchange="clearTermsErr()">
+          <span>I agree to the AgriBridge <a href="legal/terms-of-use.html" target="_blank" rel="noopener" id="regTermsLink">Terms of Use</a>, including any terms applicable to my selected account role, and acknowledge that I have read the AgriBridge <a href="legal/privacy-policy.html" target="_blank" rel="noopener" id="regPrivacyLink">Privacy Policy</a>.</span>
+        </label>
+        <div class="legal-role-line" id="regRoleTermsLine">Terms for your account type: <a href="legal/farmer-terms.html" target="_blank" rel="noopener" id="regRoleTermsLink">Farmer and Producer Terms</a> <span id="regRoleTermsVer"></span></div>
+        <div class="legal-err" id="regTermsErr" role="alert" hidden></div>
+        <label class="chk-row" for="regMarketing">
+          <input type="checkbox" id="regMarketing" aria-controls="regMarketingChannels" onchange="toggleMarketingChannels()">
+          <span>I agree to receive optional AgriBridge promotions, offers, and agricultural marketplace updates through the channels I select.</span>
+        </label>
+        <div class="chk-sub" id="regMarketingChannels" hidden>
+          <label class="chk-row" for="regMarketingSms"><input type="checkbox" id="regMarketingSms"><span>SMS, to the phone number above</span></label>
+        </div>
+        <div class="legal-note">The promotions box is optional. You can create an account without it and change it any time in Settings.</div>
       </div>
       <button class="btn-submit" id="regSubmitBtn" onclick="doRegister()">Create Account 🌾</button>
     </div>
@@ -6360,7 +6425,7 @@ document.addEventListener('DOMContentLoaded', function() {
 </div>
 
 <div id="cookieBanner" style="display:none;position:fixed;bottom:70px;left:0;right:0;z-index:350;background:var(--bg2);border-top:1px solid var(--border);padding:12px 16px;gap:12px;align-items:center;flex-wrap:wrap;pointer-events:none">
-  <p style="flex:1;font-size:0.82rem;color:var(--text2);margin:0">🍪 AgriBridge uses cookies to improve your experience and comply with the Uganda Data Protection Act 2019.</p>
+  <p style="flex:1;font-size:0.82rem;color:var(--text2);margin:0">🍪 AgriBridge stores small items in your browser to keep you signed in and remember your settings. No advertising trackers. <a href="legal/privacy-policy.html" target="_blank" rel="noopener" style="color:var(--green)">Privacy Policy</a></p>
   <button class="btn-sm" style="pointer-events:auto" onclick="acceptCookies()">Accept</button>
   <button class="btn-sm outline" style="pointer-events:auto" onclick="localStorage.setItem('ab_cookies','1');document.getElementById('cookieBanner').style.display='none'">Decline</button>
 </div>
@@ -6382,5 +6447,238 @@ function appStoreClick(){
 }
 </script>
 
+<script>
+/* ═══ Legal, consent & privacy (versioned documents; see legal/README.md) ═══
+   - Documents and versions come from legal/manifest.json (built from legal/source).
+   - Nothing is recorded as accepted unless the user ticked it AND the API confirmed it. */
+var AB_API = (typeof USSD_API !== 'undefined') ? USSD_API : '';
+var _legalManifest = null, _legalManifestP = null, _legalCheckedFor = null, _legalBusy = false;
+var _legalStatus = null, _legalReviewMethod = 'login_review';
+
+function ensureLegalManifest(force) {
+  if (force) { _legalManifest = null; _legalManifestP = null; }
+  if (_legalManifest) return Promise.resolve(_legalManifest);
+  if (_legalManifestP) return _legalManifestP;
+  _legalManifestP = fetch('legal/manifest.json', { cache: 'no-cache' })
+    .then(function (r) { if (!r.ok) throw new Error('manifest ' + r.status); return r.json(); })
+    .then(function (m) { _legalManifest = m; return m; })
+    .catch(function () { _legalManifestP = null; return null; });
+  return _legalManifestP;
+}
+function normLegalRole(r) {
+  r = String(r || '').toLowerCase();
+  if (r === 'hotel' || r === 'restaurant' || r === 'b2b') return 'hotel';
+  if (r === 'farmer') return 'farmer';
+  if (r === 'supplier' || r === 'input_seller') return 'supplier';
+  return 'vendor';
+}
+function legalRoleDocs(role) {
+  var m = _legalManifest; if (!m) return [];
+  return (m.role_documents[normLegalRole(role)] || []).map(function (k) { return m.documents[k]; }).filter(Boolean);
+}
+async function legalVersionsForRole(role) {
+  var m = await ensureLegalManifest(); if (!m) return null;
+  var o = {}; legalRoleDocs(role).forEach(function (d) { o[d.doc_type] = d.version; }); return o;
+}
+function updateRegRoleTerms() {
+  ensureLegalManifest().then(function (m) {
+    if (!m) return;
+    var sel = document.getElementById('regRole');
+    var d = legalRoleDocs(sel ? sel.value : 'farmer').filter(function (x) { return x.applies_to_roles.indexOf('all') < 0; })[0];
+    var a = document.getElementById('regRoleTermsLink'), v = document.getElementById('regRoleTermsVer');
+    if (!a || !d) return;
+    a.href = d.versioned_url; a.textContent = d.title; if (v) v.textContent = '(version ' + d.version + ')';
+  });
+}
+function showTermsErr(msg) {
+  var e = document.getElementById('regTermsErr'), c = document.getElementById('regAcceptTerms');
+  if (e) { e.textContent = msg; e.hidden = false; }
+  if (c) { c.setAttribute('aria-invalid', 'true'); c.focus(); }
+}
+function clearTermsErr() {
+  var e = document.getElementById('regTermsErr'), c = document.getElementById('regAcceptTerms');
+  if (e) { e.hidden = true; e.textContent = ''; }
+  if (c) c.removeAttribute('aria-invalid');
+}
+function toggleMarketingChannels() {
+  var on = !!document.getElementById('regMarketing').checked;
+  var box = document.getElementById('regMarketingChannels'); if (box) box.hidden = !on;
+  if (!on) { var s = document.getElementById('regMarketingSms'); if (s) s.checked = false; }
+}
+
+// Authenticated/anonymous call to our API. Never throws.
+async function abApi(path, opts) {
+  opts = opts || {};
+  var headers = { 'Content-Type': 'application/json' };
+  var tok = null; try { tok = await refreshAuthToken(); } catch (e) {}
+  if (tok) headers['Authorization'] = 'Bearer ' + tok;
+  try {
+    var r = await fetch(AB_API + path, { method: opts.method || 'GET', headers: headers, body: opts.body });
+    var j = {}; try { j = await r.json(); } catch (e) {}
+    return { ok: r.ok, status: r.status, json: j, authed: !!tok };
+  } catch (e) { return { ok: false, status: 0, json: { error: 'network' }, authed: !!tok }; }
+}
+async function _legalUid() {
+  try { var r = await sbAuth.auth.getSession(); return r && r.data && r.data.session && r.data.session.user ? r.data.session.user.id : null; } catch (e) { return null; }
+}
+
+// Runs after sign-in, session restore and role change. Asks only for what is missing.
+async function postAuthLegalCheck(method) {
+  if (!window.sbAuth && typeof sbAuth === 'undefined') return;
+  var uid = await _legalUid(); if (!uid) return;
+  if (_legalBusy || (_legalCheckedFor === uid && !method)) return;
+  _legalBusy = true;
+  try {
+    var st = null;
+    var r = await abApi('/api/legal/sync-signup', { method: 'POST', body: '{}' });
+    if (r.ok && r.json && r.json.status) st = r.json.status;
+    else { var r2 = await abApi('/api/legal/status'); if (r2.ok) st = r2.json; }
+    if (!st) return;                       // API unreachable: do not lock users out of the app
+    _legalCheckedFor = uid; _legalStatus = st;
+    if (st.outstanding && st.outstanding.length) showLegalReview(st, method || 'login_review');
+  } finally { _legalBusy = false; }
+}
+
+function showLegalReview(st, method) {
+  _legalReviewMethod = method || 'login_review';
+  var host = document.getElementById('legalReviewDocs'); if (!host) return;
+  host.innerHTML = st.outstanding.map(function (d, i) {
+    var ack = d.requires_acceptance === 'acknowledge';
+    var label = ack ? 'I have read the ' + d.title : 'I agree to the ' + d.title;
+    return '<div class="legal-doc-card"><h4>' + escHtml(d.title) + ' <small style="color:var(--text2)">(version ' + escHtml(d.version) + ')</small></h4>' +
+      (d.material && d.summary ? '<p>' + escHtml(d.summary) + '</p>' : '') +
+      '<p><a href="' + escHtml(d.versioned_url) + '" target="_blank" rel="noopener" style="color:var(--green)">Read the full document ↗</a></p>' +
+      '<label class="chk-row" for="lr' + i + '"><input type="checkbox" id="lr' + i + '" data-doc="' + escHtml(d.doc_type) + '" data-ver="' + escHtml(d.version) + '"><span>' + escHtml(label) + '</span></label></div>';
+  }).join('');
+  var e = document.getElementById('legalReviewErr'); if (e) { e.hidden = true; e.textContent = ''; }
+  var b = document.getElementById('legalReviewBtn'); if (b) { b.disabled = false; b.textContent = 'Accept and continue'; }
+  var m = document.getElementById('legalReviewModal'); if (m) m.classList.add('open');
+  document.body.style.overflow = 'hidden';
+}
+function closeLegalReview() {
+  var m = document.getElementById('legalReviewModal'); if (m) m.classList.remove('open');
+  document.body.style.overflow = '';
+}
+async function submitLegalReview() {
+  var boxes = Array.prototype.slice.call(document.querySelectorAll('#legalReviewDocs input[type=checkbox]'));
+  var err = document.getElementById('legalReviewErr'), btn = document.getElementById('legalReviewBtn');
+  function fail(msg) { if (err) { err.textContent = msg; err.hidden = false; } if (btn) { btn.disabled = false; btn.textContent = 'Try again'; } }
+  var missing = boxes.filter(function (c) { return !c.checked; });
+  boxes.forEach(function (c) { if (c.checked) c.removeAttribute('aria-invalid'); else c.setAttribute('aria-invalid', 'true'); });
+  if (missing.length) { fail('Please tick each box to continue, or sign out.'); missing[0].focus(); return; }
+  if (btn) { btn.disabled = true; btn.textContent = 'Saving…'; }
+  var docs = boxes.map(function (c) { return { doc_type: c.getAttribute('data-doc'), version: c.getAttribute('data-ver') }; });
+  var r = await abApi('/api/legal/accept', { method: 'POST', body: JSON.stringify({ documents: docs, method: _legalReviewMethod, surface: 'review_screen' }) });
+  if (r.ok && r.json && r.json.complete) {            // only after the server confirmed
+    _legalStatus = r.json; closeLegalReview(); showToast('Thank you. Your acceptance has been recorded.');
+    return;
+  }
+  if (r.ok && r.json && r.json.outstanding) { showLegalReview(r.json, _legalReviewMethod); return; }
+  if (r.status === 409) {
+    await ensureLegalManifest(true);
+    var s2 = await abApi('/api/legal/status');
+    if (s2.ok) { showLegalReview(s2.json, _legalReviewMethod); fail('A newer version was published. Please review it and tick again.'); return; }
+  }
+  if (r.status === 401) { fail('Your session expired. Please sign in again.'); return; }
+  fail((r.json && r.json.error && r.json.error !== 'network') ? r.json.error : 'We could not save your acceptance. Check your connection and try again. Nothing has been recorded yet.');
+}
+
+// ── Privacy requests (work without signing in) ──────────────────────────
+function openPrivacyRequest(type) {
+  var t = document.getElementById('prType'); if (t && type) t.value = type;
+  var row = document.getElementById('prEmailRow'); if (row) row.style.display = (typeof currentUser !== 'undefined' && currentUser) ? 'none' : '';
+  var f = document.getElementById('prForm'), d = document.getElementById('prDone'), e = document.getElementById('prErr');
+  if (f) f.hidden = false; if (d) { d.hidden = true; d.innerHTML = ''; } if (e) e.hidden = true;
+  openModal('privacyRequestModal');
+}
+async function submitPrivacyRequest() {
+  var err = document.getElementById('prErr'), btn = document.getElementById('prBtn');
+  function fail(m) { err.textContent = m; err.hidden = false; btn.disabled = false; btn.textContent = 'Send request'; }
+  var signedIn = !!(typeof currentUser !== 'undefined' && currentUser);
+  var email = (document.getElementById('prEmail').value || '').trim();
+  if (!signedIn && !/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(email)) { fail('Please enter a valid email so we can reply.'); return; }
+  err.hidden = true; btn.disabled = true; btn.textContent = 'Sending…';
+  var body = { request_type: document.getElementById('prType').value, details: document.getElementById('prDetails').value };
+  if (!signedIn) body.email = email;
+  var r = await abApi('/api/privacy/requests', { method: 'POST', body: JSON.stringify(body) });
+  if (r.ok && r.json && r.json.request_id !== undefined) {
+    document.getElementById('prForm').hidden = true;
+    var d = document.getElementById('prDone'); d.hidden = false;
+    d.innerHTML = '<p><strong style="color:var(--text)">Request received.</strong> ' + escHtml(r.json.next_step || '') + '</p>' +
+      (r.json.request_id ? '<p>Reference: <code>' + escHtml(String(r.json.request_id)) + '</code></p>' : '') +
+      '<p>Questions? <a href="' + AGRIBRIDGE.mailto + '" style="color:var(--green)">' + AGRIBRIDGE.email + '</a> · <a href="' + AGRIBRIDGE.whatsappUrl + '" target="_blank" rel="noopener" style="color:var(--green)">WhatsApp ' + AGRIBRIDGE.phoneDisplay + '</a></p>';
+    return;
+  }
+  if (r.status === 429) { fail('Too many requests. Please wait a few minutes or email ' + AGRIBRIDGE.email + '.'); return; }
+  fail((r.json && r.json.error && r.json.error !== 'network' ? r.json.error : 'We could not send your request.') + ' You can also email ' + AGRIBRIDGE.email + '.');
+}
+
+// ── Settings: privacy & legal ───────────────────────────────────────────
+async function loadPrivacySettings() {
+  var el = document.getElementById('privacySectionBody'); if (!el) return;
+  var m = await ensureLegalManifest();
+  var docs = m ? legalRoleDocs(getCurrentRole()) : [];
+  var h = '<div style="margin-bottom:10px">' + (docs.length ? docs.map(function (d) {
+    return '<div><a href="' + escHtml(d.url) + '" target="_blank" rel="noopener" style="color:var(--green)">' + escHtml(d.title) + '</a> <span>(version ' + escHtml(d.version) + ')</span></div>';
+  }).join('') : 'Documents are unavailable right now. <a href="legal/terms-of-use.html" target="_blank" rel="noopener" style="color:var(--green)">Terms</a> · <a href="legal/privacy-policy.html" target="_blank" rel="noopener" style="color:var(--green)">Privacy</a>') + '</div>' +
+    '<button class="btn-sm outline" onclick="showAcceptedVersions()">View versions I accepted</button><div id="acceptedHist" style="margin:8px 0"></div>' +
+    '<label class="chk-row" for="setMktSms" style="margin-top:8px"><input type="checkbox" id="setMktSms" disabled onchange="saveMarketingSms(this)"><span>Send me optional promotions and marketplace updates by SMS. You will still get order and account messages.</span></label>' +
+    '<div style="display:flex;gap:6px;flex-wrap:wrap;margin:8px 0">' +
+      '<button class="btn-sm outline" onclick="closeModal(\'settingsModal\');openPrivacyRequest(\'access\')">Request my data</button>' +
+      '<button class="btn-sm outline" onclick="closeModal(\'settingsModal\');openPrivacyRequest(\'correction\')">Request a correction</button>' +
+      '<button class="btn-sm outline" onclick="closeModal(\'settingsModal\');openPrivacyRequest(\'complaint\')">Privacy complaint</button></div>' +
+    '<div>Contact: <a href="' + AGRIBRIDGE.mailto + '" style="color:var(--green)">' + AGRIBRIDGE.email + '</a> · <a href="' + AGRIBRIDGE.whatsappUrl + '" target="_blank" rel="noopener" style="color:var(--green)">WhatsApp</a> · <a href="' + AGRIBRIDGE.tel + '" style="color:var(--green)">' + AGRIBRIDGE.phoneDisplay + '</a></div>';
+  el.innerHTML = h;
+  var r = await abApi('/api/marketing/consent');
+  var cb = document.getElementById('setMktSms');
+  if (cb && r.ok && r.json && r.json.channels) { cb.checked = !!r.json.channels.sms; cb.disabled = false; }
+  else if (cb) { cb.parentNode.insertAdjacentHTML('beforeend', ' <em>(unavailable right now)</em>'); }
+}
+async function saveMarketingSms(cb) {
+  var want = cb.checked; cb.disabled = true;
+  var r = await abApi('/api/marketing/consent', { method: 'POST', body: JSON.stringify({ channels: { sms: want } }) });
+  cb.disabled = false;
+  if (r.ok) { showToast(want ? 'SMS promotions turned on' : 'SMS promotions turned off'); }
+  else { cb.checked = !want; showToast('Could not save your choice. Please try again.'); }
+}
+async function showAcceptedVersions() {
+  var el = document.getElementById('acceptedHist'); if (!el) return;
+  el.textContent = 'Loading…';
+  var r = await abApi('/api/legal/history');
+  if (!r.ok) { el.textContent = 'Could not load your history right now.'; return; }
+  var rows = r.json.acceptances || [];
+  el.innerHTML = rows.length ? rows.map(function (a) {
+    return '<div>' + escHtml(a.doc_type) + ' v' + escHtml(a.version) + ' · ' + escHtml(String(a.accepted_at).slice(0, 10)) + '</div>';
+  }).join('') : 'No accepted versions are recorded yet.';
+}
+
+// ── Viewers for Terms / Privacy ─────────────────────────────────────────
+function loadLegalInto(doc, elId) {
+  var el = document.getElementById(elId); if (!el) return;
+  fetch('legal/' + doc + '.fragment.html').then(function (r) { if (!r.ok) throw 0; return r.text(); })
+    .then(function (t) { el.innerHTML = t; })     // generated by scripts/build_legal.py (escaped, link-checked)
+    .catch(function () { el.innerHTML = 'Could not load this document. <a href="legal/' + doc + '.html" target="_blank" rel="noopener" style="color:var(--green)">Open it in a new tab</a>.'; });
+}
+(function () {
+  var _open = window.openModal;
+  window.openModal = function (id) {
+    _open(id);
+    if (id === 'termsModal') loadLegalInto('terms-of-use', 'termsModalBody');
+    if (id === 'privacyModal') loadLegalInto('privacy-policy', 'privacyModalBody');
+    if (id === 'registerModal') { ensureLegalManifest().then(updateRegRoleTerms); }
+  };
+  var _lo = window.logOut;
+  if (typeof _lo === 'function') {
+    window.logOut = async function () { closeLegalReview(); _legalCheckedFor = null; _legalStatus = null; return _lo.apply(this, arguments); };
+  }
+  // Keep every contact link in step with the central business config.
+  document.addEventListener('DOMContentLoaded', function () {
+    document.querySelectorAll('[data-ab=mailto]').forEach(function (a) { a.href = AGRIBRIDGE.mailto; });
+    document.querySelectorAll('[data-ab=wa]').forEach(function (a) { a.href = AGRIBRIDGE.whatsappUrl; });
+    var sp = document.getElementById('legalReviewSupport'); if (sp) sp.href = AGRIBRIDGE.mailto;
+    ensureLegalManifest();
+  });
+})();
+</script>
 </body>
 </html>

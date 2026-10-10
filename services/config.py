@@ -44,7 +44,7 @@ class Settings:
         u.strip() for u in os.environ.get("ADMIN_ALLOWED_UUIDS", "").split(",") if u.strip()
     ))
     supabase_url: str = field(default_factory=lambda: os.environ.get(
-        "SUPABASE_URL", "https://vyrctsiyaihsysgpozdm.supabase.co"))
+        "SUPABASE_URL", "https://lvloaweijidgcuezdnmu.supabase.co"))
     supabase_key: str = field(default_factory=lambda: os.environ.get("SUPABASE_KEY", ""))
     supabase_db_url: str = field(default_factory=lambda: os.environ.get("SUPABASE_DB_URL", ""))
     public_base_url: str = field(default_factory=lambda: os.environ.get(

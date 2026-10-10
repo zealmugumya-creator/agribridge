@@ -27,13 +27,19 @@ jobs:
           pip install -r requirements.txt -r requirements-dev.txt
 
       - name: Lint (ruff)
-        run: ruff check app.py services/ tests/
+        run: ruff check app.py services/ scripts/ tests/
+
+      - name: Legal documents are built and up to date
+        run: python scripts/build_legal.py --check
 
       - name: Type check (mypy, non-blocking report)
         continue-on-error: true
         run: mypy services/ --ignore-missing-imports || true
 
-      - name: Unit + integration tests
+      - name: Install Chromium for browser tests
+        run: python -m playwright install --with-deps chromium
+
+      - name: Unit + integration + browser tests
         env:
           FLASK_ENV: development
         run: pytest -q --junitxml=reports/pytest.xml
@@ -45,7 +51,24 @@ jobs:
           name: pytest-report
           path: reports/pytest.xml
 
-  # NOTE: SQL migration tests and Android .aab builds need live credentials
+  sql:
+    name: Migration 0007 on real PostgreSQL (PGlite)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+      - run: npm install
+        working-directory: tests/sql
+      - run: npm test
+        working-directory: tests/sql
+
+  # NOTE: SQL tests for migrations 0001-0006 and Android .aab builds need live credentials
+  # (Supabase DB, Android SDK/signing) and are documented as external steps in
+  # docs/IMPLEMENTATION_STATUS.md and docs/PLAY_STORE_RELEASE.md. They are
+  # intentionally NOT faked here. (SQL tests exist only for migration 0007 so far.)
+  # (older note) SQL migration tests and Android .aab builds need live credentials
   # (Supabase DB, Android SDK/signing) and are documented as external steps in
   # docs/IMPLEMENTATION_STATUS.md and docs/PLAY_STORE_RELEASE.md. They are
   # intentionally NOT faked here.

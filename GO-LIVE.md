@@ -21,7 +21,7 @@ Service **agribridge-1** → **Environment** tab → add/confirm each, then "Sav
 (Render redeploys automatically).
 
 **Already needed (confirm they're set):**
-- `SUPABASE_URL` = https://vyrctsiyaihsysgpozdm.supabase.co
+- `SUPABASE_URL` = https://lvloaweijidgcuezdnmu.supabase.co
 - `SUPABASE_KEY` = your Supabase **service_role** key (Supabase → Project Settings → API)
 - `JWT_SECRET` = a long random string
 - `GROQ_API_KEY` = your Groq key (for the AI assistant)
@@ -130,3 +130,19 @@ A private admin panel is live at **https://agribrige.com/admin.html**.
 _Health check any time:_ `https://agribridge-1-og7a.onrender.com/` should return **200**.
 _Payment status:_ `https://agribridge-1-og7a.onrender.com/api/pay/providers` shows which methods are live.
 _Email status:_ receipts send only once `RESEND_API_KEY` is set (see §6); otherwise a safe no-op.
+
+
+---
+
+## Legal & consent rollout (migration 0007)
+
+Do these in order. Details: `docs/LEGAL_CONSENT_IMPLEMENTATION.md`.
+
+1. **Back up** the Supabase database (Dashboard -> Database -> Backups, or `pg_dump`).
+2. Apply `supabase/migrations/0007_legal_consent.up.sql` to a **staging** project, then production. Roll back with the `.down.sql` only if no one has accepted anything yet (it deletes acceptance evidence).
+3. Deploy the API (Render) and the web app (`static/`, including `legal/` and `business-config.js`). Cloudflare may need a cache purge for `legal/*`, `business-config.js` and `sw.js`.
+4. Run `python scripts/publish_legal.py --actor <admin uuid>` with `SUPABASE_URL` and `SUPABASE_KEY` set.
+5. Smoke test: register a test farmer (box unticked = blocked; ticked = account), sign in as an older account (review screen appears once), open Settings -> Privacy and legal, send a privacy request while signed out.
+6. Only then set `ENFORCE_LEGAL_ACCEPTANCE=true` on Render.
+
+Publishing a new document version: see `legal/README.md`.

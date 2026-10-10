@@ -52,6 +52,19 @@ class AccountService:
             return DeletionResult(ok=False, status="failed",
                                   error="user_id required", status_code=400)
 
+        # ── Open orders need a person (money/fulfilment in flight) ─────────────
+        open_orders = self._db.select(
+            "orders",
+            {"or": f"(buyer_id.eq.{user_id},farmer_id.eq.{user_id})",
+             "status": "in.(pending,confirmed,in_transit)", "select": "id"},
+            limit=1)
+        if open_orders:
+            return DeletionResult(
+                ok=False, status="needs_review", status_code=409,
+                error=("You have orders that are not finished yet, so we cannot delete your "
+                       "account automatically. We have logged your request and will complete "
+                       "it after those orders are settled."))
+
         # ── Stage 1: anonymize (reversible) ────────────────────────────────────
         res = self._db.rpc("request_account_deletion", {"p_user_id": user_id})
         if not res.ok:

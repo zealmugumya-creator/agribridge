@@ -52,7 +52,7 @@ can't: USSD/SMS, the AI proxy, and payment webhooks.
 | Layer | Technology | Hosting |
 |-------|-----------|---------|
 | Web app | Single-file HTML/CSS/JS + PWA (`manifest.json`, `sw.js`) | Cloudflare Pages (from GitHub) |
-| Database / Auth / Storage | Supabase (Postgres, GoTrue auth, Storage, PostgREST) | Supabase cloud (project `vyrctsiyaihsysgpozdm`) |
+| Database / Auth / Storage | Supabase (Postgres, GoTrue auth, Storage, PostgREST) | Supabase cloud (project `lvloaweijidgcuezdnmu`) |
 | Backend API | Python Flask (`app.py`) | Render (service `agribridge-1`) |
 | SMS / USSD | Africa's Talking | — |
 | AI assistant | Groq (`llama-3.3-70b-versatile`) | via backend |
@@ -220,3 +220,7 @@ farmers (Flutterwave transfers) is a later phase.
 - Payments enabled? — `GET /api/pay/providers`.
 - Security review — Supabase → Advisors → Security.
 - Data safety — confirm the weekly backup workflow is green in GitHub → Actions.
+
+## Legal documents
+
+Published documents live in `legal/source/` and are built to `static/legal/` (see `legal/README.md`). Official contact details come from `services/business.py`. Open legal items: `docs/LEGAL_PENDING.md`; implementation notes: `docs/LEGAL_CONSENT_IMPLEMENTATION.md`.
