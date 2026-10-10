@@ -116,3 +116,38 @@ def test_endpoint_surfaces_failure(client, monkeypatch):
     monkeypatch.setattr(app_mod, "ACCOUNT_SERVICE", _FakeAcct())
     r = client.post("/api/account/delete", json={})
     assert r.status_code == 403
+
+
+# ── open orders need manual review (privacy-by-design, brief s.11) ────────────
+def test_open_orders_block_automatic_deletion():
+    db = FakeSupabase(select_results={"orders": [{"id": "o1"}]})
+    svc = AccountService(db, supabase_url="u", service_key="k")
+    res = svc.delete_account(user_id="u1")
+    assert not res.ok and res.status == "needs_review" and res.status_code == 409
+    assert db.rpc_calls == []                      # nothing was anonymised
+
+
+def test_open_order_check_covers_buyer_and_farmer_and_unfinished_states():
+    db = FakeSupabase()
+    AccountService(db, supabase_url="u", service_key="k").delete_account(user_id="u1")
+    table, filters = db.select_calls[0]
+    assert table == "orders"
+    assert "buyer_id.eq.u1" in filters["or"] and "farmer_id.eq.u1" in filters["or"]
+    assert filters["status"] == "in.(pending,confirmed,in_transit)"
+
+
+def test_endpoint_files_a_review_request_when_orders_are_open(client, monkeypatch):
+    from services.account import DeletionResult
+    from services.legal import LegalService
+    monkeypatch.setattr(app_mod, "verify_supabase_user", lambda: ("uid", None))
+
+    class _Acct:
+        def delete_account(self, **kw):
+            return DeletionResult(ok=False, status="needs_review", error="open orders", status_code=409)
+    db = FakeSupabase()
+    monkeypatch.setattr(app_mod, "ACCOUNT_SERVICE", _Acct())
+    monkeypatch.setattr(app_mod, "LEGAL_SERVICE", LegalService(db))
+    r = client.post("/api/account/delete", json={})
+    assert r.status_code == 409 and r.get_json()["manual_review"] is True
+    table, row = db.insert_calls[0]
+    assert table == "privacy_requests" and row["request_type"] == "deletion" and row["user_id"] == "uid"

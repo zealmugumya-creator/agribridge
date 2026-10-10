@@ -6,7 +6,7 @@ How to activate every integration that is **implemented but gated on credentials
 
 ## 0. Prerequisites
 - Python 3.12.7 (matches Render). Install runtime deps: `pip install -r requirements.txt`; dev deps: `pip install -r requirements-dev.txt`.
-- The Supabase project (`vyrctsiyaihsysgpozdm`) service-role key, and the DB connection string for migrations.
+- The Supabase project (`lvloaweijidgcuezdnmu`) service-role key, and the DB connection string for migrations.
 - A Render service for the API (`agribridge-1`) and one for the worker (§5).
 
 ---

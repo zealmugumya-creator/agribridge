@@ -1,7 +1,7 @@
 // AgriBridge Uganda — Service Worker v3
 // Handles offline caching, smart fetch strategies, and SPA navigation
 
-const CACHE_NAME = 'agribridge-v5';
+const CACHE_NAME = 'agribridge-v6';
 const STATIC_ASSETS = [
   '/',
   '/index.html',
@@ -102,7 +102,10 @@ self.addEventListener('fetch', event => {
   if (url.origin === self.location.origin || event.request.mode === 'navigate') {
     event.respondWith(
       caches.open(CACHE_NAME).then(cache =>
-        cache.match('/index.html').then(cached => {
+        // Only page navigations fall back to the cached app shell. Other same-origin
+        // files (legal pages, manifest.json, business-config.js) must never be answered
+        // with index.html, or a slow connection would show the wrong document.
+        cache.match(event.request.mode === 'navigate' ? '/index.html' : event.request).then(cached => {
           const network = fetch(event.request).then(response => {
             cache.put(event.request.url === '/' ? '/index.html' : event.request, response.clone());
             return response;

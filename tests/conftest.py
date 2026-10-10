@@ -51,6 +51,8 @@ class FakeSupabase:
         self.select_calls: list[tuple[str, dict]] = []
         self.upsert_calls: list[tuple[str, dict | list, str | None]] = []
         self.delete_calls: list[tuple[str, dict]] = []
+        self.insert_calls: list[tuple[str, dict | list]] = []
+        self.insert_result = RpcResult(ok=True, data=[{"id": "req-1"}])
         self.upsert_result = RpcResult(ok=True, data=None)
         self.delete_result = True
         self.configured = True
@@ -74,6 +76,10 @@ class FakeSupabase:
     def upsert(self, table, data, on_conflict=None):
         self.upsert_calls.append((table, data, on_conflict))
         return self.upsert_result
+
+    def insert(self, table, rows):
+        self.insert_calls.append((table, rows))
+        return self.insert_result
 
     def delete(self, table, filters):
         self.delete_calls.append((table, filters))
@@ -99,3 +105,13 @@ def _dev_env(monkeypatch):
     monkeypatch.delenv("DISCORD_WEBHOOK_URL", raising=False)
     monkeypatch.delenv("SENTRY_DSN", raising=False)
     yield
+
+
+@pytest.fixture(autouse=True)
+def _reset_rate_limiter():
+    """The API's limiter is in-process state; without a reset, tests that share a
+    fake client IP would rate-limit each other and fail for the wrong reason."""
+    import app as app_mod
+    app_mod._rl_buckets.clear()
+    yield
+    app_mod._rl_buckets.clear()

@@ -11,6 +11,7 @@ import datetime
 import hmac
 import json as _json
 import os
+import re
 import secrets
 
 import jwt
@@ -18,12 +19,13 @@ import requests
 from flask import Flask, Response, g, jsonify, request
 from flask_cors import CORS
 
-from services import monitoring
+from services import business, monitoring
 
 # ── AgriBridge service modules (isolated integrations, Phase 10) ──────────────
 from services.account import AccountService
 from services.config import ConfigError, load_settings
 from services.discord import DiscordNotifier
+from services.legal import LegalService
 from services.logging import (
     configure_logging,
     get_logger,
@@ -80,6 +82,8 @@ DISCORD = DiscordNotifier(SETTINGS.discord_webhook_url)
 FCM_SENDER, ADMIN_TOKEN_LOOKUP, PUSH_REGISTRY = build_push(SETTINGS, SUPA)
 NOTIFY = NotificationDispatcher(supabase=SUPA, discord=DISCORD,
                                 fcm_sender=FCM_SENDER, admin_token_lookup=ADMIN_TOKEN_LOOKUP)
+LEGAL_SERVICE = LegalService(supabase=SUPA)
+LEGAL_ENFORCED = os.environ.get('ENFORCE_LEGAL_ACCEPTANCE', '').strip().lower() in ('1', 'true', 'yes')
 ORDER_SERVICE = OrderService(supabase=SUPA, dispatcher=NOTIFY)
 MATCHING_SERVICE = MatchingService(supabase=SUPA, dispatcher=NOTIFY)
 ACCOUNT_SERVICE = AccountService(SUPA, supabase_url=SUPABASE_URL, service_key=SUPABASE_KEY,
@@ -291,11 +295,13 @@ def verify_supabase_user():
     if res.status_code != 200:
         return None, (jsonify({'error': 'Invalid or expired session'}), 401)
     try:
-        uid = (res.json() or {}).get('id')
+        auth_user = res.json() or {}
+        uid = auth_user.get('id')
     except ValueError:
-        uid = None
+        auth_user, uid = {}, None
     if not uid:
         return None, (jsonify({'error': 'Invalid session'}), 401)
+    g.auth_user = auth_user   # verified by GoTrue; used for role/metadata reads
     return uid, None
 
 def is_admin_uuid(user_id):
@@ -322,6 +328,25 @@ def require_admin_user():
     if not is_admin_uuid(uid):
         return None, (jsonify({'error': 'Insufficient permissions'}), 403)
     return uid, None
+
+def legal_gate(user_id):
+    """Block protected actions until the user accepted the current required terms.
+
+    OFF by default (ENFORCE_LEGAL_ACCEPTANCE). Turn it on only after migration
+    0007 is applied and the updated web app is live; otherwise users who have not
+    yet seen the review screen could not place orders. Returns an error response
+    tuple when blocked, else None. It fails CLOSED if the check itself fails.
+    """
+    if not LEGAL_ENFORCED:
+        return None
+    st = LEGAL_SERVICE.status(user_id, _auth_role())
+    if not st.ok:
+        return jsonify({'error': 'Could not verify legal acceptance', 'code': 'legal_check_failed'}), 503
+    if st.data['outstanding']:
+        return jsonify({'error': 'Please review and accept the updated terms to continue.',
+                        'code': 'legal_acceptance_required',
+                        'outstanding': st.data['outstanding']}), 403
+    return None
 
 # ── Number formatter ──────────────────────────────────────────────────────────
 def fmt(n):
@@ -498,10 +523,10 @@ def ussd_route(parts, depth, last, session_id, phone):
             if last == '3':
                 return (
                     "END Bulk Orders:\n\n"
-                    "Call: +256 755 966 690\n"
-                    "WhatsApp: +256 755 966 690\n"
-                    "Email: orders@agribridge.ug\n"
-                    "Web: agribrige.com/bulk\n\n"
+                    f"Call: {business.PHONE_DISPLAY}\n"
+                    f"WhatsApp: {business.PHONE_DISPLAY}\n"
+                    f"Email: {business.SUPPORT_EMAIL}\n"
+                    "Web: agribrige.com\n\n"
                     "Farm-to-door within 24hrs"
                 )
             if last == '4':
@@ -1001,12 +1026,10 @@ def ussd_route(parts, depth, last, session_id, phone):
                 return (
                     "END Contact AgriBridge:\n\n"
                     "Phone/WhatsApp:\n"
-                    "+256 755 966 690\n\n"
+                    f"{business.PHONE_DISPLAY}\n\n"
                     "Email:\n"
-                    "hello@agribridge.ug\n\n"
-                    "Website: agribrige.com\n\n"
-                    "Hours: Mon-Sat 7am-8pm\n"
-                    "Emergency vet: 24/7"
+                    f"{business.SUPPORT_EMAIL}\n\n"
+                    "Website: agribrige.com"
                 )
             if last == '5':
                 return (
@@ -1355,6 +1378,9 @@ def create_order():
     uid, err = verify_supabase_user()
     if err:
         return err
+    blocked = legal_gate(uid)
+    if blocked:
+        return blocked
     data = request.get_json(force=True, silent=True) or {}
     items = data.get('items')
     # Idempotency key prevents duplicate orders on a retried/replayed request.
@@ -1417,6 +1443,9 @@ def create_purchase_request():
     uid, err = verify_supabase_user()
     if err:
         return err
+    blocked = legal_gate(uid)
+    if blocked:
+        return blocked
     data = request.get_json(force=True, silent=True) or {}
     idem = request.headers.get('Idempotency-Key', '').strip() or None
     result = MATCHING_SERVICE.create_request(
@@ -1441,6 +1470,9 @@ def accept_offer(offer_id):
     uid, err = verify_supabase_user()
     if err:
         return err
+    blocked = legal_gate(uid)
+    if blocked:
+        return blocked
     result = MATCHING_SERVICE.accept_offer(offer_id, uid)
     if not result.ok:
         return jsonify({'error': result.error}), result.status_code
@@ -1516,6 +1548,133 @@ def unregister_admin_device():
 # Self-scoped: the id is taken from the verified session, never the request body.
 # By default this anonymizes the caller's data (reversible from backup); the
 # irreversible auth-user purge only runs when an operator enables it server-side.
+# ══════════════════════════════════════════════════════════════════════════════
+# Legal documents, acceptance, marketing consent and privacy requests
+# (mandate sections 7-11). Public documents need no session; everything that
+# records or reads a user's own evidence needs a verified Supabase session.
+# ══════════════════════════════════════════════════════════════════════════════
+def _auth_role():
+    meta = (getattr(g, 'auth_user', {}) or {}).get('user_metadata') or {}
+    return meta.get('role')
+
+
+def _legal_response(result, ok_code=200):
+    if not result.ok:
+        body = {'error': result.error}
+        body.update(result.data or {})
+        return jsonify(body), result.status_code
+    return jsonify({'ok': True, **result.data}), (result.status_code if result.status_code != 200 else ok_code)
+
+
+@app.route('/api/legal/manifest', methods=['GET'])
+@rate_limit(max_req=60, window=60)
+def legal_manifest():
+    return jsonify(LEGAL_SERVICE.public_manifest())
+
+
+@app.route('/api/legal/status', methods=['GET'])
+@rate_limit(max_req=60, window=60)
+def legal_status():
+    uid, err = verify_supabase_user()
+    if err:
+        return err
+    return _legal_response(LEGAL_SERVICE.status(uid, _auth_role()))
+
+
+@app.route('/api/legal/accept', methods=['POST'])
+@rate_limit(max_req=20, window=60)
+def legal_accept():
+    uid, err = verify_supabase_user()
+    if err:
+        return err
+    data = request.get_json(force=True, silent=True) or {}
+    res = LEGAL_SERVICE.accept(
+        user_id=uid, role=_auth_role(), documents=data.get('documents'),
+        method=str(data.get('method', '')),
+        evidence={'surface': str(data.get('surface', ''))[:40],
+                  'user_agent': request.headers.get('User-Agent', '')[:200]})
+    if not res.ok:
+        return _legal_response(res)
+    # Only now (database confirmed) report the fresh status.
+    return _legal_response(LEGAL_SERVICE.status(uid, _auth_role()))
+
+
+@app.route('/api/legal/sync-signup', methods=['POST'])
+@rate_limit(max_req=10, window=60)
+def legal_sync_signup():
+    uid, err = verify_supabase_user()
+    if err:
+        return err
+    au = getattr(g, 'auth_user', {}) or {}
+    res = LEGAL_SERVICE.sync_signup(user_id=uid, role=_auth_role(),
+                                    meta=au.get('user_metadata') or {},
+                                    created_at=au.get('created_at'))
+    if not res.ok:
+        return _legal_response(res)
+    status = LEGAL_SERVICE.status(uid, _auth_role())
+    return jsonify({'ok': True, **res.data, 'status': status.data})
+
+
+@app.route('/api/legal/history', methods=['GET'])
+@rate_limit(max_req=30, window=60)
+def legal_history():
+    uid, err = verify_supabase_user()
+    if err:
+        return err
+    return _legal_response(LEGAL_SERVICE.history(uid))
+
+
+@app.route('/api/marketing/consent', methods=['GET', 'POST'])
+@rate_limit(max_req=30, window=60)
+def marketing_consent():
+    uid, err = verify_supabase_user()
+    if err:
+        return err
+    if request.method == 'GET':
+        return _legal_response(LEGAL_SERVICE.get_marketing(uid))
+    data = request.get_json(force=True, silent=True) or {}
+    return _legal_response(LEGAL_SERVICE.set_marketing(
+        user_id=uid, channels=data.get('channels'), method='settings'))
+
+
+@app.route('/api/privacy/requests', methods=['GET', 'POST'])
+@rate_limit(max_req=5, window=300)
+def privacy_requests():
+    """File or list privacy requests.
+
+    POST works WITHOUT a session (so someone locked out, or who rejected updated
+    terms, can still exercise their rights); an emailed request is recorded as
+    unverified and identity is confirmed by AgriBridge before acting. A valid
+    session, if present, ties the request to that account.
+    """
+    if request.method == 'GET':
+        uid, err = verify_supabase_user()
+        if err:
+            return err
+        return _legal_response(LEGAL_SERVICE.list_privacy_requests(uid))
+    data = request.get_json(force=True, silent=True) or {}
+    uid = None
+    if _bearer_token():
+        uid, err = verify_supabase_user()
+        if err:
+            return err
+    res = LEGAL_SERVICE.create_privacy_request(
+        request_type=str(data.get('request_type', '')), details=str(data.get('details', '')),
+        user_id=uid, email=str(data.get('email', '')) if not uid else None)
+    if res.ok and uid and data.get('request_type') == 'marketing_withdrawal':
+        LEGAL_SERVICE.set_marketing(user_id=uid, channels={'sms': False}, method='support_request')
+    return _legal_response(res, 201)
+
+
+@app.route('/legal/<path:name>', methods=['GET'])
+def legal_page(name):
+    """Serve published legal pages from the API host too (stable URLs for apps)."""
+    from flask import send_from_directory
+    if not re.fullmatch(r'[a-z0-9\-.]+\.(html|json)', name):
+        return jsonify({'error': 'Not found'}), 404
+    return send_from_directory(os.path.join(app.root_path, 'static', 'legal'), name)
+
+
 @app.route('/api/account/delete', methods=['POST'])
 @rate_limit(max_req=5, window=300)
 def delete_account():
@@ -1524,6 +1683,14 @@ def delete_account():
         return err
     result = ACCOUNT_SERVICE.delete_account(
         user_id=uid, correlation_id=getattr(g, 'correlation_id', None))
+    if not result.ok and result.status == 'needs_review':
+        # Open orders: do not anonymise now. File a deletion request so a person
+        # can complete it once the orders are settled, and say so honestly.
+        LEGAL_SERVICE.create_privacy_request(
+            request_type='deletion', user_id=uid,
+            details='Auto-filed: account deletion requested while orders were still open.')
+        return jsonify({'error': result.error, 'status': 'needs_review',
+                        'manual_review': True}), 409
     if not result.ok:
         return jsonify({'error': result.error, 'status': result.status}), result.status_code
     return jsonify({'ok': True, 'status': result.status}), 200
@@ -1647,7 +1814,7 @@ def _flw_initiate(order_ref, amount, email, phone):
                 'amount':       str(amount),
                 'currency':     'UGX',
                 'redirect_url': PUBLIC_BASE_URL + '/?pay=done',
-                'customer':     {'email': email or 'buyer@agribrige.com', 'phonenumber': phone},
+                'customer':     {'email': email or business.SUPPORT_EMAIL, 'phonenumber': phone},
                 'customizations': {'title': 'AgriBridge', 'description': 'Order ' + order_ref},
                 'payment_options': 'mobilemoneyuganda,card',
             },
