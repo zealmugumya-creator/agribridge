@@ -101,6 +101,8 @@
       <div class="tab" data-tab="deliveries" onclick="showTab('deliveries',this)">Deliveries</div>
       <div class="tab" data-tab="supplies" onclick="showTab('supplies',this)">Supplies</div>
       <div class="tab" data-tab="farmers"  onclick="showTab('farmers',this)">Users</div>
+      <div class="tab" data-tab="requests" onclick="showTab('requests',this)">Requests</div>
+      <div class="tab" data-tab="offers"   onclick="showTab('offers',this)">Offers</div>
     </div>
     <div class="card">
       <div class="toolbar">
@@ -131,7 +133,7 @@
   var SUPA_KEY = 'sb_publishable_lzjlixcVLCUVg9MDy5adFw_pgxTz03y';
   var TOKEN = sessionStorage.getItem('ab_admin_token') || '';
   var currentTab = 'orders';
-  var DATA = { orders:[], listings:[], animals:[], farmers:[] };
+  var DATA = { orders:[], listings:[], animals:[], farmers:[], requests:[], offers:[] };
   var editState = null; // {table, id, isNew}
 
   function h(s){return String(s==null?'':s).replace(/[<>&"]/g,function(c){return {'<':'&lt;','>':'&gt;','&':'&amp;','"':'&quot;'}[c];});}
@@ -213,7 +215,7 @@
       {k:'in_stock',label:'In stock (shown in app)',t:'check'}
     ]
   };
-  var TABLE_OF = { orders:'orders', listings:'listings', animals:'animal_listings', deliveries:'deliveries', supplies:'supplier_products', farmers:'farmers' };
+  var TABLE_OF = { orders:'orders', listings:'listings', animals:'animal_listings', deliveries:'deliveries', supplies:'supplier_products', farmers:'farmers', requests:'purchase_requests', offers:'offers' };
 
   // ── Auth ────────────────────────────────────────────────────────
   async function doLogin(){
@@ -229,7 +231,7 @@
   function showDash(){ document.getElementById('login').classList.add('hidden'); document.getElementById('dash').classList.remove('hidden'); refreshAll(); }
   function logout(){ TOKEN=''; sessionStorage.removeItem('ab_admin_token'); document.getElementById('dash').classList.add('hidden'); document.getElementById('login').classList.remove('hidden'); }
 
-  async function refreshAll(){ await loadStats(); await Promise.all([load('orders'),load('listings'),load('animals'),load('deliveries'),load('supplies'),load('farmers')]); renderOverviewExtras(); renderCurrent(); }
+  async function refreshAll(){ await loadStats(); await Promise.all([load('orders'),load('listings'),load('animals'),load('deliveries'),load('supplies'),load('farmers'),load('requests'),load('offers')]); renderOverviewExtras(); renderCurrent(); }
 
   function showTabByName(t){ var node=document.querySelector('.tab[data-tab="'+t+'"]'); showTab(t,node||undefined); if(node) node.scrollIntoView({behavior:'smooth',block:'nearest'}); }
 
@@ -257,6 +259,8 @@
         '<button onclick="showTabByName(\'orders\')">📦 Manage Orders</button>'+
         '<button onclick="showTabByName(\'deliveries\')">🚚 Deliveries</button>'+
         '<button onclick="showTabByName(\'supplies\')">🏪 Supplies</button>'+
+        '<button onclick="showTabByName(\'requests\')">📋 Requests</button>'+
+        '<button onclick="runMatching()">🔗 Run Matching</button>'+
       '</div></div>';
   }
 
@@ -268,11 +272,22 @@
     }catch(e){}
   }
   async function load(tab){
-    var path = tab==='orders'?'/api/admin/orders':tab==='listings'?'/api/admin/listings':tab==='animals'?'/api/admin/animals':tab==='deliveries'?'/api/admin/deliveries':tab==='supplies'?'/api/admin/supplies':'/api/admin/farmers';
+    var pathMap = {orders:'/api/admin/orders',listings:'/api/admin/listings',animals:'/api/admin/animals',deliveries:'/api/admin/deliveries',supplies:'/api/admin/supplies',farmers:'/api/admin/farmers',requests:'/api/admin/purchase-requests',offers:'/api/admin/offers'};
+    var path = pathMap[tab] || ('/api/admin/'+tab);
     try{ var rows=await api(path); DATA[tab]=Array.isArray(rows)?rows:[]; }catch(e){ DATA[tab]=[]; }
   }
 
-  function showTab(t,node){ currentTab=t; document.querySelectorAll('.tab').forEach(function(x){x.classList.remove('active');}); if(node)node.classList.add('active'); document.getElementById('search').value=''; document.getElementById('addBtn').style.display=(t==='orders')?'none':'inline-block'; renderCurrent(); }
+  async function runMatching(){
+    if(!confirm('Run the matching algorithm now? This will match open purchase requests with available listings.')) return;
+    try{
+      var r=await api('/api/worker/match',{method:'POST',body:JSON.stringify({})});
+      var msg=(r&&r.matched_count!=null)?('Matching complete: '+r.matched_count+' match(es) made.'):(r&&r.message)||'Matching triggered.';
+      alert(msg);
+      await load('requests'); await load('offers'); renderCurrent();
+    }catch(e){ alert('Matching failed — check server logs.'); }
+  }
+
+  function showTab(t,node){ currentTab=t; document.querySelectorAll('.tab').forEach(function(x){x.classList.remove('active');}); if(node)node.classList.add('active'); document.getElementById('search').value=''; document.getElementById('addBtn').style.display=(t==='orders'||t==='requests'||t==='offers')?'none':'inline-block'; renderCurrent(); }
 
   function match(row,q){ if(!q)return true; q=q.toLowerCase(); return JSON.stringify(row).toLowerCase().indexOf(q)>-1; }
 
@@ -284,7 +299,9 @@
     if(currentTab==='animals')  return renderAnimals(rows);
     if(currentTab==='deliveries') return renderDeliveries(rows);
     if(currentTab==='supplies')  return renderSupplies(rows);
-    if(currentTab==='farmers')  return renderFarmers(rows);
+    if(currentTab==='farmers')   return renderFarmers(rows);
+    if(currentTab==='requests')  return renderRequests(rows);
+    if(currentTab==='offers')    return renderOffers(rows);
   }
 
   function actionsCell(tab,id){
@@ -338,6 +355,39 @@
     }).join('');
     setPanel('<table><thead><tr><th>Name</th><th>Phone</th><th>Email</th><th>District</th><th>Verified</th><th></th></tr></thead><tbody>'+body+'</tbody></table>');
   }
+  function renderRequests(rows){
+    if(!rows.length){ panelMsg('No purchase requests.'); return; }
+    var body=rows.map(function(r){var st=r.status||'open';
+      return '<tr><td>'+h((r.id||'').slice(0,8))+'</td><td>'+h(r.crop_type||r.crop_name||'—')+'</td><td>'+(r.quantity_kg||r.quantity||0)+'kg</td><td>'+fmt(r.max_price_per_kg||r.max_price||0)+'/kg</td><td>'+h(r.district||'—')+'</td><td><span class="badge '+st+'">'+st+'</span></td><td>'+h(r.buyer_phone||'—')+'</td><td>'+h(r.created_at?new Date(r.created_at).toLocaleDateString('en-UG'):'—')+'</td></tr>';
+    }).join('');
+    setPanel('<table><thead><tr><th>ID</th><th>Crop</th><th>Qty</th><th>Max Price</th><th>District</th><th>Status</th><th>Buyer</th><th>Date</th></tr></thead><tbody>'+body+'</tbody></table>');
+  }
+
+  function renderOffers(rows){
+    if(!rows.length){ panelMsg('No offers yet.'); return; }
+    var body=rows.map(function(o){var st=o.status||'pending';
+      var btns='';
+      if(st==='pending'){
+        btns='<div class="rowbtns">'+
+          '<button class="btn sm" onclick="offerAction(\''+h(o.id)+'\',\'accept\')">Accept</button>'+
+          '<button class="btn sm red" onclick="offerAction(\''+h(o.id)+'\',\'reject\')">Reject</button>'+
+        '</div>';
+      } else { btns='<span class="badge '+st+'">'+st+'</span>'; }
+      return '<tr><td>'+h((o.id||'').slice(0,8))+'</td><td>'+h(o.crop_name||o.listing_id||'—')+'</td><td>'+(o.quantity_kg||o.quantity||0)+'kg</td><td>'+fmt(o.price_per_kg||o.price||0)+'/kg</td><td>'+h(o.farmer_phone||'—')+'</td><td>'+h(o.buyer_phone||'—')+'</td><td>'+h(o.created_at?new Date(o.created_at).toLocaleDateString('en-UG'):'—')+'</td><td>'+btns+'</td></tr>';
+    }).join('');
+    setPanel('<table><thead><tr><th>ID</th><th>Crop</th><th>Qty</th><th>Price</th><th>Farmer</th><th>Buyer</th><th>Date</th><th>Action</th></tr></thead><tbody>'+body+'</tbody></table>');
+  }
+
+  async function offerAction(offerId, action){
+    var label=action==='accept'?'Accept':'Reject';
+    if(!confirm(label+' this offer?')) return;
+    try{
+      var r=await api('/api/offers/'+offerId+'/'+action,{method:'POST',body:JSON.stringify({})});
+      if(r&&(r.ok||r.id||r.status)){ await load('offers'); renderCurrent(); }
+      else alert((r&&r.error)||label+' failed.');
+    }catch(e){ alert(action+' failed.'); }
+  }
+
   function setPanel(html){ document.getElementById('panel').innerHTML=html; }
   function panelMsg(m){ setPanel('<div class="loading">'+m+'</div>'); }
 
