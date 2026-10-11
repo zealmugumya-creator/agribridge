@@ -410,7 +410,42 @@ def admin_verify():
 #   https://agribridge-1-og7a.onrender.com/api/ussd
 # ══════════════════════════════════════════════════════════════════════════════
 
-USSD_SESSIONS = {}  # In-memory store (use Redis for production)
+# ── USSD session helpers (DB-backed via ussd_sessions table) ─────────────────
+def _ussd_get(session_id: str) -> dict:
+    """Read session_data jsonb for this AT session_id, or {} if not found."""
+    try:
+        resp = supabase.table('ussd_sessions') \
+            .select('session_data') \
+            .eq('session_id', session_id) \
+            .eq('is_active', True) \
+            .single() \
+            .execute()
+        return resp.data.get('session_data') or {} if resp.data else {}
+    except Exception:
+        return {}
+
+def _ussd_set(session_id: str, phone: str, data: dict) -> None:
+    """Upsert session_data for this AT session_id."""
+    try:
+        supabase.table('ussd_sessions').upsert({
+            'session_id':   session_id,
+            'phone_number': phone,
+            'session_data': data,
+            'is_active':    True,
+            'updated_at':   'now()',
+        }, on_conflict='session_id').execute()
+    except Exception as e:
+        print(f"USSD session write error: {e}")
+
+def _ussd_del(session_id: str) -> None:
+    """Mark session inactive (soft-delete keeps audit trail)."""
+    try:
+        supabase.table('ussd_sessions') \
+            .update({'is_active': False, 'updated_at': 'now()'}) \
+            .eq('session_id', session_id) \
+            .execute()
+    except Exception as e:
+        print(f"USSD session delete error: {e}")
 
 CROP_PRICES = {
     '1': ('Maize',        750,   1000,  'kg'),
@@ -596,7 +631,7 @@ def ussd_route(parts, depth, last, session_id, phone):
             if last == '0':
                 return ussd_route(['4'], 1, '4', session_id, phone)
             crop = crop_map.get(last, 'Crop')
-            USSD_SESSIONS[session_id] = {'crop': crop, 'phone': phone}
+            _ussd_set(session_id, phone, {'crop': crop, 'phone': phone})
             return (
                 f"CON {crop} selected.\n"
                 f"Enter quantity in kg\n"
@@ -604,9 +639,9 @@ def ussd_route(parts, depth, last, session_id, phone):
             )
         # depth 4 — quantity entered
         if depth == 4 and parts[1] == '1':
-            session = USSD_SESSIONS.get(session_id, {})
+            session = _ussd_get(session_id)
             session['qty'] = last
-            USSD_SESSIONS[session_id] = session
+            _ussd_set(session_id, phone, session)
             return (
                 f"CON Quantity: {last}kg\n"
                 f"Enter your price per kg\n"
@@ -614,7 +649,7 @@ def ussd_route(parts, depth, last, session_id, phone):
             )
         # depth 5 — price entered, save listing
         if depth == 5 and parts[1] == '1':
-            session = USSD_SESSIONS.get(session_id, {})
+            session = _ussd_get(session_id)
             price = last
             crop  = session.get('crop', 'Crop')
             qty   = session.get('qty', '0')
@@ -639,7 +674,7 @@ def ussd_route(parts, depth, last, session_id, phone):
                     )
                 except Exception as e:
                     print(f"SMS error: {e}")
-            USSD_SESSIONS.pop(session_id, None)
+            _ussd_del(session_id)
             return (
                 f"END Listing posted!\n\n"
                 f"Crop:     {crop}\n"
@@ -793,7 +828,7 @@ def ussd_route(parts, depth, last, session_id, phone):
                 if last == '0':
                     return ussd_route(['6'], 1, '6', session_id, phone)
                 crop = crop_names.get(last, 'crop')
-                USSD_SESSIONS[session_id] = {'crop': crop}
+                _ussd_set(session_id, phone, {'crop': crop})
                 return (
                     f"CON {crop} - Main symptom:\n\n"
                     "1. Yellowing / pale leaves\n"
@@ -813,7 +848,7 @@ def ussd_route(parts, depth, last, session_id, phone):
                 if last == '0':
                     return ussd_route(['6'], 1, '6', session_id, phone)
                 animal = animal_names.get(last, 'animal')
-                USSD_SESSIONS[session_id] = {'animal': animal}
+                _ussd_set(session_id, phone, {'animal': animal})
                 return (
                     f"CON {animal} - Main symptom:\n\n"
                     "1. High fever / hot body\n"
@@ -827,7 +862,7 @@ def ussd_route(parts, depth, last, session_id, phone):
                 )
         if depth == 4:
             if parts[1] == '1':
-                session = USSD_SESSIONS.get(session_id, {})
+                session = _ussd_get(session_id)
                 crop = session.get('crop', 'crop')
                 diagnoses = {
                     '1': (
@@ -893,7 +928,7 @@ def ussd_route(parts, depth, last, session_id, phone):
                         "More: agribrige.com"
                     ),
                 }
-                USSD_SESSIONS.pop(session_id, None)
+                _ussd_del(session_id)
                 return diagnoses.get(last, (
                     "END For detailed diagnosis\n"
                     "visit: agribrige.com\n\n"
@@ -901,7 +936,7 @@ def ussd_route(parts, depth, last, session_id, phone):
                     "Mon-Sat 7am-8pm"
                 ))
             if parts[1] == '2':
-                session = USSD_SESSIONS.get(session_id, {})
+                session = _ussd_get(session_id)
                 animal = session.get('animal', 'animal')
                 diagnoses = {
                     '1': (
@@ -967,7 +1002,7 @@ def ussd_route(parts, depth, last, session_id, phone):
                         "Emergency: +256 755 966 690"
                     ),
                 }
-                USSD_SESSIONS.pop(session_id, None)
+                _ussd_del(session_id)
                 return diagnoses.get(last, (
                     "END For detailed diagnosis\n"
                     "visit: agribrige.com\n\n"
@@ -1218,6 +1253,20 @@ def admin_supplies():
     if err:
         return err
     return jsonify(supa_get('supplier_products', {'order': 'category.asc'}, limit=300) or [])
+
+@app.route('/api/admin/purchase-requests', methods=['GET'])
+def admin_purchase_requests():
+    payload, err = verify_token(required_role='admin')
+    if err:
+        return err
+    return jsonify(supa_get('purchase_requests', {'order': 'created_at.desc'}, limit=300) or [])
+
+@app.route('/api/admin/offers', methods=['GET'])
+def admin_offers():
+    payload, err = verify_token(required_role='admin')
+    if err:
+        return err
+    return jsonify(supa_get('order_offers', {'order': 'created_at.desc'}, limit=300) or [])
 
 # Generic admin editor for the console. Only whitelisted tables + columns can be
 # written, so the admin token cannot set protected fields (id, timestamps, ownership).
@@ -1554,6 +1603,21 @@ def unregister_admin_device():
 # records or reads a user's own evidence needs a verified Supabase session.
 # ══════════════════════════════════════════════════════════════════════════════
 def _auth_role():
+    """Return the user's role string for legal-service calls.
+
+    Reads from the server-controlled user_roles table first (tamper-proof).
+    Falls back to user_metadata.role for app-level roles (farmer/buyer/vendor)
+    that are stored there at registration and are not in user_roles.
+    """
+    uid = (getattr(g, 'auth_user', {}) or {}).get('id')
+    if uid:
+        try:
+            rows = SUPA.select('user_roles', {'user_id': f'eq.{uid}', 'select': 'role'}, limit=1)
+            if rows:
+                return rows[0].get('role')
+        except Exception:
+            pass
+    # fallback: user_metadata (set at registration, not server-controlled)
     meta = (getattr(g, 'auth_user', {}) or {}).get('user_metadata') or {}
     return meta.get('role')
 
@@ -1780,6 +1844,9 @@ def pay_providers():
 @app.route('/api/pay/initiate', methods=['POST'])
 @rate_limit(max_req=20, window=300)
 def pay_initiate():
+    uid, err = verify_supabase_user()
+    if err:
+        return err
     data = request.get_json(force=True, silent=True) or {}
     provider  = (data.get('provider')  or '').strip().lower()
     order_ref = (data.get('order_ref') or '').strip()[:60]
