@@ -1,220 +1,227 @@
-# AgriBridge 2.0 — Production Audit (Phase 1)
+# AgriBridge — Production Audit Report
 
-Date: 2026-10-09
-Scope: full repository inspection of `agribridge-main` as delivered in `agribridge-main.zip`.
-Method: every file read in full. Frontend (`static/index.html`, 6,361 lines) read end-to-end; backend (`app.py`, 1,419 lines), admin console (`static/admin.html`), mobile wrapper, deploy config, and docs read directly.
-
-> **Verification boundary.** The live Supabase database (schema, RLS policies, triggers, functions) and the Render deployment were **not** reachable from this environment — no credentials, no network access to those services. Statements about the database below are inferred from the README, the code that reads/writes it, and the admin console. They are marked **[UNVERIFIED — needs DB access]** where confirmation requires connecting to Supabase. Nothing in this document claims a test, migration, or deployment passed.
-
----
-
-## 0. Repository inventory
-
-### Files (26 total, no `node_modules`, no `.git`)
-```
-app.py                                 Flask backend, 1,419 lines
-static/index.html                      Entire web app, 6,361 lines (vanilla JS SPA)
-static/admin.html                      Admin console, 431 lines (vanilla JS)
-static/sw.js                           Service worker — DEAD ASSET (force-unregistered by index.html)
-static/manifest.json, robots.txt, sitemap.xml, icon-192/512.png, .python-version
-mobile/package.json                    Capacitor 6 shell — copies static/, no React build
-mobile/capacitor.config.json           appId com.agribridge.app, webDir www
-mobile/scripts/copy-web.mjs            cp static/ -> www/
-mobile/assets/icon.png, mobile/README.md, mobile/.gitignore
-requirements.txt                       12 pinned Python deps
-render.yaml                            Render web service config
-.github/workflows/db-backup.yml        Weekly encrypted pg_dump backup
-GO-LIVE.md, README.md
-legal/{investor-nda,media-consent,privacy-policy,terms-of-use,README}.md
-```
-
-### Backend routes (`app.py`)
-| Route | Method | Auth | Notes |
-|---|---|---|---|
-| `/`, `/health` | GET | none | Health — reports `supabase_connected` = "key is set", **not** a real DB ping (app.py:216) |
-| `/api/admin/login` | POST | rate-limited 5/300s | Shared-password login → JWT `role:admin` (app.py:227) |
-| `/api/admin/verify` | GET | admin JWT | (app.py:239) |
-| `/api/admin/stats` | GET | admin JWT | Loads up to 1000 rows × 4 tables per call (app.py:987) |
-| `/api/admin/{listings,orders,farmers,animals,deliveries,supplies}` | GET | admin JWT | (app.py:1007–1062) |
-| `/api/admin/order/<id>/status` | PATCH | admin JWT | (app.py:1028) |
-| `/api/admin/row` | POST/PATCH/DELETE | admin JWT | Generic editor, column-whitelisted (app.py:1087) |
-| `/api/ussd` | POST | none | Africa's Talking USSD (app.py:949) |
-| `/api/sms/delivery` | POST | none | Logs webhook, returns OK (app.py:978) |
-| `/api/prices` | GET | none | (app.py:1122) |
-| `/api/crop-doctor` | POST | rate-limited | Gemini proxy (app.py:1130) |
-| `/api/ai` | POST | rate-limited | Groq proxy (app.py:1167) |
-| `/api/notify-order` | POST | rate-limited | Best-effort farmer SMS (app.py:1212) |
-| `/api/sms-receipt` | POST | rate-limited | Best-effort buyer SMS (app.py:1258) |
-| `/api/pay/providers` | GET | none | (app.py:1286) |
-| `/api/pay/initiate` | POST | rate-limited | Flutterwave/Pesapal/MTN/COD/direct (app.py:1293) |
-| `/api/pay/webhook/flutterwave` | POST | verif-hash | Re-verifies with provider before marking paid (app.py:1346) |
-
-### Database tables referenced (README §3 + code)
-`farmers`, `listings`, `animal_listings`, `orders`, `deliveries`, `reviews`, `payouts`, `platform_config`, `market_prices`, `price_data`, `price_alerts`, `cart_sessions`, `contact_messages`, `disease_reports`, `supply_orders`, `supplier_products`, `training_videos`, `vet_bookings`, `fraud_flags`, `ussd_sessions`, `community_posts`.
-View: `farmer_ratings`. Triggers (per README): `handle_new_user` (auth.users), `sync_delivery_on_order` (orders).
-**[UNVERIFIED — needs DB access]** — actual columns, RLS policies, trigger bodies, and whether all these tables exist as documented.
-
-### Environment variables (from code + GO-LIVE.md)
-`JWT_SECRET`, `ADMIN_PASSWORD`, `AT_USERNAME`, `AT_API_KEY`, `AT_SHORTCODE`, `AT_SMS_SENDER`, `SUPABASE_URL`, `SUPABASE_KEY` (service-role), `GEMINI_API_KEY`, `GROQ_API_KEY`, `FLW_SECRET_KEY`, `FLW_WEBHOOK_HASH`, `PESAPAL_CONSUMER_KEY`, `PESAPAL_CONSUMER_SECRET`, `MTN_MOMO_SUBSCRIPTION_KEY`, `PUBLIC_BASE_URL`, `PORT`, `FLASK_ENV`. GitHub secrets: `SUPABASE_DB_URL`, `BACKUP_PASSPHRASE`.
-**There is no `.env.example` in the repo** (deliverable #11 outstanding).
-
-### Dependencies
-Python (requirements.txt): flask 3.1.0, flask-cors 5.0.0, **flask-sqlalchemy 3.1.1, sqlalchemy 2.0.36, bcrypt 4.2.1, python-dotenv 1.0.1, psycopg2-binary 2.9.10** (these five are **imported nowhere in app.py** — dead dependencies), PyJWT 2.10.1, requests 2.32.3, gunicorn 23.0.0, Werkzeug 3.1.3, africastalking 1.2.9.
-Mobile: @capacitor/{core,cli,android,ios} ^6.1.2, @capacitor/splash-screen, status-bar, assets.
+**Audited by:** Claude Code (baseline inspection)
+**Audit date:** 2026-10-10
+**Scope:** Full codebase at /home/claude/agribridge
+**Auditor note:** This audit is based entirely on reading the source code. No live environment access was available. Findings about whether database migrations are actually applied, whether env vars are set in Render, or whether services are reachable are inferred from the code and the GO-LIVE.md checklist — not from live system probing.
 
 ---
 
-## 1. Findings (severity-ranked)
+## Executive Summary
 
-Severity: **CRITICAL** (blocks production / data-integrity or auth risk) · **HIGH** · **MEDIUM** · **LOW**.
+AgriBridge is a Flask-based agricultural marketplace for Uganda. The codebase is well-structured and has clearly had multiple rounds of security hardening (the internal comments reference audit findings by code — C1, C2, H1, etc. — showing prior review work). The core architecture is sound: server-side order creation with atomic stock reservation via a Postgres RPC, JWT + Supabase session auth, CORS restricted to known origins, and a pluggable payment provider system.
 
-### CRITICAL
+However, several meaningful issues remain. The most significant are:
 
-**C1 — Order total is computed in the browser and written directly to the DB.**
-Evidence: `static/index.html` `placeOrder()` (~lines 2730–2807) and `submitOrder()` (~3542–3564) insert into `orders` with `total_price: item.price * item.qty`, computed client-side, via direct PostgREST insert. The Flask backend never creates orders and never recomputes totals.
-Impact: a buyer can insert an order for any price (e.g. `total_price: 1`) directly against Supabase. Financial integrity is client-controlled. Violates mandate Phase 9 ("No payment is declared successful solely because the frontend reports success") and Phase 5.
-Remediation: move order creation server-side (Flask or a Supabase RPC/Edge Function) that re-reads the listing price, recomputes totals, and inserts inside a transaction. Deny direct client INSERT on `orders` via RLS.
+1. **Migration 0002 (the RLS policy blocking direct order inserts) is deliberately held back** because the frontend still creates livestock and supplier orders via direct Supabase insert. Until that cutover is done, clients can bypass server-side price validation for those order categories.
+2. **The admin dashboard (`/admin.html`) uses a shared-password JWT**, not the stronger Supabase-identity admin flow that the codebase already has built. GO-LIVE.md warns that the default password is `agribridge2026`.
+3. **USSD session state is stored in-process memory (`USSD_SESSIONS` dict)** — this is lost on every Render restart and is not shared across the 2 gunicorn workers.
+4. **The rate limiter is in-process memory** — same problem; not shared across workers and resets on restart.
+5. **The CSP in index.html allows `unsafe-inline` scripts**, weakening XSS protection meaningfully for a financial app.
+6. **Several env vars referenced in app.py are not in render.yaml**, relying entirely on the operator having set them manually in the Render dashboard — no infrastructure-as-code safety net.
 
-**C2 — No stock reservation or decrement; overselling is possible.**
-Evidence: `placeOrder()`/`submitOrder()` never reduce `listings.quantity_kg`; no hold/reserve logic exists anywhere (index.html §5–6). No server-side atomic stock update.
-Impact: two buyers can order the same limited stock; negative/oversold inventory; farmers receive orders they cannot fulfil. Violates mandate Phase 4 ("Do not allow negative stock or overselling") and Phase 5 step 12.
-Remediation: atomic `UPDATE ... SET quantity = quantity - :n WHERE id = :id AND quantity >= :n` inside the order transaction (Postgres RPC), with a `stock_reservations`/event table for audit.
-
-**C3 — Administrator identity is a single shared password, with no per-user identity, MFA, or audit trail.**
-Evidence: `app.py:44` `ADMIN_PASSWORD = os.environ.get('ADMIN_PASSWORD','')`; `admin_login()` (app.py:227–237) compares one password and mints a JWT with `sub:'admin'`. `GO-LIVE.md:111` documents the default as `agribridge2026`. There is no link to any Supabase user, no `zealmugumya@gmail.com` binding, no login auditing, no MFA, no session revocation.
-Impact: anyone who obtains the shared password (documented in the repo) is a full admin; actions are unattributable. Violates mandate Rule 9 and Phase 3 entirely.
-Remediation: replace with Supabase-Auth-backed admin — assign a `role='admin'` (or `is_superadmin`) to the verified UUID for `zealmugumya@gmail.com` via a privileged migration, enforce server-side + RLS, require MFA, and write an admin audit log. See Phase 3 plan.
-
-**C4 — Payment "success" is assumed on the client before any provider verification.**
-Evidence: `placeOrder()` mirrors the order into `localStorage['ab_orders']` with `status:'confirmed'` regardless of payment outcome; for COD/bank/MoMo-direct, confirmation is purely optimistic (index.html §5, §8). The Flutterwave webhook (app.py:1346) is correctly verified server-side, but the client order-completion path does not depend on it.
-Impact: orders can present as confirmed/paid without money moving. Violates Phase 9.
-Remediation: order status transitions must be server-authoritative, driven by the verified webhook; the client should poll/subscribe for the authoritative status, never set `paid`/`confirmed` itself.
-
-**C5 — Frontend writes directly to ~17 tables; RLS is the only authorization layer and is unverified.**
-Evidence: `sb()`/`sbInsert()`/`sbUpdate()` in index.html (~1939–2006) hit `/rest/v1/<table>` from the browser; the publishable key is used as the bearer when no user token is present. README §4 asserts owner-scoped RLS on all tables.
-Impact: if any policy is missing or permissive, an anonymous browser can insert/update/delete marketplace, order, payout, or profile data. The exposed key is a **publishable** key (`sb_publishable_...`), so this is **not** a service-role leak — but it makes RLS correctness load-bearing and it is currently unverified.
-Remediation: audit every policy against the real DB (Phase 3), close public INSERT on `orders`/`payouts`/`farmers`, and re-test cross-user isolation. **[UNVERIFIED — needs DB access]**
-
-### HIGH
-
-**H1 — Per-boot random JWT secret breaks admin sessions and is incompatible with 2 gunicorn workers.**
-Evidence: `app.py:37–42` — if `JWT_SECRET` is unset it generates `secrets.token_hex(32)` per process. `render.yaml:7` starts gunicorn with `--workers 2`.
-Impact: with 2 workers, each has a *different* secret; a token minted by worker A is rejected by worker B → intermittent 401s. Any restart invalidates all admin sessions. (Fails closed, so not a security hole, but a reliability defect.)
-Remediation: require `JWT_SECRET` and refuse to boot (or serve 503 on admin routes) if unset; never derive per-worker secrets.
-
-**H2 — In-memory state is not multi-worker safe.**
-Evidence: `USSD_SESSIONS = {}` (app.py:253) and the rate-limit buckets `_rl_buckets` (app.py:74) are process-local; `--workers 2`.
-Impact: multi-step USSD flows (list produce, AI doctor) break when consecutive requests land on different workers; rate limits are effectively doubled and per-worker. Violates Phase 10 (durable state) and Phase 5 (no in-memory tasks).
-Remediation: move USSD session + rate-limit state to Redis or Postgres; or pin to 1 worker as a stopgap (documented).
-
-**H3 — No durable job queue / worker for order routing, notifications, or matching.**
-Evidence: none exists. `notify-order` is a synchronous best-effort SMS (app.py:1212). No farmer-matching, no offer/timeout/retry, no notification outbox.
-Impact: mandate Phases 5, 6, 7 are entirely unimplemented. Orders are not routed to farmers; the admin is not alerted; there is no retry/idempotency for async work.
-Remediation: introduce a durable queue (e.g. Supabase `pgmq`/`outbox` table + worker, or a Render background worker) with idempotency keys, bounded retries, and a dead-letter path.
-
-**H4 — No push notifications of any kind; service worker is force-unregistered.**
-Evidence: index.html (~4111–4129) unregisters all service workers and clears caches; `sw.js` is dead. No Web Push, no FCM, no `@capacitor/push-notifications`.
-Impact: mandate Phase 6 (admin phone alerts) is unimplemented. Critical events have no real-time delivery path.
-Remediation: add Capacitor Push + FCM with a server-side token registry and notification outbox.
-
-**H5 — No Discord, Sentry, structured logging, correlation IDs, or metrics.**
-Evidence: backend logs via `print(...)` only (e.g. app.py:127, 1342); no request IDs, no error-monitoring integration, no health check that touches the DB.
-Impact: mandate Phases 7 and 8 unimplemented; outages are invisible.
-Remediation: structured JSON logging + correlation IDs, Sentry with secret scrubbing, a real `/health` that pings Postgres, and a Discord outbox with dedup/backoff/dead-letter.
-
-**H6 — No account-deletion or data-export flow (Google Play + privacy-policy gap).**
-Evidence: index.html has static Terms/Privacy (~5787–5827) promising "Account data deleted within 30 days of account closure request," but there is **no in-app deletion button or request path**; only `privacy@agribridge.ug`. `logOut()` just signs out.
-Impact: violates mandate Phase 10 (privacy/account deletion) and is a **Google Play account-deletion requirement** for apps that allow account creation — blocks Play submission.
-Remediation: implement self-service account deletion (anonymize/delete `farmers` row + owned data via a server RPC) and a data-export path.
-
-**H7 — No automated tests and no CI (beyond the backup workflow).**
-Evidence: repo has `.github/workflows/db-backup.yml` only; no test files, no lint/type/build workflow.
-Impact: mandate Phase 11 unimplemented; regressions are undetectable; "production-ready" cannot be substantiated.
-Remediation: add pytest (backend), Vitest/RTL (React once built), RLS isolation tests, and a CI workflow (lint + typecheck + unit + build).
-
-### MEDIUM
-
-**M1 — Mobile app is a static copy of the web SPA, not a React build; Capacitor 6 will not meet the Play API-36 target.**
-Evidence: `mobile/scripts/copy-web.mjs` copies `static/` → `www/`; `mobile/package.json` uses Capacitor ^6.1.2. Capacitor 6 targets Android SDK 34; the mandate requires **API 36** for new releases from 2026-08-31.
-Impact: mandate Phase 2 unimplemented; the app cannot be submitted at the required target SDK without upgrading Capacitor (7+) and verifying the Gradle/AGP toolchain.
-Remediation: build a real React+TS app, integrate Capacitor 7 (verify API 36 / compileSdk), keep appId `com.agribridge.app`, produce an `.aab` workflow. **[Version compatibility must be checked against Capacitor release notes, not assumed.]**
-
-**M2 — Client-side-only "password" gate on the pitch deck.**
-Evidence: `const PITCH_HASH='bbfdac999f...e36c'` (index.html ~3921), SHA-256 checked in-browser, flag in `sessionStorage['ab_pitch_auth']`.
-Impact: trivially bypassable; protects no server resource. Illustrates the pattern of client-side controls the mandate forbids (Rule 9).
-Remediation: remove or move behind real server-side authz.
-
-**M3 — XSS surface: `innerHTML` string concatenation with inconsistent escaping.**
-Evidence: views built via `innerHTML` throughout; `escHtml()`/`escapeHtml()` exist but are applied unevenly; user-generated fields (reviews, community posts, listing titles, notes) are stored by other users directly to the DB.
-Impact: stored XSS on a shared origin where PII lives in `localStorage` → session/data theft.
-Remediation: React (auto-escaping) removes most of this; until then, escape every interpolation and add a strict CSP.
-
-**M4 — Mock/sample data rendered as if real in production paths.**
-Evidence: `SAMPLE_ANIMALS`, `sampleListings`, `samplePrices`, `sampleTraining`, `B2B_PRODUCTS`, cold-chain facilities/trucks, fake notification items, hardcoded home price ticker (index.html ~1030–1044, 2287, 4072–4075, 4188–4199, 4504, 5941–5943).
-Impact: violates mandate "No mock data in production paths" and "no fake success messages."
-Remediation: remove or clearly gate behind an offline/empty state.
-
-**M5 — Many "success" toasts with no persistence (fake success).**
-Evidence: `submitFinanceRequest`, `submitDispute`, `buyInsurance`, `createSACCO`, `bookStorage`, `bookTransport`, `applyPhyto`, `checkOrigin`, `startTrace`, `getWeatherSMS`, `submitB2BOrder`, `generateInvoice`, `setupStandingOrder`, `submitB2BApplication`, `submitRefund`, `submitRating`, `requestPartnership` — all showToast-only or fully client-side (index.html §10.11).
-Impact: users believe actions succeeded when nothing was recorded. Violates mandate Rules.
-Remediation: implement or remove; never show success without a persisted result.
-
-**M6 — CORS allows `localhost` in production; health check does not verify the DB.**
-Evidence: `app.py:29–33` allows `http://localhost:3000` / `127.0.0.1:3000`; `/health` returns `supabase_connected: bool(SUPABASE_KEY)` (app.py:216) — a key-presence check, not connectivity.
-Impact: mandate Phase 10 explicitly warns against treating a green health endpoint as proof. Localhost origin widens the CSRF/CORS surface.
-Remediation: drop localhost origins in prod; make `/health` execute a real trivial query and report dependency status.
-
-**M7 — Hardcoded financial/PII details in the frontend.**
-Evidence: `DFCU Bank, A/C 01234567`, MoMo `0755966690`, phone `+256 755 966 690`, DPO name "Zeal Mugumya" (index.html ~5736, 5822).
-Impact: brittle, and a bank account number in a public bundle. Some (support phone) is intentional; the bank A/C should move to config/CMS.
-Remediation: externalize to `platform_config`/env-driven content.
-
-### LOW
-
-- **L1 — Dead dependencies** (flask-sqlalchemy, sqlalchemy, bcrypt, python-dotenv, psycopg2-binary) in requirements.txt; unused in app.py. Trim or actually use Postgres directly for atomic operations (recommended for C1/C2).
-- **L2 — Dead asset** `static/sw.js` never registered.
-- **L3 — Password-policy mismatch**: register UI says "min 8", code enforces `length < 6` (index.html ~5240).
-- **L4 — Hardcoded USSD test phone** `+256700000000` in the simulator call (index.html ~3371).
-- **L5 — `admin_stats` scans up to 1000 rows/table per request** (app.py:987) — no pagination/indexes; will not scale (Phase 10).
-- **L6 — No security headers beyond basics**: `X-XSS-Protection` (deprecated), no `Content-Security-Policy`, no `Strict-Transport-Security` on API responses (app.py:98–104).
-- **L7 — Client-side CSRF token / login lockout** in sessionStorage/localStorage are bypassable theater (index.html §10.9).
-- **L8 — No `.env.example`, no `docs/` directory** prior to this audit.
+Overall the backend is more hardened than most side-project-stage apps. The frontend is a single large HTML file with inline JS (~6,685 lines) which makes it hard to audit and harder to maintain.
 
 ---
 
-## 2. What already works and must be preserved
+## Severity-Rated Findings
 
-These are genuinely reasonable and should not be broken by the rewrite (mandate Rule 1):
-
-- **Flutterwave webhook verification** (app.py:1346–1371): checks `verif-hash` with `hmac.compare_digest` **and** re-verifies the transaction with the provider before marking paid; idempotent by `payment_ref`. This is the correct pattern — the gap is that the *client* order path doesn't depend on it (C4).
-- **Admin JWT with constant-time password compare** (app.py:234) and fail-closed behavior when `ADMIN_PASSWORD`/`JWT_SECRET` are unset (app.py:37–44). Good instinct; the problem is the shared-secret *model* (C3), not the crypto.
-- **Column-whitelisted generic admin editor** (`_ADMIN_COLS`, app.py:1066–1085) prevents the admin token from writing protected columns (id, timestamps, ownership). Keep this pattern.
-- **Payment providers are OFF until keys are set** (app.py:1276–1283) — safe pluggable design.
-- **SMS/AI are best-effort no-ops when unconfigured** — never block the order flow (app.py:1212–1269, 1174–1177).
-- **Weekly encrypted DB backup workflow** (`.github/workflows/db-backup.yml`) with documented restore — a real recovery primitive.
-- **USSD menu system** (app.py:277–946) is complete and coherent ( modulo H2 worker-state bug).
-- **Publishable key exposure is by-design**, not a leak (README §4). Do not "fix" this by hiding the key; fix it by verifying RLS (C5).
+| ID | Severity | Area | Finding | Evidence | Remediation |
+|----|----------|------|---------|----------|-------------|
+| F01 | HIGH | Auth | Admin dashboard uses shared-password JWT (`ADMIN_PASSWORD`), not Supabase-identity auth. GO-LIVE.md confirms default is `agribridge2026`. | `app.py:389-397`, `GO-LIVE.md §7` | Set a strong `ADMIN_PASSWORD` immediately. Fully migrate admin login to `require_admin_user()` (already built) and retire the password-based path. |
+| F02 | HIGH | DB/RLS | Migration 0002 is deliberately NOT applied because the frontend still does direct Supabase inserts for livestock and supplier orders. These categories bypass server-side price computation. | `0002_admin_identity_rls.up.sql` (header warning) | Extend `create_order_atomic` (or create a parallel RPC) to cover all order categories, then cut over the frontend, then apply migration 0002. |
+| F03 | HIGH | Infra | `USSD_SESSIONS` dict is in-process. State is lost on Render restart and is NOT shared across 2 gunicorn workers, causing broken USSD flows mid-session. | `app.py:413` comment: "In-memory store (use Redis for production)" | Replace with Supabase `ussd_sessions` table or Redis. The table already exists in the schema — it just is not used for in-flight state. |
+| F04 | MEDIUM | Security | CSP in `index.html` includes `'unsafe-inline'` in `script-src`. This permits inline script execution, which substantially weakens XSS protection for a financial application. | `index.html:5` | Move all inline JS to external files served from the same origin, then remove `unsafe-inline`. This is a significant refactor given the single-file architecture. |
+| F05 | MEDIUM | Infra | Rate limiter (`_rl_buckets`) is in-process memory. Not shared across gunicorn workers; resets on restart. A determined attacker can bypass it by hitting different workers. | `app.py:113` | Replace with Redis-backed rate limiting (e.g. `flask-limiter` with Redis storage), or use Cloudflare rate limiting at the edge. |
+| F06 | MEDIUM | Auth | `verify_token()` (used by admin panel routes) is a self-signed HS256 JWT. It is separate from `verify_supabase_user()` (used by user routes). This dual-auth system creates surface area: admin panel routes do not go through GoTrue identity verification. | `app.py:256-268` vs `app.py:275-305` | Migrate admin panel to `require_admin_user()` which uses GoTrue. The function already exists. |
+| F07 | MEDIUM | Infra | `render.yaml` only defines `FLASK_ENV` and `SECRET_KEY`. All other required env vars (`JWT_SECRET`, `SUPABASE_KEY`, `ADMIN_PASSWORD`, `AT_*`, `FLW_*`, etc.) have no IaC representation. If the service is redeployed from scratch, these must be re-entered manually. | `render.yaml` (full file) | Add all required env vars to `render.yaml` as `sync: false` entries (value omitted; Render will prompt). This documents what is needed without storing secrets. |
+| F08 | MEDIUM | Data | `ENFORCE_LEGAL_ACCEPTANCE` is `false` by default. The legal consent framework (migration 0007, `LegalService`) is built and wired but not enforced. Users can place orders without accepting terms. | `app.py:86`, `legal_gate()` | After migration 0007 is confirmed applied and the web app rollout is complete, set `ENFORCE_LEGAL_ACCEPTANCE=true` in Render per the GO-LIVE checklist. |
+| F09 | MEDIUM | Typo/URL | The production domain used throughout the codebase is `agribrige.com` (one 'd' missing — "agribrige" not "agribridge"). This appears in USSD menus, SMS messages, CSP headers, `business-config.js`, and `services/config.py`. If the real domain is `agribridge.com`, every URL in user-facing content is wrong. | `app.py:479`, `business-config.js:9`, `config.py:51` | Confirm the intended domain. If `agribridge.com` is correct, do a global search-and-replace. If `agribrige.com` is intentional (possibly the registered domain), disregard. |
+| F10 | MEDIUM | Backend | `supa_get`, `supa_insert`, `supa_update`, `supa_delete` in `app.py` are legacy raw HTTP helpers using `print()` for error logging and the service-role key. They bypass the `SupabaseClient` wrapper used elsewhere and will not feed structured logs or Sentry. | `app.py:176-244` | Migrate USSD and legacy routes to use `SUPA.*` (the structured client), or at minimum replace `print()` with `log.*` calls. |
+| F11 | LOW | Security | `X-Correlation-ID` header from the client is trusted and set as `g.correlation_id` without sanitization. A client can inject arbitrary strings into structured log output. | `app.py:141-142` | Strip or validate the header value to alphanumeric + hyphens before logging it. |
+| F12 | LOW | Auth | The `_auth_role()` function reads `role` from `user_metadata`, which in Supabase Auth is client-writable. A user could set their own role metadata to gain a different role assignment in the legal gate logic. | `app.py:1556-1558` | Use the server-controlled `user_roles` table (already built in migration 0002) rather than `user_metadata` for role determination. |
+| F13 | LOW | Mobile | The Capacitor mobile app wraps `static/index.html` with no native bridge modules beyond SplashScreen and StatusBar. Push notifications, camera, biometrics, and deep links are not wired. No `targetSdkVersion` is set in `capacitor.config.json` — the default may not meet Play Store requirements (currently 34+). | `mobile/capacitor.config.json`, `mobile/package.json` | Set `android.targetSdkVersion: 34` in `capacitor.config.json`. |
+| F14 | LOW | Testing | No end-to-end tests against the USSD flow. `tests/e2e/test_consent_ui.py` exists but there are no USSD handler tests. The USSD routing logic in `ussd_route()` (>650 lines) is entirely untested at the unit level. | `tests/` directory listing | Add unit tests for `ussd_route()` covering main paths and edge cases. |
+| F15 | LOW | Data | `orders` table has both `total_amount` (a generated column = `quantity_kg * price_per_kg`) and `total_price` (a plain numeric column set by the RPC). These serve the same purpose and can drift. | `base-schema.sql:71,82` | Confirm which column is authoritative. If `total_price` (set by the RPC) is canonical, drop or document `total_amount`. |
+| F16 | LOW | Data | `animal_listings` table has no `is_available`, `reserved_qty`, or stock lifecycle columns that `listings` has. Livestock orders via direct insert cannot benefit from the atomic stock reservation logic. | `base-schema.sql:192-200` | Add `is_available`, `reserved_qty`, and `stock_status` to `animal_listings` and extend `create_order_atomic` to cover it. |
+| F17 | LOW | Infra | `match_eligible_farmers` SQL function references `public.farmer_ratings` table, which does not appear in `base-schema.sql` or any migration. If this table does not exist, the matching function will error at runtime. | `0004_farmer_matching.up.sql:107` | Create the `farmer_ratings` table in a migration, or add a `LEFT JOIN ... ON false` fallback. |
+| F18 | LOW | Auth | `pay_initiate` endpoint (`POST /api/pay/initiate`) does not require authentication. An unauthenticated caller can initiate a Flutterwave payment session for any `order_ref` and `amount` they supply. | `app.py:1780-1802` | Add `verify_supabase_user()` guard. The caller should own the order being paid. |
 
 ---
 
-## 3. Baseline build/test result
+## All API Routes Inventory
 
-- **Backend:** not executed in this environment. No test suite exists. `requirements.txt` pins look internally consistent (Flask 3.1 / Werkzeug 3.1.3 / PyJWT 2.10). Five deps are unused (L1). **Baseline: no tests to run — this is itself finding H7.**
-- **Frontend:** static HTML/JS, no build step; nothing to compile. Cannot be type-checked or unit-tested as-is.
-- **Mobile:** Capacitor 6 static-copy; `npm install` not run here; no Android SDK/Gradle present, so no `.aab` can be produced or verified in this environment.
+| Method | Path | Auth Required | Rate Limited | Notes |
+|--------|------|---------------|--------------|-------|
+| GET | `/` | No | No | Health check (alias for /health) |
+| GET | `/health` | No | No | DB connectivity check; returns 503 if DB unreachable |
+| GET | `/health/live` | No | No | Process liveness only |
+| POST | `/api/admin/login` | No (password) | Yes (5/5min) | Shared-password JWT issue (F01/F06) |
+| GET | `/api/admin/verify` | JWT (admin role) | No | Verifies admin JWT |
+| GET | `/api/admin/stats` | JWT (admin role) | No | Farmer/listing/order counts |
+| GET | `/api/admin/listings` | JWT (admin role) | No | Up to 200 listings |
+| GET | `/api/admin/orders` | JWT (admin role) | No | Up to 200 orders |
+| GET | `/api/admin/farmers` | JWT (admin role) | No | Up to 500 farmers |
+| PATCH | `/api/admin/order/<id>/status` | JWT (admin role) | No | Direct DB update, bypasses state machine |
+| GET | `/api/admin/animals` | JWT (admin role) | No | Up to 300 animal listings |
+| GET | `/api/admin/deliveries` | JWT (admin role) | No | Up to 300 deliveries |
+| GET | `/api/admin/supplies` | JWT (admin role) | No | Supplier products |
+| POST/PATCH/DELETE | `/api/admin/row` | JWT (admin role) | No | Generic table editor; column allowlist enforced |
+| POST | `/api/admin/devices` | Supabase + admin UUID | Yes (30/min) | FCM device registration |
+| DELETE | `/api/admin/devices` | Supabase + admin UUID | Yes (30/min) | FCM device unregistration |
+| POST | `/api/worker/match` | Supabase + admin UUID | No | Manual matching trigger |
+| POST | `/api/ussd` | No (AT platform) | No | Africa's Talking USSD callback |
+| POST | `/api/sms/delivery` | No | No | AT SMS delivery webhook |
+| GET | `/api/prices` | No | No | Public price data |
+| POST | `/api/crop-doctor` | No | Yes (15/5min) | Gemini AI diagnosis |
+| POST | `/api/ai` | No | Yes (20/5min) | Groq AI assistant |
+| POST | `/api/orders` | Supabase session | Yes (20/min) | Server-authoritative order creation |
+| POST | `/api/orders/<id>/status` | Supabase session | Yes (30/min) | Order state machine transition |
+| POST | `/api/requests` | Supabase session | Yes (20/min) | Purchase request creation |
+| POST | `/api/offers/<id>/accept` | Supabase session | Yes (30/min) | Accept a farmer offer |
+| POST | `/api/offers/<id>/reject` | Supabase session | Yes (30/min) | Reject a farmer offer |
+| POST | `/api/notify-order` | No | Yes (30/5min) | SMS notification to farmer |
+| POST | `/api/sms-receipt` | No | Yes (30/5min) | SMS receipt to buyer |
+| GET | `/api/pay/providers` | No | No | Lists enabled payment providers |
+| POST | `/api/pay/initiate` | **None** (F18) | Yes (20/5min) | Initiate payment session |
+| POST | `/api/pay/webhook/flutterwave` | verif-hash header | No | Flutterwave payment webhook |
+| GET | `/api/legal/manifest` | No | Yes (60/min) | Legal document manifest |
+| GET | `/api/legal/status` | Supabase session | Yes (60/min) | User's acceptance status |
+| POST | `/api/legal/accept` | Supabase session | Yes (20/min) | Record terms acceptance |
+| POST | `/api/legal/sync-signup` | Supabase session | Yes (10/min) | Sync signup acceptance |
+| GET | `/api/legal/history` | Supabase session | Yes (30/min) | Acceptance history |
+| GET/POST | `/api/marketing/consent` | Supabase session | Yes (30/min) | Marketing consent read/write |
+| GET/POST | `/api/privacy/requests` | Supabase session (GET), optional (POST) | Yes (5/5min) | Privacy requests |
+| POST | `/api/account/delete` | Supabase session | Yes (5/5min) | Account deletion/anonymization |
+| GET | `/legal/<name>` | No | No | Serves static legal HTML pages |
 
 ---
 
-## 4. Remediation priority (maps to mandate phases)
+## Database Tables Inventory
 
-1. **Server-authoritative orders + atomic stock** (C1, C2, C4) → Phase 5, 9.
-2. **Real admin identity for `zealmugumya@gmail.com` + RLS verification + MFA + audit** (C3, C5) → Phase 3.
-3. **Durable queue/worker + notification outbox** (H3) → Phase 5.
-4. **Admin push notifications (FCM)** (H4) → Phase 6.
-5. **Discord ops feed + Sentry + structured logging + real health check** (H5, M6) → Phase 7, 8.
-6. **Account deletion / data export** (H6) → Phase 10, Play requirement.
-7. **React + TS app, Capacitor 7 / API 36, `.aab`** (M1) → Phase 2.
-8. **Tests + CI** (H7) → Phase 11.
-9. Frontend hygiene: XSS, mock data, fake success (M3–M5) → largely resolved by the React rewrite.
+### Base Schema Tables
 
-See `docs/IMPLEMENTATION_STATUS.md` for sequencing, what is locally verifiable, and what is blocked on external credentials.
+| Table | Purpose | RLS | Notable Issues |
+|-------|---------|-----|----------------|
+| `farmers` | Farmer profiles | Enabled | OTP columns column-level revoked from anon/authed |
+| `buyers` | Buyer profiles | Enabled | `buyer_id` in orders references this, but auth.uid() is a Supabase Auth UUID — FK linkage is unclear |
+| `listings` | Crop listings | Enabled | Extended by migration 0001 with `reserved_qty`, `stock_status` |
+| `orders` | Purchase orders | Enabled | Dual total columns (F15); direct insert policy from migration 0002 not yet applied |
+| `deliveries` | Delivery records | Enabled | Publicly readable (all deliveries visible to all) |
+| `reviews` | Buyer reviews | Enabled | Verified-purchase guard on insert |
+| `payouts` | Farmer payouts | Enabled | No public write; service_role only |
+| `platform_config` | Commission config | Enabled | Single-row table; public read |
+| `market_prices` | Live price data | Enabled | Public read |
+| `training_videos` | Training content | Enabled | Public read |
+| `contact_messages` | Contact form submissions | Enabled | Public insert |
+| `supply_orders` | Input supply orders | Enabled | Public insert; no auth guard |
+| `disease_reports` | Disease reports | Enabled | Public insert; no auth guard |
+| `price_alerts` | SMS price alerts | Enabled | Public insert; no auth guard |
+| `ussd_sessions` | USSD session log | Enabled | No SELECT policy (correct — was deliberately excluded) |
+| `animal_listings` | Livestock listings | Enabled | Missing stock lifecycle fields (F16) |
+| `cart_sessions` | Browser cart state | Enabled | No RLS policy defined — likely all rows blocked or service-role only |
+| `fraud_flags` | Fraud events | Enabled | `fraud_admin_only` policy blocks all public access |
+| `supplier_products` | Agri-input products | Enabled | Owner insert/update/delete |
+| `vet_bookings` | Vet booking requests | Enabled | Public insert |
+| `community_posts` | Community forum | Enabled | Public insert, public read |
+
+### Migration-Added Tables
+
+| Table | Migration | Purpose |
+|-------|-----------|---------|
+| `order_events` | 0001 | Idempotency + order audit log |
+| `stock_changes` | 0001 | Stock mutation audit trail |
+| `user_roles` | 0002 | Server-controlled admin roles |
+| `admin_audit_log` | 0002 | Admin action audit log |
+| `notification_outbox` | 0003 | Durable async notification queue |
+| `purchase_requests` | 0004 | Buyer purchase requests (pre-match) |
+| `order_offers` | 0004 | Farmer offer lifecycle |
+| `matching_config` | 0004 | Configurable matching weights |
+| `legal_document_versions` | 0007 | Published legal document versions (immutable) |
+| `legal_publication_log` | 0007 | Who published what |
+| `legal_acceptances` | 0007 | User acceptance evidence (append-only) |
+| `marketing_consent_events` | 0007 | Consent history (append-only) |
+| `marketing_consent_current` | 0007 | View: latest consent per user/channel |
+| `privacy_requests` | 0007 | GDPR/PDPA-style data requests |
+
+### Missing or Assumed Tables
+
+| Table | Where Referenced | Status |
+|-------|-----------------|--------|
+| `farmer_ratings` | `match_eligible_farmers` SQL function | **Not in any schema file** (F17) |
+| `price_data` | `GET /api/prices` in app.py | Not in base-schema.sql (may be `market_prices` under a different alias or missing) |
+
+---
+
+## Security Findings Summary
+
+| Category | Finding |
+|----------|---------|
+| Authentication | Dual auth systems (shared-password JWT for admin, GoTrue session for users) creates split surface. Admin panel should migrate fully to Supabase identity. |
+| Authorization | Migration 0002 (blocking direct order inserts) held back — livestock/supplier orders still bypass server-side price verification. |
+| CSP | `unsafe-inline` in `script-src` weakens XSS protection. Single-file frontend architecture makes this hard to fix. |
+| Rate limiting | In-process memory; not shared across workers; resets on restart. |
+| Input handling | Correlation ID from request header is logged without sanitization. |
+| Role trust | `_auth_role()` reads from client-writable `user_metadata` rather than server-controlled `user_roles`. |
+| Payment | `pay_initiate` endpoint unauthenticated — any caller can initiate a payment session. |
+| USSD | No validation of Africa's Talking request origin (no signature/secret check on USSD or SMS delivery webhooks). |
+| Secrets in code | No secrets hardcoded. Default Supabase URL (`lvloaweijidgcuezdnmu.supabase.co`) is in `config.py` and `index.html` — this is the project ID, semi-public but worth noting. |
+| Security headers | Backend sends `X-Content-Type-Options`, `X-Frame-Options`, `X-XSS-Protection`, `Referrer-Policy`. Missing `Strict-Transport-Security` (HSTS) and `Content-Security-Policy` on API responses. |
+
+---
+
+## What Is Working (Evidence-Based)
+
+- **Flask app boots** with fail-closed config validation: missing `JWT_SECRET` or `SUPABASE_KEY` in production raises `ConfigError` and refuses to start.
+- **Health endpoint** does a real DB ping (not just a key presence check).
+- **Server-side order creation** via `create_order_atomic` Postgres RPC: price recomputed from DB, stock reserved atomically, idempotency key supported.
+- **Order state machine** enforced server-side via `set_order_status` RPC with legal transition checks.
+- **Supabase GoTrue identity verification** used for all user-facing protected routes — buyer_id comes from the verified session, not the request body.
+- **Flutterwave webhook** validates `verif-hash` with constant-time compare and re-verifies with Flutterwave before marking paid.
+- **Admin login rate limited** to 5 attempts per 5 minutes.
+- **RLS is enabled** on all tables in the schema.
+- **Legal consent framework** (migration 0007) is fully built with append-only triggers and hash verification.
+- **Account deletion** is implemented with reversible anonymization by default; hard delete opt-in.
+- **CORS** restricted to known origins; no wildcard.
+- **Structured logging** with correlation IDs on every request.
+- **Sentry integration** for unhandled exceptions (when `SENTRY_DSN` is set).
+- **FCM push** for admin notifications (when credentials are set).
+- **Test suite** covers health, order creation authz, state machine, admin identity, webhook auth, and push device registration.
+
+## What Is Confirmed Incomplete
+
+- Migration 0002 (direct-insert block on orders) is deliberately not applied.
+- `ENFORCE_LEGAL_ACCEPTANCE` is `false` — legal gate is built but inactive.
+- Africa's Talking is in sandbox mode (SMS and USSD are no-ops until live keys are set).
+- Flutterwave payment is off (no keys set in template).
+- Pesapal and MTN MoMo are structurally wired but return "not configured yet".
+- Email receipts (Resend / `send-receipt` Edge Function) require a key to activate.
+- The `farmer_ratings` table referenced in the matching function does not exist in any schema file.
+- The mobile app is a Capacitor wrapper of the web HTML — no native push, biometrics, or deep links.
+- `targetSdkVersion` not set in `capacitor.config.json` (Play Store requires 34+).
+- Payout to farmers on delivery is not implemented.
+- Admin super-admin UUID assignment (the SQL block in migration 0002) is marked as a manual step that must be done after the migration is applied.
+
+---
+
+## Missing Features vs Spec
+
+| Feature | Status |
+|---------|--------|
+| Crop marketplace (buy/list) | Built (frontend + backend) |
+| Animal/livestock marketplace | Built (frontend); direct-insert only (no server-side price guard) |
+| USSD *789# | Built; in-memory session state (production risk) |
+| SMS notifications | Wired; sandbox mode |
+| AI Crop Doctor (Gemini) | Built; requires `GEMINI_API_KEY` |
+| AI Assistant (Groq) | Built; requires `GROQ_API_KEY` |
+| Farmer-buyer matching / offer routing | DB + service layer built; worker not running continuously |
+| Mobile app (Android/iOS) | Capacitor shell built; no native features |
+| Payments (Flutterwave) | Built; requires keys |
+| Payments (MTN MoMo, Pesapal) | Stubs only |
+| Order tracking | Frontend built; backend state machine built |
+| Legal consent / GDPR requests | Built; not enforced |
+| Admin dashboard | Built; shared-password auth (security concern) |
+| Email receipts | Wired to Edge Function; requires Resend key |
+| Farmer payouts | Not implemented |
+| Database backups | Described in GO-LIVE.md; not automated in code |
+| Cold chain / finance / SACCO | Frontend UI screens exist; no backend routes found |

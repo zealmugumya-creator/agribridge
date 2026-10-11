@@ -1,131 +1,150 @@
-# AgriBridge 2.0 — Implementation Status
+# AgriBridge — Implementation Status
 
-Last updated: 2026-10-10 (backend integrity track + legal/consent/contact track implemented; React and Android still not started)
-
-This file is the source of truth for progress across the 12-phase mandate. It records what is **done and verified locally**, what is **implemented but needs live credentials to verify**, and what is **blocked on external access/decisions only the owner (Zeal) can provide**.
-
-> **Verification boundary (Rule 3 / Rule 11):** The live Supabase database, Render, Firebase, Discord, Sentry, and Flutterwave were **not reachable** from this environment. All Python is covered by an offline test suite (85 tests, all passing) and ruff lint is clean. SQL migrations are written additive/reversible/schema-defensive and are **documented as requiring review against the real schema before applying** — no migration or deployment is claimed to have been run.
+**Phase 1 COMPLETE — Baseline Audit**
+**Completed:** 2026-10-10
+**Auditor:** Claude Code (baseline inspection, no live environment access)
 
 ---
 
-## Legend
-- ✅ **Verified** — completed and confirmed here (code compiles, tests pass, lint clean).
-- 🟡 **Implemented, unverified** — code/config written; live confirmation needs external access (Supabase, Render, Firebase, Discord, Sentry, Flutterwave, Play Console).
-- ⛔ **Blocked** — cannot proceed without credentials/decisions only the owner can provide.
-- ⬜ **Not started**.
+## What Was Inspected
+
+| File / Area | Coverage |
+|-------------|----------|
+| `app.py` (1,907 lines) | Full read — all routes, auth helpers, service wiring, payment integrations |
+| `static/index.html` (~6,685 lines) | Partial read (CSS + structure; JS reviewed for auth calls and hardcoded values) |
+| `static/business-config.js` | Full read |
+| `supabase/base-schema.sql` | Full read — all 21 tables, all RLS policies |
+| `supabase/migrations/0001–0007` | Full read for 0001, 0002, 0004, 0007; skimmed 0003, 0005, 0006 |
+| `services/config.py` | Full read |
+| `services/orders.py` | Full read |
+| `services/` (other files) | File list reviewed; individual files not read (discord, legal, matching, notifications, push, supabase_client, account, worker, business, monitoring, logging) |
+| `tests/test_api.py` | Full read |
+| `tests/` (other test files) | File list reviewed |
+| `mobile/capacitor.config.json` | Full read |
+| `mobile/package.json` | Full read |
+| `render.yaml` | Full read |
+| `requirements.txt` | Full read |
+| `GO-LIVE.md` | Full read |
+| `docs/` existing files | File list reviewed |
 
 ---
 
-## Phase status
+## Key Findings Summary
 
-| Phase | Description | Status | Notes |
-|---|---|---|---|
-| 1 | Baseline audit | ✅ | `docs/PRODUCTION_AUDIT.md` from full repo inspection, severity-ranked with `file:line` evidence. |
-| 2 | React + TS app & Android/Capacitor API 36 | ⬜ | Largest work item; not started (see open questions). Play-release steps documented in `docs/PLAY_STORE_RELEASE.md`. |
-| 3 | Supabase security & admin identity | 🟡 | `user_roles` + `is_admin()` + RLS closing public order/payout inserts (migration 0002); server-side identity via GoTrue in `app.py`. ⛔ Super-admin UUID assignment for `zealmugumya@gmail.com` must be run manually against the real `auth.users` (Rule 9 — never invented). |
-| 4 | Farmer stock & verification | 🟡 | Atomic reservation columns + `create_order_atomic` (no oversell) and `stock_changes` audit in migration 0001. Needs live DB to verify. |
-| 5 | Automated order routing (durable queue) | 🟡 | `notification_outbox` (0003), farmer matching + ranked offers with deadlines + atomic accept (0004/0005), `services/worker.py` durable loop. Purchase-requests are distinct from paid orders. Needs live DB. |
-| 6 | Admin push notifications (FCM) | 🟡 | `services/push.py` (HTTP v1 sender + `admin_devices` registry), device register/unregister endpoints, lock-screen-safe payloads. ⛔ Needs Firebase service account; safe no-op until set. |
-| 7 | Discord ops integration | 🟡 | `services/discord.py` — env-only webhook, retries/backoff, 429 handling, dead-letter fallback. ⛔ Needs `DISCORD_WEBHOOK_URL`. |
-| 8 | Monitoring & incident response | 🟡 | `services/logging.py` (JSON + correlation IDs + secret redaction), `services/monitoring.py` (Sentry w/ PII scrubbing), real `/health` + `/health/live`. ⛔ Needs `SENTRY_DSN`. |
-| 9 | Payments & financial integrity | 🟡 | Existing verified webhook preserved; new server-side order API removes client-trust of totals (C1/C4). ⛔ End-to-end payment verification needs Flutterwave sandbox keys. |
-| 10 | Scalability, privacy, reliability | 🟡 | Account deletion / erasure (migration 0006 + `services/account.py` + `POST /api/account/delete` + settings-modal UI in `static/index.html`), indexes in migrations, secure headers + rate limits in `app.py`. Hard auth-purge gated behind `ACCOUNT_HARD_DELETE_ENABLED` (Rule 8). |
-| 11 | Testing & CI/CD | ✅ | 85 pytest tests passing, ruff clean. **CI verified green on GitHub Actions** (run 37906702540, commit `bd08bdd`): lint + mypy report + tests. SQL-integration tests remain ⛔ (need live DB) and are **not faked**. |
-| 12 | Admin command center | ⬜ | Depends on the React decision (Phase 2). Backend admin authz primitives are in place. |
+### Architecture (Sound)
+- Flask backend on Render (2 gunicorn workers, Python 3.12)
+- Supabase (Postgres + GoTrue Auth + PostgREST) for persistence and auth
+- Single-file frontend (`static/index.html`) served as a PWA
+- Capacitor shell for mobile (Android/iOS), wrapping the same HTML
+- Africa's Talking for USSD (*789#) and SMS
+- Flutterwave for payment (pluggable; off until keys are set)
+- Gemini (crop doctor) + Groq (AI assistant) for AI features
+- Discord + FCM push for operator notifications
+- Sentry for error monitoring
 
----
+### Security Posture (Mixed — better than average for stage, not production-ready)
+- Server-side order creation with atomic stock reservation: DONE
+- GoTrue identity verification (buyer_id from session, not body): DONE
+- Fail-closed config validation on startup: DONE
+- CORS restricted to known origins: DONE
+- RLS enabled on all tables: DONE
+- Admin login rate-limited: DONE
+- Flutterwave webhook re-verification: DONE
+- Legal consent framework built: DONE (not enforced)
+- **Migration 0002 (blocking direct order inserts) NOT applied** — livestock/supplier orders bypass server-side price guard
+- **Admin panel uses shared-password JWT**, not Supabase identity
+- **In-memory rate limiting and USSD sessions** — not safe with 2 workers
 
-## Completed & verified locally (✅)
-- **Phase 1 audit** — `docs/PRODUCTION_AUDIT.md` (C1–C5, H1–H7, M1–M7, L1–L8 with evidence + remediation; "what works and must be preserved").
-- **Config hardening (H1, M6)** — `services/config.py` fails **closed** in production if `JWT_SECRET`/`SUPABASE_KEY` are missing; no localhost CORS in production.
-- **Structured logging + correlation IDs (H5)** — `services/logging.py`; JSON logs with secret redaction; request-scoped correlation IDs surfaced via `X-Correlation-ID`.
-- **Real health probe (M6)** — `/health` does an actual DB round-trip (200/503); `/health/live` for liveness.
-- **Secure headers + rate limits (Phase 10)** — `@app.after_request` security headers; `@rate_limit` on sensitive routes.
-- **Test suite + CI (H7)** — 85 tests across orders, matching, notifications, discord, push, account, config/logging, and the API surface; `.github/workflows/ci.yml`.
-- **Lint/type gates** — ruff clean; mypy configured non-blocking in CI.
+### Operational Readiness (Partial)
+- SMS/USSD: sandbox only
+- Payments: COD/direct MoMo only (no gateway live)
+- Email receipts: not active
+- Legal enforcement: off
+- Farmer payouts: not built
+- Database backups: documented but not automated
 
-## Implemented, pending live verification (🟡)
-- **Server-authoritative orders (C1/C2/C4)** — `services/orders.py` + `create_order_atomic` RPC (price recomputed server-side, stock reserved atomically, idempotent). `POST /api/orders`, `POST /api/orders/<id>/status` (state machine).
-- **Admin identity + RLS (C3/C5)** — migration 0002; `verify_supabase_user()`, `is_admin_uuid()`, `require_admin_user()`.
-- **Durable queue + worker (H3)** — migration 0003 + `services/worker.py` (`FOR UPDATE SKIP LOCKED` claim, backoff, dead-letter).
-- **Farmer matching + offer routing (Phase 5)** — migrations 0004/0005 + `services/matching.py`; `POST /api/requests`, `/api/offers/<id>/accept|reject`, admin-only `/api/worker/match`.
-- **FCM admin push (Phase 6)** — `services/push.py`; `POST|DELETE /api/admin/devices`.
-- **Discord ops (Phase 7)** — `services/discord.py`.
-- **Sentry monitoring (Phase 8)** — `services/monitoring.py`.
-- **Account deletion (H6)** — migration 0006 + `services/account.py`; `POST /api/account/delete`.
-
-## Changed / added files
-- **New services:** `services/{account,config,discord,logging,matching,monitoring,notifications,orders,push,supabase_client,worker}.py`
-- **New migrations:** `supabase/migrations/0001..0006` (each with `.up.sql` + `.down.sql`)
-- **New tests:** `tests/{conftest,test_account,test_api,test_config_logging,test_discord,test_matching,test_notifications,test_orders_service,test_push}.py`
-- **New config/CI:** `.env.example`, `requirements-dev.txt`, `pytest.ini`, `ruff.toml`, `.github/workflows/ci.yml`
-- **Modified:** `app.py` (wiring + new routes), `requirements.txt` (added `sentry-sdk[flask]`, `cryptography`), `static/index.html` (account-deletion UI in settings)
-- **Docs:** `docs/PRODUCTION_AUDIT.md`, `docs/IMPLEMENTATION_STATUS.md`, `docs/PLAY_STORE_RELEASE.md`, `docs/OPERATIONS_SETUP.md`, `docs/RELEASE_READINESS_REPORT.md`, updated `README.md`
+### Test Coverage (Good for API contract, thin for business logic)
+- API contract tests: health, order auth, state machine, admin identity, webhook, push registration
+- Missing: USSD route unit tests, livestock order path, matching service integration
 
 ---
 
-## Outstanding blockers (external — owner action required)
+## Outstanding Issues by Priority
 
-1. **Supabase access** — to verify/repair RLS on the ~17 browser-writable tables (C5), inspect the real schema/triggers, and apply migrations 0001–0006. Needed: DB connection string or the ability to run migrations in the dashboard/CLI.
-2. **The verified UUID for `zealmugumya@gmail.com`** — must be read from `auth.users` after confirming the account is email-verified, then `select public.assign_role('<UUID>','superadmin',null)` (migration 0002 footer). Never invented (Rule 9).
-3. **Firebase service account** — `FCM_CREDENTIALS_JSON` (or path) + project id for admin push (Phase 6).
-4. **`DISCORD_WEBHOOK_URL`** — ops feed (Phase 7).
-5. **`SENTRY_DSN`** — error monitoring (Phase 8).
-6. **Flutterwave sandbox/live keys** — end-to-end payment verification (Phase 9).
-7. **Worker hosting decision** — run `python -m services.worker` as a Render background service with the same env as the API (recommended; already coded).
-8. **Google Play Console** — app signing, data-safety form, content rating, testing track (Phase 2; see `docs/PLAY_STORE_RELEASE.md`).
+### Must Fix Before Any Meaningful Live Traffic
 
----
+| # | Issue | Action |
+|---|-------|--------|
+| 1 | Default admin password `agribridge2026` may still be set | Set strong `ADMIN_PASSWORD` in Render immediately |
+| 2 | Migration 0002 not applied — livestock/supplier orders bypass price validation | Extend server-side order path to all categories, then apply migration |
+| 3 | USSD sessions in-process dict — breaks with 2 workers and on restart | Switch to `ussd_sessions` table in Supabase |
+| 4 | `farmer_ratings` table referenced in matching function does not exist | Create table in a migration |
 
-## Exact next steps
+### Should Fix Before Scale
 
-**Track A — locally verifiable now (no external creds):**
-1. ⬜ **Phase 2 React + TypeScript scaffold** — replace the 6,361-line vanilla SPA incrementally, screen-by-screen, preserving working features (Rule 1/2). Point the web layer at the new server-side APIs (`/api/orders`, `/api/requests`, `/api/offers/*`, `/api/account/delete`) instead of direct browser table writes.
-2. ⬜ **Capacitor 7 / Android API 36** mobile shell + `.aab` build workflow (`docs/PLAY_STORE_RELEASE.md`).
-3. ⬜ **Phase 12 admin command center** on top of the Phase 3 authz primitives.
-4. ⬜ **SQL integration tests** (pgTAP or a spun-up Postgres) — currently ⛔ without a live DB.
+| # | Issue | Action |
+|---|-------|--------|
+| 5 | In-process rate limiting | Switch to Redis-backed or Cloudflare edge rate limiting |
+| 6 | `unsafe-inline` in CSP | Refactor JS out of the monolithic HTML file |
+| 7 | Admin routes use self-signed JWT, not Supabase identity | Migrate to `require_admin_user()` |
+| 8 | `pay_initiate` unauthenticated | Add `verify_supabase_user()` guard |
+| 9 | `_auth_role()` reads client-writable `user_metadata` | Use `user_roles` table instead |
+| 10 | Correlation ID logged without sanitization | Validate/strip header value |
 
-**Track B — needs decisions/creds:**
-5. Apply migrations 0001–0006 to Supabase (after backup) and verify RLS with the Advisors security report.
-6. Assign the super-admin UUID; enable MFA.
-7. Wire Firebase/Discord/Sentry/Flutterwave credentials; verify each channel live.
+### Should Do Before Play Store Release
 
----
-
-## Open architectural questions (need owner input)
-- **Q1 — Frontend strategy:** full React+TS rewrite of all ~20 screens (Phase 2) vs. a phased rewrite that first migrates the critical paths (orders/stock/auth/account-deletion) and moves screens incrementally? A big-bang rewrite is the single largest risk to Rule 1/2 (don't break working features).
-- **Q2 — Worker hosting:** Render background worker (recommended, already coded) vs. Supabase scheduled Edge Functions + `pgmq`.
-- **Q3 — Hard account deletion:** keep the default reversible anonymization, or enable `ACCOUNT_HARD_DELETE_ENABLED` (irreversible) once FK cascade behaviour on `orders`/`payouts`/`reviews` is reviewed against the real schema?
-
+| # | Issue | Action |
+|---|-------|--------|
+| 11 | `targetSdkVersion` not set in Capacitor config | Set to 34 in `capacitor.config.json` |
+| 12 | No native push, biometrics, or deep links | Decide scope for native features |
 
 ---
 
-## Legal, consent and contact track (added 2026-10-10)
+## Phase 2 — Recommended Next Steps
 
-Full description: `docs/LEGAL_CONSENT_IMPLEMENTATION.md`. Open legal items: `docs/LEGAL_PENDING.md`.
+1. **Security**: Apply the items in "Must Fix" above. Set a real `ADMIN_PASSWORD`. Confirm migration 0001 is applied to the live Supabase project (it may already be — no DB access to verify).
 
-| Item | Status |
-|---|---|
-| Central contact config + removal of stale contacts | ✅ tests enforce it |
-| Privacy Policy, Terms of Use, Farmer / Buyer / Supplier terms, versioned build with hashes | ✅ built; ⛔ not reviewed by a Ugandan advocate |
-| Migration 0007 (acceptances, marketing consent, privacy requests, RLS, append-only) | ✅ verified on real PostgreSQL (PGlite, empty DB); 🟡 not applied to the live Supabase project |
-| API routes + server-side role/version checks | ✅ tested with fakes and the real Flask app |
-| Sign-up consent, login review screen, settings privacy section, footer links | ✅ tested in headless Chromium against the real page |
-| `ENFORCE_LEGAL_ACCEPTANCE` gate | 🟡 off by default; turn on after the migration and web deploy |
-| Android / Play Store legal readiness | ⬜ web build is bundled by Capacitor; no native build was run |
+2. **DB migrations**: Apply migrations 0003, 0004, 0005, 0006 (all flagged as safe in their headers). Create the `farmer_ratings` table. Only then apply 0002 after the frontend livestock/supplier order cutover is done.
 
-### Commands run and real results (2026-10-10, this environment)
+3. **Legal rollout**: Follow the six-step process in GO-LIVE.md §Legal. Apply migration 0007, deploy the updated web app, run `publish_legal.py`, smoke test, then set `ENFORCE_LEGAL_ACCEPTANCE=true`.
 
-- `python -m pytest -q` -> 197 passed (includes 19 headless-browser tests in `tests/e2e/`). Run again before release; counts change as tests are added.
-- `ruff check .` -> All checks passed.
-- `python scripts/build_legal.py --check` -> legal outputs up to date.
-- `cd tests/sql && npm install && npm test` -> 31 checks passed (migration 0007 on PGlite, PostgreSQL 18.3 in WASM).
-- Not run: GitHub Actions with the new `sql` job and Chromium install (workflow edited, never executed); mypy; any test against the live Supabase project; any Android build.
+4. **Africa's Talking**: Move from sandbox to live API key + SMS sender ID. Test USSD end-to-end on a real handset.
 
-### Next steps for this track
+5. **Payments**: Set up Flutterwave sandbox, run the full checkout-to-webhook flow, then go live.
 
-1. Back up Supabase, apply `0007_legal_consent.up.sql` to a staging project first, then production.
-2. Deploy the API and the web build (`static/`), then run `python scripts/publish_legal.py --actor <your admin uuid>`.
-3. Check sign-up, login review and settings on the live site and in the Android wrapper.
-4. Set `ENFORCE_LEGAL_ACCEPTANCE=true` on Render.
-5. Send `docs/LEGAL_PENDING.md` to a Ugandan advocate; publish version 1.1.0 with the supplied company details.
+6. **Email receipts**: Set up Resend, deploy the `send-receipt` Edge Function with `RESEND_API_KEY`.
+
+7. **USSD session persistence**: Replace the in-memory dict with the `ussd_sessions` Supabase table.
+
+8. **Rate limiting**: Add Redis to Render or switch to Cloudflare rate limiting rules.
+
+9. **Backups**: Follow GO-LIVE.md §4 to set up GitHub Actions automated backup.
+
+10. **Mobile**: Set `android.targetSdkVersion: 34` in `capacitor.config.json`. Run `cap sync android` and test the build. Address Play Store listing requirements.
+
+---
+
+## Files Created This Audit
+
+- `docs/PRODUCTION_AUDIT.md` — full findings with severity ratings, route inventory, DB inventory, security analysis
+- `docs/IMPLEMENTATION_STATUS.md` — this file
+
+---
+
+## Unread Files (Recommend Review Next)
+
+These service files were listed but not read during this audit. Review them for their own security posture if making changes in those areas:
+
+- `services/account.py` — account deletion logic
+- `services/matching.py` — offer routing service
+- `services/notifications.py` — notification dispatcher
+- `services/push.py` — FCM integration
+- `services/supabase_client.py` — Supabase wrapper
+- `services/worker.py` — background matching worker
+- `services/legal.py` — legal service
+- `services/discord.py` — Discord notifier
+- `static/index.html` (JS portion, lines 709–6685) — full frontend logic, all API calls, checkout flow
+- `static/admin.html` — admin dashboard frontend
+- `tests/conftest.py` and other test files — mock fixtures and coverage details
+- `supabase/migrations/0003, 0005, 0006` — notification outbox, offer lifecycle, account deletion migrations
+- `scripts/build_legal.py`, `scripts/publish_legal.py`, `scripts/migrate_supabase.py`
