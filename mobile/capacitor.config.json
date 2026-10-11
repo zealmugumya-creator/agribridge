@@ -8,7 +8,8 @@
     "contentInset": "always"
   },
   "android": {
-    "backgroundColor": "#050B08"
+    "backgroundColor": "#050B08",
+    "minWebViewVersion": 80
   },
   "plugins": {
     "SplashScreen": {

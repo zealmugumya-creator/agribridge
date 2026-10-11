@@ -79,12 +79,34 @@ cd agribridge/mobile
 npm install
 npm run build
 npx cap add android
+
+# Apply the correct SDK targets (targetSdkVersion = 36, required for Play Store)
+cp scripts/android-variables.gradle android/variables.gradle
+
 npx capacitor-assets generate --assetPath assets
 npx cap open android
 ```
-In Android Studio, press **▶ Run** to test, or **Build → Generate Signed
-Bundle / APK** to produce the `.aab` for the Google Play Console
-(one-time **$25** developer fee).
+
+In Android Studio, press **▶ Run** to test on a device or emulator.
+
+### Building the signed `.aab` for Play Store
+
+1. **Build → Generate Signed Bundle / APK** → choose **Android App Bundle (.aab)**
+2. Create a new keystore (save it somewhere safe — you can never change it!)
+3. Set release build variant → **Finish**
+4. Upload the `.aab` to **Google Play Console** (one-time **$25** developer fee)
+
+### Play Store SDK requirements (2025+)
+- `targetSdkVersion = 36` (Android 16) — required for new submissions after Aug 2025
+- `minSdkVersion = 26` (Android 8.0) — covers ~99.5% of active devices
+- These are set in `scripts/android-variables.gradle` which is copied to
+  `android/variables.gradle` in the step above
+
+### After you change the website later
+```bash
+cd agribridge/mobile
+npm run android    # rebuilds www, syncs, reopens Android Studio
+```
 
 ---
 
