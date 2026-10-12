@@ -16,3 +16,6 @@ sentry-sdk[flask]==2.19.2
 # Optional: FCM admin push (Phase 6). PyJWT needs `cryptography` to sign the RS256
 # service-account assertion. Push stays a safe no-op until FCM credentials are set.
 cryptography==44.0.0
+# Optional: Redis-backed rate limiting (Phase 11). Falls back to in-process
+# limiter when REDIS_URL is not set — app runs fine without Redis.
+redis==5.2.1

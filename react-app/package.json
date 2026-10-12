@@ -9,14 +9,18 @@
     "lint": "eslint . --ext ts,tsx --report-unused-disable-directives --max-warnings 0",
     "preview": "vite preview",
     "cap:add-android": "npx cap add android && cp scripts/android-variables.gradle android/variables.gradle",
+    "cap:add-ios": "npx cap add ios",
     "cap:sync": "npm run build && npx cap sync",
     "cap:open-android": "npx cap open android",
-    "android": "npm run cap:sync && npm run cap:open-android"
+    "cap:open-ios": "npx cap open ios",
+    "android": "npm run cap:sync && npm run cap:open-android",
+    "ios": "npm run cap:sync && npm run cap:open-ios"
   },
   "dependencies": {
     "@capacitor/android": "^6.1.2",
     "@capacitor/cli": "^6.1.2",
     "@capacitor/core": "^6.1.2",
+    "@capacitor/ios": "^6.1.2",
     "@capacitor/push-notifications": "^6.0.1",
     "@supabase/supabase-js": "^2.45.4",
     "react": "^18.3.1",

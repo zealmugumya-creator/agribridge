@@ -7,32 +7,36 @@ export function usePushNotifications(userId: string | null) {
   useEffect(() => {
     if (!userId || !Capacitor.isNativePlatform()) return;
 
+    const platform = Capacitor.getPlatform() as 'android' | 'ios';
+
     const register = async () => {
       let permResult = await PushNotifications.checkPermissions();
       if (permResult.receive === 'prompt') {
         permResult = await PushNotifications.requestPermissions();
       }
       if (permResult.receive !== 'granted') return;
-
       await PushNotifications.register();
     };
 
-    // Save FCM token to Supabase so backend can send targeted pushes
-    const tokenHandler = PushNotifications.addListener('registration', async (token) => {
+    // Save FCM/APNS token to Supabase push_tokens table
+    const tokenHandlerPromise = PushNotifications.addListener('registration', async (token) => {
       await supabase
         .from('push_tokens')
-        .upsert({ user_id: userId, token: token.value, platform: 'android' });
+        .upsert(
+          { user_id: userId, token: token.value, platform },
+          { onConflict: 'user_id,token' }
+        );
     });
 
-    const errorHandler = PushNotifications.addListener('registrationError', (err) => {
+    const errorHandlerPromise = PushNotifications.addListener('registrationError', (err) => {
       console.error('Push registration error:', err);
     });
 
     register();
 
     return () => {
-      tokenHandler.then(h => h.remove());
-      errorHandler.then(h => h.remove());
+      tokenHandlerPromise.then(h => h.remove());
+      errorHandlerPromise.then(h => h.remove());
     };
   }, [userId]);
 }

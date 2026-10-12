@@ -106,33 +106,15 @@ if AT_AVAILABLE and AT_API_KEY and AT_API_KEY != 'atsk_REPLACE_ME':
         log.warning("at.init_failed", error=type(_at_err).__name__)
 
 # ── Security hardening ────────────────────────────────────────────────────────
-import time as _time
-from collections import defaultdict as _defaultdict
-from functools import wraps as _wraps
+# Redis-backed sliding-window rate limiter (shared across all gunicorn workers).
+# Falls back to in-process limiter when REDIS_URL is not set or Redis is down.
+from services.rate_limit import RateLimiter as _RateLimiter
 
-_rl_buckets = _defaultdict(list)
-
-def _client_ip():
-    fwd = request.headers.get('X-Forwarded-For', '')
-    return fwd.split(',')[0].strip() if fwd else (request.remote_addr or 'unknown')
+_LIMITER = _RateLimiter(redis_url=os.environ.get('REDIS_URL'))
 
 def rate_limit(max_req=30, window=60):
-    """Simple in-memory sliding-window limiter, keyed by route+client IP."""
-    def deco(fn):
-        @_wraps(fn)
-        def wrapper(*args, **kwargs):
-            now = _time.time()
-            key = fn.__name__ + ':' + _client_ip()
-            bucket = _rl_buckets[key]
-            cutoff = now - window
-            while bucket and bucket[0] < cutoff:
-                bucket.pop(0)
-            if len(bucket) >= max_req:
-                return jsonify({'error': 'Too many requests. Please slow down.'}), 429
-            bucket.append(now)
-            return fn(*args, **kwargs)
-        return wrapper
-    return deco
+    """Sliding-window rate limiter keyed by route+client IP (Redis-backed)."""
+    return _LIMITER.limit(max_req=max_req, window=window)
 
 @app.before_request
 def _begin_request():
