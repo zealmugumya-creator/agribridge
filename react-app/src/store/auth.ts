@@ -1,7 +1,3 @@
-/**
- * Copyright (C) 2026 Mugumya Zeal. All rights reserved.
- */
-
 import { create } from 'zustand';
 import type { User, Session } from '@supabase/supabase-js';
 import { supabase } from '../lib/supabase';

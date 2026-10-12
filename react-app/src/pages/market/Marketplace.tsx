@@ -1,7 +1,3 @@
-/**
- * Copyright (C) 2026 Mugumya Zeal. All rights reserved.
- */
-
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { listingsApi } from '../../services/api';

@@ -1,7 +1,3 @@
-/**
- * Copyright (C) 2026 Mugumya Zeal. All rights reserved.
- */
-
 import { Outlet } from 'react-router-dom';
 import { BottomNav } from './BottomNav';
 

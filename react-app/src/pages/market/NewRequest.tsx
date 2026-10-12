@@ -1,7 +1,3 @@
-/**
- * Copyright (C) 2026 Mugumya Zeal. All rights reserved.
- */
-
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { requestsApi } from '../../services/api';

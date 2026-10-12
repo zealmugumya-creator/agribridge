@@ -1,7 +1,3 @@
-/**
- * Copyright (C) 2026 Mugumya Zeal. All rights reserved.
- */
-
 // ─── Shared TypeScript types for AgriBridge React app ───────────────────────
 
 export type UserRole = 'buyer' | 'farmer' | 'admin';

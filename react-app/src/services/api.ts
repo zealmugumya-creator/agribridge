@@ -1,8 +1,4 @@
 /**
- * Copyright (C) 2026 Mugumya Zeal. All rights reserved.
- */
-
-/**
  * AgriBridge API service — all calls go to the Flask backend.
  * Auth token is read from Supabase session; never uses the service-role key.
  */

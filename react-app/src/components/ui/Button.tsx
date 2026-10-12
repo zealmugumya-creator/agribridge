@@ -1,7 +1,3 @@
-/**
- * Copyright (C) 2026 Mugumya Zeal. All rights reserved.
- */
-
 import React from 'react';
 
 type Variant = 'primary' | 'secondary' | 'danger' | 'ghost';

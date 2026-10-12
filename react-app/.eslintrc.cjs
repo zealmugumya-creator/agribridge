@@ -1,7 +1,3 @@
-/**
- * Copyright (C) 2026 Mugumya Zeal. All rights reserved.
- */
-
 module.exports = {
   root: true,
   env: { browser: true, es2020: true },

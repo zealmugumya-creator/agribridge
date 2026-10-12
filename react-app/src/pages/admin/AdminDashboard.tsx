@@ -1,7 +1,3 @@
-/**
- * Copyright (C) 2026 Mugumya Zeal. All rights reserved.
- */
-
 import { useAuthStore } from '../../store/auth';
 import { useNavigate } from 'react-router-dom';
 

@@ -1,7 +1,3 @@
-/**
- * Copyright (C) 2026 Mugumya Zeal. All rights reserved.
- */
-
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 

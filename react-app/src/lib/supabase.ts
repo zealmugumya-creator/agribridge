@@ -1,7 +1,3 @@
-/**
- * Copyright (C) 2026 Mugumya Zeal. All rights reserved.
- */
-
 import { createClient } from '@supabase/supabase-js';
 
 // These are the publishable (anon) keys — safe to ship in the client.

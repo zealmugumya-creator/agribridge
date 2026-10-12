@@ -1,7 +1,3 @@
-/**
- * Copyright (C) 2026 Mugumya Zeal. All rights reserved.
- */
-
 import React, { useEffect, useState } from 'react';
 import { useAuthStore } from '../../store/auth';
 import { listingsApi } from '../../services/api';

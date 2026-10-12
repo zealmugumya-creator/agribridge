@@ -1,7 +1,3 @@
-/**
- * Copyright (C) 2026 Mugumya Zeal. All rights reserved.
- */
-
 import { create } from 'zustand';
 import type { CartItem, Listing } from '../types';
 

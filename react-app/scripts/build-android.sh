@@ -1,6 +1,4 @@
 #!/usr/bin/env bash
-# Copyright (C) 2026 Mugumya Zeal. All rights reserved.
-
 # Build a signed Android App Bundle for AgriBridge.
 # Run from react-app/ directory with Android Studio + JDK 17 installed.
 # Usage: ./scripts/build-android.sh

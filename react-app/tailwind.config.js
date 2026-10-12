@@ -1,7 +1,3 @@
-/**
- * Copyright (C) 2026 Mugumya Zeal. All rights reserved.
- */
-
 /** @type {import('tailwindcss').Config} */
 export default {
   content: [
