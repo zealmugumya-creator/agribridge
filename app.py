@@ -225,6 +225,40 @@ def supa_delete(table, eq_col, eq_val):
         print(f"Supabase DELETE error: {e}")
         return False
 
+# ── Discord helper — fire-and-forget notification to ops channel ──────────────
+def _discord_notify(event_type: str, title: str, description: str,
+                    severity: str = 'info', colour: int | None = None):
+    """Send a one-off Discord embed. Never raises; safe to call anywhere.
+
+    `description` is a free-form string; we break it into key: value lines
+    and pass them as embed fields so they render nicely in Discord.
+    """
+    if not DISCORD.enabled:
+        return
+    try:
+        from services.discord import DiscordMessage
+        # Parse "**Key:** value" lines into a fields dict
+        fields: dict[str, str] = {}
+        for line in description.strip().splitlines():
+            line = line.strip()
+            if not line:
+                continue
+            # strip markdown bold markers for the key
+            if ':' in line:
+                k, _, v = line.partition(':')
+                fields[k.replace('**', '').strip()] = v.strip()
+            else:
+                fields[line] = ''
+        msg = DiscordMessage(
+            event_type=event_type,
+            title=title,
+            severity=severity,
+            fields=fields or {'detail': description[:500]},
+        )
+        DISCORD.send(msg)
+    except Exception as _e:
+        log.warning("discord_notify.failed", event_type=event_type, error=str(_e))
+
 # ── JWT helpers ───────────────────────────────────────────────────────────────
 def make_token(payload_extra, hours=24):
     payload = {
@@ -643,6 +677,17 @@ def ussd_route(parts, depth, last, session_id, phone):
                 'is_available': True,
                 'source':       'ussd'
             })
+            _discord_notify(
+                event_type='listing.created',
+                title='🌾 New Listing via USSD',
+                description=(
+                    f"**Crop:** {crop}\n"
+                    f"**Quantity:** {qty} kg\n"
+                    f"**Price:** UGX {price}/kg\n"
+                    f"**Farmer phone:** {phone}"
+                ),
+                severity='info',
+            )
             if at_sms:
                 try:
                     at_sms.send(
@@ -1191,7 +1236,13 @@ def admin_orders():
     payload, err = verify_token(required_role='admin')
     if err:
         return err
-    return jsonify(supa_get('orders', limit=200) or [])
+    # Return all columns including payment_status so the admin panel can show
+    # transaction state. Filter by payment_status if ?payment_status= is passed.
+    ps_filter = request.args.get('payment_status')
+    filters = {'order': 'created_at.desc'}
+    if ps_filter:
+        filters['payment_status'] = f'eq.{ps_filter}'
+    return jsonify(supa_get('orders', filters=filters, limit=500) or [])
 
 @app.route('/api/admin/farmers', methods=['GET'])
 def admin_farmers():
@@ -1459,6 +1510,17 @@ def transition_order_status(order_id):
     if not res.ok:
         code = 409 if 'illegal' in (res.error or '').lower() else 400
         return jsonify({'error': res.error or 'transition failed'}), code
+    _status_emoji = {'confirmed': '✅', 'in_transit': '🚚', 'delivered': '📦', 'cancelled': '❌'}
+    _discord_notify(
+        event_type=f'order.{new_status}',
+        title=f"{_status_emoji.get(new_status, '📋')} Order {new_status.replace('_', ' ').title()}",
+        description=(
+            f"**Order ID:** `{order_id}`\n"
+            f"**New status:** {new_status}\n"
+            f"**Updated by:** `{uid}`"
+        ),
+        severity='warning' if new_status == 'cancelled' else 'info',
+    )
     return jsonify({'ok': True, 'status': new_status}), 200
 
 
@@ -1658,6 +1720,17 @@ def legal_sync_signup():
     if not res.ok:
         return _legal_response(res)
     status = LEGAL_SERVICE.status(uid, _auth_role())
+    # Notify Discord on every new user registration
+    _discord_notify(
+        event_type='user.signup',
+        title='👤 New User Signed Up',
+        description=(
+            f"**Role:** {_auth_role() or 'unknown'}\n"
+            f"**User ID:** `{uid}`\n"
+            f"**Name:** {(au.get('user_metadata') or {}).get('full_name', '—')}"
+        ),
+        severity='info',
+    )
     return jsonify({'ok': True, **res.data, 'status': status.data})
 
 
@@ -1901,6 +1974,19 @@ def pay_webhook_flw():
                 # Mark every order row of this checkout paid (they share payment_ref).
                 # Idempotent: re-running just re-sets 'paid'; the match key is stable.
                 supa_update('orders', {'payment_status': 'paid'}, 'payment_ref', tx_ref)
+                amt = vdata.get('amount', 0)
+                cur = vdata.get('currency', 'UGX')
+                _discord_notify(
+                    event_type='payment.confirmed',
+                    title='💰 Payment Confirmed',
+                    description=(
+                        f"**Ref:** `{tx_ref}`\n"
+                        f"**Amount:** {cur} {amt:,.0f}\n"
+                        f"**Provider:** Flutterwave\n"
+                        f"**FLW ID:** {flw_id}"
+                    ),
+                    severity='payment',
+                )
                 _send_payment_receipt(tx_ref)
         except Exception as e:
             print(f"flw verify error: {e}")
