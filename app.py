@@ -1478,6 +1478,42 @@ def create_order():
     )
     if not result.ok:
         return jsonify({'error': result.error}), result.status_code
+
+    # ── Notify farmer(s) by SMS immediately after order is committed ──────────
+    if at_sms:
+        notified = set()
+        for item in (result.items or []):
+            fphone = item.get('farmer_phone') or ''
+            if fphone and fphone not in notified:
+                notified.add(fphone)
+                try:
+                    at_sms.send(
+                        message=(
+                            f"AgriBridge: New order {result.order_ref}!\n"
+                            f"{item.get('quantity','')} {item.get('listing_id','')[:6]}. "
+                            f"Total UGX {int(item.get('unit_price',0)*item.get('quantity',1)):,}.\n"
+                            f"Log in to confirm: agribrige.com"
+                        ),
+                        recipients=[fphone],
+                        sender_id=AT_SMS_SENDER,
+                    )
+                except Exception as _sms_exc:
+                    log.warning("order.farmer_sms_failed", phone=fphone, error=str(_sms_exc))
+
+    # ── Discord notification ──────────────────────────────────────────────────
+    _discord_notify(
+        event_type='order.created',
+        title=f'🛒 New Order — {result.order_ref}',
+        description=(
+            f"**Order Ref:** `{result.order_ref}`\n"
+            f"**Tracking:** `{result.tracking_code}`\n"
+            f"**Total:** UGX {int(result.total_price):,}\n"
+            f"**Items:** {len(result.items or [])}\n"
+            f"**Payment:** {data.get('payment_method','')}"
+        ),
+        severity='info',
+    )
+
     return jsonify({
         'ok': True, 'order_ref': result.order_ref,
         'tracking_code': result.tracking_code, 'total_price': result.total_price,
