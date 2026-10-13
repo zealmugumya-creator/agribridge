@@ -103,6 +103,7 @@
       <div class="tab" data-tab="farmers"  onclick="showTab('farmers',this)">Users</div>
       <div class="tab" data-tab="requests" onclick="showTab('requests',this)">Requests</div>
       <div class="tab" data-tab="offers"   onclick="showTab('offers',this)">Offers</div>
+      <div class="tab" data-tab="errors"   onclick="showTab('errors',this)" style="color:#f87171;">⚠ Errors</div>
     </div>
     <div class="card">
       <div class="toolbar">
@@ -272,7 +273,7 @@
     }catch(e){}
   }
   async function load(tab){
-    var pathMap = {orders:'/api/admin/orders',listings:'/api/admin/listings',animals:'/api/admin/animals',deliveries:'/api/admin/deliveries',supplies:'/api/admin/supplies',farmers:'/api/admin/farmers',requests:'/api/admin/purchase-requests',offers:'/api/admin/offers'};
+    var pathMap = {orders:'/api/admin/orders',listings:'/api/admin/listings',animals:'/api/admin/animals',deliveries:'/api/admin/deliveries',supplies:'/api/admin/supplies',farmers:'/api/admin/farmers',requests:'/api/admin/purchase-requests',offers:'/api/admin/offers',errors:'/api/admin/events'};
     var path = pathMap[tab] || ('/api/admin/'+tab);
     try{ var rows=await api(path); DATA[tab]=Array.isArray(rows)?rows:[]; }catch(e){ DATA[tab]=[]; }
   }
@@ -281,13 +282,17 @@
     if(!confirm('Run the matching algorithm now? This will match open purchase requests with available listings.')) return;
     try{
       var r=await api('/api/worker/match',{method:'POST',body:JSON.stringify({})});
-      var msg=(r&&r.matched_count!=null)?('Matching complete: '+r.matched_count+' match(es) made.'):(r&&r.message)||'Matching triggered.';
-      alert(msg);
+      if(r&&r.ok){
+        var msg='Matching complete! Processed: '+(r.requests_processed||0)+', Offers sent: '+(r.offers||0)+', Expired: '+(r.expired||0)+'.';
+        alert(msg);
+      } else {
+        alert('Matching returned: '+(r&&r.error?r.error:'unknown result'));
+      }
       await load('requests'); await load('offers'); renderCurrent();
-    }catch(e){ alert('Matching failed — check server logs.'); }
+    }catch(e){ alert('Matching failed: '+(e&&e.message?e.message:'check server logs.')); }
   }
 
-  function showTab(t,node){ currentTab=t; document.querySelectorAll('.tab').forEach(function(x){x.classList.remove('active');}); if(node)node.classList.add('active'); document.getElementById('search').value=''; document.getElementById('addBtn').style.display=(t==='orders'||t==='requests'||t==='offers')?'none':'inline-block'; renderCurrent(); }
+  function showTab(t,node){ currentTab=t; document.querySelectorAll('.tab').forEach(function(x){x.classList.remove('active');}); if(node)node.classList.add('active'); document.getElementById('search').value=''; document.getElementById('addBtn').style.display=(t==='orders'||t==='requests'||t==='offers'||t==='errors')?'none':'inline-block'; load(t).then(renderCurrent); }
 
   function match(row,q){ if(!q)return true; q=q.toLowerCase(); return JSON.stringify(row).toLowerCase().indexOf(q)>-1; }
 
@@ -302,6 +307,18 @@
     if(currentTab==='farmers')   return renderFarmers(rows);
     if(currentTab==='requests')  return renderRequests(rows);
     if(currentTab==='offers')    return renderOffers(rows);
+    if(currentTab==='errors')    return renderErrors(rows);
+  }
+
+  function renderErrors(rows){
+    if(!rows.length){ panelMsg('No system errors recorded. 🎉'); return; }
+    var body=rows.map(function(ev){
+      var sev=ev.severity||'error';
+      var det=ev.details?JSON.stringify(ev.details).slice(0,200):'';
+      var ts=ev.created_at?(new Date(ev.created_at)).toLocaleString('en-UG'):'';
+      return '<tr><td><span class="badge '+(sev==='error'?'cancelled':(sev==='warning'?'pending':'available'))+'">'+h(sev)+'</span></td><td>'+h(ev.event_type||'—')+'</td><td style="max-width:300px;word-break:break-all;font-size:0.78rem">'+h(det)+'</td><td>'+h(ts)+'</td></tr>';
+    }).join('');
+    setPanel('<table><thead><tr><th>Severity</th><th>Event</th><th>Details</th><th>Time</th></tr></thead><tbody>'+body+'</tbody></table>');
   }
 
   function actionsCell(tab,id){

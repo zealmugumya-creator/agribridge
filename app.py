@@ -152,6 +152,29 @@ def _unhandled(e):
     monitoring.capture_exception(e, path=request.path)
     if hasattr(e, 'code') and hasattr(e, 'description'):  # HTTPException
         return e
+    # Alert admin on Discord for unexpected 500s
+    try:
+        _discord_notify(
+            event_type='server.error',
+            title='🔥 Unhandled Server Error',
+            description=(
+                f"**Path:** `{request.path}`\n"
+                f"**Error:** {type(e).__name__}: {str(e)[:200]}\n"
+                f"**Correlation ID:** `{getattr(g, 'correlation_id', '-')}`"
+            ),
+            severity='error',
+        )
+        supa_insert('system_events', {
+            'event_type': 'server_error',
+            'severity': 'error',
+            'details': {
+                'path': request.path,
+                'error': f"{type(e).__name__}: {str(e)[:300]}",
+                'correlation_id': getattr(g, 'correlation_id', '-'),
+            },
+        })
+    except Exception:
+        pass
     return jsonify({'error': 'Internal server error',
                     'correlation_id': getattr(g, 'correlation_id', '-')}), 500
 
@@ -1477,6 +1500,24 @@ def create_order():
         correlation_id=getattr(g, 'correlation_id', None),
     )
     if not result.ok:
+        # Alert admin on Discord when an order fails
+        _discord_notify(
+            event_type='order.failed',
+            title='🚨 Order Failed',
+            description=(
+                f"**Error:** {result.error}\n"
+                f"**Buyer ID:** `{uid}`\n"
+                f"**Payment:** {data.get('payment_method', 'unknown')}\n"
+                f"**Items:** {len(items) if isinstance(items, list) else '?'}"
+            ),
+            severity='error',
+        )
+        _log_system_event('order_failed', {
+            'error': result.error,
+            'buyer_id': uid,
+            'payment_method': data.get('payment_method'),
+            'item_count': len(items) if isinstance(items, list) else 0,
+        }, user_id=uid)
         return jsonify({'error': result.error}), result.status_code
 
     # ── Notify farmer(s) by SMS immediately after order is committed ──────────
@@ -1624,18 +1665,66 @@ def reject_offer(offer_id):
 
 @app.route('/api/worker/match', methods=['POST'])
 def trigger_matching():
-    """Admin-only manual matching pass (also run automatically by the worker).
-
-    Useful for testing/incident recovery; requires a verified admin identity."""
-    uid, err = require_admin_user()
-    if err:
-        return err
+    """Admin-only manual matching pass — accepts either admin JWT or Supabase session."""
+    # Accept the password-based admin JWT (used by the admin panel) OR a Supabase session.
+    payload, jwt_err = verify_token(required_role='admin')
+    if jwt_err:
+        # Fall back to Supabase identity check
+        uid, supa_err = require_admin_user()
+        if supa_err:
+            return supa_err
     result = MATCHING_SERVICE.run_matching_pass(
         batch_size=int((request.get_json(force=True, silent=True) or {}).get('batch_size', 10)))
     if not result.ok:
+        _discord_notify(
+            event_type='matching.failed',
+            title='⚠️ Matching Pass Failed',
+            description=f"**Error:** {result.error}",
+            severity='error',
+        )
+        _log_system_event('matching_failed', {'error': result.error})
         return jsonify({'error': result.error}), result.status_code
+    _discord_notify(
+        event_type='matching.completed',
+        title='🔗 Matching Pass Completed',
+        description=(
+            f"**Requests processed:** {result.requests_processed}\n"
+            f"**Offers sent:** {result.offers}\n"
+            f"**Expired:** {result.expired}"
+        ),
+        severity='info',
+    )
     return jsonify({'ok': True, 'requests_processed': result.requests_processed,
                     'offers': result.offers, 'expired': result.expired}), 200
+
+
+# ── System event logger — writes to system_events table for admin panel ───────
+def _log_system_event(event_type: str, details: dict, severity: str = 'error',
+                      user_id: str = None):
+    """Write a system event (failure/warning) to the system_events table.
+    Best-effort: never raises."""
+    try:
+        supa_insert('system_events', {
+            'event_type': event_type,
+            'severity': severity,
+            'details': details,
+            'user_id': user_id,
+        })
+    except Exception as _e:
+        log.warning("system_event.write_failed", error=str(_e))
+
+
+@app.route('/api/admin/events', methods=['GET'])
+def admin_events():
+    """Return recent system events (failures, warnings) for the admin panel."""
+    payload, err = verify_token(required_role='admin')
+    if err:
+        return err
+    severity = request.args.get('severity')
+    filters = {'order': 'created_at.desc'}
+    if severity:
+        filters['severity'] = f'eq.{severity}'
+    return jsonify(supa_get('system_events', filters=filters, limit=200) or [])
 
 
 # ── Admin push device registry (Phase 6) ──────────────────────────────────────
