@@ -2761,7 +2761,8 @@ async function placeOrder() {
     var farmerId = null, listingId = null;
     if (item.category === 'animal') {
       var a = (allAnimals || []).find(function(x){ return String(x.id) === String(item.id); });
-      farmerId = (a && a.farmer_id) ? a.farmer_id : null;
+      farmerId  = (a && a.farmer_id) ? a.farmer_id : null;
+      listingId = uuidRe.test(item.id) ? item.id : null;  // fix: animal orders need listing_id too
     } else if (uuidRe.test(item.id)) {
       var l = (allListings || []).find(function(x){ return String(x.id) === String(item.id); });
       farmerId  = (l && l.farmer_id) ? l.farmer_id : null;
