@@ -103,7 +103,9 @@
       <div class="tab" data-tab="farmers"  onclick="showTab('farmers',this)">Users</div>
       <div class="tab" data-tab="requests" onclick="showTab('requests',this)">Requests</div>
       <div class="tab" data-tab="offers"   onclick="showTab('offers',this)">Offers</div>
-      <div class="tab" data-tab="errors"   onclick="showTab('errors',this)" style="color:#f87171;">⚠ Errors</div>
+      <div class="tab" data-tab="transporters" onclick="showTab('transporters',this)">🚛 Transporters</div>
+      <div class="tab" data-tab="matching"     onclick="showTab('matching',this)" style="color:#60d090;">🔗 Matching</div>
+      <div class="tab" data-tab="errors"       onclick="showTab('errors',this)" style="color:#f87171;">⚠ Errors</div>
     </div>
     <div class="card">
       <div class="toolbar">
@@ -134,7 +136,7 @@
   var SUPA_KEY = 'sb_publishable_lzjlixcVLCUVg9MDy5adFw_pgxTz03y';
   var TOKEN = sessionStorage.getItem('ab_admin_token') || '';
   var currentTab = 'orders';
-  var DATA = { orders:[], listings:[], animals:[], farmers:[], requests:[], offers:[] };
+  var DATA = { orders:[], listings:[], animals:[], farmers:[], requests:[], offers:[], transporters:[], matching:[], errors:[] };
   var editState = null; // {table, id, isNew}
 
   function h(s){return String(s==null?'':s).replace(/[<>&"]/g,function(c){return {'<':'&lt;','>':'&gt;','&':'&amp;','"':'&quot;'}[c];});}
@@ -204,6 +206,18 @@
       {k:'estimated_arrival',label:'Estimated arrival',t:'text'},
       {k:'notes',label:'Notes',t:'textarea'}
     ],
+    transporters: [
+      {k:'full_name',label:'Full name',t:'text'},
+      {k:'phone',label:'Phone (07…)',t:'text'},
+      {k:'email',label:'Email',t:'text'},
+      {k:'vehicle_type',label:'Vehicle type',t:'select',opts:['pickup','lorry','motorcycle','minibus','van','tractor']},
+      {k:'plate_number',label:'Number plate',t:'text'},
+      {k:'district',label:'District',t:'text'},
+      {k:'capacity_kg',label:'Capacity (kg)',t:'number'},
+      {k:'notes',label:'Notes / MOU ref',t:'textarea'},
+      {k:'status',label:'Account status',t:'select',opts:['active','inactive']},
+      {k:'is_available',label:'Available now',t:'check'}
+    ],
     supplier_products: [
       {k:'name',label:'Product name',t:'text'},
       {k:'category',label:'Category',t:'select',opts:['seeds','fertilizer','pesticide','tool','animal_supply']},
@@ -216,7 +230,7 @@
       {k:'in_stock',label:'In stock (shown in app)',t:'check'}
     ]
   };
-  var TABLE_OF = { orders:'orders', listings:'listings', animals:'animal_listings', deliveries:'deliveries', supplies:'supplier_products', farmers:'farmers', requests:'purchase_requests', offers:'offers' };
+  var TABLE_OF = { orders:'orders', listings:'listings', animals:'animal_listings', deliveries:'deliveries', supplies:'supplier_products', farmers:'farmers', requests:'purchase_requests', offers:'offers', transporters:'transporters' };
 
   // ── Auth ────────────────────────────────────────────────────────
   async function doLogin(){
@@ -232,7 +246,7 @@
   function showDash(){ document.getElementById('login').classList.add('hidden'); document.getElementById('dash').classList.remove('hidden'); refreshAll(); }
   function logout(){ TOKEN=''; sessionStorage.removeItem('ab_admin_token'); document.getElementById('dash').classList.add('hidden'); document.getElementById('login').classList.remove('hidden'); }
 
-  async function refreshAll(){ await loadStats(); await Promise.all([load('orders'),load('listings'),load('animals'),load('deliveries'),load('supplies'),load('farmers'),load('requests'),load('offers')]); renderOverviewExtras(); renderCurrent(); }
+  async function refreshAll(){ await loadStats(); await Promise.all([load('orders'),load('listings'),load('animals'),load('deliveries'),load('supplies'),load('farmers'),load('requests'),load('offers'),load('transporters')]); renderOverviewExtras(); renderCurrent(); }
 
   function showTabByName(t){ var node=document.querySelector('.tab[data-tab="'+t+'"]'); showTab(t,node||undefined); if(node) node.scrollIntoView({behavior:'smooth',block:'nearest'}); }
 
@@ -261,19 +275,20 @@
         '<button onclick="showTabByName(\'deliveries\')">🚚 Deliveries</button>'+
         '<button onclick="showTabByName(\'supplies\')">🏪 Supplies</button>'+
         '<button onclick="showTabByName(\'requests\')">📋 Requests</button>'+
-        '<button onclick="runMatching()">🔗 Run Matching</button>'+
+        '<button onclick="showTabByName(\'transporters\')">🚛 Transporters</button>'+
+        '<button onclick="showTabByName(\'matching\')">🔗 Match Orders</button>'+
       '</div></div>';
   }
 
   async function loadStats(){
     try{
       var s=await api('/api/admin/stats'); if(!s) return;
-      var cards=[['Total Users',s.farmers],['Crop Listings',s.listings],['Animals',s.animals],['Total Orders',s.orders],['Total Revenue',fmt(s.revenue_ugx)]];
+      var cards=[['Total Users',s.farmers],['Crop Listings',s.listings],['Animals',s.animals],['Total Orders',s.orders],['Transporters',s.transporters||0],['Total Revenue',fmt(s.revenue_ugx)]];
       document.getElementById('stats').innerHTML=cards.map(function(c){return '<div class="stat"><div class="n">'+(typeof c[1]==='number'?c[1]:h(c[1]))+'</div><div class="l">'+c[0]+'</div></div>';}).join('');
     }catch(e){}
   }
   async function load(tab){
-    var pathMap = {orders:'/api/admin/orders',listings:'/api/admin/listings',animals:'/api/admin/animals',deliveries:'/api/admin/deliveries',supplies:'/api/admin/supplies',farmers:'/api/admin/farmers',requests:'/api/admin/purchase-requests',offers:'/api/admin/offers',errors:'/api/admin/events'};
+    var pathMap = {orders:'/api/admin/orders',listings:'/api/admin/listings',animals:'/api/admin/animals',deliveries:'/api/admin/deliveries',supplies:'/api/admin/supplies',farmers:'/api/admin/farmers',requests:'/api/admin/purchase-requests',offers:'/api/admin/offers',transporters:'/api/admin/transporters',matching:'/api/admin/match-candidates',errors:'/api/admin/events'};
     var path = pathMap[tab] || ('/api/admin/'+tab);
     try{ var rows=await api(path); DATA[tab]=Array.isArray(rows)?rows:[]; }catch(e){ DATA[tab]=[]; }
   }
@@ -292,7 +307,7 @@
     }catch(e){ alert('Matching failed: '+(e&&e.message?e.message:'check server logs.')); }
   }
 
-  function showTab(t,node){ currentTab=t; document.querySelectorAll('.tab').forEach(function(x){x.classList.remove('active');}); if(node)node.classList.add('active'); document.getElementById('search').value=''; document.getElementById('addBtn').style.display=(t==='orders'||t==='requests'||t==='offers'||t==='errors')?'none':'inline-block'; load(t).then(renderCurrent); }
+  function showTab(t,node){ currentTab=t; document.querySelectorAll('.tab').forEach(function(x){x.classList.remove('active');}); if(node)node.classList.add('active'); document.getElementById('search').value=''; var noAdd=['orders','requests','offers','errors','matching']; document.getElementById('addBtn').style.display=noAdd.indexOf(t)>-1?'none':'inline-block'; load(t).then(renderCurrent); }
 
   function match(row,q){ if(!q)return true; q=q.toLowerCase(); return JSON.stringify(row).toLowerCase().indexOf(q)>-1; }
 
@@ -307,7 +322,67 @@
     if(currentTab==='farmers')   return renderFarmers(rows);
     if(currentTab==='requests')  return renderRequests(rows);
     if(currentTab==='offers')    return renderOffers(rows);
-    if(currentTab==='errors')    return renderErrors(rows);
+    if(currentTab==='transporters') return renderTransporters(rows);
+    if(currentTab==='matching')     return renderMatching();
+    if(currentTab==='errors')       return renderErrors(rows);
+  }
+
+  function renderTransporters(rows){
+    if(!rows.length){ panelMsg('No transporters registered yet. Click + Add to onboard one.'); return; }
+    var body=rows.map(function(t){
+      var avail=t.is_available?'<span class="badge available">Available</span>':'<span class="badge sold">Offline</span>';
+      var st=t.status||'active';
+      return '<tr><td>'+h(t.full_name||'—')+'</td><td>'+h(t.phone||'—')+'</td><td>'+h(t.vehicle_type||'—')+'</td><td>'+h(t.plate_number||'—')+'</td><td>'+h(t.district||'—')+'</td><td>'+(t.capacity_kg||'—')+'kg</td><td>'+avail+'</td><td><span class="badge '+(st==='active'?'active':'cancelled')+'">'+st+'</span></td><td>'+actionsCell('transporters',t.id)+'</td></tr>';
+    }).join('');
+    setPanel('<table><thead><tr><th>Name</th><th>Phone</th><th>Vehicle</th><th>Plate</th><th>District</th><th>Capacity</th><th>Availability</th><th>Status</th><th></th></tr></thead><tbody>'+body+'</tbody></table>');
+  }
+
+  function renderMatching(){
+    var data=DATA.matching||[];
+    // The API returns {candidates:[…]} not a plain array
+    var candidates=Array.isArray(data)?data:(data.candidates||[]);
+    if(!candidates.length){ panelMsg('No pending orders to match. 🎉'); return; }
+    var html=candidates.map(function(c){
+      var o=c.order||{};
+      var farmers=c.farmer_matches||[];
+      var transporters=c.available_transporters||[];
+      var farmerOpts=farmers.map(function(f,i){ return '<option value="'+h(f.farmer_phone)+'|'+h(f.farmer_id||'')+'|'+h(f.crop_name||'')+'">'+h(f.crop_name)+' · '+h(f.district||'—')+' · UGX '+Number(f.price_per_kg||0).toLocaleString()+'/kg · '+h(f.farmer_phone)+'</option>'; }).join('');
+      var trOpts='<option value="">— No transporter yet —</option>'+transporters.map(function(t){ return '<option value="'+h(t.id)+'">'+h(t.full_name)+' · '+h(t.vehicle_type||'—')+' · '+h(t.district||'—')+'</option>'; }).join('');
+      var matchSection=farmers.length
+        ? '<label>Select farmer match:</label><select id="f_'+h(o.id)+'" style="margin-bottom:6px">'+farmerOpts+'</select>'
+          +'<label>Assign transporter (optional):</label><select id="t_'+h(o.id)+'" style="margin-bottom:6px">'+trOpts+'</select>'
+          +'<label>Notes to farmer/transporter:</label><input id="n_'+h(o.id)+'" type="text" placeholder="e.g. collect by Friday">'
+          +'<button class="btn sm" style="margin-top:8px;width:100%" onclick="approveMatch(\''+h(o.id)+'\')">✅ Approve & Notify</button>'
+        : '<p style="color:var(--amber);font-size:.82rem">⚠ No active farmer listings found for this order. Add a matching crop listing first.</p>';
+      return '<div class="card" style="margin-bottom:12px">'
+        +'<div style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:8px;margin-bottom:10px">'
+        +'<div><strong>Order '+h(o.ref||o.id.slice(0,8))+'</strong> &nbsp;<span class="badge pending">pending</span></div>'
+        +'<div class="muted" style="font-size:.8rem">'+h(o.created_at?new Date(o.created_at).toLocaleString('en-UG'):'')+'</div></div>'
+        +'<div style="font-size:.85rem;margin-bottom:8px">📍 '+h(o.delivery_address||'—')+' &nbsp;·&nbsp; 💰 UGX '+Number(o.total_price||0).toLocaleString()+'</div>'
+        +matchSection
+        +'</div>';
+    }).join('');
+    setPanel('<div style="margin-bottom:10px;color:var(--text2);font-size:.82rem">'+candidates.length+' pending order(s) awaiting a farmer match</div>'+html);
+  }
+
+  async function approveMatch(orderId){
+    var fSel=document.getElementById('f_'+orderId);
+    var tSel=document.getElementById('t_'+orderId);
+    var nIn=document.getElementById('n_'+orderId);
+    if(!fSel||!fSel.value){ alert('Please select a farmer match first.'); return; }
+    var parts=fSel.value.split('|');
+    var farmerPhone=parts[0]||'', farmerName=parts[2]||'Farmer';
+    var transporterId=tSel?tSel.value:'';
+    var notes=nIn?nIn.value.trim():'';
+    if(!confirm('Approve match for order '+orderId.slice(0,8)+'?\nFarmer: '+farmerPhone+(transporterId?'\nTransporter assigned':''))) return;
+    try{
+      var r=await api('/api/admin/match-approve',{method:'POST',body:JSON.stringify({order_id:orderId,farmer_phone:farmerPhone,farmer_name:farmerName,transporter_id:transporterId||null,notes:notes})});
+      if(r&&r.ok){
+        var sms=r.sms||{};
+        alert('Match approved!\nSMS to farmer: '+(sms.farmer||'not sent (AT not configured)')+'\nSMS to transporter: '+(sms.transporter||'N/A'));
+        await load('matching'); await load('orders'); renderCurrent();
+      } else { alert('Error: '+(r&&r.error?r.error:'unknown')); }
+    }catch(e){ alert('Request failed: '+e.message); }
   }
 
   function renderErrors(rows){

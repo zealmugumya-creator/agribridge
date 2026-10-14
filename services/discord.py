@@ -63,15 +63,39 @@ class DiscordMessage:
 
 
 class DiscordNotifier:
+    # Maps event_type prefix → env var name for the channel-specific webhook.
+    # Falls back to the default webhook when a category-specific one isn't set.
+    _CHANNEL_MAP: dict[str, str] = {
+        "order":     "DISCORD_WEBHOOK_ORDERS",
+        "signup":    "DISCORD_WEBHOOK_SIGNUPS",
+        "listing":   "DISCORD_WEBHOOK_LISTINGS",
+        "matching":  "DISCORD_WEBHOOK_MATCHING",
+        "transport": "DISCORD_WEBHOOK_TRANSPORT",
+        "server":    "DISCORD_WEBHOOK_ERRORS",
+        "price":     "DISCORD_WEBHOOK_ERRORS",
+    }
+
     def __init__(self, webhook_url: str, dead_letter: Callable[[DiscordMessage, str], None] | None = None):
         # webhook_url comes from env only. Empty => disabled (safe no-op).
         self._url = webhook_url or ""
         self._dead_letter = dead_letter
         self._session = requests.Session()
+        # Pre-load channel-specific webhooks from environment (never log them).
+        import os as _os
+        self._channels: dict[str, str] = {}
+        for prefix, env_var in self._CHANNEL_MAP.items():
+            val = _os.environ.get(env_var, "").strip()
+            if val:
+                self._channels[prefix] = val
+
+    def _url_for(self, event_type: str) -> str:
+        """Return the best webhook URL for this event type."""
+        prefix = event_type.split(".")[0]
+        return self._channels.get(prefix, self._url)
 
     @property
     def enabled(self) -> bool:
-        return bool(self._url)
+        return bool(self._url) or bool(self._channels)
 
     def send(self, msg: DiscordMessage) -> bool:
         """Attempt delivery with bounded retries. Returns True on success.
@@ -80,8 +104,8 @@ class DiscordNotifier:
         provided) so the alert can be persisted and retried / escalated by an
         independent channel. Never raises to the caller.
         """
-        if not self.enabled:
-            # Not configured: safe no-op. Log at debug-ish level without the URL.
+        url = self._url_for(msg.event_type)
+        if not url:
             log.info("discord.disabled", event_type=msg.event_type)
             return False
 
@@ -89,7 +113,7 @@ class DiscordNotifier:
         for attempt in range(1, _MAX_ATTEMPTS + 1):
             try:
                 resp = self._session.post(
-                    self._url,
+                    url,
                     json=msg.to_payload(),
                     timeout=_TIMEOUT,
                     headers={"Content-Type": "application/json"},

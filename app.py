@@ -1233,15 +1233,17 @@ def admin_stats():
     payload, err = verify_token(required_role='admin')
     if err:
         return err
-    farmers  = supa_get('farmers',         limit=1000) or []
-    listings = supa_get('listings',        limit=1000) or []
-    orders   = supa_get('orders',          limit=1000) or []
-    animals  = supa_get('animal_listings', limit=1000) or []
+    farmers      = supa_get('farmers',         limit=1000) or []
+    listings     = supa_get('listings',        limit=1000) or []
+    orders       = supa_get('orders',          limit=1000) or []
+    animals      = supa_get('animal_listings', limit=1000) or []
+    transporters = supa_get('transporters',    {'status': 'eq.active'}, limit=1000) or []
     return jsonify({
-        'farmers':     len(farmers),
-        'listings':    len(listings),
-        'orders':      len(orders),
-        'animals':     len(animals),
+        'farmers':      len(farmers),
+        'listings':     len(listings),
+        'orders':       len(orders),
+        'animals':      len(animals),
+        'transporters': len(transporters),
         'revenue_ugx': sum(
             float(o.get('total_price', 0)) for o in orders
             if o.get('payment_status') == 'paid'
@@ -1342,6 +1344,8 @@ _ADMIN_COLS = {
                         'delivery_location', 'estimated_arrival', 'tracking_code', 'notes'],
     'supplier_products': ['category', 'name', 'brand', 'price', 'unit', 'badge',
                           'description', 'image_id', 'in_stock'],
+    'transporters':      ['full_name', 'phone', 'email', 'vehicle_type', 'plate_number',
+                          'district', 'capacity_kg', 'notes', 'status', 'is_available'],
 }
 
 def _filter_cols(table, data):
@@ -1725,6 +1729,274 @@ def admin_events():
     if severity:
         filters['severity'] = f'eq.{severity}'
     return jsonify(supa_get('system_events', filters=filters, limit=200) or [])
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# TRANSPORTERS — accounts, availability toggle, admin management
+# ══════════════════════════════════════════════════════════════════════════════
+
+@app.route('/api/admin/transporters', methods=['GET'])
+def admin_transporters():
+    payload, err = verify_token(required_role='admin')
+    if err:
+        return err
+    filters = {'order': 'created_at.desc'}
+    avail = request.args.get('available')
+    if avail:
+        filters['is_available'] = f'eq.{avail}'
+    return jsonify(supa_get('transporters', filters=filters, limit=300) or [])
+
+
+@app.route('/api/admin/transporters', methods=['POST'])
+def admin_create_transporter():
+    """Admin creates a transporter account (stores profile; Supabase Auth signup done separately)."""
+    payload, err = verify_token(required_role='admin')
+    if err:
+        return err
+    data = request.get_json(force=True, silent=True) or {}
+    allowed_fields = ['full_name', 'phone', 'email', 'vehicle_type', 'plate_number',
+                      'district', 'capacity_kg', 'notes', 'supabase_uid']
+    row = {k: data[k] for k in allowed_fields if k in data}
+    if not row.get('full_name') or not row.get('phone'):
+        return jsonify({'error': 'full_name and phone are required'}), 400
+    row.setdefault('is_available', False)
+    row.setdefault('status', 'active')
+    inserted = supa_insert('transporters', row)
+    if not inserted:
+        return jsonify({'error': 'Failed to create transporter'}), 500
+    _discord_notify(
+        event_type='transport.registered',
+        title='🚛 New Transporter Registered',
+        description=(
+            f"**Name:** {row.get('full_name')}\n"
+            f"**Phone:** {row.get('phone')}\n"
+            f"**Vehicle:** {row.get('vehicle_type', 'N/A')}\n"
+            f"**District:** {row.get('district', 'N/A')}"
+        ),
+        severity='info',
+    )
+    return jsonify({'ok': True, 'transporter': inserted[0] if isinstance(inserted, list) else inserted}), 201
+
+
+@app.route('/api/admin/transporters/<transporter_id>', methods=['PATCH'])
+def admin_update_transporter(transporter_id):
+    payload, err = verify_token(required_role='admin')
+    if err:
+        return err
+    data = request.get_json(force=True, silent=True) or {}
+    allowed_fields = ['full_name', 'phone', 'email', 'vehicle_type', 'plate_number',
+                      'district', 'capacity_kg', 'notes', 'status', 'is_available']
+    fields = {k: data[k] for k in allowed_fields if k in data}
+    if not fields:
+        return jsonify({'error': 'No editable fields'}), 400
+    ok = supa_update('transporters', fields, 'id', transporter_id)
+    return (jsonify({'ok': True}), 200) if ok else (jsonify({'error': 'Update failed'}), 500)
+
+
+@app.route('/api/admin/transporters/<transporter_id>', methods=['DELETE'])
+def admin_delete_transporter(transporter_id):
+    payload, err = verify_token(required_role='admin')
+    if err:
+        return err
+    ok = supa_update('transporters', {'status': 'inactive'}, 'id', transporter_id)
+    return (jsonify({'ok': True}), 200) if ok else (jsonify({'error': 'Failed'}), 500)
+
+
+# ── Transporter self-service: availability toggle ─────────────────────────────
+@app.route('/api/transporter/availability', methods=['POST'])
+@rate_limit(max_req=30, window=60)
+def transporter_set_availability():
+    """Transporter sets their own availability. Auth via Supabase session.
+    Their supabase_uid must match the transporters.supabase_uid column."""
+    uid, err = verify_supabase_user()
+    if err:
+        return err
+    data = request.get_json(force=True, silent=True) or {}
+    is_available = bool(data.get('is_available', False))
+    # Find the transporter row that belongs to this Supabase user.
+    rows = supa_get('transporters', {'supabase_uid': f'eq.{uid}', 'status': 'eq.active'}, limit=1)
+    if not rows:
+        return jsonify({'error': 'No transporter account found for your login'}), 404
+    transporter_id = rows[0]['id']
+    ok = supa_update('transporters', {
+        'is_available': is_available,
+        'availability_updated_at': datetime.datetime.utcnow().isoformat(),
+    }, 'id', transporter_id)
+    if not ok:
+        return jsonify({'error': 'Could not update availability'}), 500
+    log.info("transporter.availability", id=transporter_id, available=is_available)
+    return jsonify({'ok': True, 'is_available': is_available}), 200
+
+
+@app.route('/api/transporter/me', methods=['GET'])
+@rate_limit(max_req=60, window=60)
+def transporter_profile():
+    """Return the transporter's own profile (availability, details)."""
+    uid, err = verify_supabase_user()
+    if err:
+        return err
+    rows = supa_get('transporters', {'supabase_uid': f'eq.{uid}'}, limit=1)
+    if not rows:
+        return jsonify({'error': 'No transporter account'}), 404
+    return jsonify(rows[0]), 200
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# SMART MATCHING — orders vs. farmer listings; admin approval workflow
+# ══════════════════════════════════════════════════════════════════════════════
+
+@app.route('/api/admin/match-candidates', methods=['GET'])
+def admin_match_candidates():
+    """Return pending orders paired with eligible farmer listings.
+
+    For each pending order we search listings where:
+      - crop_name matches (case-insensitive contains)
+      - is_available = true
+      - quantity_kg >= order quantity
+    Then we also surface available transporters in the same district.
+    """
+    payload, err = verify_token(required_role='admin')
+    if err:
+        return err
+
+    orders = supa_get('orders', {'status': 'eq.pending', 'order': 'created_at.asc'}, limit=100) or []
+    all_listings = supa_get('listings', {'is_available': 'eq.true', 'order': 'price_per_kg.asc'}, limit=500) or []
+    all_transporters = supa_get('transporters', {'is_available': 'eq.true', 'status': 'eq.active'}, limit=100) or []
+
+    candidates = []
+    for order in orders:
+        # Try to match on buyer_product or notes field; fallback to items array
+        product_hint = (order.get('buyer_product') or
+                        order.get('notes') or '').lower()
+        quantity_needed = float(order.get('total_price', 0) or 0)  # fallback
+        order_district = (order.get('delivery_address') or '').lower()
+
+        matched_listings = []
+        for listing in all_listings:
+            crop = (listing.get('crop_name') or '').lower()
+            if product_hint and crop and (product_hint in crop or crop in product_hint):
+                qty_avail = float(listing.get('quantity_kg') or 0)
+                matched_listings.append({
+                    'id': listing.get('id'),
+                    'crop_name': listing.get('crop_name'),
+                    'quantity_kg': qty_avail,
+                    'price_per_kg': listing.get('price_per_kg'),
+                    'district': listing.get('district'),
+                    'farmer_phone': listing.get('farmer_phone'),
+                    'farmer_id': listing.get('farmer_id'),
+                })
+
+        # Available transporters (prefer same district)
+        transporters_near = sorted(
+            all_transporters,
+            key=lambda t: 0 if order_district and order_district in (t.get('district') or '').lower() else 1
+        )[:3]
+
+        candidates.append({
+            'order': {
+                'id': order.get('id'),
+                'ref': order.get('order_ref'),
+                'status': order.get('status'),
+                'delivery_address': order.get('delivery_address'),
+                'created_at': order.get('created_at'),
+                'total_price': order.get('total_price'),
+                'payment_method': order.get('payment_method'),
+            },
+            'farmer_matches': matched_listings[:5],
+            'available_transporters': [
+                {
+                    'id': t.get('id'),
+                    'full_name': t.get('full_name'),
+                    'phone': t.get('phone'),
+                    'vehicle_type': t.get('vehicle_type'),
+                    'district': t.get('district'),
+                    'capacity_kg': t.get('capacity_kg'),
+                }
+                for t in transporters_near
+            ],
+        })
+
+    return jsonify({'ok': True, 'count': len(candidates), 'candidates': candidates}), 200
+
+
+@app.route('/api/admin/match-approve', methods=['POST'])
+def admin_approve_match():
+    """Admin approves a farmer match for an order and optionally triggers SMS to farmer + transporter."""
+    payload, err = verify_token(required_role='admin')
+    if err:
+        return err
+    data = request.get_json(force=True, silent=True) or {}
+    order_id = data.get('order_id')
+    farmer_phone = data.get('farmer_phone', '').strip()
+    farmer_name = data.get('farmer_name', 'Farmer').strip()
+    transporter_id = data.get('transporter_id')  # optional
+    notes = data.get('notes', '').strip()
+
+    if not order_id or not farmer_phone:
+        return jsonify({'error': 'order_id and farmer_phone required'}), 400
+
+    # Update order status to confirmed
+    ok = supa_update('orders', {'status': 'confirmed', 'notes': notes or None}, 'id', order_id)
+    if not ok:
+        return jsonify({'error': 'Could not update order'}), 500
+
+    sms_results = {}
+
+    # SMS to farmer
+    if at_sms and farmer_phone:
+        try:
+            at_sms.send(
+                message=(
+                    f"AgriBridge: You have been matched for order {order_id[:8]}.\n"
+                    f"Please prepare your produce for collection.\n"
+                    f"Contact admin: agribrige.com\n"
+                    f"{('Notes: ' + notes) if notes else ''}"
+                ),
+                recipients=[farmer_phone],
+                sender_id=AT_SMS_SENDER,
+            )
+            sms_results['farmer'] = 'sent'
+        except Exception as _e:
+            sms_results['farmer'] = f'failed: {str(_e)[:80]}'
+            log.warning("approve.farmer_sms_failed", phone=farmer_phone, error=str(_e))
+
+    # SMS to transporter (if chosen)
+    if at_sms and transporter_id:
+        t_rows = supa_get('transporters', {'id': f'eq.{transporter_id}'}, limit=1) or []
+        if t_rows:
+            t_phone = t_rows[0].get('phone', '')
+            if t_phone:
+                try:
+                    at_sms.send(
+                        message=(
+                            f"AgriBridge: Transport job assigned for order {order_id[:8]}.\n"
+                            f"Please check agribrige.com for pickup details.\n"
+                            f"{('Notes: ' + notes) if notes else ''}"
+                        ),
+                        recipients=[t_phone],
+                        sender_id=AT_SMS_SENDER,
+                    )
+                    sms_results['transporter'] = 'sent'
+                except Exception as _e:
+                    sms_results['transporter'] = f'failed: {str(_e)[:80]}'
+
+    _discord_notify(
+        event_type='matching.approved',
+        title='✅ Match Approved by Admin',
+        description=(
+            f"**Order:** `{order_id}`\n"
+            f"**Farmer phone:** {farmer_phone}\n"
+            f"**Transporter:** {transporter_id or 'none'}\n"
+            f"**SMS results:** {sms_results}"
+        ),
+        severity='info',
+    )
+    _log_system_event('match_approved', {
+        'order_id': order_id, 'farmer_phone': farmer_phone,
+        'transporter_id': transporter_id, 'sms_results': sms_results,
+    }, severity='info')
+
+    return jsonify({'ok': True, 'order_status': 'confirmed', 'sms': sms_results}), 200
 
 
 # ── Admin push device registry (Phase 6) ──────────────────────────────────────
