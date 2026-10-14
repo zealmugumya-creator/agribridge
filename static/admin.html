@@ -105,6 +105,8 @@
       <div class="tab" data-tab="offers"   onclick="showTab('offers',this)">Offers</div>
       <div class="tab" data-tab="transporters" onclick="showTab('transporters',this)">🚛 Transporters</div>
       <div class="tab" data-tab="matching"     onclick="showTab('matching',this)" style="color:#60d090;">🔗 Matching</div>
+      <div class="tab" data-tab="scans"        onclick="showTab('scans',this)" style="color:#60b0d0;">🌿 Scans</div>
+      <div class="tab" data-tab="activity"     onclick="showTab('activity',this)" style="color:#c0a0e0;">📊 Activity</div>
       <div class="tab" data-tab="errors"       onclick="showTab('errors',this)" style="color:#f87171;">⚠ Errors</div>
     </div>
     <div class="card">
@@ -288,7 +290,7 @@
     }catch(e){}
   }
   async function load(tab){
-    var pathMap = {orders:'/api/admin/orders',listings:'/api/admin/listings',animals:'/api/admin/animals',deliveries:'/api/admin/deliveries',supplies:'/api/admin/supplies',farmers:'/api/admin/farmers',requests:'/api/admin/purchase-requests',offers:'/api/admin/offers',transporters:'/api/admin/transporters',matching:'/api/admin/match-candidates',errors:'/api/admin/events'};
+    var pathMap = {orders:'/api/admin/orders',listings:'/api/admin/listings',animals:'/api/admin/animals',deliveries:'/api/admin/deliveries',supplies:'/api/admin/supplies',farmers:'/api/admin/farmers',requests:'/api/admin/purchase-requests',offers:'/api/admin/offers',transporters:'/api/admin/transporters',matching:'/api/admin/match-candidates',errors:'/api/admin/events',scans:'/api/admin/events?event_type=scan',activity:'/api/admin/events?severity=info'};
     var path = pathMap[tab] || ('/api/admin/'+tab);
     try{ var rows=await api(path); DATA[tab]=Array.isArray(rows)?rows:[]; }catch(e){ DATA[tab]=[]; }
   }
@@ -307,7 +309,7 @@
     }catch(e){ alert('Matching failed: '+(e&&e.message?e.message:'check server logs.')); }
   }
 
-  function showTab(t,node){ currentTab=t; document.querySelectorAll('.tab').forEach(function(x){x.classList.remove('active');}); if(node)node.classList.add('active'); document.getElementById('search').value=''; var noAdd=['orders','requests','offers','errors','matching']; document.getElementById('addBtn').style.display=noAdd.indexOf(t)>-1?'none':'inline-block'; load(t).then(renderCurrent); }
+  function showTab(t,node){ currentTab=t; document.querySelectorAll('.tab').forEach(function(x){x.classList.remove('active');}); if(node)node.classList.add('active'); document.getElementById('search').value=''; var noAdd=['orders','requests','offers','errors','matching','scans','activity']; document.getElementById('addBtn').style.display=noAdd.indexOf(t)>-1?'none':'inline-block'; load(t).then(renderCurrent); }
 
   function match(row,q){ if(!q)return true; q=q.toLowerCase(); return JSON.stringify(row).toLowerCase().indexOf(q)>-1; }
 
@@ -324,6 +326,8 @@
     if(currentTab==='offers')    return renderOffers(rows);
     if(currentTab==='transporters') return renderTransporters(rows);
     if(currentTab==='matching')     return renderMatching();
+    if(currentTab==='scans')        return renderScans(rows);
+    if(currentTab==='activity')     return renderActivity(rows);
     if(currentTab==='errors')       return renderErrors(rows);
   }
 
@@ -394,6 +398,39 @@
       return '<tr><td><span class="badge '+(sev==='error'?'cancelled':(sev==='warning'?'pending':'available'))+'">'+h(sev)+'</span></td><td>'+h(ev.event_type||'—')+'</td><td style="max-width:300px;word-break:break-all;font-size:0.78rem">'+h(det)+'</td><td>'+h(ts)+'</td></tr>';
     }).join('');
     setPanel('<table><thead><tr><th>Severity</th><th>Event</th><th>Details</th><th>Time</th></tr></thead><tbody>'+body+'</tbody></table>');
+  }
+
+  function renderScans(rows){
+    var scanRows=rows.filter(function(ev){ return (ev.event_type||'').indexOf('scan')>-1||(ev.event_type||'').indexOf('crop_doctor')>-1||(ev.event_type||'').indexOf('disease')>-1; });
+    if(!scanRows.length){ panelMsg('No crop doctor scans yet. 🌿'); return; }
+    var body=scanRows.map(function(ev){
+      var det=ev.details||{};
+      var ts=ev.created_at?(new Date(ev.created_at)).toLocaleString('en-UG'):'';
+      var crop=det.crop||det.crop_name||'—';
+      var diag=det.diagnosis||(det.result&&det.result.diagnosis)||'—';
+      var uid=ev.user_id||det.user_id||'—';
+      return '<tr><td>'+h(crop)+'</td><td style="max-width:260px;font-size:0.8rem">'+h(String(diag).slice(0,120))+'</td><td style="max-width:200px;font-size:0.78rem;word-break:break-all">'+h(String(det.description||'').slice(0,80))+'</td><td style="font-size:0.78rem">'+h(String(uid).slice(0,16))+'</td><td>'+h(ts)+'</td></tr>';
+    }).join('');
+    setPanel('<table><thead><tr><th>Crop</th><th>Diagnosis</th><th>Description</th><th>User</th><th>Time</th></tr></thead><tbody>'+body+'</tbody></table>');
+  }
+
+  function renderActivity(rows){
+    if(!rows.length){ panelMsg('No recent activity recorded.'); return; }
+    var icons={'listing_created_web':'🌾','purchase_request_created':'🛒','offer_accepted':'🤝','offer_rejected':'❌','match_approved':'✅','transport_registered':'🚛','listing.created':'🌾','user.signup':'👤','order.created':'📦'};
+    var body=rows.map(function(ev){
+      var ts=ev.created_at?(new Date(ev.created_at)).toLocaleString('en-UG'):'';
+      var det=ev.details||{};
+      var icon=icons[ev.event_type]||'📋';
+      var summary='';
+      if(det.crop_name) summary='Crop: '+det.crop_name;
+      else if(det.product) summary='Product: '+det.product;
+      else if(det.full_name) summary='Name: '+det.full_name;
+      else if(det.buyer_id) summary='Buyer ID: '+String(det.buyer_id).slice(0,8)+'...';
+      else summary=JSON.stringify(det).slice(0,80);
+      var uid=ev.user_id?String(ev.user_id).slice(0,8)+'...':'—';
+      return '<tr><td>'+icon+'</td><td>'+h(ev.event_type||'—')+'</td><td style="max-width:280px;font-size:0.82rem">'+h(summary)+'</td><td style="font-size:0.78rem">'+h(uid)+'</td><td>'+h(ts)+'</td></tr>';
+    }).join('');
+    setPanel('<table><thead><tr><th></th><th>Event</th><th>Summary</th><th>User</th><th>Time</th></tr></thead><tbody>'+body+'</tbody></table>');
   }
 
   function actionsCell(tab,id){

@@ -67,8 +67,11 @@ class DiscordNotifier:
     # Falls back to the default webhook when a category-specific one isn't set.
     _CHANNEL_MAP: dict[str, str] = {
         "order":     "DISCORD_WEBHOOK_ORDERS",
+        "payment":   "DISCORD_WEBHOOK_ORDERS",   # payment confirmed → orders channel
         "signup":    "DISCORD_WEBHOOK_SIGNUPS",
+        "user":      "DISCORD_WEBHOOK_SIGNUPS",  # user.signup → signups channel
         "listing":   "DISCORD_WEBHOOK_LISTINGS",
+        "scan":      "DISCORD_WEBHOOK_LISTINGS",  # crop doctor scans → listings channel
         "matching":  "DISCORD_WEBHOOK_MATCHING",
         "transport": "DISCORD_WEBHOOK_TRANSPORT",
         "server":    "DISCORD_WEBHOOK_ERRORS",

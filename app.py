@@ -1250,6 +1250,75 @@ def admin_stats():
         )
     })
 
+@app.route('/api/listings', methods=['POST'])
+@rate_limit(max_req=20, window=60)
+def create_listing():
+    """Farmer posts a new crop listing via the website (not USSD)."""
+    uid, err = verify_supabase_user()
+    if err:
+        return err
+    blocked = legal_gate(uid)
+    if blocked:
+        return blocked
+    data = request.get_json(force=True, silent=True) or {}
+    crop_name   = str(data.get('crop_name', '')).strip()[:80]
+    quantity_kg = data.get('quantity_kg')
+    price_per_kg = data.get('price_per_kg')
+    district    = str(data.get('district', '')).strip()[:60]
+    description = str(data.get('description', '')).strip()[:300]
+    if not crop_name or not quantity_kg or not price_per_kg:
+        return jsonify({'error': 'crop_name, quantity_kg and price_per_kg are required'}), 400
+    # Look up farmer profile for phone/name
+    farmer_rows = supa_get('farmers', {'id': f'eq.{uid}'}, limit=1) or []
+    farmer_info = farmer_rows[0] if farmer_rows else {}
+    row = {
+        'farmer_id':   uid,
+        'crop_name':   crop_name,
+        'quantity_kg': float(quantity_kg),
+        'price_per_kg': float(price_per_kg),
+        'district':    district or farmer_info.get('district', ''),
+        'description': description,
+        'farmer_name': farmer_info.get('full_name', ''),
+        'farmer_phone': farmer_info.get('phone', ''),
+        'is_available': True,
+        'source':      'web',
+    }
+    inserted = supa_insert('listings', row)
+    if not inserted:
+        return jsonify({'error': 'Failed to create listing'}), 500
+    _discord_notify(
+        event_type='listing.created',
+        title='🌾 New Crop Listing (Web)',
+        description=(
+            f"**Crop:** {crop_name}\n"
+            f"**Quantity:** {quantity_kg} kg\n"
+            f"**Price:** UGX {float(price_per_kg):,.0f}/kg\n"
+            f"**District:** {district or '—'}\n"
+            f"**Farmer:** {farmer_info.get('full_name', uid)}"
+        ),
+        severity='info',
+    )
+    _log_system_event('listing_created_web', {
+        'farmer_id': uid, 'crop_name': crop_name,
+        'quantity_kg': quantity_kg, 'district': district,
+    }, severity='info', user_id=uid)
+    return jsonify({'ok': True, 'listing': inserted[0] if isinstance(inserted, list) else inserted}), 201
+
+
+@app.route('/api/listings', methods=['GET'])
+@rate_limit(max_req=60, window=60)
+def public_listings():
+    """Public endpoint — returns available crop listings for the marketplace."""
+    district = request.args.get('district', '').strip()
+    crop     = request.args.get('crop', '').strip()
+    filters  = {'is_available': 'eq.true', 'order': 'created_at.desc'}
+    if district:
+        filters['district'] = f'ilike.*{district}*'
+    if crop:
+        filters['crop_name'] = f'ilike.*{crop}*'
+    return jsonify(supa_get('listings', filters=filters, limit=200) or [])
+
+
 @app.route('/api/admin/listings', methods=['GET'])
 def admin_listings():
     payload, err = verify_token(required_role='admin')
@@ -1425,7 +1494,26 @@ def crop_doctor():
         )
         text = res.json()['candidates'][0]['content']['parts'][0]['text']
         text = text.strip().lstrip('```json').lstrip('```').rstrip('```').strip()
-        return jsonify(_json.loads(text))
+        result_json = _json.loads(text)
+        _discord_notify(
+            event_type='scan.crop_doctor',
+            title='🌿 Crop Doctor Scan',
+            description=(
+                f"**Crop:** {crop}\n"
+                f"**Description:** {description[:120]}{'...' if len(description) > 120 else ''}\n"
+                f"**Diagnosis:** {result_json.get('diagnosis', '—')[:100]}\n"
+                f"**Confidence:** {result_json.get('confidence', '—')}%"
+            ),
+            severity='info',
+        )
+        _log_system_event('scan_crop_doctor', {
+            'crop': crop,
+            'description': description[:200],
+            'diagnosis': result_json.get('diagnosis', '')[:200],
+            'treatment': result_json.get('treatment', '')[:200],
+            'confidence': result_json.get('confidence'),
+        }, severity='info')
+        return jsonify(result_json)
     except Exception:
         return jsonify({'error': 'AI service temporarily unavailable'}), 503
 
@@ -1636,6 +1724,23 @@ def create_purchase_request():
     )
     if not result.ok:
         return jsonify({'error': result.error}), result.status_code
+    req_data = result.data or {}
+    _discord_notify(
+        event_type='listing.request',
+        title='🛒 New Purchase Request',
+        description=(
+            f"**Product:** {data.get('product', '—')}\n"
+            f"**Quantity:** {data.get('quantity', '—')} {data.get('unit', 'kg')}\n"
+            f"**Delivery:** {data.get('delivery_address', '—')}\n"
+            f"**Buyer ID:** `{uid}`"
+        ),
+        severity='info',
+    )
+    _log_system_event('purchase_request_created', {
+        'buyer_id': uid, 'product': data.get('product'),
+        'quantity': data.get('quantity'), 'unit': data.get('unit'),
+        'delivery_address': data.get('delivery_address'),
+    }, severity='info', user_id=uid)
     return jsonify({'ok': True, **(result.data or {})}), 201
 
 
@@ -1651,6 +1756,17 @@ def accept_offer(offer_id):
     result = MATCHING_SERVICE.accept_offer(offer_id, uid)
     if not result.ok:
         return jsonify({'error': result.error}), result.status_code
+    _discord_notify(
+        event_type='matching.offer_accepted',
+        title='🤝 Farmer Accepted an Offer',
+        description=(
+            f"**Offer ID:** `{offer_id}`\n"
+            f"**Farmer ID:** `{uid}`"
+        ),
+        severity='info',
+    )
+    _log_system_event('offer_accepted', {'offer_id': offer_id, 'farmer_id': uid},
+                      severity='info', user_id=uid)
     return jsonify({'ok': True, **(result.data or {})}), 200
 
 
@@ -1664,6 +1780,16 @@ def reject_offer(offer_id):
     result = MATCHING_SERVICE.reject_offer(offer_id, uid, str(data.get('reason', ''))[:200] or None)
     if not result.ok:
         return jsonify({'error': result.error}), result.status_code
+    _discord_notify(
+        event_type='matching.offer_rejected',
+        title='❌ Farmer Rejected an Offer',
+        description=(
+            f"**Offer ID:** `{offer_id}`\n"
+            f"**Farmer ID:** `{uid}`\n"
+            f"**Reason:** {data.get('reason', '—')}"
+        ),
+        severity='warning',
+    )
     return jsonify({'ok': True}), 200
 
 
@@ -1724,10 +1850,14 @@ def admin_events():
     payload, err = verify_token(required_role='admin')
     if err:
         return err
-    severity = request.args.get('severity')
+    severity   = request.args.get('severity')
+    event_type = request.args.get('event_type')
     filters = {'order': 'created_at.desc'}
     if severity:
         filters['severity'] = f'eq.{severity}'
+    if event_type:
+        # Support prefix match: e.g. event_type=scan matches scan_*, listing_created, etc.
+        filters['event_type'] = f'ilike.*{event_type}*'
     return jsonify(supa_get('system_events', filters=filters, limit=200) or [])
 
 
@@ -1825,6 +1955,18 @@ def transporter_set_availability():
     if not ok:
         return jsonify({'error': 'Could not update availability'}), 500
     log.info("transporter.availability", id=transporter_id, available=is_available)
+    t_name = rows[0].get('full_name', 'Unknown')
+    t_district = rows[0].get('district', '—')
+    _discord_notify(
+        event_type='transport.availability',
+        title=f"{'🟢' if is_available else '🔴'} Transporter {'Available' if is_available else 'Unavailable'}",
+        description=(
+            f"**Name:** {t_name}\n"
+            f"**District:** {t_district}\n"
+            f"**Status:** {'Ready for jobs' if is_available else 'Not available'}"
+        ),
+        severity='info',
+    )
     return jsonify({'ok': True, 'is_available': is_available}), 200
 
 
