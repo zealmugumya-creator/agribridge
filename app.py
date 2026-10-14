@@ -1866,6 +1866,37 @@ def _log_system_event(event_type: str, details: dict, severity: str = 'error',
         log.warning("system_event.write_failed", error=str(_e))
 
 
+@app.route('/api/admin/discord-test', methods=['POST'])
+def admin_discord_test():
+    """Fire a test message to every configured Discord channel. Admin only."""
+    payload, err = verify_token(required_role='admin')
+    if err:
+        return err
+    import os as _os
+    results = {}
+    test_channels = {
+        'order.created':     'DISCORD_WEBHOOK_ORDERS',
+        'user.signup':       'DISCORD_WEBHOOK_SIGNUPS',
+        'listing.created':   'DISCORD_WEBHOOK_LISTINGS',
+        'matching.offer':    'DISCORD_WEBHOOK_MATCHING',
+        'transport.avail':   'DISCORD_WEBHOOK_TRANSPORT',
+        'server.error':      'DISCORD_WEBHOOK_ERRORS',
+    }
+    for event_type, env_var in test_channels.items():
+        url = _os.environ.get(env_var, '').strip()
+        if not url:
+            results[env_var] = 'not set'
+            continue
+        _discord_notify(
+            event_type=event_type,
+            title=f'🧪 Test — {env_var}',
+            description=f'**Channel:** #{event_type.split(".")[0]}\n**Env var:** `{env_var}`\n**Status:** ✅ If you see this in the right channel, routing works!',
+            severity='info',
+        )
+        results[env_var] = 'sent'
+    return jsonify({'ok': True, 'results': results})
+
+
 @app.route('/api/admin/events', methods=['GET'])
 def admin_events():
     """Return recent system events (failures, warnings) for the admin panel."""
