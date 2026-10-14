@@ -308,6 +308,18 @@ img{max-width:100%}
 .pay-method.selected{border-color:var(--green);background:var(--green-dim)}
 .order-success{text-align:center;padding:20px 0}
 .order-success .ok-icon{font-size:4rem;margin-bottom:12px}
+.pay-instructions{background:var(--card);border:1.5px solid var(--green);border-radius:14px;padding:16px;font-size:0.9rem}
+.pay-instr-icon{font-size:2rem;text-align:center;margin-bottom:4px}
+.pay-instr-title{font-weight:700;font-size:1rem;text-align:center;margin-bottom:2px}
+.pay-instr-amount{text-align:center;font-size:1.3rem;font-weight:800;color:var(--green);margin-bottom:12px}
+.pay-steps{padding-left:18px;margin:0 0 12px;line-height:1.8}
+.pay-steps li{margin-bottom:2px}
+.pay-number{color:var(--green);font-size:1.05em;letter-spacing:0.04em}
+.pay-ref-note{background:rgba(46,204,113,0.1);border-radius:8px;padding:8px 10px;font-size:0.82rem;color:var(--text2);margin-top:8px;text-align:center}
+.bank-details{display:flex;flex-direction:column;gap:6px;margin:8px 0}
+.bank-row{display:flex;justify-content:space-between;align-items:center;padding:6px 0;border-bottom:1px solid var(--border)}
+.bank-row span{color:var(--text2);font-size:0.82rem}
+.bank-row strong{font-size:0.9rem;text-align:right}
 
 /* ── AI PANEL ── */
 .ai-fab{position:fixed;bottom:80px;left:16px;z-index:300;width:54px;height:54px;border-radius:50%;background:linear-gradient(135deg,#1a237e,#283593);color:#fff;font-size:1.3rem;display:flex;align-items:center;justify-content:center;animation:pulse 3s infinite;border:none;box-shadow:0 4px 20px rgba(26,35,126,0.45)}
@@ -1823,6 +1835,7 @@ AgriBridge service</div>
           <div style="font-size:0.72rem;color:var(--text2);margin-top:6px">TRACKING CODE</div>
           <div id="trackCodeDisplay" style="color:var(--yellow);font-weight:800"></div>
         </div>
+        <div id="paymentInstructions" style="display:none;margin:16px 0 8px;text-align:left"></div>
         <div style="display:flex;gap:10px;justify-content:center;flex-wrap:wrap;margin-top:8px">
           <button class="btn-card" onclick="closeCheckout();showPage('delivery')">Track Delivery 📍</button>
           <button class="btn-card" onclick="closeCheckout()" style="background:transparent;border:1px solid var(--green);color:var(--green)">Continue Shopping</button>
@@ -2812,6 +2825,63 @@ async function placeOrder() {
   const trackEl = document.getElementById('trackCodeDisplay');
   if (refEl)   refEl.textContent   = ref;
   if (trackEl) trackEl.textContent = track;
+  // Show payment instructions based on selected method
+  const payInstrEl = document.getElementById('paymentInstructions');
+  if (payInstrEl) {
+    const fmtTotal = 'UGX ' + total.toLocaleString();
+    const payHtml = {
+      momo: `<div class="pay-instructions">
+               <div class="pay-instr-icon">📱</div>
+               <div class="pay-instr-title">Pay via MTN MoMo</div>
+               <div class="pay-instr-amount">${fmtTotal}</div>
+               <ol class="pay-steps">
+                 <li>Dial <strong>*165#</strong> on your MTN line</li>
+                 <li>Select <strong>Send Money</strong></li>
+                 <li>Enter number: <strong class="pay-number">0772 123 456</strong></li>
+                 <li>Enter amount: <strong>${fmtTotal}</strong></li>
+                 <li>Name: <strong>AgriBridge Payments</strong></li>
+                 <li>Enter your MoMo PIN to confirm</li>
+               </ol>
+               <div class="pay-ref-note">Use <strong>${ref}</strong> as your payment reference</div>
+             </div>`,
+      airtel: `<div class="pay-instructions">
+               <div class="pay-instr-icon">📲</div>
+               <div class="pay-instr-title">Pay via Airtel Money</div>
+               <div class="pay-instr-amount">${fmtTotal}</div>
+               <ol class="pay-steps">
+                 <li>Dial <strong>*185#</strong> on your Airtel line</li>
+                 <li>Select <strong>Send Money</strong></li>
+                 <li>Enter number: <strong class="pay-number">0752 123 456</strong></li>
+                 <li>Enter amount: <strong>${fmtTotal}</strong></li>
+                 <li>Name: <strong>AgriBridge Payments</strong></li>
+                 <li>Enter your Airtel PIN to confirm</li>
+               </ol>
+               <div class="pay-ref-note">Use <strong>${ref}</strong> as your payment reference</div>
+             </div>`,
+      bank: `<div class="pay-instructions">
+               <div class="pay-instr-icon">🏦</div>
+               <div class="pay-instr-title">Bank Transfer</div>
+               <div class="pay-instr-amount">${fmtTotal}</div>
+               <div class="bank-details">
+                 <div class="bank-row"><span>Bank</span><strong>Stanbic Bank Uganda</strong></div>
+                 <div class="bank-row"><span>Account Name</span><strong>AgriBridge Ltd</strong></div>
+                 <div class="bank-row"><span>Account No.</span><strong class="pay-number">9030 0123 45678</strong></div>
+                 <div class="bank-row"><span>Branch</span><strong>Kampala Main</strong></div>
+                 <div class="bank-row"><span>Reference</span><strong>${ref}</strong></div>
+               </div>
+               <div class="pay-ref-note">Send your bank slip to <strong>payments@agribridge.com</strong> after transfer</div>
+             </div>`,
+      cash: `<div class="pay-instructions">
+               <div class="pay-instr-icon">💵</div>
+               <div class="pay-instr-title">Cash on Delivery</div>
+               <div class="pay-instr-amount">${fmtTotal}</div>
+               <p style="margin:8px 0 4px">Pay the delivery rider when your order arrives.</p>
+               <p style="color:var(--text2);font-size:0.85rem">Please have the exact amount ready: <strong>${fmtTotal}</strong></p>
+             </div>`,
+    };
+    payInstrEl.innerHTML = payHtml[selectedPayMethod] || '';
+    payInstrEl.style.display = payHtml[selectedPayMethod] ? 'block' : 'none';
+  }
   showToast(`✅ Order placed! ${ref} · SMS confirmation sent`);
   // Pre-fill tracking
   const ti = document.getElementById('trackingInput');
@@ -2940,11 +3010,19 @@ function localAIResponse(prompt) {
   if (/promo.*code|discount code|coupon|voucher/i.test(p))
     return `Available promo codes:\n• FRESH10 — 10% off fresh produce\n• ANIMAL10 — 10% off livestock orders\n• FARM20 — 20% off for registered farmers\n• AGRI15 — 15% AgriBridge launch promo\n• ZEAL50 — 50% founder discount\n• AB2026 — 12% launch offer 2026\n\nEnter a code in your basket before checkout! [OPEN_BASKET]`;
 
-  // ── ANIMAL QUERIES ──────────────────────────────────────
-  if (/animal|cattle|cow|goat|pig|chicken|poultry|livestock|tilapia|fish|bee|honey|rabbit|sheep|duck/i.test(p) && !/disease|sick|symptom|fever|diagnos/i.test(p))
+  // ── ANIMAL DISEASE (must come before general animal browse check) ────────
+  if (/sick|fever|symptom|disease|diagnos|ill|weak|dying|dead|cough|diarrhea|diarrhoea|sore|wound|lump|swollen|bleed|limp|not.*eating|off.*feed|loss.*appetite/i.test(p) &&
+      /chicken|hen|poultry|bird|cattle|cow|bull|calf|goat|pig|swine|sheep|rabbit|duck|animal|livestock|vet/i.test(p)) {
+    const animal = /chicken|hen|poultry|bird/i.test(p) ? 'chicken' :
+                   /cattle|cow|bull|calf/i.test(p) ? 'cattle' :
+                   /goat/i.test(p) ? 'goat' : /pig|swine/i.test(p) ? 'pig' : 'animal';
+    return `Your ${animal} may be sick — use the Animal Doctor 🐾 for an instant free diagnosis! Our AI can identify Newcastle, ECF, FMD, Mastitis, ASF, Lumpy Skin and 30+ other diseases.\n\nTip: Describe all symptoms (fever, coughing, diarrhoea, skin signs, etc.) for a more accurate result.\n\n[NAVIGATE:doctor]`;
+  }
+  // ── ANIMAL QUERIES (browsing, no illness keywords) ─────────────────────
+  if (/animal|cattle|cow|goat|pig|chicken|poultry|livestock|tilapia|fish|bee|honey|rabbit|sheep|duck/i.test(p))
     return "Browse our Animals Marketplace 🐄 — cattle, goats, poultry, fish, and bees. All vet-certified with health certificates. [NAVIGATE:animals]";
-  if (/animal.*doctor|vet.*service|book.*vet|sick.*animal|animal.*disease|ecf|newcastle|fmd|mastitis|asfrika.*swine|lumpy.*skin/i.test(p))
-    return "Our AI Animal Doctor is free! 🐾 It can diagnose ECF, FMD, Newcastle, Mastitis, Brucellosis and more. Also book a real vet visit. [NAVIGATE:animals]";
+  if (/animal.*doctor|vet.*service|book.*vet|animal.*disease|ecf|newcastle|fmd|mastitis|lumpy.*skin/i.test(p))
+    return "Our AI Animal Doctor is free! 🐾 It can diagnose ECF, FMD, Newcastle, Mastitis, Brucellosis and more. Also book a real vet visit. [NAVIGATE:doctor]";
   if (/east coast fever|ecf/i.test(p))
     return "East Coast Fever (ECF) is caused by Theileria parva ticks. Treatment: Buparvaquone (Butalex) injection ASAP — first 4 days are critical. Tick dipping with Amitraz. [NAVIGATE:animals]";
   if (/african swine fever|asf/i.test(p))

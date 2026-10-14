@@ -76,6 +76,7 @@ class DiscordNotifier:
         "transport": "DISCORD_WEBHOOK_TRANSPORT",
         "server":    "DISCORD_WEBHOOK_ERRORS",
         "price":     "DISCORD_WEBHOOK_ERRORS",
+        "ai":        "DISCORD_WEBHOOK_ERRORS",    # AI queries → errors/monitoring channel
     }
 
     def __init__(self, webhook_url: str, dead_letter: Callable[[DiscordMessage, str], None] | None = None):

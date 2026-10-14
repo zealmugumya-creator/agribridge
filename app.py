@@ -1568,6 +1568,19 @@ def ai_chat():
         )
         if res.ok:
             reply = res.json()['choices'][0]['message']['content'].strip()
+            _discord_notify(
+                event_type='ai.query',
+                title='🤖 AI Assistant Query',
+                description=(
+                    f"**Message:** {msg[:200]}\n"
+                    f"**Reply:** {reply[:200]}{'…' if len(reply) > 200 else ''}"
+                ),
+                severity='info',
+            )
+            _log_system_event('ai_query', {
+                'message': msg[:300],
+                'reply': reply[:300],
+            }, severity='info')
             return jsonify({'reply': reply}), 200
         return jsonify({'reply': None, 'error': 'ai upstream ' + str(res.status_code)}), 200
     except Exception:
