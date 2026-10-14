@@ -3653,7 +3653,19 @@ async function submitListProduce() {
   const imageUrl=photoFile ? await uploadMedia(photoFile,'listings',5) : null;
   const videoFile=document.getElementById('lpVideo')?.files?.[0]||null;
   const videoUrl=videoFile ? await uploadMedia(videoFile,'listings',25) : null;
-  const result=await sbInsert('listings',{ farmer_id:currentUser?.supaId||null, crop_name:crop, category:cat, quantity_kg:qty, price_per_kg:price, unit:'kg', district, is_organic:organic, is_available:true, description:desc||null, sale_unit:saleUnit, min_order_kg:minOrder, delivery_available:delivery, payment_terms:pays.join(', ')||null, image_url:imageUrl, video_url:videoUrl });
+  // Route through backend so Discord/admin is notified of every new listing
+  const token = await getAuthToken();
+  const apiRes = token
+    ? await fetch('/api/listings', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
+        body: JSON.stringify({ crop_name:crop, category:cat, quantity_kg:qty, price_per_kg:price,
+          district, is_organic:organic, description:desc||null, sale_unit:saleUnit,
+          min_order_kg:minOrder, delivery_available:delivery,
+          payment_terms:pays.join(', ')||null, image_url:imageUrl, video_url:videoUrl })
+      }).then(r=>r.json()).catch(()=>null)
+    : null;
+  const result = apiRes?.ok || apiRes?.listing;
   if(result){ closeModal('listProduceModal'); showToast(`✅ ${crop} listing posted! Buyers can now find you.`); allListings=[]; if(document.querySelector('.page.active')?.id==='page-market') loadListings(); }
   else showToast('Could not post listing — please try again');
 }

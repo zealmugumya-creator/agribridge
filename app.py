@@ -1261,27 +1261,36 @@ def create_listing():
     if blocked:
         return blocked
     data = request.get_json(force=True, silent=True) or {}
-    crop_name   = str(data.get('crop_name', '')).strip()[:80]
-    quantity_kg = data.get('quantity_kg')
+    crop_name    = str(data.get('crop_name', '')).strip()[:80]
+    quantity_kg  = data.get('quantity_kg')
     price_per_kg = data.get('price_per_kg')
-    district    = str(data.get('district', '')).strip()[:60]
-    description = str(data.get('description', '')).strip()[:300]
+    district     = str(data.get('district', '')).strip()[:60]
+    description  = str(data.get('description', '')).strip()[:300]
     if not crop_name or not quantity_kg or not price_per_kg:
         return jsonify({'error': 'crop_name, quantity_kg and price_per_kg are required'}), 400
     # Look up farmer profile for phone/name
     farmer_rows = supa_get('farmers', {'id': f'eq.{uid}'}, limit=1) or []
     farmer_info = farmer_rows[0] if farmer_rows else {}
     row = {
-        'farmer_id':   uid,
-        'crop_name':   crop_name,
-        'quantity_kg': float(quantity_kg),
-        'price_per_kg': float(price_per_kg),
-        'district':    district or farmer_info.get('district', ''),
-        'description': description,
-        'farmer_name': farmer_info.get('full_name', ''),
-        'farmer_phone': farmer_info.get('phone', ''),
-        'is_available': True,
-        'source':      'web',
+        'farmer_id':          uid,
+        'crop_name':          crop_name,
+        'quantity_kg':        float(quantity_kg),
+        'price_per_kg':       float(price_per_kg),
+        'district':           district or farmer_info.get('district', ''),
+        'description':        description or None,
+        'farmer_name':        farmer_info.get('full_name', ''),
+        'farmer_phone':       farmer_info.get('phone', ''),
+        'is_available':       True,
+        'source':             'web',
+        # Optional extra fields from the web form
+        'category':           str(data.get('category', '')).strip()[:40] or None,
+        'is_organic':         bool(data.get('is_organic', False)),
+        'sale_unit':          str(data.get('sale_unit', 'per kg')).strip()[:20] or None,
+        'min_order_kg':       int(data.get('min_order_kg') or 0) or None,
+        'delivery_available': bool(data.get('delivery_available', False)),
+        'payment_terms':      str(data.get('payment_terms', '')).strip()[:100] or None,
+        'image_url':          str(data.get('image_url', '')).strip() or None,
+        'video_url':          str(data.get('video_url', '')).strip() or None,
     }
     inserted = supa_insert('listings', row)
     if not inserted:
