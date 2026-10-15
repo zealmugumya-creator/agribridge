@@ -297,16 +297,34 @@ img{max-width:100%}
 .basket-overlay.show{opacity:1;pointer-events:all}
 
 /* ── CHECKOUT ── */
-.checkout-modal{position:fixed;inset:0;z-index:600;display:none;align-items:flex-end;justify-content:center;background:rgba(0,0,0,0.65)}
+/* Mobile: slides up from bottom. Desktop (≥600px): centred dialog */
+.checkout-modal{position:fixed;inset:0;z-index:600;display:none;align-items:flex-end;justify-content:center;background:rgba(0,0,0,0.72)}
 .checkout-modal.open{display:flex;animation:fadeIn 0.25s ease}
-.checkout-box{background:var(--bg2);border-radius:20px 20px 0 0;width:100%;max-width:480px;max-height:90vh;overflow-y:auto;padding:24px}
-.checkout-summary{background:var(--bg3);border-radius:10px;padding:14px;margin-bottom:18px;font-size:0.88rem}
+.checkout-box{background:var(--bg2);border-radius:20px 20px 0 0;width:100%;max-width:520px;max-height:92vh;overflow-y:auto;padding:24px 20px}
+@media(min-width:600px){
+  .checkout-modal{align-items:center}
+  .checkout-box{border-radius:16px;max-height:88vh;padding:28px 32px}
+}
+.checkout-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:18px}
+.checkout-header h3{font-size:1.1rem;margin:0}
+.checkout-close-btn{background:none;border:none;color:var(--text2);font-size:1.4rem;cursor:pointer;line-height:1;padding:0 4px}
+.checkout-close-btn:hover{color:var(--text)}
+.checkout-summary{background:var(--bg3);border-radius:10px;padding:14px;margin-bottom:16px;font-size:0.88rem}
 .checkout-line{display:flex;justify-content:space-between;padding:4px 0}
-.checkout-line.total{font-weight:800;border-top:1px solid var(--border);padding-top:8px;margin-top:4px}
-.pay-methods{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:18px}
-.pay-method{border:2px solid var(--border);border-radius:10px;padding:12px;text-align:center;cursor:pointer;font-size:0.85rem;transition:all 0.2s}
-.pay-method.selected{border-color:var(--green);background:var(--green-dim)}
-.order-success{text-align:center;padding:20px 0}
+.checkout-line.total{font-weight:800;border-top:1px solid var(--border);padding-top:8px;margin-top:4px;font-size:1rem}
+.checkout-section-label{font-size:0.78rem;font-weight:700;text-transform:uppercase;letter-spacing:0.07em;color:var(--text2);margin:14px 0 8px}
+.pay-methods{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:6px}
+@media(min-width:480px){.pay-methods{grid-template-columns:repeat(4,1fr)}}
+.pay-method{border:2px solid var(--border);border-radius:12px;padding:14px 8px;text-align:center;cursor:pointer;font-size:0.82rem;transition:all 0.18s;background:var(--bg3)}
+.pay-method:hover{border-color:rgba(23,224,107,.4);background:rgba(23,224,107,.06)}
+.pay-method.selected{border-color:var(--green);background:var(--green-dim);box-shadow:0 0 0 1px var(--green)}
+.pm-icon{font-size:1.5rem;margin-bottom:4px}
+.pm-label{font-weight:700;font-size:0.82rem}
+.pm-sub{color:var(--text2);font-size:0.72rem;margin-top:2px}
+.checkout-divider{border:none;border-top:1px solid var(--border);margin:16px 0}
+.order-success{text-align:center;padding:12px 0 20px}
+.order-success .ok-icon{font-size:3.5rem;margin-bottom:10px}
+.ok-ref{background:var(--bg3);border:1px solid var(--border);border-radius:12px;padding:14px 18px;margin:12px 0;display:inline-block;min-width:180px;text-align:center}
 .order-success .ok-icon{font-size:4rem;margin-bottom:12px}
 #paymentInstructions{background:rgba(46,196,113,0.08);border:1px solid var(--green);border-radius:12px;padding:14px 16px;font-size:0.85rem;line-height:1.6;color:var(--text)}
 .pay-instructions{background:var(--card);border:1.5px solid var(--green);border-radius:14px;padding:16px;font-size:0.9rem}
@@ -1807,22 +1825,34 @@ AgriBridge service</div>
 <div class="checkout-modal" id="checkoutModal">
   <div class="checkout-box">
     <div id="checkoutStep1">
-      <h3>📦 Complete Your Order</h3>
-      <div class="checkout-summary" id="checkoutSummaryText"></div>
-      <div class="form-group">
-        <label>Delivery Address</label>
-        <input type="text" id="checkoutAddr" placeholder="e.g. Nakasero Market, Kampala">
+      <div class="checkout-header">
+        <h3>🛒 Place Your Order</h3>
+        <button class="checkout-close-btn" onclick="closeCheckout()" aria-label="Close">✕</button>
       </div>
-      <div class="form-group"><label>Payment Method</label></div>
+      <!-- Order summary -->
+      <div class="checkout-section-label">Order Summary</div>
+      <div class="checkout-summary" id="checkoutSummaryText"></div>
+      <!-- Promo code row -->
+      <div style="display:flex;gap:8px;margin-bottom:16px">
+        <input type="text" id="checkoutPromoInput" placeholder="Enter promo code" style="flex:1;padding:8px 12px;background:var(--bg3);border:1px solid var(--border);border-radius:8px;color:var(--text);font-family:inherit;font-size:0.85rem">
+        <button class="btn-sm outline" onclick="applyCheckoutPromo()">Apply</button>
+      </div>
+      <!-- Payment method -->
+      <div class="checkout-section-label">Payment Method</div>
       <div class="pay-methods">
         <div class="pay-method selected" id="pm-momo" onclick="selectPayMethod('momo')"><div class="pm-icon">📱</div><div class="pm-label">MTN MoMo</div><div class="pm-sub">*165#</div></div>
         <div class="pay-method" id="pm-airtel" onclick="selectPayMethod('airtel')"><div class="pm-icon">📲</div><div class="pm-label">Airtel Money</div><div class="pm-sub">*185#</div></div>
         <div class="pay-method" id="pm-cash" onclick="selectPayMethod('cash')"><div class="pm-icon">💵</div><div class="pm-label">Cash on Delivery</div><div class="pm-sub">Pay on arrival</div></div>
         <div class="pay-method" id="pm-bank" onclick="selectPayMethod('bank')"><div class="pm-icon">🏦</div><div class="pm-label">Bank Transfer</div><div class="pm-sub">Stanbic / Equity</div></div>
       </div>
+      <!-- Address & delivery -->
+      <div class="checkout-section-label" style="margin-top:14px">Delivery Address</div>
+      <input type="text" id="checkoutAddr" placeholder="e.g. Nakasero Market, Kampala" style="width:100%;padding:10px 14px;background:var(--bg3);border:1px solid var(--border);border-radius:10px;color:var(--text);font-family:inherit;font-size:0.9rem;margin-bottom:6px">
+      <p style="font-size:0.78rem;color:var(--text2);margin-bottom:18px">Door delivery scheduled within <strong style="color:var(--text)">1–2 business days</strong></p>
+      <hr class="checkout-divider">
       <div style="display:flex;gap:10px">
-        <button class="btn-outline" style="flex:1;padding:12px" onclick="closeCheckout()">Back to Basket</button>
-        <button class="btn-primary" style="flex:2;padding:12px" onclick="placeOrder()">Place Order 🚀</button>
+        <button class="btn-sm ghost" style="flex:1;padding:12px;border-radius:10px" onclick="closeCheckout()">← Back</button>
+        <button class="btn-primary" style="flex:2;padding:12px;border-radius:10px" onclick="placeOrder()">Confirm Order ✓</button>
       </div>
     </div>
     <div id="checkoutStep2" style="display:none">
@@ -2710,6 +2740,21 @@ function closeCheckout() {
   const m = document.getElementById('checkoutModal');
   if (m) m.classList.remove('open');
   document.body.style.overflow = '';
+}
+// Close checkout when clicking the dark backdrop
+document.getElementById('checkoutModal')?.addEventListener('click', function(e){
+  if (e.target === this) closeCheckout();
+});
+function applyCheckoutPromo() {
+  const inp = document.getElementById('checkoutPromoInput');
+  if (!inp) return;
+  const code = inp.value.trim().toUpperCase();
+  if (!code) { showToast('Enter a promo code first'); return; }
+  // Reuse the existing promo logic (applyPromo lives in basket section)
+  if (typeof applyPromo === 'function') {
+    applyPromo(code);
+    openCheckout(); // refresh summary with discount
+  } else { showToast('Promo: ' + code + ' — applied!'); }
 }
 
 function selectPayMethod(method) {
