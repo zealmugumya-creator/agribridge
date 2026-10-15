@@ -2037,6 +2037,286 @@ def transporter_profile():
 
 
 # ══════════════════════════════════════════════════════════════════════════════
+# ══════════════════════════════════════════════════════════════════════════════
+# LOGISTICS COMMAND CENTER — GPS, order actions, receipts
+# ══════════════════════════════════════════════════════════════════════════════
+
+@app.route('/api/transporter/location', methods=['POST'])
+@rate_limit(max_req=60, window=60)
+def transporter_update_location():
+    """Transporter pushes their current GPS location.
+    Stored on the deliveries row tied to their active delivery."""
+    uid, err = verify_supabase_user()
+    if err:
+        return err
+    data = request.get_json(force=True, silent=True) or {}
+    lat = data.get('lat')
+    lng = data.get('lng')
+    if lat is None or lng is None:
+        return jsonify({'error': 'lat and lng required'}), 400
+    try:
+        lat = float(lat); lng = float(lng)
+        if not (-90 <= lat <= 90 and -180 <= lng <= 180):
+            raise ValueError('out of range')
+    except (ValueError, TypeError):
+        return jsonify({'error': 'Invalid coordinates'}), 400
+
+    # Find transporter row
+    rows = supa_get('transporters', {'supabase_uid': f'eq.{uid}', 'status': 'eq.active'}, limit=1)
+    if not rows:
+        return jsonify({'error': 'No transporter account found'}), 404
+    transporter_id = rows[0]['id']
+
+    # Update the delivery row that's currently in_transit for this transporter
+    now = datetime.datetime.utcnow().isoformat()
+    supa_update('deliveries', {
+        'transporter_lat': lat,
+        'transporter_lng': lng,
+        'location_updated_at': now,
+    }, 'transporter_id', transporter_id)
+
+    # Also update the transporter row itself for quick dashboard reads
+    supa_update('transporters', {
+        'last_lat': lat, 'last_lng': lng, 'last_location_at': now,
+    }, 'id', transporter_id)
+
+    return jsonify({'ok': True}), 200
+
+
+@app.route('/api/admin/active-deliveries', methods=['GET'])
+def admin_active_deliveries():
+    """Return all orders currently in_transit with last GPS position."""
+    payload, err = verify_token(required_role='admin')
+    if err:
+        return err
+    orders = supa_get('orders', {'status': 'eq.in_transit', 'order': 'updated_at.desc'}, limit=200) or []
+    deliveries = supa_get('deliveries', {'order': 'updated_at.desc'}, limit=500) or []
+    transporters = supa_get('transporters', {}, limit=300) or []
+
+    # Index for fast lookup
+    del_by_order = {d.get('order_id'): d for d in deliveries}
+    t_by_id = {t['id']: t for t in transporters}
+
+    result = []
+    for o in orders:
+        oid = o.get('id')
+        d = del_by_order.get(oid, {})
+        tid = d.get('transporter_id')
+        t = t_by_id.get(tid, {}) if tid else {}
+        result.append({
+            'order_id':    oid,
+            'order_ref':   o.get('order_ref', ''),
+            'tracking_code': o.get('tracking_code', ''),
+            'delivery_address': o.get('delivery_address', ''),
+            'total_price': o.get('total_price', 0),
+            'payment_method': o.get('payment_method', ''),
+            'payment_status': o.get('payment_status', ''),
+            'created_at':  o.get('created_at', ''),
+            'transporter_name':  t.get('full_name', ''),
+            'transporter_phone': t.get('phone', ''),
+            'transporter_vehicle': t.get('vehicle_type', ''),
+            'lat': d.get('transporter_lat') or t.get('last_lat'),
+            'lng': d.get('transporter_lng') or t.get('last_lng'),
+            'location_updated_at': d.get('location_updated_at') or t.get('last_location_at'),
+            'estimated_arrival': d.get('estimated_arrival'),
+            'delivery_status': d.get('status', 'in_transit'),
+        })
+    return jsonify(result), 200
+
+
+@app.route('/api/admin/orders-full', methods=['GET'])
+def admin_orders_full():
+    """Full order list for the Logistics Command Center with rich filtering."""
+    payload, err = verify_token(required_role='admin')
+    if err:
+        return err
+    filters = {'order': 'created_at.desc'}
+    status = request.args.get('status')
+    payment = request.args.get('payment_status')
+    date_from = request.args.get('date_from')
+    date_to = request.args.get('date_to')
+    q = request.args.get('q', '').strip()
+
+    if status:
+        filters['status'] = f'eq.{status}'
+    if payment:
+        filters['payment_status'] = f'eq.{payment}'
+    if date_from:
+        filters['created_at'] = f'gte.{date_from}'
+    if date_to:
+        filters['created_at'] = f'lte.{date_to}T23:59:59'
+
+    orders = supa_get('orders', filters=filters, limit=500) or []
+
+    # If search query, filter in Python (Supabase free tier lacks full-text)
+    if q:
+        ql = q.lower()
+        orders = [o for o in orders if
+                  ql in (o.get('order_ref') or '').lower() or
+                  ql in (o.get('tracking_code') or '').lower() or
+                  ql in (o.get('delivery_address') or '').lower() or
+                  ql in (o.get('buyer_id') or '').lower()]
+
+    return jsonify(orders), 200
+
+
+@app.route('/api/admin/orders/<order_id>/approve', methods=['POST'])
+def admin_approve_order(order_id):
+    """Admin approves an order (moves pending → confirmed)."""
+    payload, err = verify_token(required_role='admin')
+    if err:
+        return err
+    data = request.get_json(force=True, silent=True) or {}
+    reason = str(data.get('reason', 'Admin approved')).strip()[:200]
+    ok = supa_update('orders', {
+        'status': 'confirmed',
+        'admin_approved': True,
+        'admin_approved_at': datetime.datetime.utcnow().isoformat(),
+        'admin_note': reason,
+    }, 'id', order_id)
+    if ok:
+        _log_system_event('order_admin_approved', {
+            'order_id': order_id, 'reason': reason,
+            'admin': payload.get('sub', 'admin'),
+        }, severity='info')
+        _discord_notify(
+            event_type='order.confirmed',
+            title=f'✅ Order Approved by Admin',
+            description=f"**Order:** `{order_id}`\n**Reason:** {reason}\n**Admin:** `{payload.get('sub','')}`",
+            severity='info',
+        )
+        return jsonify({'ok': True}), 200
+    return jsonify({'error': 'Update failed'}), 500
+
+
+@app.route('/api/admin/orders/<order_id>/reject', methods=['POST'])
+def admin_reject_order(order_id):
+    """Admin rejects/cancels an order."""
+    payload, err = verify_token(required_role='admin')
+    if err:
+        return err
+    data = request.get_json(force=True, silent=True) or {}
+    reason = str(data.get('reason', 'Cancelled by admin')).strip()[:200]
+    ok = supa_update('orders', {
+        'status': 'cancelled',
+        'admin_note': reason,
+        'updated_at': datetime.datetime.utcnow().isoformat(),
+    }, 'id', order_id)
+    if ok:
+        _log_system_event('order_admin_rejected', {
+            'order_id': order_id, 'reason': reason,
+        }, severity='warning')
+        _discord_notify(
+            event_type='order.cancelled',
+            title='❌ Order Cancelled by Admin',
+            description=f"**Order:** `{order_id}`\n**Reason:** {reason}",
+            severity='warning',
+        )
+        return jsonify({'ok': True}), 200
+    return jsonify({'error': 'Update failed'}), 500
+
+
+@app.route('/api/admin/orders/<order_id>/assign-transporter', methods=['POST'])
+def admin_assign_transporter(order_id):
+    """Admin assigns a transporter to an order."""
+    payload, err = verify_token(required_role='admin')
+    if err:
+        return err
+    data = request.get_json(force=True, silent=True) or {}
+    transporter_id = str(data.get('transporter_id', '')).strip()
+    if not transporter_id:
+        return jsonify({'error': 'transporter_id required'}), 400
+    t_rows = supa_get('transporters', {'id': f'eq.{transporter_id}'}, limit=1)
+    if not t_rows:
+        return jsonify({'error': 'Transporter not found'}), 404
+    t = t_rows[0]
+    # Upsert a deliveries row
+    existing = supa_get('deliveries', {'order_id': f'eq.{order_id}'}, limit=1)
+    now = datetime.datetime.utcnow().isoformat()
+    if existing:
+        supa_update('deliveries', {'transporter_id': transporter_id, 'updated_at': now}, 'order_id', order_id)
+    else:
+        supa_insert('deliveries', {
+            'order_id': order_id,
+            'transporter_id': transporter_id,
+            'status': 'assigned',
+            'created_at': now, 'updated_at': now,
+        })
+    supa_update('orders', {'status': 'in_transit', 'updated_at': now}, 'id', order_id)
+    _log_system_event('order_transporter_assigned', {
+        'order_id': order_id, 'transporter_id': transporter_id,
+        'transporter_name': t.get('full_name'),
+    }, severity='info')
+    _discord_notify(
+        event_type='transport.assigned',
+        title='🚚 Transporter Assigned',
+        description=(
+            f"**Order:** `{order_id}`\n"
+            f"**Transporter:** {t.get('full_name')} ({t.get('phone')})\n"
+            f"**Vehicle:** {t.get('vehicle_type','—')} {t.get('plate_number','')}"
+        ),
+        severity='info',
+    )
+    return jsonify({'ok': True}), 200
+
+
+@app.route('/api/admin/orders/<order_id>/confirm-delivery', methods=['POST'])
+def admin_confirm_delivery(order_id):
+    """Admin or buyer confirms delivery completion."""
+    payload, err = verify_token(required_role='admin')
+    if err:
+        return err
+    data = request.get_json(force=True, silent=True) or {}
+    note = str(data.get('note', '')).strip()[:300]
+    now = datetime.datetime.utcnow().isoformat()
+    supa_update('orders', {
+        'status': 'delivered',
+        'payment_status': 'paid',
+        'delivered_at': now,
+        'admin_note': note or 'Delivery confirmed',
+    }, 'id', order_id)
+    supa_update('deliveries', {'status': 'delivered', 'delivered_at': now}, 'order_id', order_id)
+    _log_system_event('order_delivered', {'order_id': order_id, 'note': note}, severity='info')
+    _discord_notify(
+        event_type='order.delivered',
+        title='📦 Delivery Confirmed',
+        description=f"**Order:** `{order_id}`\n**Note:** {note or 'No note'}",
+        severity='info',
+    )
+    return jsonify({'ok': True}), 200
+
+
+@app.route('/api/orders/<order_id>/receipt', methods=['GET'])
+def get_order_receipt(order_id):
+    """Buyer retrieves their own order receipt/confirmation."""
+    uid, err = verify_supabase_user()
+    if err:
+        return err
+    rows = supa_get('orders', {'id': f'eq.{order_id}'}, limit=1)
+    if not rows:
+        return jsonify({'error': 'Order not found'}), 404
+    order = rows[0]
+    if order.get('buyer_id') != uid and not is_admin_uuid(uid):
+        return jsonify({'error': 'Access denied'}), 403
+    deliveries = supa_get('deliveries', {'order_id': f'eq.{order_id}'}, limit=1) or []
+    return jsonify({
+        'order': order,
+        'delivery': deliveries[0] if deliveries else None,
+    }), 200
+
+
+@app.route('/api/buyer/orders', methods=['GET'])
+@rate_limit(max_req=30, window=60)
+def buyer_orders():
+    """Return all orders for the authenticated buyer."""
+    uid, err = verify_supabase_user()
+    if err:
+        return err
+    orders = supa_get('orders', {'buyer_id': f'eq.{uid}', 'order': 'created_at.desc'}, limit=100) or []
+    return jsonify(orders), 200
+
+
+# ══════════════════════════════════════════════════════════════════════════════
 # SMART MATCHING — orders vs. farmer listings; admin approval workflow
 # ══════════════════════════════════════════════════════════════════════════════
 
