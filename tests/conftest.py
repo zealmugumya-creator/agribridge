@@ -112,6 +112,6 @@ def _reset_rate_limiter():
     """The API's limiter is in-process state; without a reset, tests that share a
     fake client IP would rate-limit each other and fail for the wrong reason."""
     import app as app_mod
-    app_mod._rl_buckets.clear()
+    app_mod._LIMITER._fallback.clear()
     yield
-    app_mod._rl_buckets.clear()
+    app_mod._LIMITER._fallback.clear()
