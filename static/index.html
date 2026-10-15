@@ -4070,7 +4070,100 @@ let toastTimer;
 function showToast(msg){ const t=document.getElementById('toast'); if(!t) return; t.textContent=msg; t.classList.add('show'); clearTimeout(toastTimer); toastTimer=setTimeout(()=>t.classList.remove('show'),3200); }
 function toggleMobSearch(){ const bar=document.getElementById('mobSearchBar'); const inp=document.getElementById('mobSearchInput'); if(!bar) return; if(bar.style.display==='none'||!bar.style.display){ bar.style.display='block'; inp?.focus(); } else { bar.style.display='none'; if(inp) inp.value=''; } }
 function handleSearch(val){ const activePage=document.querySelector('.page.active')?.id; if(activePage==='page-market'){ renderListings(); return; } if(val.length>=2){ showPage('market'); setTimeout(()=>{ const ms=document.querySelector('.market-search'); if(ms){ ms.value=val; } renderListings(); },120); } }
-function toggleNotifPanel(){ const p=document.getElementById('notifPanel'); if(p) p.classList.toggle('open'); }
+function toggleNotifPanel(){
+  const p=document.getElementById('notifPanel');
+  if(!p) return;
+  const wasOpen=p.classList.contains('open');
+  p.classList.toggle('open');
+  if(!wasOpen) loadNotifications(); // refresh on open
+}
+
+async function loadNotifications(){
+  const list=document.getElementById('notifList');
+  if(!list) return;
+  const tok=localStorage.getItem('ab_jwt')||localStorage.getItem('ab_token');
+  if(!tok){ list.innerHTML='<div style="padding:16px;text-align:center;color:var(--text2);font-size:0.85rem">Log in to see notifications</div>'; return; }
+  try{
+    const r=await fetch(USSD_API+'/api/user/notifications',{headers:{'Authorization':'Bearer '+tok}});
+    if(!r.ok) throw new Error('not ok');
+    const data=await r.json();
+    const notifs=data.notifications||[];
+    const unread=data.unread||0;
+    // Update bell badge
+    const badge=document.getElementById('notifCount');
+    if(badge){ badge.textContent=unread>9?'9+':String(unread); badge.style.display=unread>0?'':'none'; }
+    // Show "mark all read" if there are unread
+    const markBtn=document.getElementById('markAllReadBtn');
+    if(markBtn) markBtn.style.display=unread>0?'':'none';
+    if(!notifs.length){
+      list.innerHTML='<div style="padding:20px 16px;text-align:center;color:var(--text2);font-size:0.85rem">No notifications yet 🎉</div>';
+      return;
+    }
+    list.innerHTML=notifs.map(function(n){
+      const unreadStyle=n.status!=='sent'?'background:var(--green-dim);':'';
+      const dot=n.status!=='sent'?'<span style="width:8px;height:8px;background:var(--green);border-radius:50%;display:inline-block;margin-right:6px;flex-shrink:0"></span>':'';
+      const ago=relativeTime(n.created_at);
+      return '<div onclick="markNotifRead(\''+n.id+'\')" style="'+unreadStyle+'padding:12px 16px;border-bottom:1px solid var(--border);font-size:0.85rem;cursor:pointer;display:flex;align-items:flex-start;gap:6px">'+
+        dot+
+        '<div style="flex:1">'+
+          '<strong style="display:block;font-size:0.87rem;color:var(--text)">'+escHtml(n.title||'Notification')+'</strong>'+
+          '<div style="color:var(--text2);margin-top:2px">'+escHtml(n.body||'')+'</div>'+
+          '<div style="font-size:0.75rem;color:var(--text2);margin-top:4px">'+ago+'</div>'+
+        '</div>'+
+      '</div>';
+    }).join('');
+  } catch(e){
+    list.innerHTML='<div style="padding:16px;text-align:center;color:var(--text2);font-size:0.85rem">Could not load notifications</div>';
+  }
+}
+
+function markNotifRead(id){
+  const tok=localStorage.getItem('ab_jwt')||localStorage.getItem('ab_token');
+  if(!tok||!id) return;
+  fetch(USSD_API+'/api/user/notifications/'+id+'/read',{method:'POST',headers:{'Authorization':'Bearer '+tok}}).catch(function(){});
+  // Optimistically clear the unread style
+  loadNotifications();
+}
+
+async function markAllNotificationsRead(){
+  const tok=localStorage.getItem('ab_jwt')||localStorage.getItem('ab_token');
+  if(!tok) return;
+  await fetch(USSD_API+'/api/user/notifications/read-all',{method:'POST',headers:{'Authorization':'Bearer '+tok}}).catch(function(){});
+  loadNotifications();
+}
+
+function relativeTime(iso){
+  if(!iso) return '';
+  const d=new Date(iso), now=new Date(), diff=Math.floor((now-d)/1000);
+  if(diff<60) return 'just now';
+  if(diff<3600) return Math.floor(diff/60)+' min ago';
+  if(diff<86400) return Math.floor(diff/3600)+' hr ago';
+  return Math.floor(diff/86400)+' days ago';
+}
+
+function escHtml(s){ const d=document.createElement('div'); d.textContent=s||''; return d.innerHTML; }
+
+var _notifPollTimer=null;
+function _startNotifPolling(){
+  _stopNotifPolling();
+  _pollNotifBadge(); // immediate first check
+  _notifPollTimer=setInterval(_pollNotifBadge, 60000); // every 60s
+}
+function _stopNotifPolling(){
+  if(_notifPollTimer){ clearInterval(_notifPollTimer); _notifPollTimer=null; }
+}
+async function _pollNotifBadge(){
+  const tok=_authToken||localStorage.getItem('ab_jwt')||localStorage.getItem('ab_token');
+  if(!tok) return;
+  try{
+    const r=await fetch(USSD_API+'/api/user/notifications',{headers:{'Authorization':'Bearer '+tok}});
+    if(!r.ok) return;
+    const data=await r.json();
+    const unread=data.unread||0;
+    const badge=document.getElementById('notifCount');
+    if(badge){ badge.textContent=unread>9?'9+':String(unread); badge.style.display=unread>0?'':'none'; }
+  } catch(e){}
+}
 function acceptCookies(){ localStorage.setItem('ab_cookies','1'); const b=document.getElementById('cookieBanner'); if(b) b.style.display='none'; }
 function checkCookieBanner(){ if(!localStorage.getItem('ab_cookies')) setTimeout(()=>{ const b=document.getElementById('cookieBanner'); if(b) b.style.display='flex'; },3000); }
 function toggleFaq(qEl){ const aEl=qEl.nextElementSibling; const isOpen=aEl.classList.contains('open'); document.querySelectorAll('.faq-a.open').forEach(a=>{ a.classList.remove('open'); a.previousElementSibling?.classList.remove('open'); }); if(!isOpen){ aEl.classList.add('open'); qEl.classList.add('open'); } }
@@ -5133,10 +5226,13 @@ function initSupabase() {
       updateNavUser(currentUser.name, currentUser.role);
       hydrateUserProfile();
       if (event !== 'PASSWORD_RECOVERY' && event !== 'TOKEN_REFRESHED' && event !== 'USER_UPDATED') setTimeout(postAuthLegalCheck, 0);
+      // Poll notification unread count every 60s while logged in
+      _startNotifPolling();
     } else {
       currentUser = null;
       localStorage.removeItem('ab_user');
       updateNavUser(null, null);
+      _stopNotifPolling();
     }
   });
   sbAuth.auth.getSession().then(function(res) {
@@ -5150,6 +5246,7 @@ function initSupabase() {
       hydrateUserProfile();
       if (typeof syncCloudBasket === 'function') syncCloudBasket();
       setTimeout(postAuthLegalCheck, 0);
+      _startNotifPolling();
     }
   });
 }
@@ -6111,14 +6208,15 @@ document.addEventListener('DOMContentLoaded', function() {
 
 <!-- ══ NOTIFICATION PANEL ══════════════════════════════════ -->
 <div class="notif-panel" id="notifPanel" style="position:fixed;top:60px;right:0;width:320px;max-height:70vh;overflow-y:auto;background:var(--bg2);border:1px solid var(--border);border-radius:0 0 0 14px;z-index:400;display:none">
-  <div style="padding:12px 16px;border-bottom:1px solid var(--border);font-weight:700;font-size:0.9rem;display:flex;justify-content:space-between">
+  <div style="padding:12px 16px;border-bottom:1px solid var(--border);font-weight:700;font-size:0.9rem;display:flex;justify-content:space-between;align-items:center">
     <span>🔔 Notifications</span>
-    <button onclick="toggleNotifPanel()" style="background:none;border:none;color:var(--text2);cursor:pointer">✕</button>
+    <div style="display:flex;gap:8px;align-items:center">
+      <button id="markAllReadBtn" onclick="markAllNotificationsRead()" style="background:none;border:none;color:var(--green);font-size:0.75rem;cursor:pointer;display:none">Mark all read</button>
+      <button onclick="toggleNotifPanel()" style="background:none;border:none;color:var(--text2);cursor:pointer;font-size:1.1rem">✕</button>
+    </div>
   </div>
   <div id="notifList">
-    <div style="padding:12px 16px;border-bottom:1px solid var(--border);font-size:0.85rem">📦 <strong>New order</strong> for your maize listing<div style="font-size:0.75rem;color:var(--text2)">2 min ago</div></div>
-    <div style="padding:12px 16px;border-bottom:1px solid var(--border);font-size:0.85rem">💰 <strong>Payment confirmed</strong> — UGX 450,000 sent<div style="font-size:0.75rem;color:var(--text2)">1 hr ago</div></div>
-    <div style="padding:12px 16px;font-size:0.85rem">🐄 <strong>New buyer</strong> interested in your Ankole cattle<div style="font-size:0.75rem;color:var(--text2)">Yesterday</div></div>
+    <div style="padding:20px 16px;text-align:center;color:var(--text2);font-size:0.85rem">Loading…</div>
   </div>
 </div>
 

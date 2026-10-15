@@ -719,6 +719,11 @@ async function openDetail(orderId) {
     detailRow('Method', h(o.payment_method || '—')) +
     detailRow('Payment Status', pill(o.payment_status)) +
     detailRow('Total', '<b>' + fmtMoney(o.total_price) + '</b>') +
+    '<div class="detail-section">Farmer Assignment</div>' +
+    detailRow('Assigned Farmer', o.farmer_id
+      ? '<span style="color:var(--green)">✔ ' + h(o.farmer_id.slice(0,12)) + '…</span>'
+      : '<span style="color:#f59e0b">⚠ Not yet assigned</span>') +
+    '<div id="farmerPanel" style="margin-top:8px"></div>' +
     '<div class="detail-section">Transporter</div>' +
     detailRow('Name', h(d.transporter_name || '—')) +
     detailRow('Phone', h(d.transporter_phone || '—')) +
@@ -728,6 +733,11 @@ async function openDetail(orderId) {
     (o.admin_note ? '<div class="detail-section">Admin Note</div><div style="background:var(--bg3);border-radius:8px;padding:10px;font-size:.83rem;color:var(--text2)">' + h(o.admin_note) + '</div>' : '');
 
   renderDetailActions(o);
+
+  // Load suggested farmers for pending orders
+  if (o.status === 'pending') {
+    loadSuggestedFarmers(o.id);
+  }
 }
 
 function detailRow(k, v) {
@@ -784,20 +794,94 @@ function adminAction(type, orderId) {
   });
 }
 
+// ─── SUGGESTED FARMERS ────────────────────────────────────────────────────────
+async function loadSuggestedFarmers(orderId) {
+  var panel = document.getElementById('farmerPanel');
+  if (!panel) return;
+  panel.innerHTML = '<div style="color:var(--text2);font-size:.8rem;padding:4px 0">Loading suggested farmers…</div>';
+  var farmers = await api('/api/admin/orders/' + orderId + '/suggested-farmers').catch(function(){return[];});
+  if (!Array.isArray(farmers) || !farmers.length) {
+    panel.innerHTML = '<div style="color:var(--text2);font-size:.8rem;padding:4px 0">No farmers found — all active farmers shown below may be contacted.</div>';
+    return;
+  }
+  var rows = farmers.map(function(f) {
+    var crops = (f.listings||[]).map(function(l){ return h(l.crop_name||'?') + (l.quantity_available ? ' ('+l.quantity_available+')' : ''); }).join(', ');
+    return '<div style="background:var(--bg3);border-radius:8px;padding:10px 12px;margin-bottom:8px;">' +
+      '<div style="font-weight:600;font-size:.88rem;color:var(--text)">' + h(f.farmer_name||'Farmer') + '</div>' +
+      '<div style="font-size:.82rem;color:#2ec471;margin:2px 0">📞 ' + h(f.farmer_phone||'No phone') + '</div>' +
+      '<div style="font-size:.78rem;color:var(--text2);margin-bottom:8px">🌿 ' + (crops || 'Active listings') + '</div>' +
+      '<button class="btn btn-green" style="font-size:.78rem;padding:5px 12px" ' +
+        'onclick="assignFarmer(\'' + h(orderId) + '\',\'' + h(f.farmer_id) + '\',\'' + h(f.farmer_name||'Farmer') + '\')">' +
+        '✔ Assign This Farmer' +
+      '</button>' +
+    '</div>';
+  });
+  panel.innerHTML =
+    '<div style="font-size:.8rem;font-weight:600;color:var(--text2);margin-bottom:6px;text-transform:uppercase;letter-spacing:.04em">👨‍🌾 Farmers Who Can Handle This Order</div>' +
+    rows.join('') +
+    '<div style="font-size:.75rem;color:var(--text2);margin-top:4px">Call to confirm availability, then assign. Only one farmer per order.</div>';
+}
+
+function assignFarmer(orderId, farmerId, farmerName) {
+  if (!confirm('Assign ' + farmerName + ' to this order?\n\nMake sure you have called them and confirmed availability.')) return;
+  api('/api/admin/orders/' + orderId + '/assign-farmer', {
+    method: 'POST',
+    body: JSON.stringify({ farmer_id: farmerId, note: 'Assigned by admin after call confirmation' })
+  }).then(function(j) {
+    if (j.ok) {
+      toast('✔ ' + farmerName + ' assigned to order');
+      // Refresh the order detail
+      if (currentOrder && currentOrder.id === orderId) {
+        currentOrder.farmer_id = farmerId;
+        openOrder(orderId);
+      }
+      refreshAll();
+    } else { toast(j.error || 'Failed to assign farmer', 'error'); }
+  }).catch(function(){ toast('Request failed', 'error'); });
+}
+
+// ─── ASSIGN TRANSPORTER ───────────────────────────────────────────────────────
 async function showAssignTransporter(orderId) {
   var transporters = await api('/api/admin/transporters').catch(function(){return[];});
   var avail = transporters.filter(function(t){ return t.is_available && t.status === 'active'; });
   if (!avail.length) { toast('No available transporters right now', 'warn'); return; }
-  var opts = avail.map(function(t) { return t.id + ':' + t.full_name + ' (' + (t.vehicle_type||'?') + ', ' + (t.district||'?') + ')'; }).join('\n');
-  var chosen = prompt('Available transporters:\n\n' + opts + '\n\nPaste the transporter ID to assign:');
-  if (!chosen) return;
-  var tid = chosen.trim().split(':')[0];
+
+  // Build a simple modal-style picker inside the detail panel
+  var overlay = document.getElementById('transporterPickerOverlay');
+  if (!overlay) {
+    overlay = document.createElement('div');
+    overlay.id = 'transporterPickerOverlay';
+    overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:2000;display:flex;align-items:center;justify-content:center;padding:16px';
+    document.body.appendChild(overlay);
+  }
+
+  var items = avail.map(function(t) {
+    return '<div style="background:var(--bg3);border-radius:8px;padding:10px 12px;margin-bottom:8px;cursor:pointer" ' +
+      'onclick="confirmAssignTransporter(\'' + h(orderId) + '\',\'' + h(t.id) + '\',\'' + h(t.full_name||'Transporter') + '\')">' +
+      '<b style="font-size:.9rem">' + h(t.full_name||'?') + '</b>' +
+      '<div style="font-size:.8rem;color:#2ec471">📞 ' + h(t.phone||'—') + '</div>' +
+      '<div style="font-size:.78rem;color:var(--text2)">🚛 ' + h(t.vehicle_type||'?') + ' · ' + h(t.district||'?') + '</div>' +
+    '</div>';
+  }).join('');
+
+  overlay.innerHTML =
+    '<div style="background:var(--bg2);border-radius:14px;padding:20px;width:100%;max-width:360px;max-height:80vh;overflow-y:auto">' +
+    '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px">' +
+    '<b>🚚 Select Transporter</b>' +
+    '<button onclick="document.getElementById(\'transporterPickerOverlay\').remove()" style="background:none;border:none;color:var(--text2);font-size:1.3rem;cursor:pointer">✕</button>' +
+    '</div>' +
+    items +
+    '</div>';
+}
+
+function confirmAssignTransporter(orderId, transporterId, transporterName) {
+  document.getElementById('transporterPickerOverlay')?.remove();
   api('/api/admin/orders/' + orderId + '/assign-transporter', {
-    method: 'POST', body: JSON.stringify({ transporter_id: tid })
+    method: 'POST', body: JSON.stringify({ transporter_id: transporterId })
   }).then(function(j) {
-    if (j.ok) { toast('🚚 Transporter assigned!'); closeDetail(); refreshAll(); }
+    if (j.ok) { toast('🚚 ' + transporterName + ' assigned — order is now in transit!'); closeDetail(); refreshAll(); }
     else { toast(j.error || 'Failed', 'error'); }
-  });
+  }).catch(function(){ toast('Request failed', 'error'); });
 }
 
 // ─── CONFIRM DIALOG ───────────────────────────────────────────────────────────

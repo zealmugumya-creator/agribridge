@@ -2160,14 +2160,162 @@ def admin_orders_full():
     return jsonify(orders), 200
 
 
+@app.route('/api/admin/orders/<order_id>/suggested-farmers', methods=['GET'])
+def admin_suggested_farmers(order_id):
+    """Return farmers whose active listings match items in this order.
+
+    Reads the order's items JSON, extracts listing_ids, finds the farmers
+    behind those listings, and also pulls all their active listings so the
+    call-centre can see capacity.  Falls back to all available farmers if
+    the order has no item detail.
+    """
+    payload, err = verify_token(required_role='admin')
+    if err:
+        return err
+
+    # 1. Fetch the order to get items
+    order_rows = supa_get('orders', {'id': f'eq.{order_id}'}, limit=1) or []
+    if not order_rows:
+        return jsonify({'error': 'Order not found'}), 404
+    order = order_rows[0]
+    items = order.get('items') or []
+    if isinstance(items, str):
+        import json as _json
+        try:
+            items = _json.loads(items)
+        except Exception:
+            items = []
+
+    # 2. Collect listing_ids from the order's items
+    listing_ids = [i.get('listing_id') for i in items if i.get('listing_id')]
+    crop_names  = list({(i.get('crop_name') or '').lower() for i in items if i.get('crop_name')})
+
+    # 3. Get matching listings — by listing_id first, then by crop name
+    matched_listings = []
+    if listing_ids:
+        for lid in listing_ids:
+            rows = supa_get('listings', {'id': f'eq.{lid}', 'is_available': 'eq.true'}, limit=1) or []
+            matched_listings.extend(rows)
+
+    if not matched_listings and crop_names:
+        all_avail = supa_get('listings', {'is_available': 'eq.true'}, limit=500) or []
+        for row in all_avail:
+            for cn in crop_names:
+                if cn in (row.get('crop_name') or '').lower():
+                    matched_listings.append(row)
+                    break
+
+    # 4. Dedupe by farmer_id, build response
+    seen_farmers: dict = {}
+    for lst in matched_listings:
+        fid = lst.get('farmer_id')
+        if not fid:
+            continue
+        if fid not in seen_farmers:
+            seen_farmers[fid] = {
+                'farmer_id': fid,
+                'farmer_name': lst.get('farmer_name') or lst.get('full_name') or 'Farmer',
+                'farmer_phone': lst.get('farmer_phone') or lst.get('phone') or '',
+                'listings': [],
+            }
+        seen_farmers[fid]['listings'].append({
+            'listing_id': lst.get('id'),
+            'crop_name': lst.get('crop_name'),
+            'quantity_available': lst.get('quantity_available') or lst.get('quantity'),
+            'price_per_kg': lst.get('price_per_kg'),
+            'location': lst.get('location') or lst.get('parish') or '',
+        })
+
+    # 5. If no matches at all, fall back to all farmers with active listings
+    if not seen_farmers:
+        fallback = supa_get('listings', {'is_available': 'eq.true', 'order': 'created_at.desc'}, limit=200) or []
+        for lst in fallback:
+            fid = lst.get('farmer_id')
+            if not fid or fid in seen_farmers:
+                continue
+            seen_farmers[fid] = {
+                'farmer_id': fid,
+                'farmer_name': lst.get('farmer_name') or lst.get('full_name') or 'Farmer',
+                'farmer_phone': lst.get('farmer_phone') or lst.get('phone') or '',
+                'listings': [{
+                    'listing_id': lst.get('id'),
+                    'crop_name': lst.get('crop_name'),
+                    'quantity_available': lst.get('quantity_available') or lst.get('quantity'),
+                    'price_per_kg': lst.get('price_per_kg'),
+                    'location': lst.get('location') or lst.get('parish') or '',
+                }],
+            }
+
+    return jsonify(list(seen_farmers.values())), 200
+
+
+@app.route('/api/admin/orders/<order_id>/assign-farmer', methods=['POST'])
+def admin_assign_farmer(order_id):
+    """Attach a farmer to a pending order (before confirmation).
+
+    After the call-centre calls the farmer and confirms availability,
+    this endpoint records which farmer is responsible for fulfilling
+    the order.  The order stays in 'pending' until the admin then
+    presses Approve.
+    """
+    payload, err = verify_token(required_role='admin')
+    if err:
+        return err
+    data = request.get_json(force=True, silent=True) or {}
+    farmer_id = str(data.get('farmer_id', '')).strip()
+    if not farmer_id:
+        return jsonify({'error': 'farmer_id required'}), 400
+
+    now = datetime.datetime.utcnow().isoformat()
+    ok = supa_update('orders', {
+        'farmer_id': farmer_id,
+        'updated_at': now,
+        'admin_note': data.get('note', 'Farmer assigned by admin'),
+    }, 'id', order_id)
+    if not ok:
+        return jsonify({'error': 'Update failed'}), 500
+
+    # Notify farmer via in-app notification
+    NOTIFY.enqueue(
+        channel='in_app',
+        audience='user',
+        recipient=farmer_id,
+        event_type='order.farmer_assigned',
+        severity='info',
+        title='📦 New Order Assigned to You',
+        body='An order has been assigned to you by AgriBridge. Please check your dashboard.',
+        payload={'order_id': order_id},
+        dedupe_key=f'farmer_assigned:{order_id}',
+    )
+
+    _log_system_event('order_farmer_assigned', {
+        'order_id': order_id,
+        'farmer_id': farmer_id,
+        'admin': payload.get('sub', 'admin'),
+    }, severity='info')
+    return jsonify({'ok': True}), 200
+
+
 @app.route('/api/admin/orders/<order_id>/approve', methods=['POST'])
 def admin_approve_order(order_id):
-    """Admin approves an order (moves pending → confirmed)."""
+    """Admin approves an order (moves pending → confirmed).
+
+    Also enqueues an in-app notification for the buyer so the bell icon
+    lights up in their account, and notifies the assigned farmer if set.
+    """
     payload, err = verify_token(required_role='admin')
     if err:
         return err
     data = request.get_json(force=True, silent=True) or {}
     reason = str(data.get('reason', 'Admin approved')).strip()[:200]
+
+    # Fetch the order to get buyer_id and farmer_id for notifications
+    order_rows = supa_get('orders', {'id': f'eq.{order_id}'}, limit=1) or []
+    order = order_rows[0] if order_rows else {}
+    buyer_id  = order.get('buyer_id')
+    farmer_id = order.get('farmer_id')
+    order_ref = order.get('order_ref', order_id[:8])
+
     ok = supa_update('orders', {
         'status': 'confirmed',
         'admin_approved': True,
@@ -2185,6 +2333,35 @@ def admin_approve_order(order_id):
             description=f"**Order:** `{order_id}`\n**Reason:** {reason}\n**Admin:** `{payload.get('sub','')}`",
             severity='info',
         )
+
+        # ── In-app notification → buyer ──────────────────────────────────────
+        if buyer_id:
+            NOTIFY.enqueue(
+                channel='in_app',
+                audience='user',
+                recipient=buyer_id,
+                event_type='order.confirmed',
+                severity='info',
+                title='✅ Your Order Has Been Confirmed!',
+                body=f'Order {order_ref} has been confirmed and is being prepared for delivery.',
+                payload={'order_id': order_id, 'order_ref': order_ref},
+                dedupe_key=f'order_confirmed:{order_id}',
+            )
+
+        # ── In-app notification → farmer (if assigned) ───────────────────────
+        if farmer_id and farmer_id != buyer_id:
+            NOTIFY.enqueue(
+                channel='in_app',
+                audience='user',
+                recipient=farmer_id,
+                event_type='order.confirmed',
+                severity='info',
+                title='📋 Order Confirmed — Please Prepare',
+                body=f'Order {order_ref} has been confirmed. Please prepare the goods for pickup.',
+                payload={'order_id': order_id, 'order_ref': order_ref},
+                dedupe_key=f'farmer_order_confirmed:{order_id}',
+            )
+
         return jsonify({'ok': True}), 200
     return jsonify({'error': 'Update failed'}), 500
 
@@ -2257,6 +2434,39 @@ def admin_assign_transporter(order_id):
         ),
         severity='info',
     )
+
+    # Notify buyer + farmer that their order is now in transit
+    order_rows = supa_get('orders', {'id': f'eq.{order_id}'}, limit=1) or []
+    if order_rows:
+        o = order_rows[0]
+        order_ref = o.get('order_ref', order_id[:8])
+        t_name = t.get('full_name', 'your transporter')
+        t_phone = t.get('phone', '')
+        tracking_msg = (
+            f"Order {order_ref} is now in transit with {t_name}"
+            + (f" ({t_phone})" if t_phone else '')
+            + ". Track live at agribrige.com."
+        )
+        for recipient in [o.get('buyer_id'), o.get('farmer_id')]:
+            if recipient:
+                NOTIFY.enqueue(
+                    channel='in_app',
+                    audience='user',
+                    recipient=recipient,
+                    event_type='order.in_transit',
+                    severity='info',
+                    title='🚚 Your Order Is On The Way!',
+                    body=tracking_msg,
+                    payload={
+                        'order_id': order_id,
+                        'order_ref': order_ref,
+                        'transporter_id': transporter_id,
+                        'transporter_name': t_name,
+                        'transporter_phone': t_phone,
+                    },
+                    dedupe_key=f'in_transit:{order_id}',
+                )
+
     return jsonify({'ok': True}), 200
 
 
@@ -2314,6 +2524,63 @@ def buyer_orders():
         return err
     orders = supa_get('orders', {'buyer_id': f'eq.{uid}', 'order': 'created_at.desc'}, limit=100) or []
     return jsonify(orders), 200
+
+
+@app.route('/api/user/notifications', methods=['GET'])
+@rate_limit(max_req=60, window=60)
+def user_notifications():
+    """Return in-app notifications for the authenticated user.
+
+    Reads from notification_outbox where channel='in_app' and
+    recipient=<user_id>.  Returns newest-first, limited to 50.
+    Unread count = rows with status != 'sent'.
+    """
+    uid, err = verify_supabase_user()
+    if err:
+        return err
+
+    rows = supa_get('notification_outbox', {
+        'recipient': f'eq.{uid}',
+        'channel': 'eq.in_app',
+        'order': 'created_at.desc',
+    }, limit=50) or []
+
+    unread = sum(1 for r in rows if r.get('status') != 'sent')
+    return jsonify({'notifications': rows, 'unread': unread}), 200
+
+
+@app.route('/api/user/notifications/<notif_id>/read', methods=['POST'])
+@rate_limit(max_req=60, window=60)
+def mark_notification_read(notif_id):
+    """Mark a single in-app notification as read (seen)."""
+    uid, err = verify_supabase_user()
+    if err:
+        return err
+    # Only mark rows that belong to this user
+    supa_update('notification_outbox', {
+        'status': 'sent',
+        'updated_at': datetime.datetime.utcnow().isoformat(),
+    }, 'id', notif_id)
+    return jsonify({'ok': True}), 200
+
+
+@app.route('/api/user/notifications/read-all', methods=['POST'])
+@rate_limit(max_req=20, window=60)
+def mark_all_notifications_read(notif_id=None):
+    """Mark all in-app notifications for the current user as read."""
+    uid, err = verify_supabase_user()
+    if err:
+        return err
+    # Fetch user's unread notification ids and mark them sent
+    rows = supa_get('notification_outbox', {
+        'recipient': f'eq.{uid}',
+        'channel': 'eq.in_app',
+        'status': 'neq.sent',
+    }, limit=100) or []
+    now = datetime.datetime.utcnow().isoformat()
+    for r in rows:
+        supa_update('notification_outbox', {'status': 'sent', 'updated_at': now}, 'id', r['id'])
+    return jsonify({'ok': True, 'marked': len(rows)}), 200
 
 
 # ══════════════════════════════════════════════════════════════════════════════
