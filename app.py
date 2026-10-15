@@ -454,7 +454,7 @@ def admin_verify():
 def _ussd_get(session_id: str) -> dict:
     """Read session_data jsonb for this AT session_id, or {} if not found."""
     try:
-        resp = supabase.table('ussd_sessions') \
+        resp = SUPA.table('ussd_sessions') \
             .select('session_data') \
             .eq('session_id', session_id) \
             .eq('is_active', True) \
@@ -467,7 +467,7 @@ def _ussd_get(session_id: str) -> dict:
 def _ussd_set(session_id: str, phone: str, data: dict) -> None:
     """Upsert session_data for this AT session_id."""
     try:
-        supabase.table('ussd_sessions').upsert({
+        SUPA.table('ussd_sessions').upsert({
             'session_id':   session_id,
             'phone_number': phone,
             'session_data': data,
@@ -480,7 +480,7 @@ def _ussd_set(session_id: str, phone: str, data: dict) -> None:
 def _ussd_del(session_id: str) -> None:
     """Mark session inactive (soft-delete keeps audit trail)."""
     try:
-        supabase.table('ussd_sessions') \
+        SUPA.table('ussd_sessions') \
             .update({'is_active': False, 'updated_at': 'now()'}) \
             .eq('session_id', session_id) \
             .execute()
@@ -1746,7 +1746,6 @@ def create_purchase_request():
     )
     if not result.ok:
         return jsonify({'error': result.error}), result.status_code
-    req_data = result.data or {}
     _discord_notify(
         event_type='listing.request',
         title='🛒 New Purchase Request',
@@ -2055,7 +2054,8 @@ def transporter_update_location():
     if lat is None or lng is None:
         return jsonify({'error': 'lat and lng required'}), 400
     try:
-        lat = float(lat); lng = float(lng)
+        lat = float(lat)
+        lng = float(lng)
         if not (-90 <= lat <= 90 and -180 <= lng <= 180):
             raise ValueError('out of range')
     except (ValueError, TypeError):
@@ -2181,7 +2181,7 @@ def admin_approve_order(order_id):
         }, severity='info')
         _discord_notify(
             event_type='order.confirmed',
-            title=f'✅ Order Approved by Admin',
+            title='✅ Order Approved by Admin',
             description=f"**Order:** `{order_id}`\n**Reason:** {reason}\n**Admin:** `{payload.get('sub','')}`",
             severity='info',
         )
@@ -2343,7 +2343,6 @@ def admin_match_candidates():
         # Try to match on buyer_product or notes field; fallback to items array
         product_hint = (order.get('buyer_product') or
                         order.get('notes') or '').lower()
-        quantity_needed = float(order.get('total_price', 0) or 0)  # fallback
         order_district = (order.get('delivery_address') or '').lower()
 
         matched_listings = []
@@ -2403,7 +2402,6 @@ def admin_approve_match():
     data = request.get_json(force=True, silent=True) or {}
     order_id = data.get('order_id')
     farmer_phone = data.get('farmer_phone', '').strip()
-    farmer_name = data.get('farmer_name', 'Farmer').strip()
     transporter_id = data.get('transporter_id')  # optional
     notes = data.get('notes', '').strip()
 
