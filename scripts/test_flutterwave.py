@@ -9,8 +9,6 @@ Usage:
 Set BASE_URL to your Render URL or http://localhost:5000 for local testing.
 """
 
-import hashlib
-import hmac
 import json
 import os
 import sys

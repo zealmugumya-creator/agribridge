@@ -12,8 +12,8 @@ Tests verify:
 from __future__ import annotations
 
 import pytest
-import app as app_mod
 
+import app as app_mod
 
 # ── helpers to simulate the Africa's Talking POST body ───────────────────────
 
