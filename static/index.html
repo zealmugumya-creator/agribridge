@@ -2910,14 +2910,50 @@ function sendReceiptEmail(payload){
     }).catch(function(){});
   }catch(e){}
 }
-// Start an online payment; returns a hosted-payment link, or null to fall back.
-async function startOnlinePayment(ref, amount){
+// Start an online payment.
+// Returns { redirect: url } to navigate to, { pushed: true, msg } for USSD push, or null to fall back to manual.
+async function startOnlinePayment(ref, amount, payMethod){
   try{
     const prov=await getEnabledProviders();
-    if(!prov||!prov.flutterwave) return null;
-    const r=await fetch(USSD_API+'/api/pay/initiate',{ method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({ provider:'flutterwave', order_ref:ref, amount:Math.round(amount||0), email:currentUser?.email||'', phone:currentUser?.phone||'' }) });
-    const j=await r.json().catch(function(){return null;});
-    return (j&&j.ok&&j.link)?j.link:null;
+    if(!prov) return null;
+
+    // Card / Flutterwave redirect
+    if(prov.flutterwave && payMethod==='card'){
+      const r=await fetch(USSD_API+'/api/pay/initiate',{
+        method:'POST', headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({ provider:'flutterwave', order_ref:ref, amount:Math.round(amount||0), email:currentUser?.email||'', phone:currentUser?.phone||'' })
+      });
+      const j=await r.json().catch(function(){return null;});
+      if(j&&j.ok&&j.link) return { redirect: j.link };
+    }
+
+    // MTN MoMo — try AT push first, fall back to manual
+    if(payMethod==='momo'){
+      if(prov.momo){
+        const r=await fetch(USSD_API+'/api/pay/initiate',{
+          method:'POST', headers:{'Content-Type':'application/json'},
+          body:JSON.stringify({ provider:'momo', order_ref:ref, amount:Math.round(amount||0), phone:currentUser?.phone||'' })
+        });
+        const j=await r.json().catch(function(){return null;});
+        if(j&&j.ok&&j.mode==='momo_push') return { pushed:true, msg: j.message||'Payment request sent to your phone!' };
+      }
+      return null; // fall back to manual USSD instructions
+    }
+
+    // Airtel Money — try AT push first, fall back to manual
+    if(payMethod==='airtel'){
+      if(prov.airtel){
+        const r=await fetch(USSD_API+'/api/pay/initiate',{
+          method:'POST', headers:{'Content-Type':'application/json'},
+          body:JSON.stringify({ provider:'airtel', order_ref:ref, amount:Math.round(amount||0), phone:currentUser?.phone||'' })
+        });
+        const j=await r.json().catch(function(){return null;});
+        if(j&&j.ok&&j.mode==='momo_push') return { pushed:true, msg: j.message||'Airtel Money request sent to your phone!' };
+      }
+      return null; // fall back to manual USSD instructions
+    }
+
+    return null;
   }catch(e){ return null; }
 }
 async function placeOrder() {
@@ -2980,12 +3016,22 @@ async function placeOrder() {
   localStorage.setItem('ab_orders', JSON.stringify(saved.slice(0,20)));
   sendReceiptEmail({ type:'booking', email:currentUser?.email, name:currentUser?.name, ref, total, tracking:track, items:basketItems.map(i=>({name:i.name,qty:i.qty,price:i.price})) });
   sendSmsReceipt(currentUser?.phone, ref, total, 'order');
-  // If an online gateway is live and the buyer chose an online method, send them
-  // to pay. When no gateway is configured this returns null and we fall back to
-  // the normal (cash / pay-farmer-direct) confirmation below — live flow unchanged.
-  if (selectedPayMethod && selectedPayMethod !== 'cash') {
-    const payLink = await startOnlinePayment(ref, total);
-    if (payLink) { basketItems=[]; appliedPromo=null; saveBasket(); updateBasketBadge(); showToast('Redirecting to secure payment…'); window.location.href = payLink; return; }
+  // If an online gateway is live and the buyer chose an online method, try to
+  // initiate payment. Falls back to manual instructions when no gateway is live.
+  if (selectedPayMethod && !['cash','bank'].includes(selectedPayMethod)) {
+    const payResult = await startOnlinePayment(ref, total, selectedPayMethod);
+    if (payResult && payResult.redirect) {
+      // Card / Flutterwave — redirect to hosted payment page
+      basketItems=[]; appliedPromo=null; saveBasket(); updateBasketBadge();
+      showToast('Redirecting to secure payment…');
+      window.location.href = payResult.redirect;
+      return;
+    }
+    if (payResult && payResult.pushed) {
+      // MoMo/Airtel push sent — show toast and continue to confirmation (manual verify)
+      showToast('📱 ' + (payResult.msg || 'Payment request sent to your phone!'));
+    }
+    // null = no gateway live, fall through to manual payment instructions below
   }
   if (btn) { btn.textContent = 'Place Order 🛒'; btn.disabled = false; }
   // Show success
@@ -4378,9 +4424,15 @@ function handleSearch(val){ const activePage=document.querySelector('.page.activ
 function toggleNotifPanel(){
   const p=document.getElementById('notifPanel');
   if(!p) return;
-  const wasOpen=p.classList.contains('open');
-  p.classList.toggle('open');
-  if(!wasOpen) loadNotifications(); // refresh on open
+  const wasOpen=p.style.display==='block';
+  if(wasOpen){
+    p.style.display='none';
+    p.classList.remove('open');
+  } else {
+    p.style.display='block';
+    p.classList.add('open');
+    loadNotifications(); // refresh on open
+  }
 }
 
 async function loadNotifications(){
@@ -6015,8 +6067,11 @@ window.showPage = function(name) {
 function _unstickUI(){
   try{
     document.body.style.overflow='';
-    document.querySelectorAll('.basket-overlay.show,.ai-overlay.show,.ai-overlay.open,.basket-drawer.open,.ai-panel.open,.notif-panel.open')
+    document.querySelectorAll('.basket-overlay.show,.ai-overlay.show,.ai-overlay.open,.basket-drawer.open,.ai-panel.open')
       .forEach(function(e){ e.classList.remove('show'); e.classList.remove('open'); });
+    // Close notif panel (uses inline display style, not just class)
+    const np=document.getElementById('notifPanel');
+    if(np){ np.style.display='none'; np.classList.remove('open'); }
   }catch(e){}
 }
 window.addEventListener('load', _unstickUI);

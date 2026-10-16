@@ -1669,6 +1669,40 @@ def create_order():
         severity='info',
     )
 
+    # ── In-app notification → buyer ──────────────────────────────────────────
+    try:
+        pay_method = str(data.get('payment_method', '')).lower()
+        pay_instr = {
+            'momo':    'Dial *165# on your MTN line → Send Money → AgriBridge (0755 966 690)',
+            'airtel':  'Dial *185# on your Airtel line → Make Payments → AgriBridge',
+            'bank':    'Transfer to Stanbic Bank A/C 9030013584292 (AgriBridge Uganda Ltd)',
+            'card':    'You will be redirected to complete your card payment.',
+            'cash':    'Pay on delivery.',
+        }.get(pay_method, 'Follow the instructions on your confirmation screen.')
+        NOTIFY.enqueue(
+            channel='in_app',
+            audience='user',
+            recipient=uid,
+            event_type='order.created',
+            severity='info',
+            title=f'🛒 Order {result.order_ref} Received!',
+            body=(
+                f'Your order has been received and is pending admin confirmation. '
+                f'Total: UGX {int(result.total_price):,}. '
+                f'Tracking: {result.tracking_code}. '
+                f'Payment: {pay_instr}'
+            ),
+            payload={
+                'order_ref': result.order_ref,
+                'tracking_code': result.tracking_code,
+                'total_price': result.total_price,
+                'payment_method': pay_method,
+            },
+            dedupe_key=f'order_created:{result.order_ref}',
+        )
+    except Exception as _ne:
+        log.warning('order.buyer_notify_failed', error=str(_ne))
+
     return jsonify({
         'ok': True, 'order_ref': result.order_ref,
         'tracking_code': result.tracking_code, 'total_price': result.total_price,
@@ -2425,6 +2459,13 @@ def admin_reject_order(order_id):
         return err
     data = request.get_json(force=True, silent=True) or {}
     reason = str(data.get('reason', 'Cancelled by admin')).strip()[:200]
+
+    # Fetch buyer info for notification before updating
+    order_rows = supa_get('orders', {'id': f'eq.{order_id}'}, limit=1) or []
+    order = order_rows[0] if order_rows else {}
+    buyer_id  = order.get('buyer_id')
+    order_ref = order.get('order_ref', order_id[:8])
+
     ok = supa_update('orders', {
         'status': 'cancelled',
         'updated_at': datetime.datetime.utcnow().isoformat(),
@@ -2439,6 +2480,22 @@ def admin_reject_order(order_id):
             description=f"**Order:** `{order_id}`\n**Reason:** {reason}",
             severity='warning',
         )
+        # ── Notify buyer of cancellation ─────────────────────────────────────
+        if buyer_id:
+            try:
+                NOTIFY.enqueue(
+                    channel='in_app',
+                    audience='user',
+                    recipient=buyer_id,
+                    event_type='order.cancelled',
+                    severity='warning',
+                    title='❌ Your Order Was Cancelled',
+                    body=f'Order {order_ref} has been cancelled. Reason: {reason or "No reason given"}. Please contact support if you have questions.',
+                    payload={'order_id': order_id, 'order_ref': order_ref},
+                    dedupe_key=f'order_cancelled:{order_id}',
+                )
+            except Exception as _ne:
+                log.warning('reject.buyer_notify_failed', error=str(_ne))
         return jsonify({'ok': True}), 200
     return jsonify({'error': 'Update failed'}), 500
 
@@ -3171,12 +3228,15 @@ def sms_receipt():
 # never affects the live checkout until you deliberately enable one)
 # ══════════════════════════════════════════════════════════════════════════════
 def _enabled_providers():
+    at_momo_live = bool(AT_AVAILABLE and at_sms and AT_API_KEY and AT_API_KEY != 'atsk_REPLACE_ME')
     return {
         'cod':         True,   # cash on delivery — no gateway needed
         'direct':      True,   # pay the farmer's MoMo directly — no gateway needed
         'flutterwave': bool(FLW_SECRET_KEY),
         'pesapal':     bool(PESAPAL_KEY and PESAPAL_SECRET),
         'mtn_momo':    bool(MTN_MOMO_KEY),
+        'momo':        at_momo_live,   # AT mobile checkout push (MTN MoMo)
+        'airtel':      at_momo_live,   # AT mobile checkout push (Airtel Money)
     }
 
 
@@ -3209,10 +3269,60 @@ def pay_initiate():
         return jsonify({'ok': True, 'mode': provider, 'message': 'No online payment needed.'}), 200
     if provider == 'flutterwave':
         return _flw_initiate(order_ref, amount, email, phone)
-    if provider in ('pesapal', 'mtn_momo'):
-        # Structured for completion against the provider's sandbox once keys exist.
-        return jsonify({'ok': False, 'enabled': False, 'error': provider + ' not configured yet'}), 200
+    if provider in ('momo', 'airtel', 'mtn_momo', 'mobile_money'):
+        # Africa's Talking mobile money collection (USSD push to buyer's phone)
+        return _at_momo_initiate(order_ref, amount, phone, provider)
+    if provider == 'pesapal':
+        return jsonify({'ok': False, 'enabled': False, 'error': 'pesapal not configured yet'}), 200
     return jsonify({'ok': False, 'error': 'unknown provider'}), 400
+
+
+def _at_momo_initiate(order_ref, amount, phone, provider='momo'):
+    """Initiate an Africa's Talking mobile money collection request.
+
+    Sends a USSD push to the buyer's phone prompting them to approve payment.
+    Works for MTN MoMo (provider='momo') and Airtel Money (provider='airtel').
+    Requires AT_USERNAME and AT_API_KEY to be set with a live (not sandbox) key
+    and the Africa's Talking Payment product enabled on the account.
+    """
+    if not AT_AVAILABLE or not at_sms:
+        return jsonify({
+            'ok': False, 'enabled': False,
+            'error': 'Africa\'s Talking not configured — set AT_USERNAME and AT_API_KEY in Render env vars',
+            'fallback': 'manual',  # frontend shows manual USSD instructions
+        }), 200
+    if not phone:
+        return jsonify({'ok': False, 'error': 'phone number required for mobile money payment'}), 400
+    # Normalize phone to E.164 (+256...)
+    p = phone.strip().replace(' ', '').replace('-', '')
+    if p.startswith('0'):
+        p = '+256' + p[1:]
+    elif not p.startswith('+'):
+        p = '+256' + p
+    try:
+        import africastalking as _at_mod
+        payment = _at_mod.Payment
+        resp = payment.mobile_checkout(
+            product_name=os.environ.get('AT_PAYMENT_PRODUCT', 'AgriBridge'),
+            phone_number=p,
+            currency_code='UGX',
+            amount=float(amount),
+            metadata={'order_ref': order_ref, 'provider': provider},
+        )
+        status = (resp.get('status') or '').lower()
+        entry = ((resp.get('entries') or [{}])[0]) if resp.get('entries') else {}
+        if status == 'success' or entry.get('status', '').lower() in ('pendingconfirmation', 'success'):
+            return jsonify({
+                'ok': True, 'mode': 'momo_push',
+                'message': 'Payment request sent to your phone. Check your phone and approve the payment.',
+                'provider': provider,
+                'transaction_id': entry.get('transactionId', ''),
+            }), 200
+        err_msg = entry.get('errorMessage') or resp.get('errorMessage') or 'Mobile money request failed'
+        return jsonify({'ok': False, 'error': err_msg, 'fallback': 'manual'}), 200
+    except Exception as e:
+        print(f"AT momo initiate error: {e}")
+        return jsonify({'ok': False, 'error': 'Mobile money gateway unavailable', 'fallback': 'manual'}), 200
 
 
 def _flw_initiate(order_ref, amount, email, phone):
@@ -3278,6 +3388,33 @@ def pay_webhook_flw():
                     ),
                     severity='payment',
                 )
+                # Notify the buyer in-app that their payment was received
+                try:
+                    paid_rows = supa_get('orders', {
+                        'payment_ref': f'eq.{tx_ref}',
+                        'select': 'buyer_id,order_ref,tracking_code',
+                    }, limit=1) or []
+                    if paid_rows:
+                        pr = paid_rows[0]
+                        b_id = pr.get('buyer_id')
+                        o_ref = pr.get('order_ref', tx_ref[:8])
+                        if b_id:
+                            NOTIFY.enqueue(
+                                channel='in_app',
+                                audience='user',
+                                recipient=b_id,
+                                event_type='payment.confirmed',
+                                severity='info',
+                                title='💰 Payment Confirmed!',
+                                body=(
+                                    f'Your payment of {cur} {int(amt):,} for order {o_ref} has been received. '
+                                    f'Your order will be dispatched shortly.'
+                                ),
+                                payload={'order_ref': o_ref, 'amount': amt, 'currency': cur},
+                                dedupe_key=f'payment_confirmed:{tx_ref}',
+                            )
+                except Exception as _pne:
+                    print(f"payment notify error: {_pne}")
                 _send_payment_receipt(tx_ref)
         except Exception as e:
             print(f"flw verify error: {e}")
