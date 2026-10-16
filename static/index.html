@@ -1843,12 +1843,40 @@ AgriBridge service</div>
         <div class="pay-method selected" id="pm-momo" onclick="selectPayMethod('momo')"><div class="pm-icon">📱</div><div class="pm-label">MTN MoMo</div><div class="pm-sub">*165#</div></div>
         <div class="pay-method" id="pm-airtel" onclick="selectPayMethod('airtel')"><div class="pm-icon">📲</div><div class="pm-label">Airtel Money</div><div class="pm-sub">*185#</div></div>
         <div class="pay-method" id="pm-cash" onclick="selectPayMethod('cash')"><div class="pm-icon">💵</div><div class="pm-label">Cash on Delivery</div><div class="pm-sub">Pay on arrival</div></div>
-        <div class="pay-method" id="pm-bank" onclick="selectPayMethod('bank')"><div class="pm-icon">🏦</div><div class="pm-label">Bank Transfer</div><div class="pm-sub">Stanbic / Equity</div></div>
+        <div class="pay-method" id="pm-bank" onclick="selectPayMethod('bank')"><div class="pm-icon">🏦</div><div class="pm-label">Bank Transfer</div><div class="pm-sub">Any bank</div></div>
       </div>
+
+      <!-- Bank details form — shown only when bank is selected -->
+      <div id="bankDetailsForm" style="display:none;background:var(--bg3);border:1.5px solid var(--green);border-radius:12px;padding:14px;margin-top:10px">
+        <div style="font-size:0.78rem;font-weight:700;color:var(--green);margin-bottom:10px;text-transform:uppercase;letter-spacing:.04em">Your Bank Details</div>
+        <div style="font-size:0.75rem;color:var(--text2);margin-bottom:10px">Enter the bank account you'll transfer from — the admin will verify and mark your payment.</div>
+        <div style="display:grid;gap:8px">
+          <input id="bankName"    type="text" placeholder="Bank name (e.g. Centenary, DFCU, Equity…)" style="width:100%;padding:9px 12px;background:var(--bg2);border:1px solid var(--border);border-radius:8px;color:var(--text);font-family:inherit;font-size:0.85rem;box-sizing:border-box">
+          <input id="bankAccName" type="text" placeholder="Account holder name" style="width:100%;padding:9px 12px;background:var(--bg2);border:1px solid var(--border);border-radius:8px;color:var(--text);font-family:inherit;font-size:0.85rem;box-sizing:border-box">
+          <input id="bankAccNo"   type="text" placeholder="Account number" inputmode="numeric" style="width:100%;padding:9px 12px;background:var(--bg2);border:1px solid var(--border);border-radius:8px;color:var(--text);font-family:inherit;font-size:0.85rem;box-sizing:border-box">
+        </div>
+        <div style="font-size:0.72rem;color:var(--text2);margin-top:8px">📌 After placing order, transfer the exact amount and use your order ref as the payment reference.</div>
+      </div>
+
       <!-- Address & delivery -->
-      <div class="checkout-section-label" style="margin-top:14px">Delivery Address</div>
+      <div class="checkout-section-label" style="margin-top:14px">Delivery / Pickup</div>
+
+      <!-- Location buttons like SafeBoda/Uber -->
+      <div style="display:flex;gap:8px;margin-bottom:8px">
+        <button id="btnUseGPS" onclick="useMyLocation()" style="flex:1;display:flex;align-items:center;justify-content:center;gap:6px;padding:9px 10px;background:var(--bg3);border:1.5px solid var(--border);border-radius:10px;color:var(--text);font-size:0.82rem;font-weight:600;cursor:pointer;transition:border-color .2s">
+          📍 Use My Location
+        </button>
+        <button onclick="pickupPointMode()" style="flex:1;display:flex;align-items:center;justify-content:center;gap:6px;padding:9px 10px;background:var(--bg3);border:1.5px solid var(--border);border-radius:10px;color:var(--text);font-size:0.82rem;font-weight:600;cursor:pointer;transition:border-color .2s">
+          🏪 Pickup Point
+        </button>
+      </div>
+      <div id="gpsStatus" style="display:none;font-size:0.75rem;color:var(--green);margin-bottom:6px;padding:6px 10px;background:var(--bg3);border-radius:8px;border:1px solid var(--green)"></div>
+      <div id="pickupSuggestions" style="display:none;background:var(--bg3);border:1px solid var(--border);border-radius:10px;margin-bottom:6px;overflow:hidden">
+        <div style="padding:8px 12px;font-size:0.75rem;font-weight:700;color:var(--text2);text-transform:uppercase;border-bottom:1px solid var(--border)">Common Pickup Points</div>
+        <div id="pickupList"></div>
+      </div>
       <input type="text" id="checkoutAddr" placeholder="e.g. Nakasero Market, Kampala" style="width:100%;padding:10px 14px;background:var(--bg3);border:1px solid var(--border);border-radius:10px;color:var(--text);font-family:inherit;font-size:0.9rem;margin-bottom:6px">
-      <p style="font-size:0.78rem;color:var(--text2);margin-bottom:18px">Door delivery scheduled within <strong style="color:var(--text)">1–2 business days</strong></p>
+      <p style="font-size:0.78rem;color:var(--text2);margin-bottom:18px">Door delivery <strong style="color:var(--text)">1–2 business days</strong> · or select a pickup point near you</p>
       <hr class="checkout-divider">
       <div style="display:flex;gap:10px">
         <button class="btn-sm ghost" style="flex:1;padding:12px;border-radius:10px" onclick="closeCheckout()">← Back</button>
@@ -2757,12 +2785,101 @@ function applyCheckoutPromo() {
   } else { showToast('Promo: ' + code + ' — applied!'); }
 }
 
+// ── Location helpers (SafeBoda/Uber style) ───────────────────────────────
+const PICKUP_POINTS = [
+  { name: 'Nakasero Market', area: 'Central Kampala' },
+  { name: 'Owino Market (St. Balikuddembe)', area: 'Old Kampala' },
+  { name: 'Kalerwe Market', area: 'Kawempe' },
+  { name: 'Ntinda Market', area: 'Ntinda' },
+  { name: 'Nateete Market', area: 'Rubaga' },
+  { name: 'Wandegeya Market', area: 'Wandegeya' },
+  { name: 'Mukono Market', area: 'Mukono' },
+  { name: 'Entebbe Town', area: 'Entebbe' },
+  { name: 'Jinja Road (Lugogo)', area: 'Nakawa' },
+  { name: 'Masaka Road (Kyengera)', area: 'Wakiso' },
+];
+
+function useMyLocation() {
+  const btn = document.getElementById('btnUseGPS');
+  const status = document.getElementById('gpsStatus');
+  const addr = document.getElementById('checkoutAddr');
+  const sug = document.getElementById('pickupSuggestions');
+  if (!navigator.geolocation) {
+    showToast('GPS not supported on this device'); return;
+  }
+  btn.textContent = '⏳ Getting location…';
+  btn.style.borderColor = 'var(--green)';
+  status.style.display = 'none';
+  sug.style.display = 'none';
+  navigator.geolocation.getCurrentPosition(
+    pos => {
+      const lat = pos.coords.latitude.toFixed(5);
+      const lng = pos.coords.longitude.toFixed(5);
+      const acc = Math.round(pos.coords.accuracy);
+      // Reverse-geocode via free Nominatim API
+      fetch(`https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lng}&format=json`, {
+        headers: { 'Accept-Language': 'en' }
+      })
+      .then(r => r.json())
+      .then(d => {
+        const place = d.display_name
+          ? d.display_name.split(',').slice(0,3).join(', ')
+          : `${lat}, ${lng}`;
+        addr.value = place;
+        status.style.display = 'block';
+        status.innerHTML = `📍 <strong>Live location set</strong> · ${place} <span style="color:var(--text2)">(±${acc}m)</span>`;
+        btn.textContent = '✅ Location set';
+        btn.style.borderColor = 'var(--green)';
+      })
+      .catch(() => {
+        addr.value = `${lat}, ${lng}`;
+        status.style.display = 'block';
+        status.innerHTML = `📍 <strong>GPS coords</strong>: ${lat}, ${lng} (±${acc}m)`;
+        btn.textContent = '✅ Location set';
+      });
+    },
+    err => {
+      btn.textContent = '📍 Use My Location';
+      btn.style.borderColor = 'var(--border)';
+      const msgs = { 1:'Location permission denied — please allow in browser settings', 2:'Could not get GPS signal', 3:'GPS timed out — try again' };
+      showToast(msgs[err.code] || 'Could not get location');
+    },
+    { enableHighAccuracy: true, timeout: 10000 }
+  );
+}
+
+function pickupPointMode() {
+  const sug = document.getElementById('pickupSuggestions');
+  const list = document.getElementById('pickupList');
+  const addr = document.getElementById('checkoutAddr');
+  const status = document.getElementById('gpsStatus');
+  status.style.display = 'none';
+  if (sug.style.display !== 'none') { sug.style.display = 'none'; return; }
+  list.innerHTML = PICKUP_POINTS.map(p =>
+    `<div onclick="selectPickup(this,'${escHtml(p.name)}, Kampala')" style="padding:10px 14px;cursor:pointer;border-bottom:1px solid var(--border);transition:background .15s" onmouseover="this.style.background='var(--bg2)'" onmouseout="this.style.background=''">
+      <div style="font-size:0.87rem;font-weight:600">${escHtml(p.name)}</div>
+      <div style="font-size:0.73rem;color:var(--text2)">${escHtml(p.area)}</div>
+    </div>`
+  ).join('');
+  sug.style.display = 'block';
+}
+
+function selectPickup(el, value) {
+  document.getElementById('checkoutAddr').value = value;
+  document.getElementById('pickupSuggestions').style.display = 'none';
+  document.getElementById('gpsStatus').style.display = 'block';
+  document.getElementById('gpsStatus').innerHTML = `🏪 <strong>Pickup point:</strong> ${escHtml(value)}`;
+}
+
 function selectPayMethod(method) {
   selectedPayMethod = method;
   ['momo','airtel','cash','bank'].forEach(m => {
     const el = document.getElementById('pm-' + m);
     if (el) el.classList.toggle('selected', m === method);
   });
+  // Show bank details form only when bank is selected
+  const bankForm = document.getElementById('bankDetailsForm');
+  if (bankForm) bankForm.style.display = method === 'bank' ? 'block' : 'none';
 }
 
 // Best-effort SMS to the farmer (server sends it once Africa's Talking is live).
@@ -2835,7 +2952,16 @@ async function placeOrder() {
     const r = await fetch(USSD_API+'/api/orders', {
       method:'POST',
       headers:{'Content-Type':'application/json','Authorization':'Bearer '+tok},
-      body: JSON.stringify({ items:orderItems, delivery_address:addr, payment_method:selectedPayMethod })
+      body: JSON.stringify({
+        items: orderItems,
+        delivery_address: addr,
+        payment_method: selectedPayMethod,
+        bank_details: selectedPayMethod === 'bank' ? {
+          bank: (document.getElementById('bankName')?.value || '').trim(),
+          account_name: (document.getElementById('bankAccName')?.value || '').trim(),
+          account_no: (document.getElementById('bankAccNo')?.value || '').trim(),
+        } : undefined,
+      })
     });
     const j = await r.json().catch(function(){return {};});
     if(!r.ok) throw new Error(j.error||'Order failed');
@@ -2904,19 +3030,31 @@ async function placeOrder() {
                </ol>
                <div class="pay-ref-note">Use <strong>${ref}</strong> as your payment reference</div>
              </div>`,
-      bank: `<div class="pay-instructions">
+      bank: (() => {
+        const bName    = (document.getElementById('bankName')?.value    || '').trim();
+        const bAccName = (document.getElementById('bankAccName')?.value || '').trim();
+        const bAccNo   = (document.getElementById('bankAccNo')?.value   || '').trim();
+        const buyerRow = bName    ? `<div class="bank-row"><span>Your Bank</span><strong>${escHtml(bName)}</strong></div>` : '';
+        const nameRow  = bAccName ? `<div class="bank-row"><span>Your Account Name</span><strong>${escHtml(bAccName)}</strong></div>` : '';
+        const accRow   = bAccNo   ? `<div class="bank-row"><span>Your Account No.</span><strong class="pay-number">${escHtml(bAccNo)}</strong></div>` : '';
+        return `<div class="pay-instructions">
                <div class="pay-instr-icon">🏦</div>
                <div class="pay-instr-title">Bank Transfer</div>
                <div class="pay-instr-amount">${fmtTotal}</div>
+               ${bName || bAccName || bAccNo ? `<div class="bank-details" style="margin-bottom:10px">
+                 <div style="font-size:0.72rem;font-weight:700;color:var(--text2);text-transform:uppercase;margin-bottom:4px">Your payment details</div>
+                 ${buyerRow}${nameRow}${accRow}
+               </div>` : ''}
                <div class="bank-details">
+                 <div style="font-size:0.72rem;font-weight:700;color:var(--text2);text-transform:uppercase;margin-bottom:4px">Transfer to AgriBridge</div>
                  <div class="bank-row"><span>Bank</span><strong>Stanbic Bank Uganda</strong></div>
                  <div class="bank-row"><span>Account Name</span><strong>AgriBridge Ltd</strong></div>
                  <div class="bank-row"><span>Account No.</span><strong class="pay-number">9030 0123 45678</strong></div>
-                 <div class="bank-row"><span>Branch</span><strong>Kampala Main</strong></div>
                  <div class="bank-row"><span>Reference</span><strong>${ref}</strong></div>
                </div>
-               <div class="pay-ref-note">Send your bank slip to <strong>agribrige@gmail.com</strong> after transfer</div>
-             </div>`,
+               <div class="pay-ref-note">Use order ref <strong>${ref}</strong> as your payment reference · then send slip to <strong>agribrige@gmail.com</strong></div>
+             </div>`;
+      })(),
       cash: `<div class="pay-instructions">
                <div class="pay-instr-icon">💵</div>
                <div class="pay-instr-title">Cash on Delivery</div>
