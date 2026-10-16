@@ -3628,11 +3628,133 @@ async function loadAlerts() {
   const statusIcon={ scheduled:'📋', picked_up:'📦', in_transit:'🚚', at_checkpoint:'🚩', delivered:'✅', failed:'❌' };
   el.innerHTML=list.map(a=>{ const msg=a.message||(a.status?`${statusIcon[a.status]||'🚚'} Delivery ${a.tracking_code||''}: ${(a.status||'').replace(/_/g,' ')} — ${a.pickup_location||''} → ${a.delivery_location||''}`:a); const time=a.created_at?new Date(a.created_at).toLocaleString('en-UG',{dateStyle:'short',timeStyle:'short'}):'Just now'; return `<div class="alert-item"><div class="a-msg">${msg}</div><div class="a-time">${time}</div></div>`; }).join('');
 }
-function loadMyOrders() {
-  const el=document.getElementById('myOrdersList'); if(!el) return;
-  const orders=JSON.parse(localStorage.getItem('ab_orders')||'[]');
-  if(!orders.length){ el.innerHTML='<div style="color:var(--text2);font-size:0.88rem;padding:12px 0">No orders yet. <a href="#" onclick="showPage(\'market\')">Browse marketplace →</a></div>'; return; }
-  el.innerHTML=orders.map(o=>`<div style="background:var(--bg3);border-radius:10px;padding:12px;margin-bottom:10px;border:1px solid var(--border)"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px"><div style="font-weight:700;font-size:0.9rem">${o.ref}</div><div style="color:var(--green);font-size:0.78rem;font-weight:700;text-transform:uppercase">${o.status}</div></div><div style="font-size:0.8rem;color:var(--text2)">${o.items.map(i=>i.name+'×'+i.qty).join(', ')}</div><div style="display:flex;justify-content:space-between;margin-top:6px;font-size:0.82rem"><span>Total: <strong style="color:var(--green)">UGX ${Number(o.total).toLocaleString()}</strong></span><button class="btn-sm" onclick="document.getElementById('trackingInput').value='${o.track}';trackDelivery()" style="font-size:0.72rem;padding:4px 10px">Track 📍</button></div><div style="font-size:0.72rem;color:var(--text2);margin-top:4px">Track: <span style="color:var(--yellow);font-family:monospace">${o.track}</span> · ${new Date(o.date).toLocaleDateString('en-UG')}</div></div>`).join('');
+async function loadMyOrders() {
+  const el = document.getElementById('myOrdersList');
+  if (!el) return;
+  el.innerHTML = '<div style="color:var(--text2);font-size:0.85rem;padding:10px 0">Loading orders…</div>';
+
+  // Try live API first (requires login), fall back to localStorage
+  let orders = [];
+  if (currentUser?.supaId) {
+    try {
+      const tok = await refreshAuthToken();
+      if (tok) {
+        const r = await fetch(USSD_API + '/api/buyer/orders', {
+          headers: { 'Authorization': 'Bearer ' + tok }
+        });
+        if (r.ok) orders = (await r.json()) || [];
+      }
+    } catch (e) { /* fall through to localStorage */ }
+  }
+  // Merge with any localStorage orders not yet on server
+  const local = JSON.parse(localStorage.getItem('ab_orders') || '[]');
+  if (!orders.length) orders = local.map(o => ({
+    id: null, order_ref: o.ref, tracking_code: o.track,
+    status: o.status || 'pending', total_price: o.total,
+    payment_method: o.payment, delivery_address: o.addr,
+    created_at: o.date, items: o.items,
+  }));
+
+  if (!orders.length) {
+    el.innerHTML = '<div style="color:var(--text2);font-size:0.88rem;padding:12px 0">No orders yet. <a href="#" onclick="showPage(\'market\')">Browse marketplace →</a></div>';
+    return;
+  }
+
+  const statusColor = { pending:'#f59e0b', confirmed:'#5b9bff', in_transit:'var(--green)', delivered:'var(--green)', cancelled:'#e05555' };
+  const statusIcon  = { pending:'⏳', confirmed:'✅', in_transit:'🚚', delivered:'🎉', cancelled:'✕' };
+
+  el.innerHTML = orders.map(o => {
+    const ref   = escHtml(o.order_ref || o.ref || '—');
+    const track = escHtml(o.tracking_code || o.track || '');
+    const st    = (o.status || 'pending').toLowerCase();
+    const col   = statusColor[st] || 'var(--text2)';
+    const icon  = statusIcon[st] || '📦';
+    const total = 'UGX ' + Number(o.total_price || o.total || 0).toLocaleString();
+    const date  = o.created_at ? new Date(o.created_at).toLocaleDateString('en-UG', {day:'numeric',month:'short',year:'numeric'}) : '';
+    let items = o.items || [];
+    if (typeof items === 'string') { try { items = JSON.parse(items); } catch(e) { items = []; } }
+    const itemStr = items.map(i => escHtml((i.product||i.name||'Item') + ' ×' + (i.quantity||i.qty||1))).join(', ') || 'Order items';
+    const hasId = !!o.id;
+    return `<div style="background:var(--bg3);border-radius:12px;padding:14px;margin-bottom:10px;border:1px solid var(--border)">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:8px">
+        <div>
+          <div style="font-weight:800;font-size:0.95rem;font-family:monospace;color:var(--green)">${ref}</div>
+          <div style="font-size:0.72rem;color:var(--text2);margin-top:2px">${date}</div>
+        </div>
+        <div style="color:${col};font-size:0.78rem;font-weight:700;text-transform:uppercase;text-align:right">
+          ${icon} ${st.replace('_',' ')}
+        </div>
+      </div>
+      <div style="font-size:0.82rem;color:var(--text2);margin-bottom:10px;line-height:1.4">${itemStr}</div>
+      <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px">
+        <div style="font-weight:700;color:var(--green);font-size:0.95rem">${total}</div>
+        <div style="display:flex;gap:6px;flex-wrap:wrap">
+          ${track ? `<button class="btn-sm outline" onclick="document.getElementById('trackingInput').value='${track}';trackDelivery()" style="font-size:0.72rem;padding:4px 10px">Track 📍</button>` : ''}
+          ${hasId ? `<button class="btn-sm outline" onclick="downloadReceipt('${o.id}','${ref}')" style="font-size:0.72rem;padding:4px 10px">Receipt 🧾</button>` : ''}
+          ${hasId ? `<button class="btn-sm outline" onclick="emailReceipt('${o.id}')" style="font-size:0.72rem;padding:4px 10px">📧 Email</button>` : ''}
+        </div>
+      </div>
+      ${track ? `<div style="font-size:0.7rem;color:var(--text2);margin-top:6px">TRK: <span style="color:var(--amber);font-family:monospace">${track}</span></div>` : ''}
+    </div>`;
+  }).join('');
+}
+
+async function downloadReceipt(orderId, ref) {
+  if (!currentUser?.supaId) { showToast('Please log in'); return; }
+  showToast('Preparing receipt…');
+  try {
+    const tok = await refreshAuthToken();
+    const r = await fetch(USSD_API + '/api/buyer/orders/' + orderId + '/receipt', {
+      headers: { 'Authorization': 'Bearer ' + tok }
+    });
+    if (!r.ok) { showToast('Could not load receipt'); return; }
+    const o = await r.json();
+    // Build a printable HTML receipt and trigger download
+    const items = (o.items || []).map(i =>
+      `<tr><td>${escHtml(i.product||i.name||'Item')}</td><td style="text-align:center">${i.quantity||i.qty||1} ${i.unit||'kg'}</td><td style="text-align:right">UGX ${Number((i.price_per_unit||i.price||0)*(i.quantity||i.qty||1)).toLocaleString()}</td></tr>`
+    ).join('');
+    const html = `<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Receipt ${o.order_ref}</title>
+<style>body{font-family:Arial,sans-serif;max-width:520px;margin:40px auto;color:#111;font-size:13px}
+h1{color:#17E06B;margin-bottom:4px}.logo{font-size:1.5rem;font-weight:900;color:#17E06B}
+.ref{font-size:1.1rem;font-weight:700;font-family:monospace;margin:8px 0}
+table{width:100%;border-collapse:collapse;margin:16px 0}
+th,td{padding:8px 6px;border-bottom:1px solid #eee}th{background:#f5f5f5;text-align:left}
+.total{font-size:1rem;font-weight:700;text-align:right;margin-top:8px}
+.footer{margin-top:24px;font-size:11px;color:#666;border-top:1px solid #eee;padding-top:10px}
+</style></head><body>
+<div class="logo">🌾 AgriBridge</div>
+<div class="ref">${escHtml(o.order_ref)}</div>
+<div>Tracking: <strong>${escHtml(o.tracking_code||'')}</strong></div>
+<div>Date: ${o.created_at ? new Date(o.created_at).toLocaleString('en-UG') : ''}</div>
+<div>Status: <strong>${(o.status||'').toUpperCase()}</strong></div>
+<div>Payment: ${escHtml(o.payment_method||'')}</div>
+<div>Delivery: ${escHtml(o.delivery_address||'')}</div>
+<table><thead><tr><th>Item</th><th style="text-align:center">Qty</th><th style="text-align:right">Amount</th></tr></thead>
+<tbody>${items}</tbody></table>
+<div class="total">TOTAL: UGX ${Number(o.total_price||0).toLocaleString()}</div>
+<div class="footer">AgriBridge Ltd · Kampala, Uganda · agribrige.com<br>Questions? agribrige@gmail.com</div>
+</body></html>`;
+    const blob = new Blob([html], { type: 'text/html' });
+    const url  = URL.createObjectURL(blob);
+    const a    = document.createElement('a');
+    a.href = url; a.download = `AgriBridge-Receipt-${ref}.html`; a.click();
+    URL.revokeObjectURL(url);
+    showToast('Receipt downloaded 🧾');
+  } catch (e) { showToast('Download failed — try again'); }
+}
+
+async function emailReceipt(orderId) {
+  if (!currentUser?.supaId) { showToast('Please log in'); return; }
+  showToast('Sending receipt to your email…');
+  try {
+    const tok = await refreshAuthToken();
+    const r = await fetch(USSD_API + '/api/buyer/orders/' + orderId + '/receipt/email', {
+      method: 'POST', headers: { 'Authorization': 'Bearer ' + tok }
+    });
+    const j = await r.json().catch(() => ({}));
+    if (r.ok && j.ok) showToast('📧 Receipt sent to ' + (j.email || 'your email'));
+    else showToast(j.error || 'Could not send email right now');
+  } catch (e) { showToast('Email failed — try again'); }
 }
 async function saveAlert() {
   const crop=document.getElementById('alertCrop')?.value, district=document.getElementById('alertDistrict')?.value;

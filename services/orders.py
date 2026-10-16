@@ -16,6 +16,7 @@ admin is alerted first, which is the mandate's hard requirement.
 """
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass, field
 
 from services.logging import get_logger
@@ -47,16 +48,45 @@ class OrderService:
             return OrderResult(ok=False, error="buyer_id required", status_code=400)
         if not isinstance(items, list) or not items:
             return OrderResult(ok=False, error="at least one item required", status_code=400)
+        UUID_RE = re.compile(
+            r'^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$',
+            re.IGNORECASE,
+        )
         normalized = []
         for it in items:
-            listing_id = str(it.get("listing_id") or "").strip()
+            listing_id_raw = str(it.get("listing_id") or "").strip()
+            # Accept a real UUID listing_id; for non-UUID items (equipment, animals
+            # listed outside the main listings table) fall back to None so the
+            # atomic RPC treats them as a manual / free-form line-item.
+            listing_id = listing_id_raw if UUID_RE.match(listing_id_raw) else None
+            product    = str(it.get("product") or it.get("name") or "").strip()[:200]
+            farmer_id  = str(it.get("farmer_id") or "").strip() or None
             try:
-                qty = float(it.get("quantity"))
+                qty = float(it.get("quantity") or 1)
             except (TypeError, ValueError):
-                return OrderResult(ok=False, error="invalid quantity", status_code=400)
-            if not listing_id or qty <= 0:
-                return OrderResult(ok=False, error="invalid item", status_code=400)
-            normalized.append({"listing_id": listing_id, "quantity": qty})
+                qty = 1.0
+            try:
+                price = float(it.get("price_per_unit") or it.get("price") or 0)
+            except (TypeError, ValueError):
+                price = 0.0
+            if qty <= 0:
+                qty = 1.0
+            # Need at least a listing_id OR a product name to proceed.
+            if not listing_id and not product:
+                log.warning("order.item_skipped", item=it)
+                continue
+            normalized.append({
+                "listing_id":    listing_id,
+                "farmer_id":     farmer_id,
+                "product":       product,
+                "quantity":      qty,
+                "price_per_unit": price,
+                "unit":          str(it.get("unit") or "kg")[:20],
+                "currency":      "UGX",
+                "item_category": str(it.get("item_category") or "produce")[:40],
+            })
+        if not normalized:
+            return OrderResult(ok=False, error="no valid items in order", status_code=400)
 
         # ── Step 2: atomic create + reserve (Postgres RPC) ────────────────────
         res = self._db.rpc("create_order_atomic", {

@@ -2526,6 +2526,100 @@ def buyer_orders():
     return jsonify(orders), 200
 
 
+@app.route('/api/buyer/orders/<order_id>/receipt', methods=['GET'])
+@rate_limit(max_req=30, window=60)
+def buyer_order_receipt(order_id):
+    """Return a single order's full receipt data for the authenticated buyer."""
+    uid, err = verify_supabase_user()
+    if err:
+        return err
+    rows = supa_get('orders', {'id': f'eq.{order_id}', 'buyer_id': f'eq.{uid}'}) or []
+    if not rows:
+        return jsonify({'error': 'Order not found'}), 404
+    order = rows[0]
+    # Build receipt payload
+    items = order.get('items') or []
+    if isinstance(items, str):
+        try:
+            items = _json.loads(items)
+        except Exception:
+            items = []
+    receipt = {
+        'order_ref':      order.get('order_ref', ''),
+        'tracking_code':  order.get('tracking_code', ''),
+        'status':         order.get('status', ''),
+        'payment_method': order.get('payment_method', ''),
+        'payment_status': order.get('payment_status', 'unpaid'),
+        'delivery_address': order.get('delivery_address', ''),
+        'created_at':     order.get('created_at', ''),
+        'total_price':    order.get('total_price', 0),
+        'items':          items,
+        'farmer_id':      order.get('farmer_id'),
+        'transporter_id': order.get('transporter_id'),
+    }
+    return jsonify(receipt), 200
+
+
+@app.route('/api/buyer/orders/<order_id>/receipt/email', methods=['POST'])
+@rate_limit(max_req=5, window=60)
+def email_order_receipt(order_id):
+    """Email a receipt for the specified order to the authenticated buyer."""
+    uid, err = verify_supabase_user()
+    if err:
+        return err
+    rows = supa_get('orders', {'id': f'eq.{order_id}', 'buyer_id': f'eq.{uid}'}) or []
+    if not rows:
+        return jsonify({'error': 'Order not found'}), 404
+    order = rows[0]
+    # Get buyer profile for email address
+    profile_rows = supa_get('buyers', {'user_id': f'eq.{uid}'}) or []
+    email = (profile_rows[0].get('email') if profile_rows else None) or ''
+    if not email:
+        # fall back to auth.users email via admin
+        try:
+            user_resp = SUPA.client.auth.admin.get_user_by_id(uid)
+            email = (user_resp.user.email or '') if user_resp and user_resp.user else ''
+        except Exception:
+            pass
+    if not email:
+        return jsonify({'error': 'No email on record for this account'}), 400
+    items = order.get('items') or []
+    if isinstance(items, str):
+        try:
+            items = _json.loads(items)
+        except Exception:
+            items = []
+    try:
+        import requests as _req
+        resp = _req.post(
+            f"{SETTINGS.supabase_url}/functions/v1/send-receipt",
+            headers={
+                'Content-Type': 'application/json',
+                'apikey': SETTINGS.supabase_key,
+                'Authorization': f'Bearer {SETTINGS.supabase_key}',
+            },
+            json={
+                'type': 'order_receipt',
+                'email': email,
+                'name': profile_rows[0].get('full_name', '') if profile_rows else '',
+                'ref': order.get('order_ref', ''),
+                'tracking': order.get('tracking_code', ''),
+                'total': order.get('total_price', 0),
+                'payment_method': order.get('payment_method', ''),
+                'delivery_address': order.get('delivery_address', ''),
+                'status': order.get('status', ''),
+                'created_at': order.get('created_at', ''),
+                'items': items,
+            },
+            timeout=10,
+        )
+        ok = resp.status_code < 300
+    except Exception as e:
+        log.warning("receipt_email.failed", error=str(e))
+        ok = False
+    return jsonify({'ok': ok, 'email': email}), 200 if ok else 502
+
+
 @app.route('/api/user/notifications', methods=['GET'])
 @rate_limit(max_req=60, window=60)
 def user_notifications():
