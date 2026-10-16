@@ -2214,7 +2214,7 @@ def admin_suggested_farmers(order_id):
         if fid not in seen_farmers:
             seen_farmers[fid] = {
                 'farmer_id': fid,
-                'farmer_name': lst.get('farmer_name') or lst.get('full_name') or 'Farmer',
+                'farmer_name': lst.get('farmer_name') or lst.get('full_name') or '',
                 'farmer_phone': lst.get('farmer_phone') or lst.get('phone') or '',
                 'listings': [],
             }
@@ -2235,7 +2235,7 @@ def admin_suggested_farmers(order_id):
                 continue
             seen_farmers[fid] = {
                 'farmer_id': fid,
-                'farmer_name': lst.get('farmer_name') or lst.get('full_name') or 'Farmer',
+                'farmer_name': lst.get('farmer_name') or lst.get('full_name') or '',
                 'farmer_phone': lst.get('farmer_phone') or lst.get('phone') or '',
                 'listings': [{
                     'listing_id': lst.get('id'),
@@ -2245,6 +2245,36 @@ def admin_suggested_farmers(order_id):
                     'location': lst.get('location') or lst.get('parish') or '',
                 }],
             }
+
+    # 6. Enrich with real farmer profile data (full_name, phone) from farmers table
+    #    Listings may not carry these columns — fetch the source of truth.
+    farmer_ids = list(seen_farmers.keys())
+    if farmer_ids:
+        try:
+            # Fetch up to 200 farmer profiles in one call
+            id_filter = ','.join(farmer_ids[:200])
+            profiles = supa_get('farmers', {
+                'id': f'in.({id_filter})',
+                'select': 'id,full_name,phone,location',
+            }, limit=200) or []
+            for p in profiles:
+                fid = p.get('id')
+                if fid and fid in seen_farmers:
+                    # Profile wins over listing's stale copy
+                    seen_farmers[fid]['farmer_name'] = (
+                        p.get('full_name') or seen_farmers[fid]['farmer_name'] or 'Farmer'
+                    )
+                    seen_farmers[fid]['farmer_phone'] = (
+                        p.get('phone') or seen_farmers[fid]['farmer_phone'] or ''
+                    )
+                    seen_farmers[fid]['farmer_location'] = p.get('location') or ''
+        except Exception:
+            pass  # enrichment is best-effort; we still return the listing-level data
+
+    # Ensure every entry has at least a display name
+    for fid, entry in seen_farmers.items():
+        if not entry['farmer_name']:
+            entry['farmer_name'] = 'Farmer'
 
     return jsonify(list(seen_farmers.values())), 200
 
@@ -2267,33 +2297,55 @@ def admin_assign_farmer(order_id):
         return jsonify({'error': 'farmer_id required'}), 400
 
     now = datetime.datetime.utcnow().isoformat()
+    # Only update columns that actually exist on the orders table
     ok = supa_update('orders', {
         'farmer_id': farmer_id,
         'updated_at': now,
-        'admin_note': data.get('note', 'Farmer assigned by admin'),
     }, 'id', order_id)
     if not ok:
-        return jsonify({'error': 'Update failed'}), 500
+        _discord_notify(
+            'order.assign_farmer_failed',
+            '❌ Farmer Assignment Failed',
+            f'Order `{order_id[:8]}` — could not update farmer_id to `{farmer_id[:8]}` in database.',
+            color=0xe05555,
+        )
+        return jsonify({'error': 'Update failed — database rejected the change'}), 500
+
+    # Fetch order ref for notifications
+    order_rows = supa_get('orders', {'id': f'eq.{order_id}'}, limit=1) or []
+    order_ref = (order_rows[0].get('order_ref') or order_id[:8]) if order_rows else order_id[:8]
 
     # Notify farmer via in-app notification
-    NOTIFY.enqueue(
-        channel='in_app',
-        audience='user',
-        recipient=farmer_id,
-        event_type='order.farmer_assigned',
-        severity='info',
-        title='📦 New Order Assigned to You',
-        body='An order has been assigned to you by AgriBridge. Please check your dashboard.',
-        payload={'order_id': order_id},
-        dedupe_key=f'farmer_assigned:{order_id}',
+    try:
+        NOTIFY.enqueue(
+            channel='in_app',
+            audience='user',
+            recipient=farmer_id,
+            event_type='order.farmer_assigned',
+            severity='info',
+            title='📦 New Order Assigned to You',
+            body=f'Order {order_ref} has been assigned to you by AgriBridge. Please check your dashboard.',
+            payload={'order_id': order_id, 'order_ref': order_ref},
+            dedupe_key=f'farmer_assigned:{order_id}',
+        )
+    except Exception:
+        pass  # notification failure must not block the assignment
+
+    # Discord ops alert
+    _discord_notify(
+        'order.farmer_assigned',
+        '🌾 Farmer Assigned',
+        f'Order `{order_ref}` assigned to farmer `{farmer_id[:8]}` by admin.',
+        color=0x2ec471,
     )
 
     _log_system_event('order_farmer_assigned', {
         'order_id': order_id,
+        'order_ref': order_ref,
         'farmer_id': farmer_id,
         'admin': payload.get('sub', 'admin'),
     }, severity='info')
-    return jsonify({'ok': True}), 200
+    return jsonify({'ok': True, 'order_ref': order_ref}), 200
 
 
 @app.route('/api/admin/orders/<order_id>/approve', methods=['POST'])
@@ -2320,7 +2372,6 @@ def admin_approve_order(order_id):
         'status': 'confirmed',
         'admin_approved': True,
         'admin_approved_at': datetime.datetime.utcnow().isoformat(),
-        'admin_note': reason,
     }, 'id', order_id)
     if ok:
         _log_system_event('order_admin_approved', {
@@ -2376,7 +2427,6 @@ def admin_reject_order(order_id):
     reason = str(data.get('reason', 'Cancelled by admin')).strip()[:200]
     ok = supa_update('orders', {
         'status': 'cancelled',
-        'admin_note': reason,
         'updated_at': datetime.datetime.utcnow().isoformat(),
     }, 'id', order_id)
     if ok:
@@ -2483,7 +2533,6 @@ def admin_confirm_delivery(order_id):
         'status': 'delivered',
         'payment_status': 'paid',
         'delivered_at': now,
-        'admin_note': note or 'Delivery confirmed',
     }, 'id', order_id)
     supa_update('deliveries', {'status': 'delivered', 'delivered_at': now}, 'order_id', order_id)
     _log_system_event('order_delivered', {'order_id': order_id, 'note': note}, severity='info')
