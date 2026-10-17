@@ -1,7 +1,8 @@
-// AgriBridge Uganda — Service Worker v3
-// Handles offline caching, smart fetch strategies, and SPA navigation
+// AgriBridge Uganda — Service Worker v4
+// Handles offline caching, smart fetch strategies, SPA navigation, and
+// OS notifications (push + notification taps).
 
-const CACHE_NAME = 'agribridge-v6';
+const CACHE_NAME = 'agribridge-v7';
 const STATIC_ASSETS = [
   '/',
   '/index.html',
@@ -38,6 +39,8 @@ self.addEventListener('activate', event => {
 
 // ── FETCH: Smart caching strategy ──
 self.addEventListener('fetch', event => {
+  // Only GETs are cacheable. Let POST/PUT/etc (orders, auth, uploads) go straight to the network.
+  if (event.request.method !== 'GET') return;
   const url = new URL(event.request.url);
 
   // 1. Always network-first for API calls (never cache live data)
@@ -107,7 +110,8 @@ self.addEventListener('fetch', event => {
         // with index.html, or a slow connection would show the wrong document.
         cache.match(event.request.mode === 'navigate' ? '/index.html' : event.request).then(cached => {
           const network = fetch(event.request).then(response => {
-            cache.put(event.request.url === '/' ? '/index.html' : event.request, response.clone());
+            // Never cache error pages (404/500) as if they were the app.
+            if (response.ok) cache.put(event.request.url === '/' ? '/index.html' : event.request, response.clone());
             return response;
           });
           if (!cached) {
@@ -136,4 +140,42 @@ self.addEventListener('message', event => {
   if (event.data && event.data.type === 'GET_VERSION') {
     event.ports[0].postMessage({ version: CACHE_NAME });
   }
+});
+
+// ── PUSH: show a real OS notification when the server sends a Web Push ──
+// Payload (JSON): { title, body, url?, tag? }. Lets a future server-side push
+// work with no further worker changes.
+self.addEventListener('push', event => {
+  let data = {};
+  try {
+    data = event.data ? event.data.json() : {};
+  } catch (e) {
+    data = { body: event.data ? event.data.text() : '' };
+  }
+  event.waitUntil(
+    self.registration.showNotification(data.title || 'AgriBridge', {
+      body: data.body || '',
+      icon: '/icon-192.png',
+      tag: data.tag || 'agribridge',
+      data: { url: data.url || '/?notif=1' },
+      vibrate: [120, 60, 120],
+    })
+  );
+});
+
+// ── NOTIFICATION TAP: focus the open app (and ask it to show the bell), or open it ──
+self.addEventListener('notificationclick', event => {
+  event.notification.close();
+  const target = (event.notification.data && event.notification.data.url) || '/?notif=1';
+  event.waitUntil(
+    self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then(list => {
+      for (const client of list) {
+        if ('focus' in client) {
+          client.postMessage({ type: 'OPEN_NOTIFICATIONS' });
+          return client.focus();
+        }
+      }
+      return self.clients.openWindow(target);
+    })
+  );
 });

@@ -480,9 +480,11 @@ img{max-width:100%}
   .nav-search{display:none}
   .mob-search-btn{display:block}
   /* Keep BOTH Log In and Join Free reachable on phones. Free the space they
-     need by hiding the two secondary icons (notifications + language) and
-     compacting the header so nothing clips or overlaps. */
-  #notifBell{display:none}
+     need by hiding the language icon, and the bell while logged OUT (there is
+     nothing to show yet). Once logged in (body.ab-in) the bell comes back and
+     the name button is dropped — the avatar opens the same account modal. */
+  body:not(.ab-in) #notifBell{display:none}
+  body.ab-in .nav-btns .btn-sm{display:none}
   #langPickerBtn{display:none}
   .nav-logo{font-size:1.1rem}
   .navbar{gap:8px;padding:0 10px}
@@ -4473,6 +4475,8 @@ async function loadNotifications(){
     const data=await r.json();
     const notifs=data.notifications||[];
     const unread=data.unread||0;
+    _renderNotifPermRow();
+    _markNotifsShown(notifs); // they are on screen now — don't also pop an OS alert for them
     // Update bell badge
     const badge=document.getElementById('notifCount');
     if(badge){ badge.textContent=unread>9?'9+':String(unread); badge.style.display=unread>0?'':'none'; }
@@ -4546,7 +4550,74 @@ async function _pollNotifBadge(){
     const unread=data.unread||0;
     const badge=document.getElementById('notifCount');
     if(badge){ badge.textContent=unread>9?'9+':String(unread); badge.style.display=unread>0?'':'none'; }
+    _notifyNew(data.notifications||[]);
   } catch(e){}
+}
+
+// ── Real OS notifications (Android notification bar / desktop) ──────────
+// The bell poll above finds new unread in-app notifications; this turns the
+// ones we haven't announced yet into real notifications through the service
+// worker. IDs already announced live in localStorage so a reload never repeats.
+function _getShownNotifs(){
+  try{ const v=JSON.parse(localStorage.getItem('ab_notif_shown')||'null'); return Array.isArray(v)?v:null; }catch(e){ return null; }
+}
+function _setShownNotifs(ids){
+  try{ localStorage.setItem('ab_notif_shown', JSON.stringify(ids.slice(-200))); }catch(e){}
+}
+function _markNotifsShown(notifs){
+  const shown=_getShownNotifs()||[];
+  const add=(notifs||[]).filter(function(n){ return n&&n.id&&shown.indexOf(n.id)===-1; }).map(function(n){ return n.id; });
+  if(add.length) _setShownNotifs(shown.concat(add));
+}
+function _canOSNotify(){
+  return ('Notification' in window) && Notification.permission==='granted';
+}
+async function _showOSNotification(title, body, id){
+  const opts={ body:body||'', icon:'/icon-192.png', tag:'ab-'+(id||Date.now()), data:{url:'/?notif=1'}, vibrate:[120,60,120] };
+  try{
+    // Android Chrome only allows notifications created through a service worker.
+    const reg=_swReg||(('serviceWorker' in navigator)?await navigator.serviceWorker.getRegistration():null);
+    if(reg&&reg.showNotification){ await reg.showNotification(title||'AgriBridge', opts); return true; }
+    new Notification(title||'AgriBridge', opts); // desktop fallback
+    return true;
+  }catch(e){ return false; }
+}
+function _notifyNew(notifs){
+  const unread=(notifs||[]).filter(function(n){ return n&&n.id&&n.status!=='sent'; });
+  const shown=_getShownNotifs();
+  if(shown===null){ _setShownNotifs(unread.map(function(n){ return n.id; })); return; } // first run on this device: don't replay old unread
+  const fresh=unread.filter(function(n){ return shown.indexOf(n.id)===-1; });
+  if(!fresh.length) return;
+  _setShownNotifs(shown.concat(fresh.map(function(n){ return n.id; })));
+  if(!_canOSNotify()) return;
+  if(fresh.length>3){
+    _showOSNotification('AgriBridge', 'You have '+fresh.length+' new notifications', 'batch-'+Date.now());
+  } else {
+    fresh.slice().reverse().forEach(function(n){ _showOSNotification(n.title||'AgriBridge', n.body||'', n.id); });
+  }
+}
+function _renderNotifPermRow(){
+  const row=document.getElementById('notifPermRow'); if(!row) return;
+  if(!currentUser||!('Notification' in window)||!('serviceWorker' in navigator)||Notification.permission==='granted'){ row.style.display='none'; return; }
+  row.style.display='block';
+  if(Notification.permission==='denied'){
+    row.innerHTML='<div style="font-size:0.78rem;color:var(--text2);line-height:1.4">🔕 Phone notifications are blocked for this site. Allow them in your browser\'s site settings to get alerts.</div>';
+    return;
+  }
+  row.innerHTML='<button onclick="enableOSNotifications()" style="width:100%;padding:9px;border-radius:8px;border:1px solid var(--green);background:var(--green-dim);color:var(--green);font-weight:700;font-size:0.82rem;cursor:pointer;font-family:inherit">🔔 Turn on phone notifications</button>';
+}
+async function enableOSNotifications(){
+  if(!('Notification' in window)){ showToast('This browser does not support notifications'); return; }
+  let res=Notification.permission;
+  try{ res=await Notification.requestPermission(); }catch(e){}
+  _renderNotifPermRow();
+  if(res==='granted'){
+    await _registerSW();
+    showToast('🔔 Phone notifications are on');
+    _showOSNotification('AgriBridge notifications are on', "You'll get alerts for orders, bookings and updates here.", 'welcome');
+  } else if(res==='denied'){
+    showToast('Notifications blocked — allow them in your browser settings');
+  }
 }
 function acceptCookies(){ localStorage.setItem('ab_cookies','1'); const b=document.getElementById('cookieBanner'); if(b) b.style.display='none'; }
 function checkCookieBanner(){ if(!localStorage.getItem('ab_cookies')) setTimeout(()=>{ const b=document.getElementById('cookieBanner'); if(b) b.style.display='flex'; },3000); }
@@ -4714,23 +4785,34 @@ document.addEventListener('keydown', e => {
 // ─────────────────────────────────────────────────────────────────
 // SERVICE WORKER
 // ─────────────────────────────────────────────────────────────────
-// We do NOT use a service worker. Proactively remove any stale one left by an
-// earlier version — a leftover SW can keep serving old cached HTML/images, which
-// is why fresh changes may "not reflect". This self-heals on the next online load.
-if ('serviceWorker' in navigator) {
-  var _hadController = !!navigator.serviceWorker.controller;
-  Promise.all([
-    navigator.serviceWorker.getRegistrations().then(function(regs){ return Promise.all(regs.map(function(r){ return r.unregister(); })); }).catch(function(){}),
-    (window.caches && caches.keys) ? caches.keys().then(function(keys){ return Promise.all(keys.map(function(k){ return caches.delete(k); })); }).catch(function(){}) : Promise.resolve()
-  ]).then(function(){
-    // If a stale service worker was controlling this page, reload ONCE so the user
-    // gets fully fresh content (guarded against reload loops).
-    if (_hadController && !sessionStorage.getItem('ab_sw_purged')) {
-      sessionStorage.setItem('ab_sw_purged','1');
-      location.reload();
-    }
-  }).catch(function(){});
+// /sw.js stays registered: it is what lets Android show real notifications in the
+// notification bar. It is network-first for the app shell (see sw.js), so new
+// deploys still reach users on the next open — the old "stale cache" problem came
+// from an earlier cache-first worker, which the old purge code removed.
+var _swReg = null;
+function _registerSW(){
+  if (!('serviceWorker' in navigator)) return Promise.resolve(null);
+  return navigator.serviceWorker.register('/sw.js', { scope: '/' })
+    .then(function(reg){ _swReg = reg; return reg; })
+    .catch(function(e){ console.warn('[SW] registration failed', e); return null; });
 }
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', function(){ _registerSW(); });
+  // Tapping an OS notification focuses this tab; the SW asks us to open the bell.
+  navigator.serviceWorker.addEventListener('message', function(e){
+    if (e.data && e.data.type === 'OPEN_NOTIFICATIONS') {
+      // _unstickUI() closes the panel when the tab regains focus, so open it just after.
+      setTimeout(function(){
+        var p = document.getElementById('notifPanel');
+        if (currentUser && p && p.style.display !== 'block') toggleNotifPanel();
+      }, 400);
+    }
+  });
+}
+// Check for new notifications as soon as the app comes back to the foreground.
+document.addEventListener('visibilitychange', function(){
+  if (!document.hidden && currentUser) _pollNotifBadge();
+});
 
 // ─────────────────────────────────────────────────────────────────
 // INIT — called on DOM ready
@@ -4767,6 +4849,10 @@ document.addEventListener('DOMContentLoaded', () => {
     const bell=document.getElementById('notifBell');
     if(panel.classList.contains('open')&&!panel.contains(e.target)&&!bell?.contains(e.target)) panel.classList.remove('open');
   });
+  // Opened from a notification while the app was closed: show the bell panel.
+  if (new URLSearchParams(location.search).get('notif') === '1') {
+    setTimeout(() => { if (currentUser) toggleNotifPanel(); }, 2200);
+  }
   // First-time welcome
   if (!localStorage.getItem('ab_visited')) {
     setTimeout(() => { showToast('🌱 Welcome to AgriBridge! Browse fresh produce or dial *789# on any phone.'); localStorage.setItem('ab_visited','1'); }, 1800);
@@ -5617,6 +5703,7 @@ function initSupabase() {
     } else {
       currentUser = null;
       localStorage.removeItem('ab_user');
+      localStorage.removeItem('ab_notif_shown'); // next login starts fresh, no replay of old alerts
       updateNavUser(null, null);
       _stopNotifPolling();
     }
@@ -5753,6 +5840,8 @@ function updateNavUser(nameOrUser, role) {
     name = nameOrUser.name || (nameOrUser.email ? nameOrUser.email.split('@')[0] : 'Farmer');
     role = nameOrUser.role || 'farmer';
   }
+  // Lets CSS show the bell on phones only while someone is logged in.
+  document.body.classList.toggle('ab-in', !!name);
   if (name) {
     var init = name.charAt(0).toUpperCase();
     var first = name.split(' ')[0];
@@ -6604,7 +6693,7 @@ document.addEventListener('DOMContentLoaded', function() {
 <div id="offlineBanner" style="display:none;position:fixed;top:0;left:0;right:0;z-index:9999;background:#b71c1c;color:#fff;text-align:center;padding:8px;font-size:0.85rem">📡 You are offline — some features unavailable</div>
 
 <!-- ══ NOTIFICATION PANEL ══════════════════════════════════ -->
-<div class="notif-panel" id="notifPanel" style="position:fixed;top:60px;right:0;width:320px;max-height:70vh;overflow-y:auto;background:var(--bg2);border:1px solid var(--border);border-radius:0 0 0 14px;z-index:400;display:none">
+<div class="notif-panel" id="notifPanel" style="position:fixed;top:60px;right:0;width:min(340px,100vw);max-height:70vh;overflow-y:auto;background:var(--bg2);border:1px solid var(--border);border-radius:0 0 0 14px;z-index:400;display:none">
   <div style="padding:12px 16px;border-bottom:1px solid var(--border);font-weight:700;font-size:0.9rem;display:flex;justify-content:space-between;align-items:center">
     <span>🔔 Notifications</span>
     <div style="display:flex;gap:8px;align-items:center">
@@ -6612,6 +6701,7 @@ document.addEventListener('DOMContentLoaded', function() {
       <button onclick="toggleNotifPanel()" style="background:none;border:none;color:var(--text2);cursor:pointer;font-size:1.1rem">✕</button>
     </div>
   </div>
+  <div id="notifPermRow" style="display:none;padding:10px 16px;border-bottom:1px solid var(--border)"></div>
   <div id="notifList">
     <div style="padding:20px 16px;text-align:center;color:var(--text2);font-size:0.85rem">Loading…</div>
   </div>
