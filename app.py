@@ -2306,7 +2306,7 @@ def admin_suggested_farmers(order_id):
             pass  # enrichment is best-effort; we still return the listing-level data
 
     # Ensure every entry has at least a display name
-    for fid, entry in seen_farmers.items():
+    for _fid, entry in seen_farmers.items():
         if not entry['farmer_name']:
             entry['farmer_name'] = 'Farmer'
 
