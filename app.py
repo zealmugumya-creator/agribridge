@@ -1809,7 +1809,6 @@ def create_order():
         pay_instr = {
             'momo':    'Dial *165# on your MTN line → Send Money → AgriBridge (0755 966 690)',
             'airtel':  'Dial *185# on your Airtel line → Make Payments → AgriBridge',
-            'bank':    'Transfer to Stanbic Bank A/C 9030013584292 (AgriBridge Uganda Ltd)',
             'card':    'You will be redirected to complete your card payment.',
             'cash':    'Pay on delivery.',
         }.get(pay_method, 'Follow the instructions on your confirmation screen.')
@@ -3472,14 +3471,101 @@ def pay_initiate():
 
     if provider in ('cod', 'direct'):
         return jsonify({'ok': True, 'mode': provider, 'message': 'No online payment needed.'}), 200
+
+    # Online payment: the order must belong to the caller, and we never charge less
+    # than the saved order total (the client-sent amount may add delivery, not cut it).
+    amount, perr = _checkout_amount(uid, order_ref, amount)
+    if perr:
+        return perr
     if provider == 'flutterwave':
         return _flw_initiate(order_ref, amount, email, phone)
+    if provider in ('flw_momo_mtn', 'flw_momo_airtel'):
+        return _flw_momo_initiate(order_ref, amount, email, phone,
+                                  'MTN' if provider.endswith('mtn') else 'AIRTEL')
     if provider in ('momo', 'airtel', 'mtn_momo', 'mobile_money'):
         # Africa's Talking mobile money collection (USSD push to buyer's phone)
         return _at_momo_initiate(order_ref, amount, phone, provider)
     if provider == 'pesapal':
         return jsonify({'ok': False, 'enabled': False, 'error': 'pesapal not configured yet'}), 200
     return jsonify({'ok': False, 'error': 'unknown provider'}), 400
+
+
+def _checkout_amount(uid, order_ref, client_amount):
+    """Return (amount_to_charge, error_response). Orders of one checkout share payment_ref."""
+    rows = supa_get('orders', {'payment_ref': f'eq.{order_ref}',
+                               'select': 'buyer_id,total_price,payment_status'}, limit=50) or []
+    if not rows:
+        return 0, (jsonify({'ok': False, 'error': 'order not found'}), 404)
+    if any(str(r.get('buyer_id')) != str(uid) for r in rows):
+        return 0, (jsonify({'ok': False, 'error': 'not your order'}), 403)
+    if all((r.get('payment_status') or '') == 'paid' for r in rows):
+        return 0, (jsonify({'ok': False, 'error': 'already paid', 'paid': True}), 409)
+    floor = int(round(sum(float(r.get('total_price') or 0) for r in rows)))
+    return max(int(client_amount), floor), None
+
+
+def _pay_attempt_ref(order_ref):
+    """Flutterwave needs a unique tx_ref per attempt; keep the order ref as the prefix."""
+    return f"{order_ref}~{uuid.uuid4().hex[:6]}"
+
+
+def _base_ref(tx_ref):
+    return (tx_ref or '').split('~')[0]
+
+
+def _ug_msisdn(phone):
+    p = ''.join(ch for ch in (phone or '') if ch.isdigit())
+    if p.startswith('256'):
+        p = p[3:]
+    p = p.lstrip('0')
+    return '256' + p if 8 <= len(p) <= 10 else ''
+
+
+def _flw_momo_initiate(order_ref, amount, email, phone, network):
+    """Direct MTN/Airtel collection through Flutterwave (mobile_money_uganda)."""
+    if not FLW_SECRET_KEY:
+        return jsonify({'ok': False, 'enabled': False, 'error': 'flutterwave not configured'}), 200
+    msisdn = _ug_msisdn(phone)
+    if not msisdn:
+        return jsonify({'ok': False, 'error': 'Enter a valid Uganda mobile money number'}), 400
+    try:
+        res = requests.post(
+            'https://api.flutterwave.com/v3/charges?type=mobile_money_uganda',
+            headers={'Authorization': 'Bearer ' + FLW_SECRET_KEY, 'Content-Type': 'application/json'},
+            json={
+                'tx_ref': _pay_attempt_ref(order_ref), 'amount': amount, 'currency': 'UGX',
+                'email': email or business.SUPPORT_EMAIL, 'phone_number': msisdn,
+                'network': network, 'redirect_url': PUBLIC_BASE_URL + '/?pay=done',
+                'meta': {'order_ref': order_ref},
+            },
+            timeout=25,
+        )
+        j = res.json() if res.content else {}
+        if res.ok and (j.get('status') or '') == 'success':
+            auth = ((j.get('meta') or {}).get('authorization')) or {}
+            return jsonify({'ok': True, 'mode': 'momo_push', 'provider': 'flutterwave',
+                            'link': auth.get('redirect') if auth.get('mode') == 'redirect' else None,
+                            'message': 'Approve the payment prompt on your phone.'}), 200
+        return jsonify({'ok': False, 'error': (j.get('message') or 'Mobile money request failed')[:160]}), 200
+    except Exception as e:
+        print(f"flw momo initiate error: {e}")
+        return jsonify({'ok': False, 'error': 'payment gateway unavailable'}), 200
+
+
+@app.route('/api/pay/status', methods=['GET'])
+@rate_limit(max_req=60, window=300)
+def pay_status():
+    """Poll after a payment prompt: is this checkout paid yet? (own orders only)"""
+    uid, err = verify_supabase_user()
+    if err:
+        return err
+    ref = _base_ref((request.args.get('order_ref') or '').strip()[:80])
+    rows = supa_get('orders', {'payment_ref': f'eq.{ref}',
+                               'select': 'buyer_id,payment_status'}, limit=50) or []
+    rows = [r for r in rows if str(r.get('buyer_id')) == str(uid)]
+    if not rows:
+        return jsonify({'ok': False, 'error': 'order not found'}), 404
+    return jsonify({'ok': True, 'paid': all(r.get('payment_status') == 'paid' for r in rows)}), 200
 
 
 def _at_momo_initiate(order_ref, amount, phone, provider='momo'):
@@ -3538,13 +3624,13 @@ def _flw_initiate(order_ref, amount, email, phone):
             'https://api.flutterwave.com/v3/payments',
             headers={'Authorization': 'Bearer ' + FLW_SECRET_KEY, 'Content-Type': 'application/json'},
             json={
-                'tx_ref':       order_ref,
+                'tx_ref':       _pay_attempt_ref(order_ref),
                 'amount':       str(amount),
                 'currency':     'UGX',
                 'redirect_url': PUBLIC_BASE_URL + '/?pay=done',
                 'customer':     {'email': email or business.SUPPORT_EMAIL, 'phonenumber': phone},
                 'customizations': {'title': 'AgriBridge', 'description': 'Order ' + order_ref},
-                'payment_options': 'mobilemoneyuganda,card',
+                'payment_options': 'card,mobilemoneyuganda',
             },
             timeout=25,
         )
@@ -3566,7 +3652,8 @@ def pay_webhook_flw():
         return jsonify({'status': 'unauthorized'}), 401
     data = request.get_json(force=True, silent=True) or {}
     ev = data.get('data') or {}
-    tx_ref = ev.get('tx_ref') or ''
+    attempt_ref = ev.get('tx_ref') or ''
+    tx_ref = _base_ref(attempt_ref)
     flw_id = ev.get('id')
     if (ev.get('status') or '').lower() == 'successful' and tx_ref and flw_id:
         # Never trust the webhook body alone — re-verify with Flutterwave server-side.
@@ -3576,7 +3663,12 @@ def pay_webhook_flw():
                 headers={'Authorization': 'Bearer ' + FLW_SECRET_KEY}, timeout=20)
             vj = v.json() if v.ok else {}
             vdata = vj.get('data') or {}
-            if (vdata.get('status') or '').lower() == 'successful':
+            owed = sum(float(o.get('total_price') or 0) for o in (supa_get(
+                'orders', {'payment_ref': f'eq.{tx_ref}', 'select': 'total_price'}, limit=50) or []))
+            if (vdata.get('status') or '').lower() == 'successful' \
+                    and _base_ref(vdata.get('tx_ref')) == tx_ref \
+                    and (vdata.get('currency') or 'UGX') == 'UGX' \
+                    and owed > 0 and float(vdata.get('amount') or 0) >= owed:
                 # Mark every order row of this checkout paid (they share payment_ref).
                 # Idempotent: re-running just re-sets 'paid'; the match key is stable.
                 supa_update('orders', {'payment_status': 'paid'}, 'payment_ref', tx_ref)

@@ -1842,22 +1842,22 @@ AgriBridge service</div>
       <!-- Payment method -->
       <div class="checkout-section-label">Payment Method</div>
       <div class="pay-methods">
-        <div class="pay-method selected" id="pm-momo" onclick="selectPayMethod('momo')"><div class="pm-icon">📱</div><div class="pm-label">MTN MoMo</div><div class="pm-sub">*165#</div></div>
-        <div class="pay-method" id="pm-airtel" onclick="selectPayMethod('airtel')"><div class="pm-icon">📲</div><div class="pm-label">Airtel Money</div><div class="pm-sub">*185#</div></div>
+        <div class="pay-method" id="pm-card" onclick="selectPayMethod('card')" style="display:none"><div class="pm-icon">💳</div><div class="pm-label">Card</div><div class="pm-sub">Visa · Mastercard</div></div>
+        <div class="pay-method selected" id="pm-momo" onclick="selectPayMethod('momo')"><div class="pm-icon">📱</div><div class="pm-label">MTN MoMo</div><div class="pm-sub">Pay from your phone</div></div>
+        <div class="pay-method" id="pm-airtel" onclick="selectPayMethod('airtel')"><div class="pm-icon">📲</div><div class="pm-label">Airtel Money</div><div class="pm-sub">Pay from your phone</div></div>
         <div class="pay-method" id="pm-cash" onclick="selectPayMethod('cash')"><div class="pm-icon">💵</div><div class="pm-label">Cash on Delivery</div><div class="pm-sub">Pay on arrival</div></div>
-        <div class="pay-method" id="pm-bank" onclick="selectPayMethod('bank')"><div class="pm-icon">🏦</div><div class="pm-label">Bank Transfer</div><div class="pm-sub">Any bank</div></div>
       </div>
 
-      <!-- Bank details form — shown only when bank is selected -->
-      <div id="bankDetailsForm" style="display:none;background:var(--bg3);border:1.5px solid var(--green);border-radius:12px;padding:14px;margin-top:10px">
-        <div style="font-size:0.78rem;font-weight:700;color:var(--green);margin-bottom:10px;text-transform:uppercase;letter-spacing:.04em">Your Bank Details</div>
-        <div style="font-size:0.75rem;color:var(--text2);margin-bottom:10px">Enter the bank account you'll transfer from — the admin will verify and mark your payment.</div>
-        <div style="display:grid;gap:8px">
-          <input id="bankName"    type="text" placeholder="Bank name (e.g. Centenary, DFCU, Equity…)" style="width:100%;padding:9px 12px;background:var(--bg2);border:1px solid var(--border);border-radius:8px;color:var(--text);font-family:inherit;font-size:0.85rem;box-sizing:border-box">
-          <input id="bankAccName" type="text" placeholder="Account holder name" style="width:100%;padding:9px 12px;background:var(--bg2);border:1px solid var(--border);border-radius:8px;color:var(--text);font-family:inherit;font-size:0.85rem;box-sizing:border-box">
-          <input id="bankAccNo"   type="text" placeholder="Account number" inputmode="numeric" style="width:100%;padding:9px 12px;background:var(--bg2);border:1px solid var(--border);border-radius:8px;color:var(--text);font-family:inherit;font-size:0.85rem;box-sizing:border-box">
-        </div>
-        <div style="font-size:0.72rem;color:var(--text2);margin-top:8px">📌 After placing order, transfer the exact amount and use your order ref as the payment reference.</div>
+      <!-- Card: entered on Flutterwave's secure page, never on our own page -->
+      <div id="cardInfoPanel" style="display:none;background:var(--bg3);border:1.5px solid var(--green);border-radius:12px;padding:14px;margin-top:10px;font-size:0.82rem;line-height:1.5">
+        <div style="font-weight:700;color:var(--green);margin-bottom:6px">💳 Pay by card</div>
+        You'll enter your card number, expiry (MM/YY), CVC and name on a <strong>secure Flutterwave page</strong> after you confirm. AgriBridge never sees or stores your card details.
+      </div>
+      <!-- MoMo / Airtel number -->
+      <div id="momoPhonePanel" style="background:var(--bg3);border:1.5px solid var(--green);border-radius:12px;padding:14px;margin-top:10px">
+        <div style="font-size:0.78rem;font-weight:700;color:var(--green);margin-bottom:8px;text-transform:uppercase;letter-spacing:.04em">Mobile money number</div>
+        <input id="payPhone" type="tel" inputmode="tel" placeholder="e.g. 0771 234 567" style="width:100%;padding:9px 12px;background:var(--bg2);border:1px solid var(--border);border-radius:8px;color:var(--text);font-family:inherit;font-size:0.9rem;box-sizing:border-box">
+        <div style="font-size:0.72rem;color:var(--text2);margin-top:6px">You'll get a prompt on this phone to approve the payment with your PIN.</div>
       </div>
 
       <!-- Address & delivery -->
@@ -1896,6 +1896,7 @@ AgriBridge service</div>
           <div style="font-size:0.72rem;color:var(--text2);margin-top:6px">TRACKING CODE</div>
           <div id="trackCodeDisplay" style="color:var(--yellow);font-weight:800"></div>
         </div>
+        <div id="payWaitBox" style="display:none;margin:16px 0 8px;padding:12px;border:1px solid var(--green);border-radius:12px;font-size:0.88rem"></div>
         <div id="paymentInstructions" style="display:none;margin:16px 0 8px;text-align:left"></div>
         <div style="display:flex;gap:10px;justify-content:center;flex-wrap:wrap;margin-top:8px">
           <button class="btn-card" onclick="closeCheckout();showPage('delivery')">Track Delivery 📍</button>
@@ -2790,7 +2791,22 @@ function openCheckout() {
   const m = document.getElementById('checkoutModal');
   if (m) m.classList.add('open');
   document.body.style.overflow = 'hidden';
+  syncPayMethods();
 }
+
+// Back from Flutterwave's hosted page (?pay=done&status=...&tx_ref=...)
+document.addEventListener('DOMContentLoaded', function () {
+  try {
+    const q = new URLSearchParams(location.search);
+    if (q.get('pay') !== 'done') return;
+    const st = (q.get('status') || '').toLowerCase();
+    const ref = (q.get('tx_ref') || '').split('~')[0];
+    history.replaceState(null, '', location.pathname);
+    if (st === 'cancelled' || st === 'failed') { setTimeout(function(){ showToast('Payment was not completed. Your order is saved — you can pay on delivery.'); }, 1200); return; }
+    setTimeout(function(){ showToast('Confirming your payment…'); }, 1200);
+    if (ref) pollPayment(ref, function(){ showToast('✅ Payment received. Thank you!'); }, function(){ showToast('Payment still pending — we will notify you once it clears.'); });
+  } catch (e) {}
+});
 
 function closeCheckout() {
   const m = document.getElementById('checkoutModal');
@@ -2901,13 +2917,38 @@ function selectPickup(el, value) {
 
 function selectPayMethod(method) {
   selectedPayMethod = method;
-  ['momo','airtel','cash','bank'].forEach(m => {
+  ['card','momo','airtel','cash'].forEach(m => {
     const el = document.getElementById('pm-' + m);
     if (el) el.classList.toggle('selected', m === method);
   });
-  // Show bank details form only when bank is selected
-  const bankForm = document.getElementById('bankDetailsForm');
-  if (bankForm) bankForm.style.display = method === 'bank' ? 'block' : 'none';
+  const card = document.getElementById('cardInfoPanel');
+  const phone = document.getElementById('momoPhonePanel');
+  if (card) card.style.display = method === 'card' ? 'block' : 'none';
+  if (phone) phone.style.display = (method === 'momo' || method === 'airtel') ? 'block' : 'none';
+  const pp = document.getElementById('payPhone');
+  if (pp && !pp.value && currentUser && currentUser.phone) pp.value = currentUser.phone;
+}
+// Card only appears once the card gateway is live (so we never show a dead button).
+async function syncPayMethods() {
+  const prov = await getEnabledProviders();
+  const c = document.getElementById('pm-card');
+  if (c) c.style.display = prov.flutterwave ? '' : 'none';
+  if (!prov.flutterwave && selectedPayMethod === 'card') selectPayMethod('momo');
+  else selectPayMethod(selectedPayMethod);
+}
+
+// Ask the server whether a checkout is paid; poll for up to ~2 minutes.
+async function pollPayment(ref, onDone, onTimeout) {
+  for (let i = 0; i < 30; i++) {
+    await new Promise(function(r){ setTimeout(r, 4000); });
+    try {
+      const tok = await refreshAuthToken();
+      const r = await fetch(USSD_API + '/api/pay/status?order_ref=' + encodeURIComponent(ref), { headers: { Authorization: 'Bearer ' + tok } });
+      const j = await r.json().catch(function(){ return {}; });
+      if (j && j.paid) { onDone(); return; }
+    } catch (e) {}
+  }
+  onTimeout();
 }
 
 // Best-effort SMS to the farmer (server sends it once Africa's Talking is live).
@@ -2939,58 +2980,65 @@ function sendReceiptEmail(payload){
   }catch(e){}
 }
 // Start an online payment.
-// Returns { redirect: url } to navigate to, { pushed: true, msg } for USSD push, or null to fall back to manual.
-async function startOnlinePayment(ref, amount, payMethod){
+// Returns { redirect: url } (hosted page), { pushed: true, msg } (prompt sent to phone),
+// { error: msg } (gateway refused), or null to fall back to manual instructions.
+async function startOnlinePayment(ref, amount, payMethod, phone){
   try{
     const prov=await getEnabledProviders();
     if(!prov) return null;
-
-    // Card / Flutterwave redirect
-    if(prov.flutterwave && payMethod==='card'){
+    const tok=await refreshAuthToken();
+    const call=async function(body){
       const r=await fetch(USSD_API+'/api/pay/initiate',{
-        method:'POST', headers:{'Content-Type':'application/json'},
-        body:JSON.stringify({ provider:'flutterwave', order_ref:ref, amount:Math.round(amount||0), email:currentUser?.email||'', phone:currentUser?.phone||'' })
+        method:'POST', headers:{'Content-Type':'application/json','Authorization':'Bearer '+tok},
+        body:JSON.stringify(Object.assign({ order_ref:ref, amount:Math.round(amount||0), email:(currentUser&&currentUser.email)||'', phone:phone||'' }, body))
       });
-      const j=await r.json().catch(function(){return null;});
-      if(j&&j.ok&&j.link) return { redirect: j.link };
+      return r.json().catch(function(){return null;});
+    };
+    if(payMethod==='card'){
+      if(!prov.flutterwave) return null;
+      const j=await call({ provider:'flutterwave' });
+      if(j&&j.ok&&j.link) return { redirect:j.link };
+      return { error:(j&&j.error)||'Could not start card payment' };
     }
-
-    // MTN MoMo — try AT push first, fall back to manual
-    if(payMethod==='momo'){
-      if(prov.momo){
-        const r=await fetch(USSD_API+'/api/pay/initiate',{
-          method:'POST', headers:{'Content-Type':'application/json'},
-          body:JSON.stringify({ provider:'momo', order_ref:ref, amount:Math.round(amount||0), phone:currentUser?.phone||'' })
-        });
-        const j=await r.json().catch(function(){return null;});
-        if(j&&j.ok&&j.mode==='momo_push') return { pushed:true, msg: j.message||'Payment request sent to your phone!' };
+    if(payMethod==='momo'||payMethod==='airtel'){
+      let j=null;
+      if(prov.flutterwave) j=await call({ provider: payMethod==='momo'?'flw_momo_mtn':'flw_momo_airtel' });
+      else if(prov[payMethod]) j=await call({ provider:payMethod });
+      else return null;
+      if(j&&j.ok){
+        if(j.link) return { redirect:j.link };
+        return { pushed:true, msg:j.message||'Payment request sent to your phone!' };
       }
-      return null; // fall back to manual USSD instructions
+      if(j&&j.fallback==='manual') return null;
+      return { error:(j&&j.error)||'Could not start mobile money payment' };
     }
-
-    // Airtel Money — try AT push first, fall back to manual
-    if(payMethod==='airtel'){
-      if(prov.airtel){
-        const r=await fetch(USSD_API+'/api/pay/initiate',{
-          method:'POST', headers:{'Content-Type':'application/json'},
-          body:JSON.stringify({ provider:'airtel', order_ref:ref, amount:Math.round(amount||0), phone:currentUser?.phone||'' })
-        });
-        const j=await r.json().catch(function(){return null;});
-        if(j&&j.ok&&j.mode==='momo_push') return { pushed:true, msg: j.message||'Airtel Money request sent to your phone!' };
-      }
-      return null; // fall back to manual USSD instructions
-    }
-
     return null;
   }catch(e){ return null; }
+}
+async function retryPayment(ref, total) {
+  const waitBox = document.getElementById('payWaitBox');
+  const phone = (document.getElementById('payPhone')?.value || '').trim();
+  if (waitBox) waitBox.innerHTML = 'Retrying…';
+  const res = await startOnlinePayment(ref, total, selectedPayMethod, phone);
+  if (res && res.redirect) { window.location.href = res.redirect; return; }
+  if (res && res.pushed && waitBox) {
+    waitBox.innerHTML = '📱 <strong>' + escHtml(res.msg) + '</strong><br><span style="color:var(--text2)">Waiting for confirmation…</span>';
+    pollPayment(ref, function(){ waitBox.innerHTML = '✅ <strong>Payment received. Thank you!</strong>'; }, function(){ waitBox.innerHTML = '⏳ Still waiting — we will update your order once payment arrives.'; });
+    return;
+  }
+  if (waitBox) waitBox.innerHTML = '⚠️ ' + escHtml((res && res.error) || 'Payment could not be started. You can pay cash on delivery.');
 }
 async function placeOrder() {
   if (!currentUser?.supaId) { showToast('Please log in to place your order 🔐'); closeCheckout && closeCheckout(); setTimeout(()=>openModal('loginModal'),500); return; }
   const addr = document.getElementById('checkoutAddr')?.value.trim();
   if (!addr) { showToast('Please enter your delivery address'); return; }
   const btn = document.querySelector('#checkoutStep1 .btn-primary');
-  if (btn) { btn.textContent = 'Placing order…'; btn.disabled = true; }
   const { total } = getBasketTotals();
+  const payPhone = (document.getElementById('payPhone')?.value || '').trim();
+  if ((selectedPayMethod === 'momo' || selectedPayMethod === 'airtel') && payPhone.replace(/\D/g,'').length < 9) {
+    showToast('Enter the mobile money number to pay from'); return;
+  }
+  if (btn) { btn.textContent = 'Placing order…'; btn.disabled = true; }
   let ref   = 'AB-' + Date.now().toString(36).toUpperCase().slice(-6);
   let track = 'TRK-' + Math.random().toString(36).substr(2,6).toUpperCase();
   const uuidRe = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -3020,11 +3068,6 @@ async function placeOrder() {
         items: orderItems,
         delivery_address: addr,
         payment_method: selectedPayMethod,
-        bank_details: selectedPayMethod === 'bank' ? {
-          bank: (document.getElementById('bankName')?.value || '').trim(),
-          account_name: (document.getElementById('bankAccName')?.value || '').trim(),
-          account_no: (document.getElementById('bankAccNo')?.value || '').trim(),
-        } : undefined,
       })
     });
     const j = await r.json().catch(function(){return {};});
@@ -3046,19 +3089,17 @@ async function placeOrder() {
   sendSmsReceipt(currentUser?.phone, ref, total, 'order');
   // If an online gateway is live and the buyer chose an online method, try to
   // initiate payment. Falls back to manual instructions when no gateway is live.
-  if (selectedPayMethod && !['cash','bank'].includes(selectedPayMethod)) {
-    const payResult = await startOnlinePayment(ref, total, selectedPayMethod);
+  let payPush = null, payError = '';
+  if (selectedPayMethod && selectedPayMethod !== 'cash') {
+    const payResult = await startOnlinePayment(ref, total, selectedPayMethod, payPhone);
     if (payResult && payResult.redirect) {
-      // Card / Flutterwave — redirect to hosted payment page
       basketItems=[]; appliedPromo=null; saveBasket(); updateBasketBadge();
-      showToast('Redirecting to secure payment…');
+      showToast('Opening secure payment…');
       window.location.href = payResult.redirect;
       return;
     }
-    if (payResult && payResult.pushed) {
-      // MoMo/Airtel push sent — show toast and continue to confirmation (manual verify)
-      showToast('📱 ' + (payResult.msg || 'Payment request sent to your phone!'));
-    }
+    if (payResult && payResult.pushed) { payPush = payResult.msg; }
+    if (payResult && payResult.error) { payError = payResult.error; }
     // null = no gateway live, fall through to manual payment instructions below
   }
   if (btn) { btn.textContent = 'Place Order 🛒'; btn.disabled = false; }
@@ -3104,31 +3145,6 @@ async function placeOrder() {
                </ol>
                <div class="pay-ref-note">Use <strong>${ref}</strong> as your payment reference</div>
              </div>`,
-      bank: (() => {
-        const bName    = (document.getElementById('bankName')?.value    || '').trim();
-        const bAccName = (document.getElementById('bankAccName')?.value || '').trim();
-        const bAccNo   = (document.getElementById('bankAccNo')?.value   || '').trim();
-        const buyerRow = bName    ? `<div class="bank-row"><span>Your Bank</span><strong>${escHtml(bName)}</strong></div>` : '';
-        const nameRow  = bAccName ? `<div class="bank-row"><span>Your Account Name</span><strong>${escHtml(bAccName)}</strong></div>` : '';
-        const accRow   = bAccNo   ? `<div class="bank-row"><span>Your Account No.</span><strong class="pay-number">${escHtml(bAccNo)}</strong></div>` : '';
-        return `<div class="pay-instructions">
-               <div class="pay-instr-icon">🏦</div>
-               <div class="pay-instr-title">Bank Transfer</div>
-               <div class="pay-instr-amount">${fmtTotal}</div>
-               ${bName || bAccName || bAccNo ? `<div class="bank-details" style="margin-bottom:10px">
-                 <div style="font-size:0.72rem;font-weight:700;color:var(--text2);text-transform:uppercase;margin-bottom:4px">Your payment details</div>
-                 ${buyerRow}${nameRow}${accRow}
-               </div>` : ''}
-               <div class="bank-details">
-                 <div style="font-size:0.72rem;font-weight:700;color:var(--text2);text-transform:uppercase;margin-bottom:4px">Transfer to AgriBridge</div>
-                 <div class="bank-row"><span>Bank</span><strong>Stanbic Bank Uganda</strong></div>
-                 <div class="bank-row"><span>Account Name</span><strong>AgriBridge Ltd</strong></div>
-                 <div class="bank-row"><span>Account No.</span><strong class="pay-number">9030 0123 45678</strong></div>
-                 <div class="bank-row"><span>Reference</span><strong>${ref}</strong></div>
-               </div>
-               <div class="pay-ref-note">Use order ref <strong>${ref}</strong> as your payment reference · then send slip to <strong>agribrige@gmail.com</strong></div>
-             </div>`;
-      })(),
       cash: `<div class="pay-instructions">
                <div class="pay-instr-icon">💵</div>
                <div class="pay-instr-title">Cash on Delivery</div>
@@ -3138,9 +3154,21 @@ async function placeOrder() {
              </div>`,
     };
     payInstrEl.innerHTML = payHtml[selectedPayMethod] || '';
-    payInstrEl.style.display = payHtml[selectedPayMethod] ? 'block' : 'none';
+    payInstrEl.style.display = (payHtml[selectedPayMethod] && !payPush) ? 'block' : 'none';
   }
-  showToast(`✅ Order placed! ${ref} · SMS confirmation sent`);
+  const waitBox = document.getElementById('payWaitBox');
+  if (waitBox) {
+    if (payPush) {
+      waitBox.style.display = 'block';
+      waitBox.innerHTML = '📱 <strong>' + escHtml(payPush) + '</strong><br><span style="color:var(--text2)">Waiting for confirmation…</span>';
+      pollPayment(ref, function(){ waitBox.innerHTML = '✅ <strong>Payment received. Thank you!</strong>'; showToast('✅ Payment received'); },
+        function(){ waitBox.innerHTML = '⏳ Still waiting. If you approved it, your order will update shortly. If not, <a href="#" onclick="retryPayment(\''+ref+'\','+total+');return false">try again</a>.'; });
+    } else if (payError) {
+      waitBox.style.display = 'block';
+      waitBox.innerHTML = '⚠️ ' + escHtml(payError) + '<br><a href="#" onclick="retryPayment(\''+ref+'\','+total+');return false">Try again</a> or pay cash on delivery.';
+    } else { waitBox.style.display = 'none'; }
+  }
+  showToast(`✅ Order placed! ${ref}`);
   // Pre-fill tracking
   const ti = document.getElementById('trackingInput');
   if (ti) ti.value = track;
@@ -3324,7 +3352,7 @@ function localAIResponse(prompt) {
   if (/log.*in|login|sign in/i.test(p)) return "Tap 'Log In' at the top right. Use your phone number and password. Forgot password? Call +256 755 966 690.";
 
   // ── PAYMENT ─────────────────────────────────────────────
-  if (/mtn|mobile money|momo|payment|pay|airtel money/i.test(p)) return "AgriBridge supports:\n💳 MTN Mobile Money (*165#)\n📲 Airtel Money (*185#)\n💵 Cash on Delivery\n🏦 Bank Transfer (Stanbic/Equity)\n\nAll payments are secure. Farmers receive funds within 24 hours of confirmed delivery.";
+  if (/mtn|mobile money|momo|payment|pay|airtel money/i.test(p)) return "AgriBridge supports:\n💳 MTN Mobile Money (*165#)\n📲 Airtel Money (*185#)\n💵 Cash on Delivery\n💳 Card (Visa/Mastercard)\n\nAll payments are secure. Farmers receive funds within 24 hours of confirmed delivery.";
   if (/delivery|transport|deliver|shipping|delivery fee/i.test(p)) return "AgriBridge delivery: farm pickup → your door. Fee: UGX 5,000 within Kampala. Upcountry rates vary by district. Estimated 1–3 days. GPS tracking on every order. [TRACK_ORDERS]";
 
   // ── WEATHER/SEASON ──────────────────────────────────────
@@ -4044,7 +4072,7 @@ async function submitOrder() {
     notifyFarmer(listing?.farmer_id, listing?.crop_name, qty);
     sendReceiptEmail({ type:'booking', email:currentUser?.email, name:currentUser?.name, ref, total, tracking:track, items:[{name:listing?.crop_name||'Order', qty, price:listing?.price_per_kg||0}] });
     sendSmsReceipt(currentUser?.phone, ref, total, 'order');
-    if(pay && pay!=='cash'){ const link=await startOnlinePayment(ref, total); if(link){ closeModal('orderModal'); showToast('Redirecting to secure payment…'); window.location.href=link; return; } }
+    if(pay && pay!=='cash'){ const pr=await startOnlinePayment(ref, total, pay, currentUser&&currentUser.phone); if(pr&&pr.redirect){ closeModal('orderModal'); showToast('Opening secure payment…'); window.location.href=pr.redirect; return; } if(pr&&pr.error){ showToast('⚠️ '+pr.error+' — order saved, pay on delivery'); } }
     closeModal('orderModal'); showToast('Order placed! Track: '+track+' ✅ Farmer will confirm');
   } catch(e) {
     showToast((e.message)||'Order failed — please try again');
