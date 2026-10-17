@@ -2736,6 +2736,77 @@ def email_order_receipt(order_id):
         return jsonify({'ok': True, 'email': email, 'note': 'queued'}), 200
 
 
+@app.route('/api/user/profile', methods=['POST'])
+@rate_limit(max_req=20, window=60)
+def update_user_profile():
+    """Save the authenticated user's profile (name, phone, district) to the
+    farmers table.  Validates name and phone before writing.
+    """
+    uid, err = verify_supabase_user()
+    if err:
+        return err
+    data = request.get_json(force=True, silent=True) or {}
+    full_name = str(data.get('full_name', '') or '').strip()
+    phone     = str(data.get('phone', '') or '').strip()
+    district  = str(data.get('district', '') or '').strip()[:100]
+
+    # Validate name
+    if full_name:
+        if len(full_name) < 2:
+            return jsonify({'error': 'Full name must be at least 2 characters'}), 400
+        if full_name.lower() in {'test', 'user', 'admin', 'farmer', 'buyer', 'name',
+                                  'null', 'undefined', 'none', 'n/a'}:
+            return jsonify({'error': 'Please enter your real full name'}), 400
+
+    # Validate and normalise phone
+    if phone:
+        import re as _re
+        _pd = _re.sub(r'\D', '', phone)
+        if _pd.startswith('256'):
+            _pd = _pd[3:]
+        elif _pd.startswith('0'):
+            _pd = _pd[1:]
+        if not _re.match(r'^[37]\d{8}$', _pd):
+            return jsonify({'error': 'Enter a valid Ugandan phone number (e.g. 0771 234567)'}), 400
+        phone = '+256' + _pd
+
+    # Check phone uniqueness
+    if phone:
+        existing = supa_get('farmers', {'phone': f'eq.{phone}', 'id': f'neq.{uid}'}, limit=1)
+        if existing:
+            return jsonify({'error': 'That phone number is already registered to another account'}), 409
+
+    # Build the update payload — only include fields that were provided
+    update: dict = {'id': uid}
+    if full_name:
+        update['full_name'] = full_name
+    if phone:
+        update['phone'] = phone
+    if district:
+        update['district'] = district
+
+    if len(update) <= 1:
+        return jsonify({'ok': True, 'note': 'nothing to update'}), 200
+
+    try:
+        url = f"{SUPABASE_URL}/rest/v1/farmers"
+        headers = {
+            'apikey': SUPABASE_KEY,
+            'Authorization': f'Bearer {SUPABASE_KEY}',
+            'Content-Type': 'application/json',
+            'Prefer': 'resolution=merge-duplicates,return=minimal',
+        }
+        resp = requests.post(url, json=update, headers=headers, timeout=8)
+        if resp.status_code >= 300:
+            log.warning('profile.save_failed', uid=uid, status=resp.status_code)
+            return jsonify({'error': 'Could not save profile'}), 500
+    except Exception as _pe:
+        log.warning('profile.save_exception', uid=uid, error=str(_pe))
+        return jsonify({'error': 'Could not save profile'}), 500
+
+    return jsonify({'ok': True}), 200
+
+
 @app.route('/api/user/notifications', methods=['GET'])
 @rate_limit(max_req=60, window=60)
 def user_notifications():

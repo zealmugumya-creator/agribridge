@@ -2103,12 +2103,38 @@ async function sbUpdate(t, d, col, val) { return sb(t, { method:'PATCH', body:d,
 // client no longer inserts into farmers — that INSERT is locked by RLS. Kept as
 // a no-op for backward compatibility and to clear any stale offline queue.
 async function saveProfileWithRetry(profile, attempts) {
+  // Write the user's name/phone/district to the farmers table via the
+  // update_my_profile RPC (validates name length, phone format, uniqueness).
+  // Falls back to direct REST upsert if the RPC is unavailable.
+  attempts = attempts || 0;
+  try {
+    if (sbAuth && profile && (profile.full_name || profile.name)) {
+      var tok = _authToken || localStorage.getItem('ab_jwt') || localStorage.getItem('ab_token') || (await refreshAuthToken());
+      if (tok) {
+        var r = await fetch(USSD_API + '/api/user/profile', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + tok },
+          body: JSON.stringify({
+            full_name: profile.full_name || profile.name || '',
+            phone:     profile.phone || '',
+            district:  profile.district || '',
+          })
+        });
+        if (r.ok) { try { localStorage.removeItem('ab_pending_profiles'); } catch(e){} return true; }
+      }
+    }
+  } catch (e) { /* network error — fall through to retry */ }
+  if (attempts < 2) { await new Promise(function(res){ setTimeout(res, 1500); }); return saveProfileWithRetry(profile, attempts + 1); }
   try { localStorage.removeItem('ab_pending_profiles'); } catch (e) {}
-  return true;
+  return false;
 }
 
 async function flushPendingProfiles() {
-  try { localStorage.removeItem('ab_pending_profiles'); } catch (e) {}
+  try {
+    var pending = JSON.parse(localStorage.getItem('ab_pending_profile') || 'null');
+    if (pending && pending.name) await saveProfileWithRetry(pending, 0);
+    localStorage.removeItem('ab_pending_profile');
+  } catch (e) {}
 }
 
 // ── GLOBAL STATE ──────────────────────────────────────────────────
@@ -4438,7 +4464,8 @@ function toggleNotifPanel(){
 async function loadNotifications(){
   const list=document.getElementById('notifList');
   if(!list) return;
-  const tok=localStorage.getItem('ab_jwt')||localStorage.getItem('ab_token');
+  // _authToken is set by onAuthStateChange — do NOT rely on localStorage only
+  const tok=_authToken||localStorage.getItem('ab_jwt')||localStorage.getItem('ab_token')||(await refreshAuthToken());
   if(!tok){ list.innerHTML='<div style="padding:16px;text-align:center;color:var(--text2);font-size:0.85rem">Log in to see notifications</div>'; return; }
   try{
     const r=await fetch(USSD_API+'/api/user/notifications',{headers:{'Authorization':'Bearer '+tok}});
@@ -4475,7 +4502,7 @@ async function loadNotifications(){
 }
 
 function markNotifRead(id){
-  const tok=localStorage.getItem('ab_jwt')||localStorage.getItem('ab_token');
+  const tok=_authToken||localStorage.getItem('ab_jwt')||localStorage.getItem('ab_token');
   if(!tok||!id) return;
   fetch(USSD_API+'/api/user/notifications/'+id+'/read',{method:'POST',headers:{'Authorization':'Bearer '+tok}}).catch(function(){});
   // Optimistically clear the unread style
@@ -4483,7 +4510,7 @@ function markNotifRead(id){
 }
 
 async function markAllNotificationsRead(){
-  const tok=localStorage.getItem('ab_jwt')||localStorage.getItem('ab_token');
+  const tok=_authToken||localStorage.getItem('ab_jwt')||localStorage.getItem('ab_token')||(await refreshAuthToken());
   if(!tok) return;
   await fetch(USSD_API+'/api/user/notifications/read-all',{method:'POST',headers:{'Authorization':'Bearer '+tok}}).catch(function(){});
   loadNotifications();
@@ -5582,6 +5609,8 @@ function initSupabase() {
       localStorage.setItem('ab_user', JSON.stringify(currentUser));
       updateNavUser(currentUser.name, currentUser.role);
       hydrateUserProfile();
+      // Flush any profile that couldn't be saved at registration time
+      if (event === 'SIGNED_IN') setTimeout(flushPendingProfiles, 1000);
       if (event !== 'PASSWORD_RECOVERY' && event !== 'TOKEN_REFRESHED' && event !== 'USER_UPDATED') setTimeout(postAuthLegalCheck, 0);
       // Poll notification unread count every 60s while logged in
       _startNotifPolling();
@@ -5700,13 +5729,21 @@ async function hydrateUserProfile() {
   if (!currentUser || !currentUser.supaId) return;
   // Only non-PII columns: phone/email are locked down at the DB level. The
   // user's own phone already lives in their auth session (currentUser.phone).
-  var row = await sb('farmers', { select:'full_name,district,profile_photo', filters:[['id','eq.'+currentUser.supaId]], single:true });
+  var row = await sb('farmers', { select:'full_name,phone,district,profile_photo', filters:[['id','eq.'+currentUser.supaId]], single:true });
   if (!row) return;
   if (row.profile_photo) currentUser.avatar_url = row.profile_photo;
-  if (row.full_name && !currentUser.name) currentUser.name = row.full_name;
+  // Always prefer the verified DB name over any local/metadata fallback
+  if (row.full_name && row.full_name.trim()) currentUser.name = row.full_name.trim();
+  if (row.phone && row.phone.trim() && !currentUser.phone) currentUser.phone = row.phone.trim();
   if (row.district && !currentUser.district) currentUser.district = row.district;
   try { localStorage.setItem('ab_user', JSON.stringify(currentUser)); } catch (e) {}
   updateNavUser(currentUser);
+  // If DB has no name saved, nudge the user to complete their profile
+  if (!row.full_name || !row.full_name.trim()) {
+    setTimeout(function(){
+      showToast('👋 Please complete your profile — add your real name and phone number in Settings.');
+    }, 2000);
+  }
 }
 function updateNavUser(nameOrUser, role) {
   var btns = document.querySelector('.nav-btns');
