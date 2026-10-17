@@ -14,6 +14,7 @@ import os
 import re
 import secrets
 import time as _time
+import uuid
 
 import jwt
 import requests
@@ -1404,6 +1405,139 @@ def admin_offers():
     if err:
         return err
     return jsonify(supa_get('order_offers', {'order': 'created_at.desc'}, limit=300) or [])
+
+# ══════════════════════════════════════════════════════════════════════════════
+# SERVICE REQUESTS — cold storage, refrigerated transport, loans
+# Saved in `service_requests` (migration 0009) so the admin console can track them.
+# ══════════════════════════════════════════════════════════════════════════════
+_SVC_KINDS = ('cold_storage', 'refrigerated_transport', 'loan')
+_SVC_STATUSES = ('pending', 'confirmed', 'completed', 'rejected', 'cancelled')
+_SVC_LABELS = {'cold_storage': 'Cold storage', 'refrigerated_transport': 'Refrigerated transport',
+               'loan': 'Loan'}
+
+
+def _svc_text(value, limit):
+    """Trim a free-text field to a safe length. Non-strings become ''."""
+    return value.strip()[:limit] if isinstance(value, str) else ''
+
+
+def _svc_details(raw):
+    """Keep only simple key/value pairs from the client's `details` object."""
+    clean = {}
+    if not isinstance(raw, dict):
+        return clean
+    for key, val in list(raw.items())[:20]:
+        if not isinstance(key, str) or not key.strip():
+            continue
+        if isinstance(val, bool):
+            continue
+        if isinstance(val, (int, float)):
+            clean[key.strip()[:40]] = val
+        elif isinstance(val, str) and val.strip():
+            clean[key.strip()[:40]] = val.strip()[:300]
+    return clean
+
+
+@app.route('/api/service-requests', methods=['POST'])
+@rate_limit(max_req=10, window=300)
+def create_service_request():
+    """A logged-in user asks for cold storage, a refrigerated vehicle, or a loan.
+
+    Identity comes from the verified Supabase session (never the request body).
+    The request is stored for admin follow-up and an ops alert is sent."""
+    uid, err = verify_supabase_user()
+    if err:
+        return err
+    data = request.get_json(force=True, silent=True) or {}
+    kind = _svc_text(data.get('kind'), 40)
+    if kind not in _SVC_KINDS:
+        return jsonify({'error': 'Unknown request type'}), 400
+
+    name = _svc_text(data.get('requester_name'), 80)
+    phone = re.sub(r'[^\d+]', '', _svc_text(data.get('requester_phone'), 30))
+    if not name:
+        return jsonify({'error': 'Please enter your name'}), 400
+    if not 9 <= len(phone.lstrip('+')) <= 15:
+        return jsonify({'error': 'Please enter a valid phone number'}), 400
+
+    amount = None
+    raw_amount = data.get('amount_ugx')
+    if raw_amount not in (None, ''):
+        try:
+            amount = float(raw_amount)
+        except (TypeError, ValueError):
+            return jsonify({'error': 'Amount must be a number'}), 400
+        if not 0 < amount <= 10_000_000_000:
+            return jsonify({'error': 'Please enter a valid amount'}), 400
+    if kind == 'loan' and amount is None:
+        return jsonify({'error': 'Please enter the amount you need'}), 400
+
+    provider = _svc_text(data.get('provider_name'), 120)
+    row = supa_insert('service_requests', {
+        'kind': kind,
+        'user_id': uid,
+        'requester_name': name,
+        'requester_phone': phone,
+        'provider_name': provider or None,
+        'amount_ugx': amount,
+        'details': _svc_details(data.get('details')),
+        'status': 'pending',
+    })
+    if not row or not isinstance(row, list) or not row[0].get('id'):
+        # Never tell the user it worked when it did not.
+        return jsonify({'error': 'Could not save your request. Please try again.'}), 500
+
+    req_id = str(row[0]['id'])
+    try:
+        label = _SVC_LABELS[kind]
+        _discord_notify(
+            'service_request.created', f'New {label.lower()} request',
+            f"**Type:** {label}\n**From:** {name}\n**Phone:** {phone}\n"
+            f"**Provider:** {provider or '—'}\n**Ref:** {req_id[:8].upper()}",
+        )
+    except Exception as _e:
+        log.warning("service_request.notify_failed", error=str(_e))
+    return jsonify({'ok': True, 'id': req_id, 'ref': req_id[:8].upper()}), 200
+
+
+@app.route('/api/admin/service-requests', methods=['GET'])
+def admin_service_requests():
+    payload, err = verify_token(required_role='admin')
+    if err:
+        return err
+    filters = {'order': 'created_at.desc'}
+    kind = (request.args.get('kind') or '').strip()
+    if kind:
+        if kind not in _SVC_KINDS:
+            return jsonify({'error': 'Unknown request type'}), 400
+        filters['kind'] = f'eq.{kind}'
+    return jsonify(supa_get('service_requests', filters, limit=300) or [])
+
+
+@app.route('/api/admin/service-requests/<req_id>', methods=['PATCH'])
+def admin_update_service_request(req_id):
+    payload, err = verify_token(required_role='admin')
+    if err:
+        return err
+    try:
+        req_id = str(uuid.UUID(req_id))
+    except ValueError:
+        return jsonify({'error': 'Invalid request id'}), 400
+    data = request.get_json(force=True, silent=True) or {}
+    fields = {}
+    if 'status' in data:
+        if data['status'] not in _SVC_STATUSES:
+            return jsonify({'error': 'Invalid status'}), 400
+        fields['status'] = data['status']
+    if 'admin_notes' in data:
+        fields['admin_notes'] = _svc_text(data['admin_notes'], 500) or None
+    if not fields:
+        return jsonify({'error': 'Nothing to update'}), 400
+    fields['updated_at'] = datetime.datetime.utcnow().isoformat()
+    if not supa_update('service_requests', fields, 'id', req_id):
+        return jsonify({'error': 'Update failed'}), 500
+    return jsonify({'ok': True}), 200
+
 
 # Generic admin editor for the console. Only whitelisted tables + columns can be
 # written, so the admin token cannot set protected fields (id, timestamps, ownership).

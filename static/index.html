@@ -6074,17 +6074,98 @@ async function resendConfirmEmail(){
 }
 
 // ── Finance / Cold Chain / Export helpers ─────────────
-function openFinanceModal(type){
-  var titles={inputs:'🌱 Seeds & Fertilizer Loan',advance:'📦 Harvest Advance'};
-  var bodies={
-    inputs:'<div class="form-group"><label>What inputs do you need?</label><select><option>Seeds</option><option>Fertilizer</option><option>Pesticides</option><option>Animal vaccines</option></select></div><div class="form-group"><label>Amount (UGX)</label><input type="number" placeholder="e.g. 500000"></div><div class="form-group"><label>Repayment date</label><input type="date"></div><p style="font-size:0.82rem;color:var(--text2);margin-top:8px">Your credit score: <strong style="color:var(--green)">72/100</strong> — Eligible ✅</p>',
-    advance:'<div class="form-group"><label>Listing name or ID</label><input placeholder="e.g. Maize - 500kg"></div><div class="form-group"><label>Expected harvest date</label><input type="date"></div><div class="form-group"><label>Advance amount (UGX)</label><input type="number" placeholder="Max 30% of order value"></div>'
-  };
-  var t=document.getElementById('financeModalTitle'),b=document.getElementById('financeModalBody');
-  if(t)t.textContent=titles[type]||'Finance'; if(b)b.innerHTML=bodies[type]||'';
-  openModal('financeModal');
+// ── Service requests: cold storage, refrigerated transport, loans ──────────
+// These are saved on the server (service_requests table) so the admin console can
+// list and follow up every one. Nothing is claimed as sent unless the save worked.
+var _svcState = null;
+var SVC_FORMS = {
+  cold_storage: { kind:'cold_storage', title:'📅 Book Cold Storage',
+    ok:'Booking request sent. The facility will confirm by SMS within 2 hours.',
+    fields:[
+      {k:'product', label:'What are you storing?', ph:'e.g. Tomatoes'},
+      {k:'pallets', label:'Number of pallets', t:'number', ph:'e.g. 10'},
+      {k:'start_date', label:'Start date', t:'date'},
+      {k:'days', label:'How many days?', t:'number', ph:'e.g. 7'}
+    ] },
+  refrigerated_transport: { kind:'refrigerated_transport', title:'🚛 Book Refrigerated Transport',
+    ok:'Request sent. The driver will call you within 30 minutes.',
+    fields:[
+      {k:'pickup', label:'Pickup location', ph:'e.g. Mbarara town'},
+      {k:'destination', label:'Delivery location', ph:'e.g. Nakasero Market, Kampala'},
+      {k:'cargo', label:'What are you moving?', ph:'e.g. Matooke'},
+      {k:'weight_tonnes', label:'Weight (tonnes)', t:'number', ph:'e.g. 3'},
+      {k:'pickup_date', label:'Pickup date', t:'date'}
+    ] },
+  loan_inputs: { kind:'loan', provider:'Seeds & Fertilizer Loan', title:'🌱 Seeds & Fertilizer Loan',
+    ok:'Application received. Emata will call you within 24 hours.',
+    fields:[
+      {k:'input_type', label:'What inputs do you need?', t:'select', opts:['Seeds','Fertilizer','Pesticides','Animal vaccines']},
+      {k:'amount', label:'Amount (UGX)', t:'number', ph:'e.g. 500000', amount:true},
+      {k:'repayment_date', label:'Repayment date', t:'date'}
+    ] },
+  loan_advance: { kind:'loan', provider:'Harvest Advance', title:'📦 Harvest Advance',
+    ok:'Application received. Emata will call you within 24 hours.',
+    fields:[
+      {k:'listing', label:'Listing name or ID', ph:'e.g. Maize - 500kg'},
+      {k:'harvest_date', label:'Expected harvest date', t:'date'},
+      {k:'amount', label:'Advance amount (UGX)', t:'number', ph:'Max 30% of order value', amount:true}
+    ] }
+};
+function _svcAttr(v){ return String(v==null?'':v).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;'); }
+function openServiceRequest(formKey, provider){
+  var cfg=SVC_FORMS[formKey]; if(!cfg) return;
+  if(!currentUser){ showToast('Please log in first to send this request'); openModal('loginModal'); return; }
+  _svcState={ formKey:formKey, provider:provider||cfg.provider||'' };
+  document.getElementById('svcReqTitle').textContent=cfg.title;
+  document.getElementById('svcReqSub').textContent=(provider&&cfg.provider!==provider)?('For: '+provider):'';
+  var today=new Date().toISOString().slice(0,10);
+  var html=cfg.fields.map(function(f){
+    var id='svc_'+f.k, lab='<label for="'+id+'">'+_svcAttr(f.label)+'</label>';
+    if(f.t==='select') return '<div class="form-group">'+lab+'<select id="'+id+'">'+f.opts.map(function(o){ return '<option>'+_svcAttr(o)+'</option>'; }).join('')+'</select></div>';
+    return '<div class="form-group">'+lab+'<input id="'+id+'" type="'+(f.t||'text')+'"'+
+      (f.t==='number'?' min="0" inputmode="decimal"':'')+(f.t==='date'?' min="'+today+'"':'')+
+      ' placeholder="'+_svcAttr(f.ph||'')+'"></div>';
+  }).join('');
+  html+='<div class="form-group"><label for="svc_name">Your name</label><input id="svc_name" type="text" maxlength="80" value="'+_svcAttr(currentUser.name)+'"></div>'+
+        '<div class="form-group"><label for="svc_phone">Phone number</label><input id="svc_phone" type="tel" placeholder="e.g. 0771 234 567" value="'+_svcAttr(currentUser.phone)+'"></div>'+
+        '<div class="form-group"><label for="svc_notes">Notes (optional)</label><input id="svc_notes" type="text" maxlength="300"></div>';
+  document.getElementById('svcReqBody').innerHTML=html;
+  document.getElementById('svcReqErr').textContent='';
+  openModal('svcReqModal');
 }
-function submitFinanceRequest(){showToast('✅ Application submitted! Emata will call you within 24 hours.');closeModal('financeModal');}
+async function submitServiceRequest(){
+  if(!_svcState) return;
+  var cfg=SVC_FORMS[_svcState.formKey], errEl=document.getElementById('svcReqErr'), btn=document.getElementById('svcReqSubmit');
+  errEl.textContent='';
+  var details={}, amount=null;
+  for(var i=0;i<cfg.fields.length;i++){
+    var f=cfg.fields[i], el=document.getElementById('svc_'+f.k), v=((el&&el.value)||'').trim();
+    if(!v){ errEl.textContent='Please fill in: '+f.label; if(el) el.focus(); return; }
+    if(f.t==='number'){
+      var n=Number(v);
+      if(!(n>0)){ errEl.textContent=f.label+' must be more than 0'; if(el) el.focus(); return; }
+      details[f.k]=n; if(f.amount) amount=n;
+    } else details[f.k]=v;
+  }
+  var notes=((document.getElementById('svc_notes')||{}).value||'').trim(); if(notes) details.notes=notes;
+  var name=((document.getElementById('svc_name')||{}).value||'').trim();
+  var phone=((document.getElementById('svc_phone')||{}).value||'').trim();
+  if(!name){ errEl.textContent='Please enter your name'; return; }
+  if(phone.replace(/\D/g,'').length<9){ errEl.textContent='Please enter a valid phone number'; return; }
+  var tok=_authToken||(await refreshAuthToken());
+  if(!tok){ errEl.textContent='Your session expired. Please log in again.'; return; }
+  var label=btn.textContent; btn.disabled=true; btn.textContent='Sending…';
+  try{
+    var r=await fetch(USSD_API+'/api/service-requests',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+tok},
+      body:JSON.stringify({kind:cfg.kind,provider_name:_svcState.provider,requester_name:name,requester_phone:phone,amount_ugx:amount,details:details})});
+    var j=await r.json().catch(function(){ return null; });
+    if(r.ok&&j&&j.ok){ closeModal('svcReqModal'); _svcState=null; showToast('✅ '+cfg.ok+' (Ref '+j.ref+')'); }
+    else errEl.textContent=(j&&j.error)||'Could not send your request. Please try again.';
+  }catch(e){ errEl.textContent='No connection. Please check your internet and try again.'; }
+  btn.disabled=false; btn.textContent=label;
+}
+function openFinanceModal(type){ openServiceRequest(type==='advance'?'loan_advance':'loan_inputs'); }
+function submitFinanceRequest(){ submitServiceRequest(); }
 function submitDispute(){
   var ref=(document.getElementById('disputeOrderRef')||{}).value||'';
   if(!ref){showToast('Please enter your order reference');return;}
@@ -6117,14 +6198,8 @@ function createSACCO(){
   closeModal('saccoModal');
 }
 
-function bookStorage(btn) {
-  var name = btn ? (btn.getAttribute('data-name')||'this facility') : 'facility';
-  showToast('Booking sent to ' + name + '. Confirmation via SMS within 2 hours.');
-}
-function bookTransport(btn) {
-  var name = btn ? (btn.getAttribute('data-name')||'transport') : 'transport';
-  showToast('Connecting you to ' + name + '. Driver will call within 30 minutes.');
-}
+function bookStorage(btn) { openServiceRequest('cold_storage', btn ? (btn.getAttribute('data-nm')||'') : ''); }
+function bookTransport(btn) { openServiceRequest('refrigerated_transport', btn ? (btn.getAttribute('data-nm')||'') : ''); }
 
 function applyPhyto(){showToast('📜 ePhyto application started. MAAIF inspector visits within 3 days.');}
 function checkOrigin(){showToast('✅ Enter your crop and destination country to check AfCFTA duty rate.');}
@@ -6998,6 +7073,18 @@ document.addEventListener('DOMContentLoaded', function() {
   </div>
 </div>
 
+<!-- ══ SERVICE REQUEST MODAL (cold storage / refrigerated transport / loans) ══ -->
+<div class="modal-overlay" id="svcReqModal" onclick="handleOverlay(event,'svcReqModal')" role="dialog" aria-modal="true" aria-labelledby="svcReqTitle">
+  <div class="modal-box">
+    <button class="modal-close" onclick="closeModal('svcReqModal')" aria-label="Close">✕</button>
+    <h3 id="svcReqTitle">Request</h3>
+    <div id="svcReqSub" style="font-size:0.82rem;color:var(--text2);margin-bottom:10px"></div>
+    <div id="svcReqBody"></div>
+    <div id="svcReqErr" role="alert" style="color:#f44336;font-size:0.82rem;min-height:1.1em;margin-top:6px"></div>
+    <button class="btn-submit" id="svcReqSubmit" onclick="submitServiceRequest()">Send request 📤</button>
+  </div>
+</div>
+
 <!-- ══ INSURANCE MODAL ════════════════════════════════════════ -->
 <div class="modal-overlay" id="insuranceModal" onclick="handleOverlay(event,'insuranceModal')" role="dialog">
   <div class="modal-box">
@@ -7078,7 +7165,7 @@ document.addEventListener('DOMContentLoaded', function() {
     </div>
     <div style="background:linear-gradient(135deg,#3a1a00,#2a1000);border:1px solid var(--amber);border-radius:12px;padding:14px 16px;display:flex;gap:12px;align-items:flex-start;margin-bottom:16px">
       <span style="font-size:1.6rem">⚠️</span>
-      <div><div style="font-weight:700;font-size:0.9rem;color:var(--amber);margin-bottom:4px">Spoilage Risk Alert</div><div style="font-size:0.83rem;color:var(--text2)">Book cold storage to prevent losses. <a href="#" onclick="showToast('Opening storage booking...');" style="color:var(--amber)">Book now →</a></div></div>
+      <div><div style="font-weight:700;font-size:0.9rem;color:var(--amber);margin-bottom:4px">Spoilage Risk Alert</div><div style="font-size:0.83rem;color:var(--text2)">Book cold storage to prevent losses. <a href="#" onclick="var l=document.getElementById('coldStorageList');if(l)l.scrollIntoView({behavior:'smooth'});showToast('Pick a facility below and tap Book Storage');return false;" style="color:var(--amber)">Book now →</a></div></div>
     </div>
     <div class="section-title" style="margin-bottom:16px">🧊 Cold <span>Storage Facilities</span></div>
     <div class="cards-grid" id="coldStorageList"></div>
