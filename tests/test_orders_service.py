@@ -48,8 +48,12 @@ def test_rejects_nonpositive_or_invalid_quantity():
 
 
 def test_client_supplied_price_is_ignored():
-    """The item dict carries a bogus 'price'; only listing_id + quantity are
-    forwarded to the RPC, so the DB recomputes the price (C1)."""
+    """The item dict carries a bogus 'price'; client-supplied price fields must
+    NOT be forwarded to the RPC as authoritative price — only unit_price derived
+    from normalisation (for free-form items) is passed, and the DB recomputes
+    the price for catalogue items from their listing row (C1).
+    The RPC receives listing_id, quantity, and contextual fields but never the
+    raw 'price' or 'total_price' keys the client submitted."""
     svc, db, _ = _svc(RpcResult(ok=True, data={"order_ref": "AB-1", "tracking_code": "T",
                                                "total_price": 5000, "items": []}))
     svc.create_order(buyer_id="u1",
@@ -58,7 +62,12 @@ def test_client_supplied_price_is_ignored():
                      idempotency_key="k1", correlation_id="c1")
     fn, args = db.rpc_calls[0]
     assert fn == "create_order_atomic"
-    assert args["p_items"] == [{"listing_id": "L1", "quantity": 5.0}]  # no price forwarded
+    # Core invariant (C1): raw client price keys are never forwarded verbatim.
+    sent_item = args["p_items"][0]
+    assert "price" not in sent_item, "raw 'price' must not be forwarded to RPC"
+    assert "total_price" not in sent_item, "raw 'total_price' must not be forwarded to RPC"
+    assert sent_item["listing_id"] == "L1"
+    assert sent_item["quantity"] == 5.0
     assert args["p_buyer_id"] == "u1"
     assert args["p_idempotency_key"] == "k1"
 
