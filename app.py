@@ -38,6 +38,7 @@ from services.notifications import NotificationDispatcher
 from services.orders import OrderService
 from services.push import build_push
 from services.supabase_client import SupabaseClient
+from services.webpush import WebPushService
 
 configure_logging()
 log = get_logger("app")
@@ -81,8 +82,11 @@ DISCORD = DiscordNotifier(SETTINGS.discord_webhook_url)
 # FCM push (Phase 6): sender + admin token lookup + device registry. Absent
 # credentials => a safe no-op sender (None) so the queue still drains.
 FCM_SENDER, ADMIN_TOKEN_LOOKUP, PUSH_REGISTRY = build_push(SETTINGS, SUPA)
+# Web Push (VAPID) for the website/PWA: a safe no-op until VAPID_* keys are set.
+WEB_PUSH = WebPushService.from_env(SUPA)
 NOTIFY = NotificationDispatcher(supabase=SUPA, discord=DISCORD,
-                                fcm_sender=FCM_SENDER, admin_token_lookup=ADMIN_TOKEN_LOOKUP)
+                                fcm_sender=FCM_SENDER, admin_token_lookup=ADMIN_TOKEN_LOOKUP,
+                                web_push=WEB_PUSH)
 LEGAL_SERVICE = LegalService(supabase=SUPA)
 LEGAL_ENFORCED = os.environ.get('ENFORCE_LEGAL_ACCEPTANCE', '').strip().lower() in ('1', 'true', 'yes')
 ORDER_SERVICE = OrderService(supabase=SUPA, dispatcher=NOTIFY)
@@ -3053,6 +3057,41 @@ def unregister_admin_device():
     if not token:
         return jsonify({'error': 'token is required'}), 400
     ok = PUSH_REGISTRY.unregister(user_id=uid, token=token[:512])
+    return jsonify({'ok': bool(ok)}), (200 if ok else 400)
+
+
+# ── Web Push for signed-in users (Android notification bar) ───────────────────
+@app.route('/api/push/vapid-public-key', methods=['GET'])
+@rate_limit(max_req=60, window=60)
+def vapid_public_key():
+    """Public VAPID key the browser needs to subscribe. Not a secret."""
+    if not WEB_PUSH.enabled:
+        return jsonify({'error': 'push not configured'}), 503
+    return jsonify({'key': WEB_PUSH.public_key}), 200
+
+
+@app.route('/api/user/push-subscriptions', methods=['POST'])
+@rate_limit(max_req=30, window=60)
+def register_push_subscription():
+    uid, err = verify_supabase_user()
+    if err:
+        return err
+    data = request.get_json(force=True, silent=True) or {}
+    res = WEB_PUSH.register(user_id=uid, subscription=data,
+                            user_agent=request.headers.get('User-Agent', ''))
+    if res is None or not res.ok:
+        return jsonify({'error': 'invalid subscription'}), 400
+    return jsonify({'ok': True}), 200
+
+
+@app.route('/api/user/push-subscriptions', methods=['DELETE'])
+@rate_limit(max_req=30, window=60)
+def unregister_push_subscription():
+    uid, err = verify_supabase_user()
+    if err:
+        return err
+    data = request.get_json(force=True, silent=True) or {}
+    ok = WEB_PUSH.unregister(user_id=uid, endpoint=str(data.get('endpoint', '')).strip())
     return jsonify({'ok': bool(ok)}), (200 if ok else 400)
 
 

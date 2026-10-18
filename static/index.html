@@ -479,13 +479,13 @@ img{max-width:100%}
   .form-row{grid-template-columns:1fr}
   .nav-search{display:none}
   .mob-search-btn{display:block}
-  /* Keep BOTH Log In and Join Free reachable on phones. Free the space they
-     need by hiding the two secondary icons (notifications + language) and
-     compacting the header so nothing clips or overlaps. */
-  #notifBell{display:none}
+  /* Keep Log In, Join Free AND the notification bell reachable on phones.
+     Free the space by hiding only the language button and compacting the
+     icon buttons + header so nothing clips or overlaps. */
   #langPickerBtn{display:none}
+  .navbar .notif-bell{padding:4px;font-size:1.05rem}
   .nav-logo{font-size:1.1rem}
-  .navbar{gap:8px;padding:0 10px}
+  .navbar{gap:4px;padding:0 8px}
   .nav-btns{gap:6px}
   .nav-btns .btn-sm{padding:5px 9px;font-size:0.76rem}
   .cards-grid{grid-template-columns:1fr}
@@ -4458,6 +4458,7 @@ function toggleNotifPanel(){
     p.style.display='block';
     p.classList.add('open');
     loadNotifications(); // refresh on open
+    renderPushBanner();
   }
 }
 
@@ -4546,6 +4547,7 @@ async function _pollNotifBadge(){
     const unread=data.unread||0;
     const badge=document.getElementById('notifCount');
     if(badge){ badge.textContent=unread>9?'9+':String(unread); badge.style.display=unread>0?'':'none'; }
+    _notifyIfNew(unread, (data.notifications||[])[0]);
   } catch(e){}
 }
 function acceptCookies(){ localStorage.setItem('ab_cookies','1'); const b=document.getElementById('cookieBanner'); if(b) b.style.display='none'; }
@@ -4714,22 +4716,90 @@ document.addEventListener('keydown', e => {
 // ─────────────────────────────────────────────────────────────────
 // SERVICE WORKER
 // ─────────────────────────────────────────────────────────────────
-// We do NOT use a service worker. Proactively remove any stale one left by an
-// earlier version — a leftover SW can keep serving old cached HTML/images, which
-// is why fresh changes may "not reflect". This self-heals on the next online load.
-if ('serviceWorker' in navigator) {
-  var _hadController = !!navigator.serviceWorker.controller;
-  Promise.all([
-    navigator.serviceWorker.getRegistrations().then(function(regs){ return Promise.all(regs.map(function(r){ return r.unregister(); })); }).catch(function(){}),
-    (window.caches && caches.keys) ? caches.keys().then(function(keys){ return Promise.all(keys.map(function(k){ return caches.delete(k); })); }).catch(function(){}) : Promise.resolve()
-  ]).then(function(){
-    // If a stale service worker was controlling this page, reload ONCE so the user
-    // gets fully fresh content (guarded against reload loops).
-    if (_hadController && !sessionStorage.getItem('ab_sw_purged')) {
-      sessionStorage.setItem('ab_sw_purged','1');
-      location.reload();
-    }
-  }).catch(function(){});
+// The service worker (/sw.js) exists ONLY for push notifications. It has no fetch
+// handler and caches nothing, so it can never serve stale pages. On load we purge
+// any old caches left by earlier caching versions, then register the real worker.
+var _swReg = null;
+function registerPushWorker(){
+  if (!('serviceWorker' in navigator)) return Promise.resolve(null);
+  if (window.caches && caches.keys) { caches.keys().then(function(keys){ keys.forEach(function(k){ caches.delete(k); }); }).catch(function(){}); }
+  return navigator.serviceWorker.register('/sw.js', { scope: '/' })
+    .then(function(reg){ _swReg = reg; return reg; })
+    .catch(function(e){ console.warn('[push] SW registration failed', e); return null; });
+}
+registerPushWorker();
+
+// ── Push notifications (Android notification bar via Web Push) ──────────────
+function _pushSupported(){
+  return ('serviceWorker' in navigator) && ('PushManager' in window) && ('Notification' in window);
+}
+function _b64ToU8(b64){
+  var pad='='.repeat((4-b64.length%4)%4);
+  var raw=atob((b64+pad).replace(/-/g,'+').replace(/_/g,'/'));
+  var out=new Uint8Array(raw.length);
+  for(var i=0;i<raw.length;i++) out[i]=raw.charCodeAt(i);
+  return out;
+}
+async function _pushToken(){
+  return _authToken||localStorage.getItem('ab_jwt')||localStorage.getItem('ab_token')||(await refreshAuthToken());
+}
+// Subscribe this device and register it with the backend. Safe to call repeatedly.
+async function subscribeToPush(){
+  if(!_pushSupported()) return {ok:false, reason:'unsupported'};
+  var tok=await _pushToken();
+  if(!tok) return {ok:false, reason:'not_logged_in'};
+  var reg=_swReg||await navigator.serviceWorker.ready;
+  var keyRes=await fetch(USSD_API+'/api/push/vapid-public-key');
+  var keyJson=keyRes.ok?await keyRes.json():null;
+  if(!keyJson||!keyJson.key) return {ok:false, reason:'server_not_configured'};
+  var sub=await reg.pushManager.getSubscription();
+  if(!sub) sub=await reg.pushManager.subscribe({ userVisibleOnly:true, applicationServerKey:_b64ToU8(keyJson.key) });
+  var r=await fetch(USSD_API+'/api/user/push-subscriptions',{
+    method:'POST',
+    headers:{'Content-Type':'application/json','Authorization':'Bearer '+tok},
+    body:JSON.stringify(sub.toJSON())
+  });
+  return r.ok?{ok:true}:{ok:false, reason:'server_rejected'};
+}
+// Called from a tap on the "Turn on phone alerts" button (needs a user gesture).
+async function enablePhoneAlerts(){
+  if(!_pushSupported()){ showToast('This browser does not support phone alerts'); return; }
+  try{
+    var perm=Notification.permission;
+    if(perm==='default') perm=await Notification.requestPermission();
+    if(perm!=='granted'){ showToast('Alerts blocked — allow notifications in your browser settings'); renderPushBanner(); return; }
+    var res=await subscribeToPush();
+    if(res.ok) showToast('Phone alerts are on ✓');
+    else if(res.reason==='not_logged_in') showToast('Log in first to turn on alerts');
+    else showToast('Could not turn on alerts right now — try again later');
+  }catch(e){ console.warn('[push] enable failed', e); showToast('Could not turn on alerts'); }
+  renderPushBanner();
+}
+// Show/hide the enable banner inside the notification panel.
+function renderPushBanner(){
+  var el=document.getElementById('pushBanner'); if(!el) return;
+  if(!_pushSupported()||!(_authToken||localStorage.getItem('ab_jwt')||localStorage.getItem('ab_token'))){ el.style.display='none'; return; }
+  if(Notification.permission==='granted'){ el.style.display='none'; return; }
+  el.style.display='block';
+  el.querySelector('span').textContent=Notification.permission==='denied'
+    ? 'Phone alerts are blocked. Allow notifications for this site in your browser settings.'
+    : 'Get order updates in your phone notification bar, even when AgriBridge is closed.';
+  el.querySelector('button').style.display=Notification.permission==='denied'?'none':'';
+}
+// If permission was already granted earlier, quietly keep this device subscribed.
+function resyncPushIfGranted(){
+  if(_pushSupported() && Notification.permission==='granted'){ subscribeToPush().catch(function(){}); }
+}
+// Foreground fallback: when the poll sees a higher unread count, raise a system notification.
+var _lastUnread=null;
+async function _notifyIfNew(unread, latest){
+  if(_lastUnread!==null && unread>_lastUnread && _pushSupported() && Notification.permission==='granted' && document.visibilityState!=='visible'){
+    try{
+      var reg=_swReg||await navigator.serviceWorker.ready;
+      reg.showNotification((latest&&latest.title)||'AgriBridge', { body:(latest&&latest.body)||'You have a new notification', icon:'/icon-192.png', badge:'/icon-192.png', tag:'ab-poll', data:{url:'/'} });
+    }catch(e){}
+  }
+  _lastUnread=unread;
 }
 
 // ─────────────────────────────────────────────────────────────────
@@ -5614,6 +5684,7 @@ function initSupabase() {
       if (event !== 'PASSWORD_RECOVERY' && event !== 'TOKEN_REFRESHED' && event !== 'USER_UPDATED') setTimeout(postAuthLegalCheck, 0);
       // Poll notification unread count every 60s while logged in
       _startNotifPolling();
+      if (event === 'SIGNED_IN') setTimeout(resyncPushIfGranted, 1500);
     } else {
       currentUser = null;
       localStorage.removeItem('ab_user');
@@ -5633,6 +5704,7 @@ function initSupabase() {
       if (typeof syncCloudBasket === 'function') syncCloudBasket();
       setTimeout(postAuthLegalCheck, 0);
       _startNotifPolling();
+      setTimeout(resyncPushIfGranted, 1500);
     }
   });
 }
@@ -6611,6 +6683,10 @@ document.addEventListener('DOMContentLoaded', function() {
       <button id="markAllReadBtn" onclick="markAllNotificationsRead()" style="background:none;border:none;color:var(--green);font-size:0.75rem;cursor:pointer;display:none">Mark all read</button>
       <button onclick="toggleNotifPanel()" style="background:none;border:none;color:var(--text2);cursor:pointer;font-size:1.1rem">✕</button>
     </div>
+  </div>
+  <div id="pushBanner" style="display:none;padding:10px 16px;border-bottom:1px solid var(--border);background:var(--bg3);font-size:0.8rem;color:var(--text2)">
+    <span></span>
+    <button onclick="enablePhoneAlerts()" style="display:block;margin-top:8px;background:var(--green);color:#000;border:none;border-radius:8px;padding:7px 12px;font-weight:700;font-size:0.8rem;cursor:pointer">🔔 Turn on phone alerts</button>
   </div>
   <div id="notifList">
     <div style="padding:20px 16px;text-align:center;color:var(--text2);font-size:0.85rem">Loading…</div>
