@@ -1,4 +1,4 @@
--- AgriBridge migration 0009 — Service requests (cold storage, refrigerated transport, loans)
+-- AgriBridge migration 0010 — Service requests (cold storage, refrigerated transport, loans)
 -- Until now the "Book Storage", "Book Vehicle" and loan buttons only showed a toast:
 -- nothing was saved, so the admin console had nothing to list. One table keeps all
 -- three request types together so admin can track every one of them.
@@ -6,7 +6,7 @@
 -- Writes come ONLY from the backend (service role), which takes user_id from the
 -- verified session, never from the request body. Users can read their own rows.
 --
--- SAFETY: additive only (one new table). Rollback: 0009_service_requests.down.sql
+-- SAFETY: additive only (one new table). Rollback: 0010_service_requests.down.sql
 
 begin;
 

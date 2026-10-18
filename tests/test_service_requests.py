@@ -162,8 +162,8 @@ def test_admin_update_validates_input(client, admin_headers):
 
 # ── schema ────────────────────────────────────────────────────────────────────
 def test_migration_is_reversible_and_locked_down():
-    up = (REPO / "supabase/migrations/0009_service_requests.up.sql").read_text().lower()
-    down = REPO / "supabase/migrations/0009_service_requests.down.sql"
+    up = (REPO / "supabase/migrations/0010_service_requests.up.sql").read_text().lower()
+    down = REPO / "supabase/migrations/0010_service_requests.down.sql"
     assert down.exists()
     assert "enable row level security" in up
     assert "for insert" not in up          # users never write directly; backend does

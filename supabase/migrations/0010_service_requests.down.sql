@@ -1,4 +1,4 @@
--- Rollback for 0009_service_requests. Drops only what 0009 added.
+-- Rollback for 0010_service_requests. Drops only what 0010 added.
 -- WARNING: this deletes every saved cold storage / transport / loan request.
 begin;
 

@@ -40,6 +40,7 @@ class NotificationDispatcher:
         fcm_sender: FcmSender | None = None,
         sms_sender: SmsSender | None = None,
         admin_token_lookup: Callable[[str | None], list[str]] | None = None,
+        web_push=None,                         # services.webpush.WebPushService | None
     ):
         self._db = supabase
         self._discord = discord
@@ -47,6 +48,8 @@ class NotificationDispatcher:
         self._sms = sms_sender
         # Given a recipient user_id (or None for "all admins"), return FCM tokens.
         self._admin_tokens = admin_token_lookup
+        # Optional: also deliver every in-app notification as a Web Push (Android bar).
+        self._web_push = web_push
 
     # ── Enqueue (called from business transactions) ──────────────────────────
     def enqueue(self, *, channel: str, audience: str, event_type: str,
@@ -63,6 +66,10 @@ class NotificationDispatcher:
         if not res.ok:
             log.error("notify.enqueue_failed", event_type=event_type, error=res.error)
             return None
+        # Mirror in-app notifications to the user's phone. Best-effort and async:
+        # a push failure must never affect the business transaction.
+        if channel == "in_app" and recipient and self._web_push is not None:
+            self._web_push.send_to_user_async(recipient, title, body)
         return res.data
 
     # ── Drain loop (run by the worker) ───────────────────────────────────────
