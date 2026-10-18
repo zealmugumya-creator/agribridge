@@ -14,6 +14,7 @@ import os
 import re
 import secrets
 import time as _time
+import uuid
 
 import jwt
 import requests
@@ -1409,6 +1410,139 @@ def admin_offers():
         return err
     return jsonify(supa_get('order_offers', {'order': 'created_at.desc'}, limit=300) or [])
 
+# ══════════════════════════════════════════════════════════════════════════════
+# SERVICE REQUESTS — cold storage, refrigerated transport, loans
+# Saved in `service_requests` (migration 0010) so the admin console can track them.
+# ══════════════════════════════════════════════════════════════════════════════
+_SVC_KINDS = ('cold_storage', 'refrigerated_transport', 'loan')
+_SVC_STATUSES = ('pending', 'confirmed', 'completed', 'rejected', 'cancelled')
+_SVC_LABELS = {'cold_storage': 'Cold storage', 'refrigerated_transport': 'Refrigerated transport',
+               'loan': 'Loan'}
+
+
+def _svc_text(value, limit):
+    """Trim a free-text field to a safe length. Non-strings become ''."""
+    return value.strip()[:limit] if isinstance(value, str) else ''
+
+
+def _svc_details(raw):
+    """Keep only simple key/value pairs from the client's `details` object."""
+    clean = {}
+    if not isinstance(raw, dict):
+        return clean
+    for key, val in list(raw.items())[:20]:
+        if not isinstance(key, str) or not key.strip():
+            continue
+        if isinstance(val, bool):
+            continue
+        if isinstance(val, (int, float)):
+            clean[key.strip()[:40]] = val
+        elif isinstance(val, str) and val.strip():
+            clean[key.strip()[:40]] = val.strip()[:300]
+    return clean
+
+
+@app.route('/api/service-requests', methods=['POST'])
+@rate_limit(max_req=10, window=300)
+def create_service_request():
+    """A logged-in user asks for cold storage, a refrigerated vehicle, or a loan.
+
+    Identity comes from the verified Supabase session (never the request body).
+    The request is stored for admin follow-up and an ops alert is sent."""
+    uid, err = verify_supabase_user()
+    if err:
+        return err
+    data = request.get_json(force=True, silent=True) or {}
+    kind = _svc_text(data.get('kind'), 40)
+    if kind not in _SVC_KINDS:
+        return jsonify({'error': 'Unknown request type'}), 400
+
+    name = _svc_text(data.get('requester_name'), 80)
+    phone = re.sub(r'[^\d+]', '', _svc_text(data.get('requester_phone'), 30))
+    if not name:
+        return jsonify({'error': 'Please enter your name'}), 400
+    if not 9 <= len(phone.lstrip('+')) <= 15:
+        return jsonify({'error': 'Please enter a valid phone number'}), 400
+
+    amount = None
+    raw_amount = data.get('amount_ugx')
+    if raw_amount not in (None, ''):
+        try:
+            amount = float(raw_amount)
+        except (TypeError, ValueError):
+            return jsonify({'error': 'Amount must be a number'}), 400
+        if not 0 < amount <= 10_000_000_000:
+            return jsonify({'error': 'Please enter a valid amount'}), 400
+    if kind == 'loan' and amount is None:
+        return jsonify({'error': 'Please enter the amount you need'}), 400
+
+    provider = _svc_text(data.get('provider_name'), 120)
+    row = supa_insert('service_requests', {
+        'kind': kind,
+        'user_id': uid,
+        'requester_name': name,
+        'requester_phone': phone,
+        'provider_name': provider or None,
+        'amount_ugx': amount,
+        'details': _svc_details(data.get('details')),
+        'status': 'pending',
+    })
+    if not row or not isinstance(row, list) or not row[0].get('id'):
+        # Never tell the user it worked when it did not.
+        return jsonify({'error': 'Could not save your request. Please try again.'}), 500
+
+    req_id = str(row[0]['id'])
+    try:
+        label = _SVC_LABELS[kind]
+        _discord_notify(
+            'service_request.created', f'New {label.lower()} request',
+            f"**Type:** {label}\n**From:** {name}\n**Phone:** {phone}\n"
+            f"**Provider:** {provider or '—'}\n**Ref:** {req_id[:8].upper()}",
+        )
+    except Exception as _e:
+        log.warning("service_request.notify_failed", error=str(_e))
+    return jsonify({'ok': True, 'id': req_id, 'ref': req_id[:8].upper()}), 200
+
+
+@app.route('/api/admin/service-requests', methods=['GET'])
+def admin_service_requests():
+    payload, err = verify_token(required_role='admin')
+    if err:
+        return err
+    filters = {'order': 'created_at.desc'}
+    kind = (request.args.get('kind') or '').strip()
+    if kind:
+        if kind not in _SVC_KINDS:
+            return jsonify({'error': 'Unknown request type'}), 400
+        filters['kind'] = f'eq.{kind}'
+    return jsonify(supa_get('service_requests', filters, limit=300) or [])
+
+
+@app.route('/api/admin/service-requests/<req_id>', methods=['PATCH'])
+def admin_update_service_request(req_id):
+    payload, err = verify_token(required_role='admin')
+    if err:
+        return err
+    try:
+        req_id = str(uuid.UUID(req_id))
+    except ValueError:
+        return jsonify({'error': 'Invalid request id'}), 400
+    data = request.get_json(force=True, silent=True) or {}
+    fields = {}
+    if 'status' in data:
+        if data['status'] not in _SVC_STATUSES:
+            return jsonify({'error': 'Invalid status'}), 400
+        fields['status'] = data['status']
+    if 'admin_notes' in data:
+        fields['admin_notes'] = _svc_text(data['admin_notes'], 500) or None
+    if not fields:
+        return jsonify({'error': 'Nothing to update'}), 400
+    fields['updated_at'] = datetime.datetime.utcnow().isoformat()
+    if not supa_update('service_requests', fields, 'id', req_id):
+        return jsonify({'error': 'Update failed'}), 500
+    return jsonify({'ok': True}), 200
+
+
 # Generic admin editor for the console. Only whitelisted tables + columns can be
 # written, so the admin token cannot set protected fields (id, timestamps, ownership).
 _ADMIN_COLS = {
@@ -1679,7 +1813,6 @@ def create_order():
         pay_instr = {
             'momo':    'Dial *165# on your MTN line → Send Money → AgriBridge (0755 966 690)',
             'airtel':  'Dial *185# on your Airtel line → Make Payments → AgriBridge',
-            'bank':    'Transfer to Stanbic Bank A/C 9030013584292 (AgriBridge Uganda Ltd)',
             'card':    'You will be redirected to complete your card payment.',
             'cash':    'Pay on delivery.',
         }.get(pay_method, 'Follow the instructions on your confirmation screen.')
@@ -1918,6 +2051,8 @@ def admin_discord_test():
         'matching.offer':    'DISCORD_WEBHOOK_MATCHING',
         'transport.avail':   'DISCORD_WEBHOOK_TRANSPORT',
         'server.error':      'DISCORD_WEBHOOK_ERRORS',
+        'request.test':      'DISCORD_WEBHOOK_REQUESTS',
+        'support.test':      'DISCORD_WEBHOOK_SUPPORT',
     }
     for event_type, env_var in test_channels.items():
         url = _os.environ.get(env_var, '').strip()
@@ -1932,6 +2067,95 @@ def admin_discord_test():
         )
         results[env_var] = 'sent'
     return jsonify({'ok': True, 'results': results})
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# MONITORING: Supabase table events -> Discord + admin Activity feed, and a
+# read-only admin Inbox over the user-submitted tables.
+# Much of the web app writes straight to Supabase, so the backend never sees those
+# rows. A Supabase Database Webhook (see docs/MONITORING.md) posts each new row here.
+# ══════════════════════════════════════════════════════════════════════════════
+SUPABASE_WEBHOOK_SECRET = os.environ.get('SUPABASE_WEBHOOK_SECRET', '')
+
+# table -> (discord event_type, title, severity)
+_WATCHED = {
+    'account_deletion_requests': ('support.deletion_request', '🗑 Account deletion requested', 'warning'),
+    'privacy_requests':          ('support.privacy_request',  '🔐 Privacy request',            'warning'),
+    'contact_messages':          ('support.contact_message',  '✉️ New contact message',        'info'),
+    'disease_reports':           ('support.disease_report',   '🦠 Disease report',             'warning'),
+    'vet_bookings':              ('request.vet_booking',      '🐄 Vet booking',                'info'),
+    'purchase_requests':         ('request.purchase',         '🛒 Purchase request',           'info'),
+    'supply_orders':             ('order.supply',             '📦 Supply order',               'info'),
+    'payouts':                   ('payment.payout',           '💸 Payout record',              'info'),
+    'fraud_flags':               ('safety.fraud_flag',        '🚩 Fraud flag raised',          'critical'),
+    'admin_devices':             ('safety.admin_device',      '🔑 Admin device registered',    'warning'),
+    'user_roles':                ('safety.role_change',       '👤 User role added',            'warning'),
+    'reviews':                   ('listing.review',           '⭐ New review',                 'info'),
+    'community_posts':           ('listing.community_post',   '💬 New community post',         'info'),
+    'transporters':              ('transport.registered',     '🚛 Transporter registered',     'info'),
+    'farmers':                   ('user.signup',              '👤 New farmer/user',            'info'),
+    'buyers':                    ('user.signup',              '🛍 New buyer',                  'info'),
+    'order_offers':              ('matching.offer',           '🔗 Match offer',                'info'),
+}
+# Only these columns are ever copied into Discord / the activity feed. No phones,
+# emails, tokens or passwords.
+_SAFE_COLS = ('id', 'status', 'kind', 'type', 'category', 'subject', 'reason', 'flag_type',
+              'severity', 'role', 'full_name', 'name', 'district', 'crop_name', 'species',
+              'rating', 'amount', 'amount_ugx', 'total', 'total_price', 'currency',
+              'order_ref', 'service', 'provider_name', 'created_at')
+
+
+def _safe_fields(record):
+    out = {}
+    for k in _SAFE_COLS:
+        v = (record or {}).get(k)
+        if v not in (None, ''):
+            out[k] = str(v)[:120]
+    msg = (record or {}).get('message') or (record or {}).get('body') or (record or {}).get('description')
+    if msg:
+        out['message'] = str(msg)[:200]
+    return out
+
+
+@app.route('/api/hooks/supabase', methods=['POST'])
+@rate_limit(max_req=120, window=60)
+def supabase_table_hook():
+    """Receive a Supabase Database Webhook and forward it to Discord + system_events."""
+    sent = request.headers.get('X-Webhook-Secret', '')
+    if not SUPABASE_WEBHOOK_SECRET or not sent or not hmac.compare_digest(sent, SUPABASE_WEBHOOK_SECRET):
+        return jsonify({'ok': False, 'error': 'unauthorized'}), 401
+    data = request.get_json(force=True, silent=True) or {}
+    table = str(data.get('table') or '')
+    if table not in _WATCHED:
+        return jsonify({'ok': True, 'ignored': 'table not watched'}), 200
+    if str(data.get('type') or '').upper() != 'INSERT':
+        return jsonify({'ok': True, 'ignored': 'not an insert'}), 200
+    event_type, title, severity = _WATCHED[table]
+    fields = _safe_fields(data.get('record'))
+    desc = '\n'.join(f'**{k}:** {v}' for k, v in {'table': table, **fields}.items())
+    _discord_notify(event_type=event_type, title=title, description=desc, severity=severity)
+    _log_system_event(event_type, {'table': table, **fields}, severity='info' if severity == 'info' else severity)
+    return jsonify({'ok': True}), 200
+
+
+@app.route('/api/admin/inbox', methods=['GET'])
+def admin_inbox():
+    """Read-only view of the watched tables. No ?table => counts of the latest rows per table."""
+    payload, err = verify_token(required_role='admin')
+    if err:
+        return err
+    table = (request.args.get('table') or '').strip()
+    if table:
+        if table not in _WATCHED:
+            return jsonify({'error': 'unknown table'}), 400
+        rows = supa_get(table, {'order': 'created_at.desc'}, limit=100) or supa_get(table, None, limit=100) or []
+        for r in rows:
+            for secret in ('password', 'token', 'token_hash', 'access_token', 'refresh_token'):
+                r.pop(secret, None)
+        return jsonify(rows)
+    summary = {t: len(supa_get(t, None, limit=100) or []) for t in _WATCHED}
+    return jsonify({'tables': summary, 'discord_configured': DISCORD.enabled,
+                    'webhook_secret_set': bool(SUPABASE_WEBHOOK_SECRET)})
 
 
 @app.route('/api/admin/events', methods=['GET'])
@@ -2622,6 +2846,64 @@ def get_order_receipt(order_id):
     return jsonify({
         'order': order,
         'delivery': deliveries[0] if deliveries else None,
+    }), 200
+
+
+_TRACK_RE = re.compile(r'^[A-Za-z0-9][A-Za-z0-9\-]{3,39}$')
+_ORDER_TO_DELIVERY_STATUS = {
+    'confirmed': 'scheduled', 'processing': 'scheduled', 'accepted': 'scheduled',
+    'shipped': 'in_transit', 'in_transit': 'in_transit', 'out_for_delivery': 'in_transit',
+    'delivered': 'delivered', 'completed': 'delivered',
+}
+
+
+@app.route('/api/track/<code>', methods=['GET'])
+@rate_limit(max_req=30, window=60)
+def track_shipment(code):
+    """Public tracking lookup by tracking code (TRK-...) or order ref (AB-...).
+
+    The old tracker only searched the deliveries table, which has a row only after a
+    rider is assigned, so every fresh order showed "No delivery found". We start from
+    the order (always exists) and merge the delivery row when there is one. Only
+    non-personal fields are returned; the code itself is the shared secret."""
+    code = (code or '').strip()
+    if not _TRACK_RE.match(code):
+        return jsonify({'ok': False, 'error': 'invalid code'}), 400
+    code_u = code.upper()
+    order = None
+    for col in ('tracking_code', 'order_ref', 'payment_ref'):
+        rows = supa_get('orders', {col: f'eq.{code_u}'}, limit=1) or []
+        if rows:
+            order = rows[0]
+            break
+    delivery = None
+    if order and order.get('id'):
+        d = supa_get('deliveries', {'order_id': f"eq.{order['id']}"}, limit=1) or []
+        delivery = d[0] if d else None
+    if not order:
+        d = supa_get('deliveries', {'tracking_code': f'eq.{code_u}'}, limit=1) or []
+        delivery = d[0] if d else None
+        if not delivery:
+            return jsonify({'ok': False, 'error': 'not found'}), 404
+    order = order or {}
+    delivery = delivery or {}
+    pickup = delivery.get('pickup_location') or ''
+    if not pickup and order.get('farmer_id'):
+        fr = supa_get('farmers', {'id': f"eq.{order['farmer_id']}", 'select': 'district'}, limit=1) or []
+        pickup = (fr[0].get('district') if fr else '') or ''
+    ostatus = str(order.get('status') or '').lower()
+    status = (delivery.get('status') or _ORDER_TO_DELIVERY_STATUS.get(ostatus) or 'pending').lower()
+    return jsonify({
+        'ok': True,
+        'tracking_code': order.get('tracking_code') or delivery.get('tracking_code') or code_u,
+        'order_ref': order.get('order_ref') or '',
+        'status': status,
+        'pickup_location': pickup or 'Farm',
+        'delivery_location': delivery.get('delivery_location') or order.get('delivery_address') or '',
+        'estimated_arrival': delivery.get('estimated_arrival'),
+        'driver_name': delivery.get('driver_name') or '',
+        'rider_assigned': bool(delivery.get('driver_name') or delivery.get('transporter_id') or order.get('transporter_id')),
+        'created_at': order.get('created_at') or delivery.get('created_at'),
     }), 200
 
 
@@ -3377,14 +3659,101 @@ def pay_initiate():
 
     if provider in ('cod', 'direct'):
         return jsonify({'ok': True, 'mode': provider, 'message': 'No online payment needed.'}), 200
+
+    # Online payment: the order must belong to the caller, and we never charge less
+    # than the saved order total (the client-sent amount may add delivery, not cut it).
+    amount, perr = _checkout_amount(uid, order_ref, amount)
+    if perr:
+        return perr
     if provider == 'flutterwave':
         return _flw_initiate(order_ref, amount, email, phone)
+    if provider in ('flw_momo_mtn', 'flw_momo_airtel'):
+        return _flw_momo_initiate(order_ref, amount, email, phone,
+                                  'MTN' if provider.endswith('mtn') else 'AIRTEL')
     if provider in ('momo', 'airtel', 'mtn_momo', 'mobile_money'):
         # Africa's Talking mobile money collection (USSD push to buyer's phone)
         return _at_momo_initiate(order_ref, amount, phone, provider)
     if provider == 'pesapal':
         return jsonify({'ok': False, 'enabled': False, 'error': 'pesapal not configured yet'}), 200
     return jsonify({'ok': False, 'error': 'unknown provider'}), 400
+
+
+def _checkout_amount(uid, order_ref, client_amount):
+    """Return (amount_to_charge, error_response). Orders of one checkout share payment_ref."""
+    rows = supa_get('orders', {'payment_ref': f'eq.{order_ref}',
+                               'select': 'buyer_id,total_price,payment_status'}, limit=50) or []
+    if not rows:
+        return 0, (jsonify({'ok': False, 'error': 'order not found'}), 404)
+    if any(str(r.get('buyer_id')) != str(uid) for r in rows):
+        return 0, (jsonify({'ok': False, 'error': 'not your order'}), 403)
+    if all((r.get('payment_status') or '') == 'paid' for r in rows):
+        return 0, (jsonify({'ok': False, 'error': 'already paid', 'paid': True}), 409)
+    floor = int(round(sum(float(r.get('total_price') or 0) for r in rows)))
+    return max(int(client_amount), floor), None
+
+
+def _pay_attempt_ref(order_ref):
+    """Flutterwave needs a unique tx_ref per attempt; keep the order ref as the prefix."""
+    return f"{order_ref}~{uuid.uuid4().hex[:6]}"
+
+
+def _base_ref(tx_ref):
+    return (tx_ref or '').split('~')[0]
+
+
+def _ug_msisdn(phone):
+    p = ''.join(ch for ch in (phone or '') if ch.isdigit())
+    if p.startswith('256'):
+        p = p[3:]
+    p = p.lstrip('0')
+    return '256' + p if 8 <= len(p) <= 10 else ''
+
+
+def _flw_momo_initiate(order_ref, amount, email, phone, network):
+    """Direct MTN/Airtel collection through Flutterwave (mobile_money_uganda)."""
+    if not FLW_SECRET_KEY:
+        return jsonify({'ok': False, 'enabled': False, 'error': 'flutterwave not configured'}), 200
+    msisdn = _ug_msisdn(phone)
+    if not msisdn:
+        return jsonify({'ok': False, 'error': 'Enter a valid Uganda mobile money number'}), 400
+    try:
+        res = requests.post(
+            'https://api.flutterwave.com/v3/charges?type=mobile_money_uganda',
+            headers={'Authorization': 'Bearer ' + FLW_SECRET_KEY, 'Content-Type': 'application/json'},
+            json={
+                'tx_ref': _pay_attempt_ref(order_ref), 'amount': amount, 'currency': 'UGX',
+                'email': email or business.SUPPORT_EMAIL, 'phone_number': msisdn,
+                'network': network, 'redirect_url': PUBLIC_BASE_URL + '/?pay=done',
+                'meta': {'order_ref': order_ref},
+            },
+            timeout=25,
+        )
+        j = res.json() if res.content else {}
+        if res.ok and (j.get('status') or '') == 'success':
+            auth = ((j.get('meta') or {}).get('authorization')) or {}
+            return jsonify({'ok': True, 'mode': 'momo_push', 'provider': 'flutterwave',
+                            'link': auth.get('redirect') if auth.get('mode') == 'redirect' else None,
+                            'message': 'Approve the payment prompt on your phone.'}), 200
+        return jsonify({'ok': False, 'error': (j.get('message') or 'Mobile money request failed')[:160]}), 200
+    except Exception as e:
+        print(f"flw momo initiate error: {e}")
+        return jsonify({'ok': False, 'error': 'payment gateway unavailable'}), 200
+
+
+@app.route('/api/pay/status', methods=['GET'])
+@rate_limit(max_req=60, window=300)
+def pay_status():
+    """Poll after a payment prompt: is this checkout paid yet? (own orders only)"""
+    uid, err = verify_supabase_user()
+    if err:
+        return err
+    ref = _base_ref((request.args.get('order_ref') or '').strip()[:80])
+    rows = supa_get('orders', {'payment_ref': f'eq.{ref}',
+                               'select': 'buyer_id,payment_status'}, limit=50) or []
+    rows = [r for r in rows if str(r.get('buyer_id')) == str(uid)]
+    if not rows:
+        return jsonify({'ok': False, 'error': 'order not found'}), 404
+    return jsonify({'ok': True, 'paid': all(r.get('payment_status') == 'paid' for r in rows)}), 200
 
 
 def _at_momo_initiate(order_ref, amount, phone, provider='momo'):
@@ -3443,13 +3812,13 @@ def _flw_initiate(order_ref, amount, email, phone):
             'https://api.flutterwave.com/v3/payments',
             headers={'Authorization': 'Bearer ' + FLW_SECRET_KEY, 'Content-Type': 'application/json'},
             json={
-                'tx_ref':       order_ref,
+                'tx_ref':       _pay_attempt_ref(order_ref),
                 'amount':       str(amount),
                 'currency':     'UGX',
                 'redirect_url': PUBLIC_BASE_URL + '/?pay=done',
                 'customer':     {'email': email or business.SUPPORT_EMAIL, 'phonenumber': phone},
                 'customizations': {'title': 'AgriBridge', 'description': 'Order ' + order_ref},
-                'payment_options': 'mobilemoneyuganda,card',
+                'payment_options': 'card,mobilemoneyuganda',
             },
             timeout=25,
         )
@@ -3471,7 +3840,8 @@ def pay_webhook_flw():
         return jsonify({'status': 'unauthorized'}), 401
     data = request.get_json(force=True, silent=True) or {}
     ev = data.get('data') or {}
-    tx_ref = ev.get('tx_ref') or ''
+    attempt_ref = ev.get('tx_ref') or ''
+    tx_ref = _base_ref(attempt_ref)
     flw_id = ev.get('id')
     if (ev.get('status') or '').lower() == 'successful' and tx_ref and flw_id:
         # Never trust the webhook body alone — re-verify with Flutterwave server-side.
@@ -3481,7 +3851,12 @@ def pay_webhook_flw():
                 headers={'Authorization': 'Bearer ' + FLW_SECRET_KEY}, timeout=20)
             vj = v.json() if v.ok else {}
             vdata = vj.get('data') or {}
-            if (vdata.get('status') or '').lower() == 'successful':
+            owed = sum(float(o.get('total_price') or 0) for o in (supa_get(
+                'orders', {'payment_ref': f'eq.{tx_ref}', 'select': 'total_price'}, limit=50) or []))
+            if (vdata.get('status') or '').lower() == 'successful' \
+                    and _base_ref(vdata.get('tx_ref')) == tx_ref \
+                    and (vdata.get('currency') or 'UGX') == 'UGX' \
+                    and owed > 0 and float(vdata.get('amount') or 0) >= owed:
                 # Mark every order row of this checkout paid (they share payment_ref).
                 # Idempotent: re-running just re-sets 'paid'; the match key is stable.
                 supa_update('orders', {'payment_status': 'paid'}, 'payment_ref', tx_ref)

@@ -59,7 +59,11 @@
   .badge.confirmed{background:rgba(70,140,240,.15);color:#5b9bff}
   .badge.in_transit{background:rgba(120,110,240,.15);color:#8f86ff}
   .badge.delivered,.badge.available,.badge.active,.badge.paid{background:rgba(40,190,110,.15);color:var(--green)}
-  .badge.cancelled,.badge.failed,.badge.sold{background:rgba(224,85,85,.15);color:var(--red)}
+  .badge.cancelled,.badge.failed,.badge.sold,.badge.rejected{background:rgba(224,85,85,.15);color:var(--red)}
+  .badge.completed{background:rgba(40,190,110,.15);color:var(--green)}
+  .cnt{background:var(--amber);color:#3a2600;border-radius:999px;padding:0 7px;font-size:.7rem;font-weight:800;margin-left:4px}
+  .cnt:empty{display:none}
+  select.svc-st{width:auto;padding:5px 8px;font-size:.78rem}
   .muted{color:var(--text2)}
   .hidden{display:none}
   .loading{color:var(--text2);padding:20px;text-align:center}
@@ -103,9 +107,13 @@
       <div class="tab" data-tab="farmers"  onclick="showTab('farmers',this)">Users</div>
       <div class="tab" data-tab="requests" onclick="showTab('requests',this)">Requests</div>
       <div class="tab" data-tab="offers"   onclick="showTab('offers',this)">Offers</div>
+      <div class="tab" data-tab="cold_storage"   onclick="showTab('cold_storage',this)">❄️ Cold Storage<span class="cnt" id="cnt_cold_storage"></span></div>
+      <div class="tab" data-tab="cold_transport" onclick="showTab('cold_transport',this)">🚚 Cold Transport<span class="cnt" id="cnt_cold_transport"></span></div>
+      <div class="tab" data-tab="loans"          onclick="showTab('loans',this)">💰 Loans<span class="cnt" id="cnt_loans"></span></div>
       <div class="tab" data-tab="transporters" onclick="showTab('transporters',this)">🚛 Transporters</div>
       <div class="tab" data-tab="matching"     onclick="showTab('matching',this)" style="color:#60d090;">🔗 Matching</div>
       <div class="tab" data-tab="scans"        onclick="showTab('scans',this)" style="color:#60b0d0;">🌿 Scans</div>
+      <div class="tab" data-tab="inbox"        onclick="showTab('inbox',this)" style="color:#f0c060;">📥 Inbox</div>
       <div class="tab" data-tab="activity"     onclick="showTab('activity',this)" style="color:#c0a0e0;">📊 Activity</div>
       <div class="tab" data-tab="errors"       onclick="showTab('errors',this)" style="color:#f87171;">⚠ Errors</div>
       <a href="/logistics.html" class="tab" style="color:#2ec471;text-decoration:none;border-left:2px solid #2ec471;margin-left:8px;" title="Logistics Command Center">🗺 Logistics</a>
@@ -139,7 +147,12 @@
   var SUPA_KEY = 'sb_publishable_lzjlixcVLCUVg9MDy5adFw_pgxTz03y';
   var TOKEN = sessionStorage.getItem('ab_admin_token') || '';
   var currentTab = 'orders';
-  var DATA = { orders:[], listings:[], animals:[], farmers:[], requests:[], offers:[], transporters:[], matching:[], errors:[] };
+  var DATA = { orders:[], listings:[], animals:[], farmers:[], requests:[], offers:[], transporters:[], matching:[], errors:[], cold_storage:[], cold_transport:[], loans:[], inbox:[] };
+  var INBOX_TABLES={account_deletion_requests:'Account deletions',privacy_requests:'Privacy requests',contact_messages:'Contact messages',disease_reports:'Disease reports',vet_bookings:'Vet bookings',purchase_requests:'Purchase requests',supply_orders:'Supply orders',payouts:'Payouts',fraud_flags:'Fraud flags',admin_devices:'Admin devices',user_roles:'User roles',reviews:'Reviews',community_posts:'Community posts',transporters:'Transporters',farmers:'Farmers',buyers:'Buyers',order_offers:'Match offers'};
+  var inboxTable='contact_messages';
+  // Admin tab -> service_requests.kind (cold storage, refrigerated transport and loan requests)
+  var SVC_TABS = { cold_storage:'cold_storage', cold_transport:'refrigerated_transport', loans:'loan' };
+  var SVC_STATUSES = ['pending','confirmed','completed','rejected','cancelled'];
   var editState = null; // {table, id, isNew}
 
   function h(s){return String(s==null?'':s).replace(/[<>&"]/g,function(c){return {'<':'&lt;','>':'&gt;','&':'&amp;','"':'&quot;'}[c];});}
@@ -249,7 +262,7 @@
   function showDash(){ document.getElementById('login').classList.add('hidden'); document.getElementById('dash').classList.remove('hidden'); refreshAll(); }
   function logout(){ TOKEN=''; sessionStorage.removeItem('ab_admin_token'); document.getElementById('dash').classList.add('hidden'); document.getElementById('login').classList.remove('hidden'); }
 
-  async function refreshAll(){ await loadStats(); await Promise.all([load('orders'),load('listings'),load('animals'),load('deliveries'),load('supplies'),load('farmers'),load('requests'),load('offers'),load('transporters')]); renderOverviewExtras(); renderCurrent(); }
+  async function refreshAll(){ await loadStats(); await Promise.all([load('orders'),load('listings'),load('animals'),load('deliveries'),load('supplies'),load('farmers'),load('requests'),load('offers'),load('transporters'),load('cold_storage'),load('cold_transport'),load('loans')]); renderOverviewExtras(); renderCurrent(); }
 
   function showTabByName(t){ var node=document.querySelector('.tab[data-tab="'+t+'"]'); showTab(t,node||undefined); if(node) node.scrollIntoView({behavior:'smooth',block:'nearest'}); }
 
@@ -291,9 +304,10 @@
     }catch(e){}
   }
   async function load(tab){
-    var pathMap = {orders:'/api/admin/orders',listings:'/api/admin/listings',animals:'/api/admin/animals',deliveries:'/api/admin/deliveries',supplies:'/api/admin/supplies',farmers:'/api/admin/farmers',requests:'/api/admin/purchase-requests',offers:'/api/admin/offers',transporters:'/api/admin/transporters',matching:'/api/admin/match-candidates',errors:'/api/admin/events',scans:'/api/admin/events?event_type=scan',activity:'/api/admin/events?severity=info'};
-    var path = pathMap[tab] || ('/api/admin/'+tab);
+    var pathMap = {orders:'/api/admin/orders',listings:'/api/admin/listings',animals:'/api/admin/animals',deliveries:'/api/admin/deliveries',supplies:'/api/admin/supplies',farmers:'/api/admin/farmers',requests:'/api/admin/purchase-requests',offers:'/api/admin/offers',transporters:'/api/admin/transporters',cold_storage:'/api/admin/service-requests?kind=cold_storage',cold_transport:'/api/admin/service-requests?kind=refrigerated_transport',loans:'/api/admin/service-requests?kind=loan',matching:'/api/admin/match-candidates',errors:'/api/admin/events',scans:'/api/admin/events?event_type=scan',activity:'/api/admin/events?severity=info'};
+    var path = tab==='inbox' ? ('/api/admin/inbox?table='+encodeURIComponent(inboxTable)) : (pathMap[tab] || ('/api/admin/'+tab));
     try{ var rows=await api(path); DATA[tab]=Array.isArray(rows)?rows:[]; }catch(e){ DATA[tab]=[]; }
+    if(SVC_TABS[tab]) updateSvcCounts();
   }
 
   async function runMatching(){
@@ -310,13 +324,14 @@
     }catch(e){ alert('Matching failed: '+(e&&e.message?e.message:'check server logs.')); }
   }
 
-  function showTab(t,node){ currentTab=t; document.querySelectorAll('.tab').forEach(function(x){x.classList.remove('active');}); if(node)node.classList.add('active'); document.getElementById('search').value=''; var noAdd=['orders','requests','offers','errors','matching','scans','activity']; document.getElementById('addBtn').style.display=noAdd.indexOf(t)>-1?'none':'inline-block'; load(t).then(renderCurrent); }
+  function showTab(t,node){ currentTab=t; document.querySelectorAll('.tab').forEach(function(x){x.classList.remove('active');}); if(node)node.classList.add('active'); document.getElementById('search').value=''; var noAdd=['orders','requests','offers','cold_storage','cold_transport','loans','errors','matching','scans','activity','inbox']; document.getElementById('addBtn').style.display=noAdd.indexOf(t)>-1?'none':'inline-block'; load(t).then(renderCurrent); }
 
   function match(row,q){ if(!q)return true; q=q.toLowerCase(); return JSON.stringify(row).toLowerCase().indexOf(q)>-1; }
 
   function renderCurrent(){
     var q=document.getElementById('search').value;
     var rows=(DATA[currentTab]||[]).filter(function(r){return match(r,q);});
+    if(SVC_TABS[currentTab])    return renderServiceRequests(rows, currentTab);
     if(currentTab==='orders')   return renderOrders(rows);
     if(currentTab==='listings') return renderListings(rows);
     if(currentTab==='animals')  return renderAnimals(rows);
@@ -330,6 +345,7 @@
     if(currentTab==='scans')        return renderScans(rows);
     if(currentTab==='activity')     return renderActivity(rows);
     if(currentTab==='errors')       return renderErrors(rows);
+    if(currentTab==='inbox')        return renderInbox(rows);
   }
 
   function renderTransporters(rows){
@@ -415,6 +431,18 @@
     setPanel('<table><thead><tr><th>Crop</th><th>Diagnosis</th><th>Description</th><th>User</th><th>Time</th></tr></thead><tbody>'+body+'</tbody></table>');
   }
 
+  function renderInbox(rows){
+    var opts=Object.keys(INBOX_TABLES).map(function(k){return '<option value="'+k+'"'+(k===inboxTable?' selected':'')+'>'+INBOX_TABLES[k]+'</option>';}).join('');
+    var head='<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;padding:10px"><select onchange="inboxTable=this.value;load(\'inbox\').then(renderCurrent)" style="padding:6px 10px">'+opts+'</select><span style="color:#8b98a8;font-size:.8rem">Latest 100 rows, read-only</span><button class="btn" style="margin-left:auto" onclick="discordTest()">Send Discord test</button></div>';
+    if(!rows.length){ setPanel(head+'<div class="loading">Nothing in this table yet.</div>'); return; }
+    var cols=[]; rows.forEach(function(r){ Object.keys(r).forEach(function(k){ if(cols.indexOf(k)<0&&cols.length<9) cols.push(k); }); });
+    var th=cols.map(function(c){return '<th>'+h(c)+'</th>';}).join('');
+    var body=rows.map(function(r){ return '<tr>'+cols.map(function(c){ var v=r[c]; if(v&&typeof v==='object') v=JSON.stringify(v); if(/_at$/.test(c)&&v){ var d=new Date(v); if(!isNaN(d)) v=d.toLocaleString('en-UG'); } return '<td>'+h(String(v==null?'':v).slice(0,140))+'</td>'; }).join('')+'</tr>'; }).join('');
+    setPanel(head+'<table><thead><tr>'+th+'</tr></thead><tbody>'+body+'</tbody></table>');
+  }
+  async function discordTest(){
+    try{ var r=await api('/api/admin/discord-test',{method:'POST',body:'{}'}); var res=(r&&r.results)||{}; alert('Discord test:\n'+Object.keys(res).map(function(k){return k+': '+res[k];}).join('\n')); }catch(e){ alert('Test failed'); }
+  }
   function renderActivity(rows){
     if(!rows.length){ panelMsg('No recent activity recorded.'); return; }
     var icons={'listing_created_web':'🌾','purchase_request_created':'🛒','offer_accepted':'🤝','offer_rejected':'❌','match_approved':'✅','transport_registered':'🚛','listing.created':'🌾','user.signup':'👤','order.created':'📦'};
@@ -516,6 +544,57 @@
       if(r&&(r.ok||r.id||r.status)){ await load('offers'); renderCurrent(); }
       else alert((r&&r.error)||label+' failed.');
     }catch(e){ alert(action+' failed.'); }
+  }
+
+  // ── Cold storage / refrigerated transport / loan requests ───────────
+  function updateSvcCounts(){
+    Object.keys(SVC_TABS).forEach(function(t){
+      var n=(DATA[t]||[]).filter(function(r){return (r.status||'pending')==='pending';}).length;
+      var el=document.getElementById('cnt_'+t); if(el) el.textContent=n>0?n:'';
+    });
+  }
+  function svcDetails(r){
+    var d=r.details||{};
+    return Object.keys(d).map(function(k){
+      return '<span class="muted">'+h(k.replace(/_/g,' '))+':</span> '+h(d[k]);
+    }).join('<br>');
+  }
+  function renderServiceRequests(rows, tab){
+    var empty={cold_storage:'No cold storage bookings yet.',cold_transport:'No refrigerated transport bookings yet.',loans:'No loan requests yet.'}[tab];
+    if(!rows.length){ panelMsg(empty); return; }
+    var isLoan=(tab==='loans');
+    var body=rows.map(function(r){
+      var st=r.status||'pending';
+      var opts=SVC_STATUSES.map(function(o){ return '<option value="'+o+'"'+(o===st?' selected':'')+'>'+o+'</option>'; }).join('');
+      var tel=String(r.requester_phone||'').replace(/[^\d+]/g,'');
+      return '<tr>'+
+        '<td>'+h((r.id||'').slice(0,8).toUpperCase())+'</td>'+
+        '<td>'+h(r.created_at?new Date(r.created_at).toLocaleString('en-UG'):'—')+'</td>'+
+        '<td>'+h(r.requester_name||'—')+'<br>'+(tel?'<a href="tel:'+h(tel)+'">'+h(r.requester_phone)+'</a>':'—')+'</td>'+
+        '<td>'+h(r.provider_name||'—')+'</td>'+
+        '<td style="font-size:.8rem;max-width:280px">'+svcDetails(r)+'</td>'+
+        (isLoan?'<td>'+fmt(r.amount_ugx)+'</td>':'')+
+        '<td><span class="badge '+h(st)+'">'+h(st)+'</span></td>'+
+        '<td><div class="rowbtns"><select class="svc-st" onchange="setSvcStatus(\''+h(r.id)+'\',\''+tab+'\',this.value)">'+opts+'</select>'+
+        '<button class="btn ghost sm" title="Add a note" onclick="svcNote(\''+h(r.id)+'\',\''+tab+'\')">📝</button></div>'+
+        (r.admin_notes?'<div class="muted" style="font-size:.75rem;margin-top:4px;white-space:normal">'+h(r.admin_notes)+'</div>':'')+'</td>'+
+      '</tr>';
+    }).join('');
+    setPanel('<table><thead><tr><th>Ref</th><th>Requested</th><th>Customer</th><th>'+(isLoan?'Product':'Provider')+'</th><th>Details</th>'+(isLoan?'<th>Amount</th>':'')+'<th>Status</th><th>Update</th></tr></thead><tbody>'+body+'</tbody></table>');
+  }
+  async function patchSvc(id, tab, fields){
+    try{
+      var r=await api('/api/admin/service-requests/'+id,{method:'PATCH',body:JSON.stringify(fields)});
+      if(r&&r.ok){ await load(tab); renderCurrent(); }
+      else { alert((r&&r.error)||'Update failed.'); await load(tab); renderCurrent(); }
+    }catch(e){ alert('Update failed.'); }
+  }
+  function setSvcStatus(id, tab, status){ patchSvc(id, tab, {status:status}); }
+  function svcNote(id, tab){
+    var cur=rowById(tab,id).admin_notes||'';
+    var n=prompt('Internal note for this request:', cur);
+    if(n===null) return;
+    patchSvc(id, tab, {admin_notes:n});
   }
 
   function setPanel(html){ document.getElementById('panel').innerHTML=html; }

@@ -167,14 +167,27 @@
 </head>
 <body>
 
+<!-- Admin password gate: Logistics is part of the admin console and shares its login -->
+<div id="gate" style="position:fixed;inset:0;z-index:9999;background:#0b0f14;display:flex;align-items:center;justify-content:center;padding:16px">
+  <div style="background:#121923;border:1px solid #243041;border-radius:14px;padding:28px;width:100%;max-width:340px;color:#e6edf3;font-family:inherit">
+    <div style="font-weight:700;font-size:1.1rem;margin-bottom:4px">🌿 Logistics Command Center</div>
+    <div style="font-size:.82rem;color:#8b98a8;margin-bottom:16px">Admin only. Enter the admin password.</div>
+    <input id="gatePwd" type="password" placeholder="Admin password" autocomplete="current-password" style="width:100%;padding:10px 12px;border-radius:8px;border:1px solid #243041;background:#0b0f14;color:#e6edf3;box-sizing:border-box" onkeydown="if(event.key==='Enter')gateLogin()">
+    <div id="gateErr" style="color:#f87171;font-size:.8rem;min-height:18px;margin:8px 0"></div>
+    <button onclick="gateLogin()" style="width:100%;padding:10px;border:0;border-radius:8px;background:#2ec471;color:#04210f;font-weight:700;cursor:pointer">Unlock</button>
+    <a href="/admin.html" style="display:block;text-align:center;margin-top:12px;font-size:.8rem;color:#8b98a8">← Back to Admin</a>
+  </div>
+</div>
+
 <!-- TOPBAR -->
 <div class="topbar">
   <div class="topbar-logo">🌿 AgriBridge</div>
   <div class="topbar-title">Logistics Command Center</div>
   <div class="topbar-right">
     <span class="badge" id="liveTag">⬤ Live</span>
-    <a href="/static/admin.html" class="btn btn-ghost" style="padding:5px 12px;font-size:.8rem">← Admin</a>
+    <a href="/admin.html" class="btn btn-ghost" style="padding:5px 12px;font-size:.8rem">← Admin</a>
     <button class="btn btn-ghost" style="padding:5px 12px;font-size:.8rem" onclick="refreshAll()">↻ Refresh</button>
+    <button class="btn btn-ghost" style="padding:5px 12px;font-size:.8rem" onclick="logoutAdmin()">Log out</button>
   </div>
 </div>
 
@@ -334,7 +347,9 @@
 // ─── CONFIG ───────────────────────────────────────────────────────────────────
 var API = (location.hostname === 'localhost' || location.hostname === '127.0.0.1')
   ? 'http://localhost:5000' : 'https://agribridge-1-og7a.onrender.com';
-var TOKEN = localStorage.getItem('ab_admin_token') || '';
+// Same session as admin.html (sessionStorage). Old persistent copy is removed.
+try { localStorage.removeItem('ab_admin_token'); } catch(e) {}
+var TOKEN = sessionStorage.getItem('ab_admin_token') || '';
 var allOrders = [];
 var activeDeliveries = [];
 var leafletMap = null;
@@ -349,21 +364,30 @@ function authHeaders() {
 }
 async function api(path, opts) {
   var res = await fetch(API + path, Object.assign({ headers: authHeaders() }, opts || {}));
-  if (res.status === 401) { needLogin(); throw new Error('Unauthorized'); }
+  if (res.status === 401 || res.status === 403) { clearToken(); showGate('Session expired. Please log in again.'); throw new Error('Unauthorized'); }
   return res.json().catch(function() { return {}; });
 }
-function needLogin() {
-  if (!TOKEN) {
-    TOKEN = prompt('Admin password:') || '';
-    // Try login
-    fetch(API + '/api/admin/login', {
-      method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ password: TOKEN })
-    }).then(r => r.json()).then(function(j) {
-      if (j.token) { TOKEN = j.token; localStorage.setItem('ab_admin_token', TOKEN); refreshAll(); }
-      else { alert('Wrong password'); }
-    });
-  }
+function clearToken() { TOKEN = ''; try { sessionStorage.removeItem('ab_admin_token'); } catch(e) {} }
+function showGate(msg) {
+  document.getElementById('gate').style.display = 'flex';
+  document.getElementById('gateErr').textContent = msg || '';
+  setTimeout(function() { document.getElementById('gatePwd').focus(); }, 50);
+}
+function hideGate() { document.getElementById('gate').style.display = 'none'; }
+function logoutAdmin() { clearToken(); allOrders = []; showGate(''); }
+async function gateLogin() {
+  var pwd = document.getElementById('gatePwd').value, err = document.getElementById('gateErr');
+  err.textContent = '';
+  if (!pwd) { err.textContent = 'Enter the password.'; return; }
+  try {
+    var r = await fetch(API + '/api/admin/login', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ password: pwd }) });
+    var j = await r.json().catch(function() { return null; });
+    if (r.ok && j && j.token) {
+      TOKEN = j.token; sessionStorage.setItem('ab_admin_token', TOKEN);
+      document.getElementById('gatePwd').value = '';
+      hideGate(); refreshAll();
+    } else { err.textContent = (j && j.error) || 'Wrong password.'; }
+  } catch (e) { err.textContent = 'Could not reach the server. It may be waking up, wait 30s and retry.'; }
 }
 
 // ─── TOAST ────────────────────────────────────────────────────────────────────
@@ -974,20 +998,20 @@ function exportCSV() {
 }
 
 // ─── AUTO REFRESH ─────────────────────────────────────────────────────────────
-// Refresh every 60 seconds
-setInterval(refreshAll, 60000);
+// Refresh every 60 seconds (only while unlocked)
+setInterval(function() { if (TOKEN) refreshAll(); }, 60000);
 
 // ─── INIT ─────────────────────────────────────────────────────────────────────
 (function init() {
-  // Check if logged in
-  if (!TOKEN) {
-    TOKEN = localStorage.getItem('ab_admin_token') || '';
-  }
-  if (!TOKEN) {
-    needLogin();
-  } else {
-    refreshAll();
-  }
+  if (!TOKEN) { showGate(''); return; }
+  // Verify the saved token before showing anything.
+  fetch(API + '/api/admin/verify', { headers: authHeaders() })
+    .then(function(r) { return r.json().catch(function() { return null; }); })
+    .then(function(v) {
+      if (v && v.valid) { hideGate(); refreshAll(); }
+      else { clearToken(); showGate('Please log in.'); }
+    })
+    .catch(function() { showGate('Could not reach the server. Wait 30s and retry.'); });
 })();
 </script>
 </body>

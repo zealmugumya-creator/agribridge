@@ -1860,22 +1860,22 @@ AgriBridge service</div>
       <!-- Payment method -->
       <div class="checkout-section-label">Payment Method</div>
       <div class="pay-methods">
-        <div class="pay-method selected" id="pm-momo" onclick="selectPayMethod('momo')"><div class="pm-icon">📱</div><div class="pm-label">MTN MoMo</div><div class="pm-sub">*165#</div></div>
-        <div class="pay-method" id="pm-airtel" onclick="selectPayMethod('airtel')"><div class="pm-icon">📲</div><div class="pm-label">Airtel Money</div><div class="pm-sub">*185#</div></div>
+        <div class="pay-method" id="pm-card" onclick="selectPayMethod('card')" style="display:none"><div class="pm-icon">💳</div><div class="pm-label">Card</div><div class="pm-sub">Visa · Mastercard</div></div>
+        <div class="pay-method selected" id="pm-momo" onclick="selectPayMethod('momo')"><div class="pm-icon">📱</div><div class="pm-label">MTN MoMo</div><div class="pm-sub">Pay from your phone</div></div>
+        <div class="pay-method" id="pm-airtel" onclick="selectPayMethod('airtel')"><div class="pm-icon">📲</div><div class="pm-label">Airtel Money</div><div class="pm-sub">Pay from your phone</div></div>
         <div class="pay-method" id="pm-cash" onclick="selectPayMethod('cash')"><div class="pm-icon">💵</div><div class="pm-label">Cash on Delivery</div><div class="pm-sub">Pay on arrival</div></div>
-        <div class="pay-method" id="pm-bank" onclick="selectPayMethod('bank')"><div class="pm-icon">🏦</div><div class="pm-label">Bank Transfer</div><div class="pm-sub">Any bank</div></div>
       </div>
 
-      <!-- Bank details form — shown only when bank is selected -->
-      <div id="bankDetailsForm" style="display:none;background:var(--bg3);border:1.5px solid var(--green);border-radius:12px;padding:14px;margin-top:10px">
-        <div style="font-size:0.78rem;font-weight:700;color:var(--green);margin-bottom:10px;text-transform:uppercase;letter-spacing:.04em">Your Bank Details</div>
-        <div style="font-size:0.75rem;color:var(--text2);margin-bottom:10px">Enter the bank account you'll transfer from — the admin will verify and mark your payment.</div>
-        <div style="display:grid;gap:8px">
-          <input id="bankName"    type="text" placeholder="Bank name (e.g. Centenary, DFCU, Equity…)" style="width:100%;padding:9px 12px;background:var(--bg2);border:1px solid var(--border);border-radius:8px;color:var(--text);font-family:inherit;font-size:0.85rem;box-sizing:border-box">
-          <input id="bankAccName" type="text" placeholder="Account holder name" style="width:100%;padding:9px 12px;background:var(--bg2);border:1px solid var(--border);border-radius:8px;color:var(--text);font-family:inherit;font-size:0.85rem;box-sizing:border-box">
-          <input id="bankAccNo"   type="text" placeholder="Account number" inputmode="numeric" style="width:100%;padding:9px 12px;background:var(--bg2);border:1px solid var(--border);border-radius:8px;color:var(--text);font-family:inherit;font-size:0.85rem;box-sizing:border-box">
-        </div>
-        <div style="font-size:0.72rem;color:var(--text2);margin-top:8px">📌 After placing order, transfer the exact amount and use your order ref as the payment reference.</div>
+      <!-- Card: entered on Flutterwave's secure page, never on our own page -->
+      <div id="cardInfoPanel" style="display:none;background:var(--bg3);border:1.5px solid var(--green);border-radius:12px;padding:14px;margin-top:10px;font-size:0.82rem;line-height:1.5">
+        <div style="font-weight:700;color:var(--green);margin-bottom:6px">💳 Pay by card</div>
+        You'll enter your card number, expiry (MM/YY), CVC and name on a <strong>secure Flutterwave page</strong> after you confirm. AgriBridge never sees or stores your card details.
+      </div>
+      <!-- MoMo / Airtel number -->
+      <div id="momoPhonePanel" style="background:var(--bg3);border:1.5px solid var(--green);border-radius:12px;padding:14px;margin-top:10px">
+        <div style="font-size:0.78rem;font-weight:700;color:var(--green);margin-bottom:8px;text-transform:uppercase;letter-spacing:.04em">Mobile money number</div>
+        <input id="payPhone" type="tel" inputmode="tel" placeholder="e.g. 0771 234 567" style="width:100%;padding:9px 12px;background:var(--bg2);border:1px solid var(--border);border-radius:8px;color:var(--text);font-family:inherit;font-size:0.9rem;box-sizing:border-box">
+        <div style="font-size:0.72rem;color:var(--text2);margin-top:6px">You'll get a prompt on this phone to approve the payment with your PIN.</div>
       </div>
 
       <!-- Address & delivery -->
@@ -1914,6 +1914,7 @@ AgriBridge service</div>
           <div style="font-size:0.72rem;color:var(--text2);margin-top:6px">TRACKING CODE</div>
           <div id="trackCodeDisplay" style="color:var(--yellow);font-weight:800"></div>
         </div>
+        <div id="payWaitBox" style="display:none;margin:16px 0 8px;padding:12px;border:1px solid var(--green);border-radius:12px;font-size:0.88rem"></div>
         <div id="paymentInstructions" style="display:none;margin:16px 0 8px;text-align:left"></div>
         <div style="display:flex;gap:10px;justify-content:center;flex-wrap:wrap;margin-top:8px">
           <button class="btn-card" onclick="closeCheckout();showPage('delivery')">Track Delivery 📍</button>
@@ -2808,7 +2809,22 @@ function openCheckout() {
   const m = document.getElementById('checkoutModal');
   if (m) m.classList.add('open');
   document.body.style.overflow = 'hidden';
+  syncPayMethods();
 }
+
+// Back from Flutterwave's hosted page (?pay=done&status=...&tx_ref=...)
+document.addEventListener('DOMContentLoaded', function () {
+  try {
+    const q = new URLSearchParams(location.search);
+    if (q.get('pay') !== 'done') return;
+    const st = (q.get('status') || '').toLowerCase();
+    const ref = (q.get('tx_ref') || '').split('~')[0];
+    history.replaceState(null, '', location.pathname);
+    if (st === 'cancelled' || st === 'failed') { setTimeout(function(){ showToast('Payment was not completed. Your order is saved — you can pay on delivery.'); }, 1200); return; }
+    setTimeout(function(){ showToast('Confirming your payment…'); }, 1200);
+    if (ref) pollPayment(ref, function(){ showToast('✅ Payment received. Thank you!'); }, function(){ showToast('Payment still pending — we will notify you once it clears.'); });
+  } catch (e) {}
+});
 
 function closeCheckout() {
   const m = document.getElementById('checkoutModal');
@@ -2919,13 +2935,38 @@ function selectPickup(el, value) {
 
 function selectPayMethod(method) {
   selectedPayMethod = method;
-  ['momo','airtel','cash','bank'].forEach(m => {
+  ['card','momo','airtel','cash'].forEach(m => {
     const el = document.getElementById('pm-' + m);
     if (el) el.classList.toggle('selected', m === method);
   });
-  // Show bank details form only when bank is selected
-  const bankForm = document.getElementById('bankDetailsForm');
-  if (bankForm) bankForm.style.display = method === 'bank' ? 'block' : 'none';
+  const card = document.getElementById('cardInfoPanel');
+  const phone = document.getElementById('momoPhonePanel');
+  if (card) card.style.display = method === 'card' ? 'block' : 'none';
+  if (phone) phone.style.display = (method === 'momo' || method === 'airtel') ? 'block' : 'none';
+  const pp = document.getElementById('payPhone');
+  if (pp && !pp.value && currentUser && currentUser.phone) pp.value = currentUser.phone;
+}
+// Card only appears once the card gateway is live (so we never show a dead button).
+async function syncPayMethods() {
+  const prov = await getEnabledProviders();
+  const c = document.getElementById('pm-card');
+  if (c) c.style.display = prov.flutterwave ? '' : 'none';
+  if (!prov.flutterwave && selectedPayMethod === 'card') selectPayMethod('momo');
+  else selectPayMethod(selectedPayMethod);
+}
+
+// Ask the server whether a checkout is paid; poll for up to ~2 minutes.
+async function pollPayment(ref, onDone, onTimeout) {
+  for (let i = 0; i < 30; i++) {
+    await new Promise(function(r){ setTimeout(r, 4000); });
+    try {
+      const tok = await refreshAuthToken();
+      const r = await fetch(USSD_API + '/api/pay/status?order_ref=' + encodeURIComponent(ref), { headers: { Authorization: 'Bearer ' + tok } });
+      const j = await r.json().catch(function(){ return {}; });
+      if (j && j.paid) { onDone(); return; }
+    } catch (e) {}
+  }
+  onTimeout();
 }
 
 // Best-effort SMS to the farmer (server sends it once Africa's Talking is live).
@@ -2957,58 +2998,65 @@ function sendReceiptEmail(payload){
   }catch(e){}
 }
 // Start an online payment.
-// Returns { redirect: url } to navigate to, { pushed: true, msg } for USSD push, or null to fall back to manual.
-async function startOnlinePayment(ref, amount, payMethod){
+// Returns { redirect: url } (hosted page), { pushed: true, msg } (prompt sent to phone),
+// { error: msg } (gateway refused), or null to fall back to manual instructions.
+async function startOnlinePayment(ref, amount, payMethod, phone){
   try{
     const prov=await getEnabledProviders();
     if(!prov) return null;
-
-    // Card / Flutterwave redirect
-    if(prov.flutterwave && payMethod==='card'){
+    const tok=await refreshAuthToken();
+    const call=async function(body){
       const r=await fetch(USSD_API+'/api/pay/initiate',{
-        method:'POST', headers:{'Content-Type':'application/json'},
-        body:JSON.stringify({ provider:'flutterwave', order_ref:ref, amount:Math.round(amount||0), email:currentUser?.email||'', phone:currentUser?.phone||'' })
+        method:'POST', headers:{'Content-Type':'application/json','Authorization':'Bearer '+tok},
+        body:JSON.stringify(Object.assign({ order_ref:ref, amount:Math.round(amount||0), email:(currentUser&&currentUser.email)||'', phone:phone||'' }, body))
       });
-      const j=await r.json().catch(function(){return null;});
-      if(j&&j.ok&&j.link) return { redirect: j.link };
+      return r.json().catch(function(){return null;});
+    };
+    if(payMethod==='card'){
+      if(!prov.flutterwave) return null;
+      const j=await call({ provider:'flutterwave' });
+      if(j&&j.ok&&j.link) return { redirect:j.link };
+      return { error:(j&&j.error)||'Could not start card payment' };
     }
-
-    // MTN MoMo — try AT push first, fall back to manual
-    if(payMethod==='momo'){
-      if(prov.momo){
-        const r=await fetch(USSD_API+'/api/pay/initiate',{
-          method:'POST', headers:{'Content-Type':'application/json'},
-          body:JSON.stringify({ provider:'momo', order_ref:ref, amount:Math.round(amount||0), phone:currentUser?.phone||'' })
-        });
-        const j=await r.json().catch(function(){return null;});
-        if(j&&j.ok&&j.mode==='momo_push') return { pushed:true, msg: j.message||'Payment request sent to your phone!' };
+    if(payMethod==='momo'||payMethod==='airtel'){
+      let j=null;
+      if(prov.flutterwave) j=await call({ provider: payMethod==='momo'?'flw_momo_mtn':'flw_momo_airtel' });
+      else if(prov[payMethod]) j=await call({ provider:payMethod });
+      else return null;
+      if(j&&j.ok){
+        if(j.link) return { redirect:j.link };
+        return { pushed:true, msg:j.message||'Payment request sent to your phone!' };
       }
-      return null; // fall back to manual USSD instructions
+      if(j&&j.fallback==='manual') return null;
+      return { error:(j&&j.error)||'Could not start mobile money payment' };
     }
-
-    // Airtel Money — try AT push first, fall back to manual
-    if(payMethod==='airtel'){
-      if(prov.airtel){
-        const r=await fetch(USSD_API+'/api/pay/initiate',{
-          method:'POST', headers:{'Content-Type':'application/json'},
-          body:JSON.stringify({ provider:'airtel', order_ref:ref, amount:Math.round(amount||0), phone:currentUser?.phone||'' })
-        });
-        const j=await r.json().catch(function(){return null;});
-        if(j&&j.ok&&j.mode==='momo_push') return { pushed:true, msg: j.message||'Airtel Money request sent to your phone!' };
-      }
-      return null; // fall back to manual USSD instructions
-    }
-
     return null;
   }catch(e){ return null; }
+}
+async function retryPayment(ref, total) {
+  const waitBox = document.getElementById('payWaitBox');
+  const phone = (document.getElementById('payPhone')?.value || '').trim();
+  if (waitBox) waitBox.innerHTML = 'Retrying…';
+  const res = await startOnlinePayment(ref, total, selectedPayMethod, phone);
+  if (res && res.redirect) { window.location.href = res.redirect; return; }
+  if (res && res.pushed && waitBox) {
+    waitBox.innerHTML = '📱 <strong>' + escHtml(res.msg) + '</strong><br><span style="color:var(--text2)">Waiting for confirmation…</span>';
+    pollPayment(ref, function(){ waitBox.innerHTML = '✅ <strong>Payment received. Thank you!</strong>'; }, function(){ waitBox.innerHTML = '⏳ Still waiting — we will update your order once payment arrives.'; });
+    return;
+  }
+  if (waitBox) waitBox.innerHTML = '⚠️ ' + escHtml((res && res.error) || 'Payment could not be started. You can pay cash on delivery.');
 }
 async function placeOrder() {
   if (!currentUser?.supaId) { showToast('Please log in to place your order 🔐'); closeCheckout && closeCheckout(); setTimeout(()=>openModal('loginModal'),500); return; }
   const addr = document.getElementById('checkoutAddr')?.value.trim();
   if (!addr) { showToast('Please enter your delivery address'); return; }
   const btn = document.querySelector('#checkoutStep1 .btn-primary');
-  if (btn) { btn.textContent = 'Placing order…'; btn.disabled = true; }
   const { total } = getBasketTotals();
+  const payPhone = (document.getElementById('payPhone')?.value || '').trim();
+  if ((selectedPayMethod === 'momo' || selectedPayMethod === 'airtel') && payPhone.replace(/\D/g,'').length < 9) {
+    showToast('Enter the mobile money number to pay from'); return;
+  }
+  if (btn) { btn.textContent = 'Placing order…'; btn.disabled = true; }
   let ref   = 'AB-' + Date.now().toString(36).toUpperCase().slice(-6);
   let track = 'TRK-' + Math.random().toString(36).substr(2,6).toUpperCase();
   const uuidRe = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -3038,11 +3086,6 @@ async function placeOrder() {
         items: orderItems,
         delivery_address: addr,
         payment_method: selectedPayMethod,
-        bank_details: selectedPayMethod === 'bank' ? {
-          bank: (document.getElementById('bankName')?.value || '').trim(),
-          account_name: (document.getElementById('bankAccName')?.value || '').trim(),
-          account_no: (document.getElementById('bankAccNo')?.value || '').trim(),
-        } : undefined,
       })
     });
     const j = await r.json().catch(function(){return {};});
@@ -3064,19 +3107,17 @@ async function placeOrder() {
   sendSmsReceipt(currentUser?.phone, ref, total, 'order');
   // If an online gateway is live and the buyer chose an online method, try to
   // initiate payment. Falls back to manual instructions when no gateway is live.
-  if (selectedPayMethod && !['cash','bank'].includes(selectedPayMethod)) {
-    const payResult = await startOnlinePayment(ref, total, selectedPayMethod);
+  let payPush = null, payError = '';
+  if (selectedPayMethod && selectedPayMethod !== 'cash') {
+    const payResult = await startOnlinePayment(ref, total, selectedPayMethod, payPhone);
     if (payResult && payResult.redirect) {
-      // Card / Flutterwave — redirect to hosted payment page
       basketItems=[]; appliedPromo=null; saveBasket(); updateBasketBadge();
-      showToast('Redirecting to secure payment…');
+      showToast('Opening secure payment…');
       window.location.href = payResult.redirect;
       return;
     }
-    if (payResult && payResult.pushed) {
-      // MoMo/Airtel push sent — show toast and continue to confirmation (manual verify)
-      showToast('📱 ' + (payResult.msg || 'Payment request sent to your phone!'));
-    }
+    if (payResult && payResult.pushed) { payPush = payResult.msg; }
+    if (payResult && payResult.error) { payError = payResult.error; }
     // null = no gateway live, fall through to manual payment instructions below
   }
   if (btn) { btn.textContent = 'Place Order 🛒'; btn.disabled = false; }
@@ -3122,31 +3163,6 @@ async function placeOrder() {
                </ol>
                <div class="pay-ref-note">Use <strong>${ref}</strong> as your payment reference</div>
              </div>`,
-      bank: (() => {
-        const bName    = (document.getElementById('bankName')?.value    || '').trim();
-        const bAccName = (document.getElementById('bankAccName')?.value || '').trim();
-        const bAccNo   = (document.getElementById('bankAccNo')?.value   || '').trim();
-        const buyerRow = bName    ? `<div class="bank-row"><span>Your Bank</span><strong>${escHtml(bName)}</strong></div>` : '';
-        const nameRow  = bAccName ? `<div class="bank-row"><span>Your Account Name</span><strong>${escHtml(bAccName)}</strong></div>` : '';
-        const accRow   = bAccNo   ? `<div class="bank-row"><span>Your Account No.</span><strong class="pay-number">${escHtml(bAccNo)}</strong></div>` : '';
-        return `<div class="pay-instructions">
-               <div class="pay-instr-icon">🏦</div>
-               <div class="pay-instr-title">Bank Transfer</div>
-               <div class="pay-instr-amount">${fmtTotal}</div>
-               ${bName || bAccName || bAccNo ? `<div class="bank-details" style="margin-bottom:10px">
-                 <div style="font-size:0.72rem;font-weight:700;color:var(--text2);text-transform:uppercase;margin-bottom:4px">Your payment details</div>
-                 ${buyerRow}${nameRow}${accRow}
-               </div>` : ''}
-               <div class="bank-details">
-                 <div style="font-size:0.72rem;font-weight:700;color:var(--text2);text-transform:uppercase;margin-bottom:4px">Transfer to AgriBridge</div>
-                 <div class="bank-row"><span>Bank</span><strong>Stanbic Bank Uganda</strong></div>
-                 <div class="bank-row"><span>Account Name</span><strong>AgriBridge Ltd</strong></div>
-                 <div class="bank-row"><span>Account No.</span><strong class="pay-number">9030 0123 45678</strong></div>
-                 <div class="bank-row"><span>Reference</span><strong>${ref}</strong></div>
-               </div>
-               <div class="pay-ref-note">Use order ref <strong>${ref}</strong> as your payment reference · then send slip to <strong>agribrige@gmail.com</strong></div>
-             </div>`;
-      })(),
       cash: `<div class="pay-instructions">
                <div class="pay-instr-icon">💵</div>
                <div class="pay-instr-title">Cash on Delivery</div>
@@ -3156,9 +3172,21 @@ async function placeOrder() {
              </div>`,
     };
     payInstrEl.innerHTML = payHtml[selectedPayMethod] || '';
-    payInstrEl.style.display = payHtml[selectedPayMethod] ? 'block' : 'none';
+    payInstrEl.style.display = (payHtml[selectedPayMethod] && !payPush) ? 'block' : 'none';
   }
-  showToast(`✅ Order placed! ${ref} · SMS confirmation sent`);
+  const waitBox = document.getElementById('payWaitBox');
+  if (waitBox) {
+    if (payPush) {
+      waitBox.style.display = 'block';
+      waitBox.innerHTML = '📱 <strong>' + escHtml(payPush) + '</strong><br><span style="color:var(--text2)">Waiting for confirmation…</span>';
+      pollPayment(ref, function(){ waitBox.innerHTML = '✅ <strong>Payment received. Thank you!</strong>'; showToast('✅ Payment received'); },
+        function(){ waitBox.innerHTML = '⏳ Still waiting. If you approved it, your order will update shortly. If not, <a href="#" onclick="retryPayment(\''+ref+'\','+total+');return false">try again</a>.'; });
+    } else if (payError) {
+      waitBox.style.display = 'block';
+      waitBox.innerHTML = '⚠️ ' + escHtml(payError) + '<br><a href="#" onclick="retryPayment(\''+ref+'\','+total+');return false">Try again</a> or pay cash on delivery.';
+    } else { waitBox.style.display = 'none'; }
+  }
+  showToast(`✅ Order placed! ${ref}`);
   // Pre-fill tracking
   const ti = document.getElementById('trackingInput');
   if (ti) ti.value = track;
@@ -3342,7 +3370,7 @@ function localAIResponse(prompt) {
   if (/log.*in|login|sign in/i.test(p)) return "Tap 'Log In' at the top right. Use your phone number and password. Forgot password? Call +256 755 966 690.";
 
   // ── PAYMENT ─────────────────────────────────────────────
-  if (/mtn|mobile money|momo|payment|pay|airtel money/i.test(p)) return "AgriBridge supports:\n💳 MTN Mobile Money (*165#)\n📲 Airtel Money (*185#)\n💵 Cash on Delivery\n🏦 Bank Transfer (Stanbic/Equity)\n\nAll payments are secure. Farmers receive funds within 24 hours of confirmed delivery.";
+  if (/mtn|mobile money|momo|payment|pay|airtel money/i.test(p)) return "AgriBridge supports:\n💳 MTN Mobile Money (*165#)\n📲 Airtel Money (*185#)\n💵 Cash on Delivery\n💳 Card (Visa/Mastercard)\n\nAll payments are secure. Farmers receive funds within 24 hours of confirmed delivery.";
   if (/delivery|transport|deliver|shipping|delivery fee/i.test(p)) return "AgriBridge delivery: farm pickup → your door. Fee: UGX 5,000 within Kampala. Upcountry rates vary by district. Estimated 1–3 days. GPS tracking on every order. [TRACK_ORDERS]";
 
   // ── WEATHER/SEASON ──────────────────────────────────────
@@ -3766,9 +3794,55 @@ function resetUssd(){ resetUssdState(); updateUssdScreen('Enter *789# to start\n
 async function trackDelivery() {
   const ref=document.getElementById('trackingInput')?.value.trim(); if(!ref){ showToast('Enter a delivery reference'); return; }
   const el=document.getElementById('trackingResult'); el.innerHTML='<div class="loader"><div class="spinner"></div>Tracking…</div>';
-  const data=await sb('deliveries',{ select:'id,status,pickup_location,delivery_location,tracking_code,estimated_arrival,driver_name,driver_phone,created_at', filters:[['tracking_code',`eq.${ref.toUpperCase()}`]], single:true });
-  if(data&&data.id){ el.innerHTML=renderTrackingCard(data, ref); return; }
-  el.innerHTML=`<div style="padding:16px;background:var(--bg3);border-radius:10px;color:var(--text2)">No delivery found for <strong>${escHtml(ref)}</strong>. Try: <b style="color:var(--green)">DEL-2026-001</b> or <b style="color:var(--green)">DEL-2026-002</b>.</div>`;
+  const res=await lookupShipment(ref);
+  if(res.data){ el.innerHTML=renderTrackingCard(res.data, ref); drawRouteMap(res.data); return; }
+  const msg=res.error
+    ? 'We couldn\'t reach the tracker just now. Please try again in a moment.'
+    : 'No order found for <strong>'+escHtml(ref)+'</strong>. Check the code on your order confirmation (it looks like <b style="color:var(--green)">TRK-XXXXXXXXXX</b> or <b style="color:var(--green)">AB-20260101-XXXXXXXX</b>).';
+  el.innerHTML='<div style="padding:16px;background:var(--bg3);border-radius:10px;color:var(--text2)">'+msg+'</div>';
+}
+// Look an order up by tracking code or order ref via the backend (works before a rider is assigned).
+async function lookupShipment(ref){
+  try{
+    const r=await fetch(USSD_API+'/api/track/'+encodeURIComponent(ref.trim()));
+    if(r.status===404||r.status===400) return {data:null};
+    const j=await r.json();
+    return (r.ok&&j&&j.ok)?{data:j}:{data:null,error:true};
+  }catch(e){ return {data:null,error:true}; }
+}
+// ── Static OpenStreetMap route (district centres; no API key, no map library) ──
+const UG_PLACES={kampala:[0.3476,32.5825],wakiso:[0.4,32.46],entebbe:[0.0512,32.4637],mukono:[0.3533,32.7553],jinja:[0.4244,33.2041],mbarara:[-0.6072,30.6545],gulu:[2.7746,32.299],lira:[2.2499,32.8998],mbale:[1.0821,34.1751],masaka:[-0.3136,31.7409],'fort portal':[0.671,30.275],kabale:[-1.249,29.9899],soroti:[1.7147,33.6111],arua:[3.0201,30.911],hoima:[1.4331,31.3524],masindi:[1.6744,31.715],iganga:[0.6092,33.4686],tororo:[0.6928,34.181],kasese:[0.1833,30.0833],luwero:[0.849,32.4731],mityana:[0.417,32.046],mpigi:[0.226,32.314],kayunga:[0.7019,32.8888],busia:[0.4608,34.0907],bushenyi:[-0.5487,30.185],ntungamo:[-0.8794,30.264],rukungiri:[-0.8411,29.941],kisoro:[-1.285,29.685],moroto:[2.534,34.666],kitgum:[3.278,32.887],lyantonde:[-0.4,31.16],kyambogo:[0.3600,32.6330],nakasero:[0.3220,32.5800]};
+function ugPlace(text){
+  const t=String(text||'').toLowerCase();
+  for(const k in UG_PLACES){ if(t.indexOf(k)>-1) return {name:k.replace(/\b\w/g,function(c){return c.toUpperCase();}), ll:UG_PLACES[k], exact:true}; }
+  return {name:'Kampala', ll:UG_PLACES.kampala, exact:false};
+}
+function drawRouteMap(d){
+  const host=document.getElementById('trkMap'); if(!host) return;
+  const A=ugPlace(d.pickup_location), B=ugPlace(d.delivery_location);
+  const W=600,H=260,TS=256;
+  const px=function(ll,z){ const n=Math.pow(2,z)*TS, la=ll[0]*Math.PI/180; return [(ll[1]+180)/360*n,(1-Math.log(Math.tan(la)+1/Math.cos(la))/Math.PI)/2*n]; };
+  let z=12; while(z>6){ const a=px(A.ll,z),b=px(B.ll,z); if(Math.abs(a[0]-b[0])<W*0.6&&Math.abs(a[1]-b[1])<H*0.6) break; z--; }
+  const a=px(A.ll,z), b=px(B.ll,z), cx=(a[0]+b[0])/2, cy=(a[1]+b[1])/2, ox=cx-W/2, oy=cy-H/2;
+  const x0=Math.floor(ox/TS), x1=Math.floor((ox+W)/TS), y0=Math.floor(oy/TS), y1=Math.floor((oy+H)/TS), max=Math.pow(2,z);
+  let tiles='';
+  for(let ty=y0;ty<=y1;ty++) for(let tx=x0;tx<=x1;tx++){
+    if(ty<0||ty>=max) continue; const wx=((tx%max)+max)%max;
+    tiles+='<img alt="" loading="lazy" draggable="false" src="https://tile.openstreetmap.org/'+z+'/'+wx+'/'+ty+'.png" style="position:absolute;left:'+(tx*TS-ox)+'px;top:'+(ty*TS-oy)+'px;width:'+TS+'px;height:'+TS+'px">';
+  }
+  const ax=a[0]-ox, ay=a[1]-oy, bx=b[0]-ox, by=b[1]-oy;
+  const same=(Math.abs(ax-bx)<4&&Math.abs(ay-by)<4);
+  const svg='<svg width="'+W+'" height="'+H+'" style="position:absolute;left:0;top:0">'
+    +(same?'':'<line x1="'+ax+'" y1="'+ay+'" x2="'+bx+'" y2="'+by+'" stroke="#fff" stroke-width="7" stroke-linecap="round" opacity=".85"/><line x1="'+ax+'" y1="'+ay+'" x2="'+bx+'" y2="'+by+'" stroke="#17b25a" stroke-width="4" stroke-dasharray="9 7" stroke-linecap="round"/>')
+    +'<circle cx="'+ax+'" cy="'+ay+'" r="9" fill="#17b25a" stroke="#fff" stroke-width="3"/>'
+    +'<circle cx="'+bx+'" cy="'+by+'" r="9" fill="#e5484d" stroke="#fff" stroke-width="3"/></svg>';
+  host.innerHTML='<div class="trk-map-wrap" style="position:relative;width:100%;overflow:hidden;border-radius:12px;border:1px solid var(--border);aspect-ratio:'+W+'/'+H+'">'
+    +'<div class="trk-map-stage" style="position:absolute;left:0;top:0;width:'+W+'px;height:'+H+'px;transform-origin:0 0">'+tiles+svg+'</div>'
+    +'<div style="position:absolute;right:4px;bottom:3px;font-size:10px;background:rgba(255,255,255,.8);color:#333;padding:1px 5px;border-radius:4px">© <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener" style="color:#333">OpenStreetMap</a> contributors</div></div>'
+    +'<div style="font-size:0.72rem;color:var(--text2);margin-top:6px">🟢 '+escHtml(A.name)+' → 🔴 '+escHtml(B.name)+' · approximate route between district centres'+((A.exact&&B.exact)?'':' (exact area not recognised, showing Kampala)')+'</div>';
+  const wrap=host.querySelector('.trk-map-wrap'), stage=host.querySelector('.trk-map-stage');
+  const fit=function(){ const k=wrap.clientWidth/W; stage.style.transform='scale('+k+')'; };
+  fit(); window.addEventListener('resize',fit);
 }
 // Premium order-tracking card: status stepper + ETA + route + driver/vehicle.
 function renderTrackingCard(d, ref){
@@ -3823,14 +3897,15 @@ function renderTrackingCard(d, ref){
         </div>
       </div>
     </div>
-    <div class="trk-driver">
+    <div id="trkMap" style="margin:12px 0"></div>
+    ${d.rider_assigned===false?'<div style="padding:12px;background:var(--bg3);border-radius:12px;color:var(--text2);font-size:0.85rem">🚚 A rider hasn\'t been assigned yet. We\'ll update this as soon as your order is on the way.</div>':`<div class="trk-driver">
       <div class="trk-driver-av">${escHtml(initials||'🚚')}</div>
       <div class="trk-driver-info">
         <div class="trk-driver-name">${escHtml(driver)}</div>
-        <div class="trk-driver-meta">${escHtml(vehicle)}</div>
+        <div class="trk-driver-meta">${escHtml(d.driver_name?'Your AgriBridge rider':vehicle)}</div>
       </div>
-      <a class="trk-call" href="tel:${escHtml(driverPhone.replace(/\s+/g,''))}" aria-label="Call driver">📞</a>
-    </div>
+      ${d.driver_phone?`<a class="trk-call" href="tel:${escHtml(String(d.driver_phone).replace(/\s+/g,''))}" aria-label="Call driver">📞</a>`:''}
+    </div>`}
   </div>`;
 }
 // Track an order right inside the dashboard (no jump to the Delivery page).
@@ -3840,8 +3915,9 @@ async function trackInDashboard(code){
   if(c.getAttribute('data-code')===code){ c.innerHTML=''; c.removeAttribute('data-code'); return; }
   c.setAttribute('data-code',code);
   c.innerHTML='<div class="loader"><div class="spinner"></div>Tracking…</div>';
-  var data=await sb('deliveries',{ select:'id,status,pickup_location,delivery_location,tracking_code,estimated_arrival,driver_name,driver_phone,created_at', filters:[['tracking_code','eq.'+code.toUpperCase()]], single:true });
-  c.innerHTML=(data&&data.id)?renderTrackingCard(data,code):'<div style="padding:14px;background:var(--bg3);border-radius:12px;color:var(--text2);margin-top:8px">🚚 A rider hasn\'t been assigned yet. We\'ll update this as soon as your order is on the way.</div>';
+  var res=await lookupShipment(code);
+  c.innerHTML=res.data?renderTrackingCard(res.data,code):'<div style="padding:14px;background:var(--bg3);border-radius:12px;color:var(--text2);margin-top:8px">'+(res.error?'Couldn\'t reach the tracker. Try again in a moment.':'No order found for this code.')+'</div>';
+  if(res.data) drawRouteMap(res.data);
   c.scrollIntoView({behavior:'smooth',block:'nearest'});
 }
 async function loadAlerts() {
@@ -4062,7 +4138,7 @@ async function submitOrder() {
     notifyFarmer(listing?.farmer_id, listing?.crop_name, qty);
     sendReceiptEmail({ type:'booking', email:currentUser?.email, name:currentUser?.name, ref, total, tracking:track, items:[{name:listing?.crop_name||'Order', qty, price:listing?.price_per_kg||0}] });
     sendSmsReceipt(currentUser?.phone, ref, total, 'order');
-    if(pay && pay!=='cash'){ const link=await startOnlinePayment(ref, total); if(link){ closeModal('orderModal'); showToast('Redirecting to secure payment…'); window.location.href=link; return; } }
+    if(pay && pay!=='cash'){ const pr=await startOnlinePayment(ref, total, pay, currentUser&&currentUser.phone); if(pr&&pr.redirect){ closeModal('orderModal'); showToast('Opening secure payment…'); window.location.href=pr.redirect; return; } if(pr&&pr.error){ showToast('⚠️ '+pr.error+' — order saved, pay on delivery'); } }
     closeModal('orderModal'); showToast('Order placed! Track: '+track+' ✅ Farmer will confirm');
   } catch(e) {
     showToast((e.message)||'Order failed — please try again');
@@ -4570,6 +4646,7 @@ async function _pollNotifBadge(){
     _notifyIfNew(unread, (data.notifications||[])[0]);
   } catch(e){}
 }
+
 function acceptCookies(){ localStorage.setItem('ab_cookies','1'); const b=document.getElementById('cookieBanner'); if(b) b.style.display='none'; }
 function checkCookieBanner(){ if(!localStorage.getItem('ab_cookies')) setTimeout(()=>{ const b=document.getElementById('cookieBanner'); if(b) b.style.display='flex'; },3000); }
 function toggleFaq(qEl){ const aEl=qEl.nextElementSibling; const isOpen=aEl.classList.contains('open'); document.querySelectorAll('.faq-a.open').forEach(a=>{ a.classList.remove('open'); a.previousElementSibling?.classList.remove('open'); }); if(!isOpen){ aEl.classList.add('open'); qEl.classList.add('open'); } }
@@ -4948,6 +5025,10 @@ async function _notifyIfNew(unread, latest){
   }
   _lastUnread=unread;
 }
+// Check for new notifications as soon as the app comes back to the foreground.
+document.addEventListener('visibilitychange', function(){
+  if (!document.hidden && currentUser) _pollNotifBadge();
+});
 
 // ─────────────────────────────────────────────────────────────────
 // INIT — called on DOM ready
@@ -4984,6 +5065,10 @@ document.addEventListener('DOMContentLoaded', () => {
     const bell=document.getElementById('notifBell');
     if(panel.classList.contains('open')&&!panel.contains(e.target)&&!bell?.contains(e.target)) panel.classList.remove('open');
   });
+  // Opened from a notification while the app was closed: show the bell panel.
+  if (new URLSearchParams(location.search).get('notif') === '1') {
+    setTimeout(() => { if (currentUser) toggleNotifPanel(); }, 2200);
+  }
   // First-time welcome
   if (!localStorage.getItem('ab_visited')) {
     setTimeout(() => { showToast('🌱 Welcome to AgriBridge! Browse fresh produce or dial *789# on any phone.'); localStorage.setItem('ab_visited','1'); }, 1800);
@@ -5972,6 +6057,8 @@ function updateNavUser(nameOrUser, role) {
     name = nameOrUser.name || (nameOrUser.email ? nameOrUser.email.split('@')[0] : 'Farmer');
     role = nameOrUser.role || 'farmer';
   }
+  // Lets CSS show the bell on phones only while someone is logged in.
+  document.body.classList.toggle('ab-in', !!name);
   if (name) {
     var init = name.charAt(0).toUpperCase();
     var first = name.split(' ')[0];
@@ -6204,17 +6291,98 @@ async function resendConfirmEmail(){
 }
 
 // ── Finance / Cold Chain / Export helpers ─────────────
-function openFinanceModal(type){
-  var titles={inputs:'🌱 Seeds & Fertilizer Loan',advance:'📦 Harvest Advance'};
-  var bodies={
-    inputs:'<div class="form-group"><label>What inputs do you need?</label><select><option>Seeds</option><option>Fertilizer</option><option>Pesticides</option><option>Animal vaccines</option></select></div><div class="form-group"><label>Amount (UGX)</label><input type="number" placeholder="e.g. 500000"></div><div class="form-group"><label>Repayment date</label><input type="date"></div><p style="font-size:0.82rem;color:var(--text2);margin-top:8px">Your credit score: <strong style="color:var(--green)">72/100</strong> — Eligible ✅</p>',
-    advance:'<div class="form-group"><label>Listing name or ID</label><input placeholder="e.g. Maize - 500kg"></div><div class="form-group"><label>Expected harvest date</label><input type="date"></div><div class="form-group"><label>Advance amount (UGX)</label><input type="number" placeholder="Max 30% of order value"></div>'
-  };
-  var t=document.getElementById('financeModalTitle'),b=document.getElementById('financeModalBody');
-  if(t)t.textContent=titles[type]||'Finance'; if(b)b.innerHTML=bodies[type]||'';
-  openModal('financeModal');
+// ── Service requests: cold storage, refrigerated transport, loans ──────────
+// These are saved on the server (service_requests table) so the admin console can
+// list and follow up every one. Nothing is claimed as sent unless the save worked.
+var _svcState = null;
+var SVC_FORMS = {
+  cold_storage: { kind:'cold_storage', title:'📅 Book Cold Storage',
+    ok:'Booking request sent. The facility will confirm by SMS within 2 hours.',
+    fields:[
+      {k:'product', label:'What are you storing?', ph:'e.g. Tomatoes'},
+      {k:'pallets', label:'Number of pallets', t:'number', ph:'e.g. 10'},
+      {k:'start_date', label:'Start date', t:'date'},
+      {k:'days', label:'How many days?', t:'number', ph:'e.g. 7'}
+    ] },
+  refrigerated_transport: { kind:'refrigerated_transport', title:'🚛 Book Refrigerated Transport',
+    ok:'Request sent. The driver will call you within 30 minutes.',
+    fields:[
+      {k:'pickup', label:'Pickup location', ph:'e.g. Mbarara town'},
+      {k:'destination', label:'Delivery location', ph:'e.g. Nakasero Market, Kampala'},
+      {k:'cargo', label:'What are you moving?', ph:'e.g. Matooke'},
+      {k:'weight_tonnes', label:'Weight (tonnes)', t:'number', ph:'e.g. 3'},
+      {k:'pickup_date', label:'Pickup date', t:'date'}
+    ] },
+  loan_inputs: { kind:'loan', provider:'Seeds & Fertilizer Loan', title:'🌱 Seeds & Fertilizer Loan',
+    ok:'Application received. Emata will call you within 24 hours.',
+    fields:[
+      {k:'input_type', label:'What inputs do you need?', t:'select', opts:['Seeds','Fertilizer','Pesticides','Animal vaccines']},
+      {k:'amount', label:'Amount (UGX)', t:'number', ph:'e.g. 500000', amount:true},
+      {k:'repayment_date', label:'Repayment date', t:'date'}
+    ] },
+  loan_advance: { kind:'loan', provider:'Harvest Advance', title:'📦 Harvest Advance',
+    ok:'Application received. Emata will call you within 24 hours.',
+    fields:[
+      {k:'listing', label:'Listing name or ID', ph:'e.g. Maize - 500kg'},
+      {k:'harvest_date', label:'Expected harvest date', t:'date'},
+      {k:'amount', label:'Advance amount (UGX)', t:'number', ph:'Max 30% of order value', amount:true}
+    ] }
+};
+function _svcAttr(v){ return String(v==null?'':v).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;'); }
+function openServiceRequest(formKey, provider){
+  var cfg=SVC_FORMS[formKey]; if(!cfg) return;
+  if(!currentUser){ showToast('Please log in first to send this request'); openModal('loginModal'); return; }
+  _svcState={ formKey:formKey, provider:provider||cfg.provider||'' };
+  document.getElementById('svcReqTitle').textContent=cfg.title;
+  document.getElementById('svcReqSub').textContent=(provider&&cfg.provider!==provider)?('For: '+provider):'';
+  var today=new Date().toISOString().slice(0,10);
+  var html=cfg.fields.map(function(f){
+    var id='svc_'+f.k, lab='<label for="'+id+'">'+_svcAttr(f.label)+'</label>';
+    if(f.t==='select') return '<div class="form-group">'+lab+'<select id="'+id+'">'+f.opts.map(function(o){ return '<option>'+_svcAttr(o)+'</option>'; }).join('')+'</select></div>';
+    return '<div class="form-group">'+lab+'<input id="'+id+'" type="'+(f.t||'text')+'"'+
+      (f.t==='number'?' min="0" inputmode="decimal"':'')+(f.t==='date'?' min="'+today+'"':'')+
+      ' placeholder="'+_svcAttr(f.ph||'')+'"></div>';
+  }).join('');
+  html+='<div class="form-group"><label for="svc_name">Your name</label><input id="svc_name" type="text" maxlength="80" value="'+_svcAttr(currentUser.name)+'"></div>'+
+        '<div class="form-group"><label for="svc_phone">Phone number</label><input id="svc_phone" type="tel" placeholder="e.g. 0771 234 567" value="'+_svcAttr(currentUser.phone)+'"></div>'+
+        '<div class="form-group"><label for="svc_notes">Notes (optional)</label><input id="svc_notes" type="text" maxlength="300"></div>';
+  document.getElementById('svcReqBody').innerHTML=html;
+  document.getElementById('svcReqErr').textContent='';
+  openModal('svcReqModal');
 }
-function submitFinanceRequest(){showToast('✅ Application submitted! Emata will call you within 24 hours.');closeModal('financeModal');}
+async function submitServiceRequest(){
+  if(!_svcState) return;
+  var cfg=SVC_FORMS[_svcState.formKey], errEl=document.getElementById('svcReqErr'), btn=document.getElementById('svcReqSubmit');
+  errEl.textContent='';
+  var details={}, amount=null;
+  for(var i=0;i<cfg.fields.length;i++){
+    var f=cfg.fields[i], el=document.getElementById('svc_'+f.k), v=((el&&el.value)||'').trim();
+    if(!v){ errEl.textContent='Please fill in: '+f.label; if(el) el.focus(); return; }
+    if(f.t==='number'){
+      var n=Number(v);
+      if(!(n>0)){ errEl.textContent=f.label+' must be more than 0'; if(el) el.focus(); return; }
+      details[f.k]=n; if(f.amount) amount=n;
+    } else details[f.k]=v;
+  }
+  var notes=((document.getElementById('svc_notes')||{}).value||'').trim(); if(notes) details.notes=notes;
+  var name=((document.getElementById('svc_name')||{}).value||'').trim();
+  var phone=((document.getElementById('svc_phone')||{}).value||'').trim();
+  if(!name){ errEl.textContent='Please enter your name'; return; }
+  if(phone.replace(/\D/g,'').length<9){ errEl.textContent='Please enter a valid phone number'; return; }
+  var tok=_authToken||(await refreshAuthToken());
+  if(!tok){ errEl.textContent='Your session expired. Please log in again.'; return; }
+  var label=btn.textContent; btn.disabled=true; btn.textContent='Sending…';
+  try{
+    var r=await fetch(USSD_API+'/api/service-requests',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+tok},
+      body:JSON.stringify({kind:cfg.kind,provider_name:_svcState.provider,requester_name:name,requester_phone:phone,amount_ugx:amount,details:details})});
+    var j=await r.json().catch(function(){ return null; });
+    if(r.ok&&j&&j.ok){ closeModal('svcReqModal'); _svcState=null; showToast('✅ '+cfg.ok+' (Ref '+j.ref+')'); }
+    else errEl.textContent=(j&&j.error)||'Could not send your request. Please try again.';
+  }catch(e){ errEl.textContent='No connection. Please check your internet and try again.'; }
+  btn.disabled=false; btn.textContent=label;
+}
+function openFinanceModal(type){ openServiceRequest(type==='advance'?'loan_advance':'loan_inputs'); }
+function submitFinanceRequest(){ submitServiceRequest(); }
 function submitDispute(){
   var ref=(document.getElementById('disputeOrderRef')||{}).value||'';
   if(!ref){showToast('Please enter your order reference');return;}
@@ -6247,14 +6415,8 @@ function createSACCO(){
   closeModal('saccoModal');
 }
 
-function bookStorage(btn) {
-  var name = btn ? (btn.getAttribute('data-name')||'this facility') : 'facility';
-  showToast('Booking sent to ' + name + '. Confirmation via SMS within 2 hours.');
-}
-function bookTransport(btn) {
-  var name = btn ? (btn.getAttribute('data-name')||'transport') : 'transport';
-  showToast('Connecting you to ' + name + '. Driver will call within 30 minutes.');
-}
+function bookStorage(btn) { openServiceRequest('cold_storage', btn ? (btn.getAttribute('data-nm')||'') : ''); }
+function bookTransport(btn) { openServiceRequest('refrigerated_transport', btn ? (btn.getAttribute('data-nm')||'') : ''); }
 
 function applyPhyto(){showToast('📜 ePhyto application started. MAAIF inspector visits within 3 days.');}
 function checkOrigin(){showToast('✅ Enter your crop and destination country to check AfCFTA duty rate.');}
@@ -6823,7 +6985,7 @@ document.addEventListener('DOMContentLoaded', function() {
 <div id="offlineBanner" style="display:none;position:fixed;top:0;left:0;right:0;z-index:9999;background:#b71c1c;color:#fff;text-align:center;padding:8px;font-size:0.85rem">📡 You are offline — some features unavailable</div>
 
 <!-- ══ NOTIFICATION PANEL ══════════════════════════════════ -->
-<div class="notif-panel" id="notifPanel" style="position:fixed;top:60px;right:0;width:320px;max-height:70vh;overflow-y:auto;background:var(--bg2);border:1px solid var(--border);border-radius:0 0 0 14px;z-index:400;display:none">
+<div class="notif-panel" id="notifPanel" style="position:fixed;top:60px;right:0;width:min(340px,100vw);max-height:70vh;overflow-y:auto;background:var(--bg2);border:1px solid var(--border);border-radius:0 0 0 14px;z-index:400;display:none">
   <div style="padding:12px 16px;border-bottom:1px solid var(--border);font-weight:700;font-size:0.9rem;display:flex;justify-content:space-between;align-items:center">
     <span>🔔 Notifications</span>
     <div style="display:flex;gap:8px;align-items:center">
@@ -7131,6 +7293,18 @@ document.addEventListener('DOMContentLoaded', function() {
   </div>
 </div>
 
+<!-- ══ SERVICE REQUEST MODAL (cold storage / refrigerated transport / loans) ══ -->
+<div class="modal-overlay" id="svcReqModal" onclick="handleOverlay(event,'svcReqModal')" role="dialog" aria-modal="true" aria-labelledby="svcReqTitle">
+  <div class="modal-box">
+    <button class="modal-close" onclick="closeModal('svcReqModal')" aria-label="Close">✕</button>
+    <h3 id="svcReqTitle">Request</h3>
+    <div id="svcReqSub" style="font-size:0.82rem;color:var(--text2);margin-bottom:10px"></div>
+    <div id="svcReqBody"></div>
+    <div id="svcReqErr" role="alert" style="color:#f44336;font-size:0.82rem;min-height:1.1em;margin-top:6px"></div>
+    <button class="btn-submit" id="svcReqSubmit" onclick="submitServiceRequest()">Send request 📤</button>
+  </div>
+</div>
+
 <!-- ══ INSURANCE MODAL ════════════════════════════════════════ -->
 <div class="modal-overlay" id="insuranceModal" onclick="handleOverlay(event,'insuranceModal')" role="dialog">
   <div class="modal-box">
@@ -7211,7 +7385,7 @@ document.addEventListener('DOMContentLoaded', function() {
     </div>
     <div style="background:linear-gradient(135deg,#3a1a00,#2a1000);border:1px solid var(--amber);border-radius:12px;padding:14px 16px;display:flex;gap:12px;align-items:flex-start;margin-bottom:16px">
       <span style="font-size:1.6rem">⚠️</span>
-      <div><div style="font-weight:700;font-size:0.9rem;color:var(--amber);margin-bottom:4px">Spoilage Risk Alert</div><div style="font-size:0.83rem;color:var(--text2)">Book cold storage to prevent losses. <a href="#" onclick="showToast('Opening storage booking...');" style="color:var(--amber)">Book now →</a></div></div>
+      <div><div style="font-weight:700;font-size:0.9rem;color:var(--amber);margin-bottom:4px">Spoilage Risk Alert</div><div style="font-size:0.83rem;color:var(--text2)">Book cold storage to prevent losses. <a href="#" onclick="var l=document.getElementById('coldStorageList');if(l)l.scrollIntoView({behavior:'smooth'});showToast('Pick a facility below and tap Book Storage');return false;" style="color:var(--amber)">Book now →</a></div></div>
     </div>
     <div class="section-title" style="margin-bottom:16px">🧊 Cold <span>Storage Facilities</span></div>
     <div class="cards-grid" id="coldStorageList"></div>

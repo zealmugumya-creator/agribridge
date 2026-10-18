@@ -77,6 +77,10 @@ class DiscordNotifier:
         "server":    "DISCORD_WEBHOOK_ERRORS",
         "price":     "DISCORD_WEBHOOK_ERRORS",
         "ai":        "DISCORD_WEBHOOK_ERRORS",    # AI queries → errors/monitoring channel
+        "service_request": "DISCORD_WEBHOOK_REQUESTS",  # cold storage / transport / loans
+        "request":   "DISCORD_WEBHOOK_REQUESTS",
+        "support":   "DISCORD_WEBHOOK_SUPPORT",   # contact, privacy, deletion, disease reports
+        "safety":    "DISCORD_WEBHOOK_SUPPORT",   # fraud flags, role/device changes
     }
 
     def __init__(self, webhook_url: str, dead_letter: Callable[[DiscordMessage, str], None] | None = None):
