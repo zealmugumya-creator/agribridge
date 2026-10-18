@@ -275,7 +275,7 @@ def _discord_notify(event_type: str, title: str, description: str,
             # strip markdown bold markers for the key
             if ':' in line:
                 k, _, v = line.partition(':')
-                fields[k.replace('**', '').strip()] = v.strip()
+                fields[k.replace('**', '').strip()] = v.lstrip('*').strip()   # "**Key:** value" leaves "** value"
             else:
                 fields[line] = ''
         msg = DiscordMessage(
@@ -1607,6 +1607,150 @@ def admin_row():
 def get_prices():
     data = supa_get('price_data', {'order': 'updated_at.desc'}, limit=50)
     return jsonify(data or [])
+
+# ══════════════════════════════════════════════════════════════════════════════
+# LIVE MARKET BOARD
+# What farmers are asking for on AgriBridge right now (from available listings),
+# next to the latest market reference price an admin entered, plus a real change %
+# against the price ~24h ago (from market_price_history snapshots, migration 0011).
+# ══════════════════════════════════════════════════════════════════════════════
+_LIVE_CACHE = {'t': 0.0, 'data': None}
+_LIVE_TTL = 10            # seconds: many viewers share one computation
+_SNAP_EVERY = 600         # seconds between history snapshots
+_SPIKE_PCT = 20.0         # Discord alert when a crop moves this much vs yesterday
+_SPIKE_QUIET = 6 * 3600   # ...at most once per crop per 6h
+_last_spike_alert = {}
+
+
+def _norm_crop(name):
+    return re.sub(r'\s+', ' ', str(name or '').strip().lower())
+
+
+def _num(v):
+    try:
+        f = float(v)
+        return f if f == f and f > 0 else None
+    except (TypeError, ValueError):
+        return None
+
+
+def _median(vals):
+    s = sorted(vals)
+    n = len(s)
+    return s[n // 2] if n % 2 else (s[n // 2 - 1] + s[n // 2]) / 2
+
+
+def _stats(prices):
+    return {'avg': round(sum(prices) / len(prices)), 'median': round(_median(prices)),
+            'low': round(min(prices)), 'high': round(max(prices)), 'sellers': len(prices)}
+
+
+def _parse_ts(v):
+    try:
+        return datetime.datetime.fromisoformat(str(v).replace('Z', '+00:00'))
+    except (TypeError, ValueError):
+        return None
+
+
+def _build_live_board():
+    now = datetime.datetime.now(datetime.timezone.utc)
+    listings = supa_get('listings', {'is_available': 'eq.true',
+                                     'select': 'crop_name,price_per_kg,quantity_kg,district'}, limit=2000) or []
+    refs = supa_get('market_prices', {'order': 'price_date.desc'}, limit=300) or supa_get('market_prices', None, limit=300) or []
+
+    crops = {}
+    for l in listings:
+        key = _norm_crop(l.get('crop_name'))
+        price = _num(l.get('price_per_kg'))
+        if not key or price is None:
+            continue
+        c = crops.setdefault(key, {'name': str(l.get('crop_name')).strip().title(), 'prices': [], 'qty': 0.0, 'districts': {}})
+        c['prices'].append(price)
+        c['qty'] += _num(l.get('quantity_kg')) or 0
+        d = str(l.get('district') or '').strip().title()
+        if d:
+            c['districts'].setdefault(d, []).append(price)
+
+    ref_by_crop = {}
+    for r in refs:                       # newest first: first row per crop wins
+        key = _norm_crop(r.get('crop_name'))
+        price = _num(r.get('price_per_kg')) or _num(r.get('price'))
+        if key and price is not None and key not in ref_by_crop:
+            ref_by_crop[key] = {'price': round(price), 'market': r.get('market') or r.get('district') or '',
+                                'name': str(r.get('crop_name')).strip().title()}
+
+    since = (now - datetime.timedelta(hours=26)).isoformat()
+    hist = supa_get('market_price_history', {'district': 'is.null', 'captured_at': f'gte.{since}',
+                                             'select': 'crop,avg_price,captured_at', 'order': 'captured_at.asc'},
+                    limit=5000) or []
+    snaps = {}
+    newest = None
+    for h in hist:
+        ts, p = _parse_ts(h.get('captured_at')), _num(h.get('avg_price'))
+        if ts is None or p is None:
+            continue
+        snaps.setdefault(h.get('crop'), []).append((ts, p))
+        newest = ts if newest is None or ts > newest else newest
+
+    rows = []
+    for key in sorted(set(crops) | set(ref_by_crop)):
+        c, ref = crops.get(key), ref_by_crop.get(key)
+        row = {'crop': (c or ref)['name'], 'ref_price': ref['price'] if ref else None,
+               'ref_market': ref['market'] if ref else '', 'sellers': 0, 'avg': None, 'median': None,
+               'low': None, 'high': None, 'qty_kg': 0, 'change_pct': None, 'change_basis': None, 'districts': {}}
+        if c:
+            row.update(_stats(c['prices']))
+            row['qty_kg'] = round(c['qty'])
+            row['districts'] = {d: _stats(p) for d, p in c['districts'].items()}
+            series = snaps.get(key) or []
+            day_ago = now - datetime.timedelta(hours=24)
+            older = [s for s in series if s[0] <= day_ago]
+            base, basis = (older[-1], '24h') if older else (None, None)
+            if base is None:
+                aged = [s for s in series if s[0] <= now - datetime.timedelta(minutes=30)]
+                base, basis = (aged[0], 'since_start') if aged else (None, None)
+            if base:
+                row['change_pct'] = round((row['avg'] - base[1]) / base[1] * 100, 1)
+                row['change_basis'] = basis
+        rows.append(row)
+
+    # Snapshot ~every 10 min (DB-based so restarts and several workers don't pile up rows).
+    if rows and (newest is None or (now - newest).total_seconds() >= _SNAP_EVERY):
+        batch = [{'crop': _norm_crop(r['crop']), 'district': None, 'avg_price': r['avg'], 'min_price': r['low'],
+                  'max_price': r['high'], 'sellers': r['sellers'], 'total_qty_kg': r['qty_kg']}
+                 for r in rows if r['avg']]
+        if batch:
+            supa_insert('market_price_history', batch)
+
+    for r in rows:   # big moves go to Discord (price.* -> the errors/monitoring channel)
+        if r['change_basis'] == '24h' and r['sellers'] >= 2 and abs(r['change_pct'] or 0) >= _SPIKE_PCT:
+            k = _norm_crop(r['crop'])
+            if _time.time() - _last_spike_alert.get(k, 0) > _SPIKE_QUIET:
+                _last_spike_alert[k] = _time.time()
+                _discord_notify(
+                    event_type='price.spike', title=f"📈 {r['crop']} price moved {r['change_pct']:+.1f}% in 24h",
+                    description=f"**Crop:** {r['crop']}\n**Average now:** UGX {r['avg']:,}/kg\n**Sellers:** {r['sellers']}\n"
+                                f"**Range:** {r['low']:,} to {r['high']:,}",
+                    severity='warning')
+    return {'ok': True, 'updated_at': now.isoformat(), 'rows': rows}
+
+
+@app.route('/api/market/live', methods=['GET'])
+@rate_limit(max_req=90, window=60)
+def market_live():
+    """Public: live price board built from farmers' asking prices on the platform."""
+    if _LIVE_CACHE['data'] is None or _time.time() - _LIVE_CACHE['t'] > _LIVE_TTL:
+        try:
+            _LIVE_CACHE['data'] = _build_live_board()
+            _LIVE_CACHE['t'] = _time.time()
+        except Exception as e:
+            log.warning("market_live.failed", error=str(e))
+            if _LIVE_CACHE['data'] is None:
+                return jsonify({'ok': False, 'error': 'prices unavailable'}), 503
+    resp = jsonify(_LIVE_CACHE['data'])
+    resp.headers['Cache-Control'] = 'no-store'
+    return resp, 200
+
 
 # ══════════════════════════════════════════════════════════════════════════════
 # AI CROP DOCTOR
