@@ -391,6 +391,26 @@ img{max-width:100%}
 .modal-overlay.open{display:flex;animation:fadeIn 0.25s ease}
 .modal-box{background:var(--bg2);border:1px solid var(--border);border-radius:16px;padding:24px;width:100%;max-width:440px;max-height:90vh;overflow-y:auto;position:relative}
 .modal-close{position:absolute;top:16px;right:16px;background:none;border:none;color:var(--text2);font-size:1.3rem;cursor:pointer;line-height:1}
+.st-top{display:flex;align-items:center;gap:6px;margin:0 36px 14px 0}
+.st-top h3{margin:0;font-size:1.15rem}
+.st-back{display:none;background:none;border:none;color:var(--green);font-size:1.8rem;line-height:1;cursor:pointer;padding:0 8px 2px 0}
+.st-head{text-align:center;padding:2px 0 16px}
+.st-av{width:84px;height:84px;border-radius:50%;object-fit:cover;margin:0 auto 10px;display:flex;align-items:center;justify-content:center;background:var(--green-dim);color:var(--green);font-size:2.2rem;font-weight:700;cursor:pointer}
+.st-name{font-size:1.2rem;font-weight:700}
+.st-sub{font-size:0.84rem;color:var(--text2);margin-top:2px}
+.st-group{background:var(--bg3);border-radius:14px;margin-bottom:12px;overflow:hidden}
+.st-row{display:flex;align-items:center;gap:14px;width:100%;padding:12px 14px;background:none;border:none;border-bottom:1px solid var(--border);color:var(--text);text-align:left;cursor:pointer;font:inherit;text-decoration:none;box-sizing:border-box}
+.st-row:last-child{border-bottom:none}
+.st-row:active{background:var(--green-dim)}
+.st-ico{width:34px;height:34px;border-radius:9px;display:flex;align-items:center;justify-content:center;font-size:1.05rem;flex:none}
+.st-txt{min-width:0}
+.st-txt b{display:block;font-size:0.95rem;font-weight:600}
+.st-txt small{display:block;color:var(--text2);font-size:0.76rem;margin-top:1px}
+.st-chev{margin-left:auto;color:var(--text2);font-size:1.3rem;flex:none}
+.st-row.danger b{color:#ff6b6b}
+.st-panel{background:var(--bg3);border-radius:14px;padding:14px;margin-bottom:12px}
+.st-label{font-size:0.78rem;color:var(--text2);margin:2px 0 8px;display:block}
+.st-input{width:100%;padding:11px;border:1px solid var(--border);border-radius:10px;background:var(--card);color:var(--text);margin-bottom:10px;font-size:0.92rem;box-sizing:border-box}
 
 /* ── FORMS ── */
 .form-group{margin-bottom:14px}
@@ -4554,58 +4574,184 @@ function acceptCookies(){ localStorage.setItem('ab_cookies','1'); const b=docume
 function checkCookieBanner(){ if(!localStorage.getItem('ab_cookies')) setTimeout(()=>{ const b=document.getElementById('cookieBanner'); if(b) b.style.display='flex'; },3000); }
 function toggleFaq(qEl){ const aEl=qEl.nextElementSibling; const isOpen=aEl.classList.contains('open'); document.querySelectorAll('.faq-a.open').forEach(a=>{ a.classList.remove('open'); a.previousElementSibling?.classList.remove('open'); }); if(!isOpen){ aEl.classList.add('open'); qEl.classList.add('open'); } }
 function setLang(code){ localStorage.setItem('ab_lang',code); const langBtn=document.getElementById('langPickerBtn'); if(langBtn) langBtn.textContent={en:'🇬🇧 EN',lg:'🇺🇬 LG',rn:'🇺🇬 RN',ac:'🇺🇬 AC'}[code]||'🌐'; closeModal('langModal'); showToast('Language updated ✓'); }
-// ── Settings hub (language + profile + selling actions) ──────────
-function openSettings(){
+// ── Settings hub (Telegram-style: home menu + one screen per section) ──────────
+var _setScreen='home';
+var _LANGS=[['en','🇬🇧 English'],['lg','🇺🇬 Luganda'],['rn','🌄 Runyankole'],['ac','🌾 Acholi/Luo']];
+var _ROLE_LABELS={farmer:'🌾 Farmer (I sell produce)',vendor:'🛒 Buyer (I buy produce)',hotel:'🏨 Hotel / Restaurant (B2B)',supplier:'🏪 Supplier (I sell farm inputs)'};
+var _ROLE_SHORT={farmer:'Farmer',vendor:'Buyer',hotel:'Hotel / Restaurant',supplier:'Supplier',guest:'Guest'};
+var _SCREEN_TITLES={account:'Account',notifications:'Notifications',language:'Language',privacy:'Privacy & legal',help:'Help & support'};
+
+// Opens Settings on the home menu (the gear button).
+function openSettings(){ _setScreen='home'; renderSettings(); openModal('settingsModal'); }
+// Move between screens inside the modal.
+function settingsGo(screen){ _setScreen=screen||'home'; renderSettings(); var m=document.querySelector('#settingsModal .modal-box'); if(m) m.scrollTop=0; }
+
+function _stRow(icon,bg,title,sub,onclick,extra){
+  return '<button class="st-row'+(extra||'')+'" onclick="'+onclick+'"><span class="st-ico" style="background:'+bg+'">'+icon+'</span>'+
+    '<span class="st-txt"><b>'+title+'</b>'+(sub?'<small>'+sub+'</small>':'')+'</span><span class="st-chev">›</span></button>';
+}
+function _stLink(icon,bg,title,sub,href,newTab){
+  return '<a class="st-row" href="'+href+'"'+(newTab?' target="_blank" rel="noopener"':'')+'><span class="st-ico" style="background:'+bg+'">'+icon+'</span>'+
+    '<span class="st-txt"><b>'+title+'</b>'+(sub?'<small>'+sub+'</small>':'')+'</span><span class="st-chev">›</span></a>';
+}
+function _stAvatar(size){
+  var u=currentUser||{};
+  return u.avatar_url
+    ? '<img class="st-av" style="width:'+size+'px;height:'+size+'px" src="'+escHtml(u.avatar_url)+'" alt="">'
+    : '<div class="st-av" style="width:'+size+'px;height:'+size+'px">'+escHtml((u.name||'U').charAt(0).toUpperCase())+'</div>';
+}
+
+function renderSettings(){
   var b=document.getElementById('settingsBody'); if(!b) return;
+  var screen=_setScreen;
+  if(screen!=='home' && !currentUser && screen!=='language' && screen!=='help') screen=_setScreen='home';
+  var back=document.getElementById('settingsBack'), title=document.getElementById('settingsTitle');
+  if(back) back.style.display=screen==='home'?'none':'block';
+  if(title) title.textContent=screen==='home'?'⚙️ Settings':(_SCREEN_TITLES[screen]||'Settings');
+  var html='';
   var lang=localStorage.getItem('ab_lang')||'en';
-  var langs=[['en','🇬🇧 English'],['lg','🇺🇬 Luganda'],['rn','🌄 Runyankole'],['ac','🌾 Acholi/Luo']];
-  var sec='background:var(--bg3);border-radius:12px;padding:14px;margin-bottom:12px';
-  var lbl='font-weight:700;font-size:0.9rem;margin-bottom:10px;display:block';
-  var inp='width:100%;padding:10px;border:1px solid var(--border);border-radius:8px;background:var(--card);color:var(--text);margin-bottom:10px;font-size:0.9rem';
-  var html='<div style="'+sec+'"><span style="'+lbl+'">🌐 Language</span><div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">';
-  langs.forEach(function(l){
-    var on=l[0]===lang;
-    html+='<button onclick="setLangFromSettings(\''+l[0]+'\')" style="padding:10px;border-radius:10px;cursor:pointer;font-size:0.85rem;font-weight:600;color:var(--text);border:1px solid '+(on?'var(--green)':'var(--border)')+';background:'+(on?'var(--green-dim)':'var(--card)')+'">'+l[1]+'</button>';
-  });
-  html+='</div></div>';
-  if(currentUser){
-    var av = currentUser.avatar_url ? '<img src="'+currentUser.avatar_url+'" style="width:56px;height:56px;border-radius:50%;object-fit:cover">' : '<div style="width:56px;height:56px;border-radius:50%;background:var(--green-dim);display:flex;align-items:center;justify-content:center;font-size:1.4rem;font-weight:700;color:var(--green)">'+((currentUser.name||'U').charAt(0).toUpperCase())+'</div>';
-    html+='<div style="'+sec+'"><span style="'+lbl+'">👤 Profile</span>'+
-      '<div style="display:flex;align-items:center;gap:12px;margin-bottom:12px">'+av+'<label class="btn-sm outline" style="cursor:pointer;margin:0">📷 Change photo<input type="file" accept="image/*" style="display:none" onchange="uploadAvatar(this)"></label></div>'+
-      '<input id="setName" placeholder="Full name" style="'+inp+'">'+
-      '<input id="setPhone" placeholder="Phone" style="'+inp+'">'+
-      '<input id="setDistrict" placeholder="District" style="'+inp+'">'+
-      '<div style="font-size:0.72rem;color:var(--text2);margin:2px 0 6px">Account type — this decides which features you see</div>'+
-      '<select id="setRole" onchange="setAccountRole(this.value)" style="'+inp+'">'+
-        ['farmer','vendor','hotel','supplier'].map(function(r){ var lbls={farmer:"🌾 Farmer (I sell produce)",vendor:"🛒 Buyer (I buy produce)",hotel:"🏨 Hotel / Restaurant (B2B)",supplier:"🏪 Supplier (I sell farm inputs)"}; return '<option value="'+r+'"'+(getCurrentRole()===r?' selected':'')+'>'+lbls[r]+'</option>'; }).join('')+
-      '</select>'+
-      '<div style="font-size:0.72rem;color:var(--text2);margin-bottom:10px">'+escHtml(currentUser.email||'')+'</div>'+
-      '<button class="btn-sm" style="width:100%" onclick="saveProfile()">Save changes</button></div>';
-    if(getCurrentRole()==='farmer'){
-      html+='<div style="'+sec+'"><span style="'+lbl+'">🌾 My selling</span><div style="display:flex;gap:8px;flex-wrap:wrap">'+
-        '<button class="btn-sm outline" onclick="closeModal(\'settingsModal\');openListProduceModal()">List produce</button>'+
-        '<button class="btn-sm outline" onclick="closeModal(\'settingsModal\');showPage(\'dashboard\')">My dashboard</button></div></div>';
+  var langName=(_LANGS.filter(function(l){return l[0]===lang;})[0]||_LANGS[0])[1].replace(/^\S+\s/,'');
+  var role=getCurrentRole();
+
+  if(screen==='home'){
+    if(currentUser){
+      html+='<div class="st-head"><div onclick="settingsGo(\'account\')">'+_stAvatar(84)+'</div>'+
+        '<div class="st-name">'+escHtml(currentUser.name||'My account')+'</div>'+
+        '<div class="st-sub">'+escHtml(currentUser.phone||currentUser.email||'')+'</div>'+
+        (currentUser.phone&&currentUser.email?'<div class="st-sub">'+escHtml(currentUser.email)+'</div>':'')+'</div>';
+      html+='<div class="st-group">'+
+        _stRow('👤','#2f7de1','Account','Name, phone, district, account type',"settingsGo('account')")+
+        _stRow('🔔','#e8505b','Notifications','<span id="stNotifSub">Phone alerts and in-app updates</span>',"settingsGo('notifications')")+
+        _stRow('🌐','#8e5be8','Language',escHtml(langName),"settingsGo('language')")+
+      '</div>';
+      if(role==='farmer'){
+        html+='<div class="st-group">'+
+          _stRow('🌾','#2eae5b','List produce','Add something for sale',"closeModal('settingsModal');openListProduceModal()")+
+          _stRow('📊','#e8a33a','My dashboard','Orders, earnings and listings',"closeModal('settingsModal');showPage('dashboard')")+
+        '</div>';
+      }
+      html+='<div class="st-group">'+
+        _stRow('🔒','#3aa8a0','Privacy &amp; legal','Terms, consent, your data',"settingsGo('privacy')")+
+        _stRow('💬','#e1832f','Help &amp; support','Email, WhatsApp, call us',"settingsGo('help')")+
+      '</div>';
+      html+='<div class="st-group">'+_stRow('🚪','rgba(255,107,107,.18)','Log out','',"logOut()",' danger')+'</div>';
+    } else {
+      html+='<div class="st-panel"><div style="font-size:0.9rem;color:var(--text2);margin-bottom:12px">Log in to edit your profile and manage your listings.</div>'+
+        '<div style="display:flex;gap:8px"><button class="btn-sm" onclick="closeModal(\'settingsModal\');openModal(\'loginModal\')">Log In</button>'+
+        '<button class="btn-sm outline" onclick="closeModal(\'settingsModal\');openModal(\'registerModal\')">Join Free</button></div></div>';
+      html+='<div class="st-group">'+
+        _stRow('🌐','#8e5be8','Language',escHtml(langName),"settingsGo('language')")+
+        _stRow('💬','#e1832f','Help &amp; support','Email, WhatsApp, call us',"settingsGo('help')")+
+      '</div>';
     }
-    html+='<div style="'+sec+'" id="privacySection"><span style="'+lbl+'">🔒 Privacy &amp; legal</span><div id="privacySectionBody" style="font-size:0.82rem;color:var(--text2)">Loading…</div></div>';
-    html+='<div style="'+sec+'"><span style="'+lbl+'">⚠️ Danger zone</span>'+
-      '<div style="font-size:0.72rem;color:var(--text2);margin-bottom:10px">Permanently delete your account and personal data. Order and payout records are kept for financial compliance but anonymised.</div>'+
-      '<button class="btn-sm" style="width:100%;background:#8e1b1b" onclick="deleteMyAccount()">Delete my account</button></div>';
-    html+='<button class="btn-sm" onclick="logOut()" style="background:#c0392b;width:100%">Log Out</button>';
-  } else {
-    html+='<div style="'+sec+'"><div style="font-size:0.85rem;color:var(--text2);margin-bottom:10px">Log in to edit your profile and manage your listings.</div>'+
-      '<div style="display:flex;gap:8px"><button class="btn-sm" onclick="closeModal(\'settingsModal\');openModal(\'loginModal\')">Log In</button>'+
-      '<button class="btn-sm outline" onclick="closeModal(\'settingsModal\');openModal(\'registerModal\')">Join Free</button></div></div>';
   }
+
+  else if(screen==='account'){
+    html+='<div class="st-panel"><div style="display:flex;align-items:center;gap:14px;margin-bottom:14px">'+_stAvatar(64)+
+      '<label class="btn-sm outline" style="cursor:pointer;margin:0">📷 Change photo<input type="file" accept="image/*" style="display:none" onchange="uploadAvatar(this)"></label></div>'+
+      '<input id="setName" placeholder="Full name" class="st-input">'+
+      '<input id="setPhone" placeholder="Phone" class="st-input">'+
+      '<input id="setDistrict" placeholder="District" class="st-input">'+
+      '<span class="st-label">Account type — this decides which features you see</span>'+
+      '<select id="setRole" onchange="setAccountRole(this.value)" class="st-input">'+
+        ['farmer','vendor','hotel','supplier'].map(function(r){ return '<option value="'+r+'"'+(role===r?' selected':'')+'>'+_ROLE_LABELS[r]+'</option>'; }).join('')+
+      '</select>'+
+      '<div class="st-label" style="margin-bottom:12px">'+escHtml(currentUser.email||'')+'</div>'+
+      '<button class="btn-sm" style="width:100%" onclick="saveProfile()">Save changes</button></div>';
+  }
+
+  else if(screen==='notifications'){
+    html+='<div class="st-panel"><div style="font-weight:700;margin-bottom:6px">🔔 Phone alerts</div>'+
+      '<div class="st-label" style="margin-bottom:10px">Get order updates in your phone notification bar, even when AgriBridge is closed.</div>'+
+      '<div id="stPushState" class="st-label" style="color:var(--text)">Checking…</div>'+
+      '<button id="stPushBtn" class="btn-sm" style="width:100%;display:none"></button></div>'+
+      '<div class="st-panel"><div style="font-weight:700;margin-bottom:6px">📥 In-app notifications</div>'+
+      '<div class="st-label" style="margin:0">Always on. Tap the 🔔 at the top of the page to see your updates.</div></div>';
+  }
+
+  else if(screen==='language'){
+    html+='<div class="st-panel"><div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">';
+    _LANGS.forEach(function(l){
+      var on=l[0]===lang;
+      html+='<button onclick="setLangFromSettings(\''+l[0]+'\')" style="padding:12px 8px;border-radius:10px;cursor:pointer;font-size:0.88rem;font-weight:600;color:var(--text);border:1px solid '+(on?'var(--green)':'var(--border)')+';background:'+(on?'var(--green-dim)':'var(--card)')+'">'+l[1]+'</button>';
+    });
+    html+='</div></div>';
+  }
+
+  else if(screen==='privacy'){
+    html+='<div class="st-panel" id="privacySection"><div id="privacySectionBody" style="font-size:0.82rem;color:var(--text2)">Loading…</div></div>'+
+      '<div class="st-panel"><div style="font-weight:700;margin-bottom:6px;color:#ff6b6b">⚠️ Danger zone</div>'+
+      '<div class="st-label" style="margin-bottom:10px">Permanently delete your account and personal data. Order and payout records are kept for financial compliance but anonymised.</div>'+
+      '<button class="btn-sm" style="width:100%;background:#8e1b1b" onclick="deleteMyAccount()">Delete my account</button></div>';
+  }
+
+  else if(screen==='help'){
+    var A=window.AGRIBRIDGE||{};
+    html+='<div class="st-group">'+
+      _stLink('💬','#2eae5b','WhatsApp','Chat with us',escHtml(A.whatsappUrl||'#'),true)+
+      _stLink('✉️','#2f7de1','Email',escHtml(A.email||''),escHtml(A.mailto||'#'))+
+      _stLink('📞','#e1832f','Call',escHtml(A.phoneDisplay||''),escHtml(A.tel||'#'))+
+    '</div>';
+  }
+
   b.innerHTML=html;
-  if(currentUser){
+
+  if(screen==='account'){
     var n=document.getElementById('setName'); if(n) n.value=currentUser.name||'';
     var p=document.getElementById('setPhone'); if(p) p.value=currentUser.phone||'';
     var d=document.getElementById('setDistrict'); if(d) d.value=currentUser.district||'';
   }
-  openModal('settingsModal');
-  if(currentUser) loadPrivacySettings();
+  if(screen==='privacy' && currentUser) loadPrivacySettings();
+  if(screen==='notifications') refreshPushSettings();
+  if(screen==='home' && currentUser) refreshPushSubtitle();
 }
-function setLangFromSettings(code){ setLang(code); openSettings(); }
+function setLangFromSettings(code){ setLang(code); renderSettings(); }
+
+// ── Phone-alert status for the Settings screens ──
+function _pushReg(){
+  if(_swReg) return Promise.resolve(_swReg);
+  return Promise.race([navigator.serviceWorker.ready, new Promise(function(r){ setTimeout(function(){ r(null); },3000); })]);
+}
+async function _pushState(){
+  if(!_pushSupported()) return 'unsupported';
+  if(Notification.permission==='denied') return 'denied';
+  if(Notification.permission==='default') return 'off';
+  try{ var reg=await _pushReg(); var sub=reg?await reg.pushManager.getSubscription():null; return sub?'on':'allowed'; }catch(e){ return 'allowed'; }
+}
+async function refreshPushSubtitle(){
+  var el=document.getElementById('stNotifSub'); if(!el) return;
+  var st=await _pushState();
+  el=document.getElementById('stNotifSub'); if(!el) return;
+  el.textContent={on:'Phone alerts on',off:'Phone alerts off',allowed:'Phone alerts off',denied:'Phone alerts blocked',unsupported:'In-app updates'}[st]||'';
+}
+async function refreshPushSettings(){
+  var stEl=document.getElementById('stPushState'), btn=document.getElementById('stPushBtn'); if(!stEl||!btn) return;
+  var st=await _pushState();
+  stEl=document.getElementById('stPushState'); btn=document.getElementById('stPushBtn'); if(!stEl||!btn) return;
+  var cfg={
+    on:{t:'✅ On for this phone',b:'Turn off',f:'disablePhoneAlerts()'},
+    allowed:{t:'Allowed, but not active yet',b:'Turn on phone alerts',f:'enablePhoneAlerts()'},
+    off:{t:'Off',b:'Turn on phone alerts',f:'enablePhoneAlerts()'},
+    denied:{t:'⛔ Blocked. Allow notifications for this site in your browser settings, then come back.',b:'',f:''},
+    unsupported:{t:'This browser does not support phone alerts.',b:'',f:''}
+  }[st];
+  stEl.textContent=cfg.t;
+  if(cfg.b){ btn.style.display='block'; btn.textContent=cfg.b; btn.setAttribute('onclick',cfg.f); btn.className='btn-sm'+(st==='on'?' outline':''); }
+  else btn.style.display='none';
+}
+async function disablePhoneAlerts(){
+  try{
+    var reg=await _pushReg();
+    var sub=reg?await reg.pushManager.getSubscription():null;
+    if(sub){
+      var ep=sub.endpoint, tok=await _pushToken();
+      await sub.unsubscribe();
+      if(tok) fetch(USSD_API+'/api/user/push-subscriptions',{method:'DELETE',headers:{'Content-Type':'application/json','Authorization':'Bearer '+tok},body:JSON.stringify({endpoint:ep})}).catch(function(){});
+    }
+    showToast('Phone alerts turned off');
+  }catch(e){ showToast('Could not turn off alerts'); }
+  refreshPushSettings();
+}
 // Shrink an image in the browser to a square-ish max dimension and re-encode as
 // JPEG. Phone photos are often 4–12MB — far over the upload limit — so resizing
 // first is what makes profile photos actually upload, and keeps avatars fast.
@@ -4640,7 +4786,7 @@ async function uploadAvatar(inp){
   // Persist to the account and confirm it saved so the photo survives reloads.
   var saved = currentUser.supaId ? await sbUpdate('farmers',{ profile_photo:url },'id',currentUser.supaId) : true;
   showToast(saved ? 'Photo updated ✓' : 'Photo shown, but saving to your account failed — try again');
-  openSettings();
+  renderSettings();
 }
 function saveProfile(){
   if(!currentUser) return;
@@ -4774,6 +4920,7 @@ async function enablePhoneAlerts(){
     else showToast('Could not turn on alerts right now — try again later');
   }catch(e){ console.warn('[push] enable failed', e); showToast('Could not turn on alerts'); }
   renderPushBanner();
+  if(typeof refreshPushSettings==='function') refreshPushSettings();
 }
 // Show/hide the enable banner inside the notification panel.
 function renderPushBanner(){
@@ -6815,7 +6962,7 @@ document.addEventListener('DOMContentLoaded', function() {
 <div class="modal-overlay" id="settingsModal" onclick="handleOverlay(event,'settingsModal')" role="dialog" aria-label="Settings">
   <div class="modal-box">
     <button class="modal-close" onclick="closeModal('settingsModal')">✕</button>
-    <h3>⚙️ Settings</h3>
+    <div class="st-top"><button class="st-back" id="settingsBack" onclick="settingsGo('home')" aria-label="Back">‹</button><h3 id="settingsTitle">⚙️ Settings</h3></div>
     <div id="settingsBody"></div>
   </div>
 </div>
