@@ -2813,6 +2813,14 @@ function openCheckout() {
 }
 
 // Back from Flutterwave's hosted page (?pay=done&status=...&tx_ref=...)
+// Date/time fields: some Android browsers and installed-app views just highlight "mm/dd/yyyy"
+// on tap and show neither a picker nor a keyboard. Ask the browser to open its picker explicitly.
+document.addEventListener('click', function (e) {
+  var el = e.target;
+  if (el && el.tagName === 'INPUT' && (el.type === 'date' || el.type === 'time' || el.type === 'month') && !el.disabled && !el.readOnly) {
+    try { if (el.showPicker) el.showPicker(); } catch (err) { /* already open or not allowed: native behaviour */ }
+  }
+}, true);
 document.addEventListener('DOMContentLoaded', function () {
   try {
     const q = new URLSearchParams(location.search);

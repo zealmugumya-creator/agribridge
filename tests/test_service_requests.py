@@ -167,3 +167,8 @@ def test_migration_is_reversible_and_locked_down():
     assert down.exists()
     assert "enable row level security" in up
     assert "for insert" not in up          # users never write directly; backend does
+
+
+def test_date_inputs_open_their_picker_on_tap():
+    html = (REPO / "static/index.html").read_text(encoding="utf-8")
+    assert "el.showPicker" in html and "el.type === 'date'" in html
