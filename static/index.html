@@ -264,6 +264,12 @@ img{max-width:100%}
 .price-table tr:hover td{background:var(--bg2)}
 .price-up{color:var(--green);font-weight:600}
 .price-dn{color:#f44336;font-weight:600}
+@keyframes tickUp{0%{background:rgba(23,224,107,.38)}100%{background:transparent}}
+@keyframes tickDn{0%{background:rgba(244,67,54,.38)}100%{background:transparent}}
+.tick-up{animation:tickUp 1.6s ease-out}.tick-dn{animation:tickDn 1.6s ease-out}
+.live-dot{display:inline-block;width:8px;height:8px;border-radius:50%;background:var(--green);margin-right:5px;animation:livePulse 1.6s infinite}
+.live-dot.off{background:#f5a623;animation:none}
+@keyframes livePulse{0%{box-shadow:0 0 0 0 rgba(23,224,107,.6)}100%{box-shadow:0 0 0 8px rgba(23,224,107,0)}}
 
 /* ── BASKET DRAWER ── */
 .basket-fab{position:fixed;bottom:80px;right:16px;z-index:300;width:54px;height:54px;border-radius:50%;background:var(--green);color:#000;border:none;font-size:1.4rem;display:flex;align-items:center;justify-content:center;box-shadow:0 4px 20px rgba(0,200,83,0.45)}
@@ -1274,7 +1280,7 @@ html.is-web:not(.app-entered) body{overflow:hidden}
 
 <!-- ══════════════════ PAGE: PRICES ══════════════════ -->
 <div id="page-prices" class="page">
-  <div class="page-header"><h2>📊 Market Prices</h2><p>Live prices from Kampala, Jinja &amp; Mbarara markets · <span id="pricesUpdated" style="color:var(--green);font-weight:700">● Live</span></p></div>
+  <div class="page-header"><h2>📊 Market Prices</h2><p>What farmers are asking on AgriBridge, right now, next to market reference prices · <span id="pricesUpdated" style="color:var(--green);font-weight:700">● Live</span></p></div>
   <div class="section">
     <div class="filters" id="priceFilters">
       <button class="filter-btn active" onclick="setPriceFilter('all',this)">All</button>
@@ -1284,8 +1290,8 @@ html.is-web:not(.app-entered) body{overflow:hidden}
     </div>
     <div style="background:var(--card);border:1px solid var(--border);border-radius:14px;overflow:hidden">
       <div style="overflow-x:auto;-webkit-overflow-scrolling:touch">
-        <table class="price-table" id="priceTable" style="min-width:480px">
-          <thead><tr><th>Crop</th><th>Market</th><th>Price (UGX)</th><th>Change</th><th>Date</th></tr></thead>
+        <table class="price-table" id="priceTable" style="min-width:600px">
+          <thead><tr><th>Crop</th><th>Farmers' price (UGX/kg)</th><th>Low – High</th><th>Sellers</th><th>Market ref.</th><th>Change</th></tr></thead>
           <tbody id="priceTableBody"><tr><td colspan="5" style="text-align:center;padding:32px;color:var(--text2)"><div class="spinner" style="margin:0 auto 10px"></div>Loading prices…</td></tr></tbody>
         </table>
       </div>
@@ -3461,14 +3467,44 @@ function stopVoice() {
 // PRICES PAGE
 // ─────────────────────────────────────────────────────────────────
 async function loadPrices(force) {
-  if (!force && allPrices.length > 0) { renderPrices(); return; }
+  if (!force && allPrices.length > 0) { renderPrices(); loadLiveBoard(); return; }
   const data = await sb('market_prices', { select:'crop_name,market,district,price_per_kg,change_pct,price_date', filters:[['order','price_date.desc']] });
   if (data && data.length) allPrices = data;
   else if (!allPrices.length) allPrices = samplePrices();
   renderPrices();
-  var ind=document.getElementById('pricesUpdated');
-  if(ind) ind.textContent='● Updated '+new Date().toLocaleTimeString('en-UG',{hour:'2-digit',minute:'2-digit'});
+  loadLiveBoard();
 }
+// ── Live board: farmers' asking prices (from the backend) refreshed every few seconds ──
+var liveBoard = null, _liveSeen = {}, _livePollTimer = null;
+function _setLiveIndicator(ok, text){
+  var ind=document.getElementById('pricesUpdated'); if(!ind) return;
+  ind.innerHTML='<span class="live-dot'+(ok?'':' off')+'"></span>'+text;
+  ind.style.color = ok ? 'var(--green)' : '#f5a623';
+}
+async function loadLiveBoard(){
+  try{
+    const r = await fetch(USSD_API+'/api/market/live', { cache:'no-store' });
+    const j = await r.json();
+    if(!r.ok || !j || !j.ok) throw new Error('bad');
+    liveBoard = j;
+    renderPrices();
+    _setLiveIndicator(true, 'Live · '+new Date().toLocaleTimeString('en-UG',{hour:'2-digit',minute:'2-digit',second:'2-digit'}));
+  }catch(e){
+    _setLiveIndicator(false, liveBoard ? 'Reconnecting…' : 'Showing saved prices');
+  }
+}
+function _startLivePolling(){
+  if(_livePollTimer) return;
+  _livePollTimer = setInterval(function(){
+    var pg=document.querySelector('.page.active');
+    if(pg && pg.id==='page-prices' && !document.hidden && navigator.onLine) loadLiveBoard();
+  }, 8000);
+}
+_startLivePolling();
+document.addEventListener('visibilitychange', function(){
+  var pg=document.querySelector('.page.active');
+  if(!document.hidden && pg && pg.id==='page-prices') loadLiveBoard();
+});
 // Latest market price for a crop name (for listing vs. market comparison)
 function marketPriceFor(crop){
   if(!allPrices||!allPrices.length||!crop) return null;
@@ -3482,16 +3518,48 @@ setInterval(function(){
   if(pg && pg.id==='page-prices' && navigator.onLine) loadPrices(true);
 },60000);
 function renderPrices() {
-  let list = allPrices;
-  if (priceFilter !== 'all') list = list.filter(p => (p.market||'').includes(priceFilter));
   const tbody = document.getElementById('priceTableBody');
   if (!tbody) return;
+  if (liveBoard && liveBoard.rows && liveBoard.rows.length) { renderLiveRows(tbody); return; }
+  // Fallback while the live board is loading or unreachable: saved market reference prices.
+  let list = allPrices;
+  if (priceFilter !== 'all') list = list.filter(p => (p.market||'').includes(priceFilter));
   tbody.innerHTML = list.map(p => {
     const hasChg = (p.change_pct !== null && p.change_pct !== undefined);
     const chg = hasChg ? Number(p.change_pct) : 0;
     const cls = !hasChg ? '' : (chg >= 0 ? 'price-up' : 'price-dn');
     const chgHtml = hasChg ? `${chg >= 0 ? '↑' : '↓'} ${Math.abs(chg).toFixed(1)}%` : '—';
-    return `<tr><td><strong>${getCropEmoji(p.crop_name||'?')} ${p.crop_name||'?'}</strong></td><td>${p.market||'Kampala'}</td><td>${Number(p.price_per_kg||0).toLocaleString()}</td><td class="${cls}">${chgHtml}</td><td>${p.price_date?new Date(p.price_date).toLocaleDateString('en-UG',{day:'numeric',month:'short'}):(p.date||'Today')}</td></tr>`;
+    return `<tr><td><strong>${getCropEmoji(p.crop_name||'?')} ${escHtml(p.crop_name||'?')}</strong></td><td>—</td><td>—</td><td>—</td><td>${Number(p.price_per_kg||0).toLocaleString()}${p.market?'<div style="font-size:.72rem;color:var(--text2)">'+escHtml(p.market)+'</div>':''}</td><td class="${cls}">${chgHtml}</td></tr>`;
+  }).join('');
+}
+function renderLiveRows(tbody){
+  const f = priceFilter;
+  const fmt = n => (n===null||n===undefined) ? '—' : Number(n).toLocaleString();
+  const rows = liveBoard.rows.map(function(r){
+    // District filter: use that district's own numbers when farmers there have listed this crop.
+    let s = r;
+    if (f !== 'all') {
+      const d = r.districts && r.districts[f];
+      if (d) s = Object.assign({}, r, d); else s = Object.assign({}, r, { avg:null, low:null, high:null, sellers:0 });
+    }
+    return s;
+  }).filter(function(r){ return f==='all' || r.sellers>0 || (r.ref_market||'').includes(f); });
+  if (!rows.length) { tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;padding:28px;color:var(--text2)">No prices for this area yet. Farmers there can list produce to set the first price.</td></tr>'; return; }
+  tbody.innerHTML = rows.map(function(r){
+    const key = (r.crop||'')+'|'+f;
+    const prev = _liveSeen[key];
+    const flash = (prev!==undefined && r.avg!==null && prev!==r.avg) ? (r.avg>prev?' tick-up':' tick-dn') : '';
+    _liveSeen[key] = r.avg;
+    const has = r.change_pct!==null && r.change_pct!==undefined;
+    const cls = !has ? '' : (r.change_pct>=0 ? 'price-up' : 'price-dn');
+    const basis = r.change_basis==='24h' ? '24h' : (r.change_basis==='since_start' ? 'since first reading' : '');
+    const chg = has ? (r.change_pct>=0?'↑ ':'↓ ')+Math.abs(r.change_pct).toFixed(1)+'%<div style="font-size:.68rem;font-weight:400;color:var(--text2)">'+basis+'</div>' : '<span style="color:var(--text2)">—</span>';
+    const range = r.low!==null ? fmt(r.low)+' – '+fmt(r.high) : '—';
+    const sellers = r.sellers ? r.sellers+(r.qty_kg?'<div style="font-size:.68rem;color:var(--text2)">'+fmt(r.qty_kg)+' kg</div>':'') : '<span style="color:var(--text2)">none yet</span>';
+    const ref = r.ref_price ? fmt(r.ref_price)+(r.ref_market?'<div style="font-size:.68rem;color:var(--text2)">'+escHtml(r.ref_market)+'</div>':'') : '—';
+    return '<tr><td><strong>'+getCropEmoji(r.crop||'?')+' '+escHtml(r.crop||'?')+'</strong></td>'
+      +'<td class="'+flash.trim()+'" style="font-weight:700">'+fmt(r.avg)+'</td>'
+      +'<td>'+range+'</td><td>'+sellers+'</td><td>'+ref+'</td><td class="'+cls+'">'+chg+'</td></tr>';
   }).join('');
 }
 function setPriceFilter(f,btn){ priceFilter=f; document.querySelectorAll('#priceFilters .filter-btn').forEach(b=>b.classList.remove('active')); btn.classList.add('active'); renderPrices(); }
@@ -4226,7 +4294,7 @@ async function submitListProduce() {
       }).then(r=>r.json()).catch(()=>null)
     : null;
   const result = apiRes?.ok || apiRes?.listing;
-  if(result){ closeModal('listProduceModal'); showToast(`✅ ${crop} listing posted! Buyers can now find you.`); allListings=[]; if(document.querySelector('.page.active')?.id==='page-market') loadListings(); }
+  if(result){ closeModal('listProduceModal'); showToast(`✅ ${crop} listing posted! Buyers can now find you.`); allListings=[]; if(document.querySelector('.page.active')?.id==='page-market') loadListings(); if(typeof loadLiveBoard==='function') loadLiveBoard(); }
   else showToast('Could not post listing — please try again');
 }
 
