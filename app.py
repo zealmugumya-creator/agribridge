@@ -2047,6 +2047,8 @@ def admin_discord_test():
         'matching.offer':    'DISCORD_WEBHOOK_MATCHING',
         'transport.avail':   'DISCORD_WEBHOOK_TRANSPORT',
         'server.error':      'DISCORD_WEBHOOK_ERRORS',
+        'request.test':      'DISCORD_WEBHOOK_REQUESTS',
+        'support.test':      'DISCORD_WEBHOOK_SUPPORT',
     }
     for event_type, env_var in test_channels.items():
         url = _os.environ.get(env_var, '').strip()
@@ -2061,6 +2063,95 @@ def admin_discord_test():
         )
         results[env_var] = 'sent'
     return jsonify({'ok': True, 'results': results})
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# MONITORING: Supabase table events -> Discord + admin Activity feed, and a
+# read-only admin Inbox over the user-submitted tables.
+# Much of the web app writes straight to Supabase, so the backend never sees those
+# rows. A Supabase Database Webhook (see docs/MONITORING.md) posts each new row here.
+# ══════════════════════════════════════════════════════════════════════════════
+SUPABASE_WEBHOOK_SECRET = os.environ.get('SUPABASE_WEBHOOK_SECRET', '')
+
+# table -> (discord event_type, title, severity)
+_WATCHED = {
+    'account_deletion_requests': ('support.deletion_request', '🗑 Account deletion requested', 'warning'),
+    'privacy_requests':          ('support.privacy_request',  '🔐 Privacy request',            'warning'),
+    'contact_messages':          ('support.contact_message',  '✉️ New contact message',        'info'),
+    'disease_reports':           ('support.disease_report',   '🦠 Disease report',             'warning'),
+    'vet_bookings':              ('request.vet_booking',      '🐄 Vet booking',                'info'),
+    'purchase_requests':         ('request.purchase',         '🛒 Purchase request',           'info'),
+    'supply_orders':             ('order.supply',             '📦 Supply order',               'info'),
+    'payouts':                   ('payment.payout',           '💸 Payout record',              'info'),
+    'fraud_flags':               ('safety.fraud_flag',        '🚩 Fraud flag raised',          'critical'),
+    'admin_devices':             ('safety.admin_device',      '🔑 Admin device registered',    'warning'),
+    'user_roles':                ('safety.role_change',       '👤 User role added',            'warning'),
+    'reviews':                   ('listing.review',           '⭐ New review',                 'info'),
+    'community_posts':           ('listing.community_post',   '💬 New community post',         'info'),
+    'transporters':              ('transport.registered',     '🚛 Transporter registered',     'info'),
+    'farmers':                   ('user.signup',              '👤 New farmer/user',            'info'),
+    'buyers':                    ('user.signup',              '🛍 New buyer',                  'info'),
+    'order_offers':              ('matching.offer',           '🔗 Match offer',                'info'),
+}
+# Only these columns are ever copied into Discord / the activity feed. No phones,
+# emails, tokens or passwords.
+_SAFE_COLS = ('id', 'status', 'kind', 'type', 'category', 'subject', 'reason', 'flag_type',
+              'severity', 'role', 'full_name', 'name', 'district', 'crop_name', 'species',
+              'rating', 'amount', 'amount_ugx', 'total', 'total_price', 'currency',
+              'order_ref', 'service', 'provider_name', 'created_at')
+
+
+def _safe_fields(record):
+    out = {}
+    for k in _SAFE_COLS:
+        v = (record or {}).get(k)
+        if v not in (None, ''):
+            out[k] = str(v)[:120]
+    msg = (record or {}).get('message') or (record or {}).get('body') or (record or {}).get('description')
+    if msg:
+        out['message'] = str(msg)[:200]
+    return out
+
+
+@app.route('/api/hooks/supabase', methods=['POST'])
+@rate_limit(max_req=120, window=60)
+def supabase_table_hook():
+    """Receive a Supabase Database Webhook and forward it to Discord + system_events."""
+    sent = request.headers.get('X-Webhook-Secret', '')
+    if not SUPABASE_WEBHOOK_SECRET or not sent or not hmac.compare_digest(sent, SUPABASE_WEBHOOK_SECRET):
+        return jsonify({'ok': False, 'error': 'unauthorized'}), 401
+    data = request.get_json(force=True, silent=True) or {}
+    table = str(data.get('table') or '')
+    if table not in _WATCHED:
+        return jsonify({'ok': True, 'ignored': 'table not watched'}), 200
+    if str(data.get('type') or '').upper() != 'INSERT':
+        return jsonify({'ok': True, 'ignored': 'not an insert'}), 200
+    event_type, title, severity = _WATCHED[table]
+    fields = _safe_fields(data.get('record'))
+    desc = '\n'.join(f'**{k}:** {v}' for k, v in {'table': table, **fields}.items())
+    _discord_notify(event_type=event_type, title=title, description=desc, severity=severity)
+    _log_system_event(event_type, {'table': table, **fields}, severity='info' if severity == 'info' else severity)
+    return jsonify({'ok': True}), 200
+
+
+@app.route('/api/admin/inbox', methods=['GET'])
+def admin_inbox():
+    """Read-only view of the watched tables. No ?table => counts of the latest rows per table."""
+    payload, err = verify_token(required_role='admin')
+    if err:
+        return err
+    table = (request.args.get('table') or '').strip()
+    if table:
+        if table not in _WATCHED:
+            return jsonify({'error': 'unknown table'}), 400
+        rows = supa_get(table, {'order': 'created_at.desc'}, limit=100) or supa_get(table, None, limit=100) or []
+        for r in rows:
+            for secret in ('password', 'token', 'token_hash', 'access_token', 'refresh_token'):
+                r.pop(secret, None)
+        return jsonify(rows)
+    summary = {t: len(supa_get(t, None, limit=100) or []) for t in _WATCHED}
+    return jsonify({'tables': summary, 'discord_configured': DISCORD.enabled,
+                    'webhook_secret_set': bool(SUPABASE_WEBHOOK_SECRET)})
 
 
 @app.route('/api/admin/events', methods=['GET'])
