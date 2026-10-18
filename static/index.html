@@ -3776,9 +3776,55 @@ function resetUssd(){ resetUssdState(); updateUssdScreen('Enter *789# to start\n
 async function trackDelivery() {
   const ref=document.getElementById('trackingInput')?.value.trim(); if(!ref){ showToast('Enter a delivery reference'); return; }
   const el=document.getElementById('trackingResult'); el.innerHTML='<div class="loader"><div class="spinner"></div>Tracking…</div>';
-  const data=await sb('deliveries',{ select:'id,status,pickup_location,delivery_location,tracking_code,estimated_arrival,driver_name,driver_phone,created_at', filters:[['tracking_code',`eq.${ref.toUpperCase()}`]], single:true });
-  if(data&&data.id){ el.innerHTML=renderTrackingCard(data, ref); return; }
-  el.innerHTML=`<div style="padding:16px;background:var(--bg3);border-radius:10px;color:var(--text2)">No delivery found for <strong>${escHtml(ref)}</strong>. Try: <b style="color:var(--green)">DEL-2026-001</b> or <b style="color:var(--green)">DEL-2026-002</b>.</div>`;
+  const res=await lookupShipment(ref);
+  if(res.data){ el.innerHTML=renderTrackingCard(res.data, ref); drawRouteMap(res.data); return; }
+  const msg=res.error
+    ? 'We couldn\'t reach the tracker just now. Please try again in a moment.'
+    : 'No order found for <strong>'+escHtml(ref)+'</strong>. Check the code on your order confirmation (it looks like <b style="color:var(--green)">TRK-XXXXXXXXXX</b> or <b style="color:var(--green)">AB-20260101-XXXXXXXX</b>).';
+  el.innerHTML='<div style="padding:16px;background:var(--bg3);border-radius:10px;color:var(--text2)">'+msg+'</div>';
+}
+// Look an order up by tracking code or order ref via the backend (works before a rider is assigned).
+async function lookupShipment(ref){
+  try{
+    const r=await fetch(USSD_API+'/api/track/'+encodeURIComponent(ref.trim()));
+    if(r.status===404||r.status===400) return {data:null};
+    const j=await r.json();
+    return (r.ok&&j&&j.ok)?{data:j}:{data:null,error:true};
+  }catch(e){ return {data:null,error:true}; }
+}
+// ── Static OpenStreetMap route (district centres; no API key, no map library) ──
+const UG_PLACES={kampala:[0.3476,32.5825],wakiso:[0.4,32.46],entebbe:[0.0512,32.4637],mukono:[0.3533,32.7553],jinja:[0.4244,33.2041],mbarara:[-0.6072,30.6545],gulu:[2.7746,32.299],lira:[2.2499,32.8998],mbale:[1.0821,34.1751],masaka:[-0.3136,31.7409],'fort portal':[0.671,30.275],kabale:[-1.249,29.9899],soroti:[1.7147,33.6111],arua:[3.0201,30.911],hoima:[1.4331,31.3524],masindi:[1.6744,31.715],iganga:[0.6092,33.4686],tororo:[0.6928,34.181],kasese:[0.1833,30.0833],luwero:[0.849,32.4731],mityana:[0.417,32.046],mpigi:[0.226,32.314],kayunga:[0.7019,32.8888],busia:[0.4608,34.0907],bushenyi:[-0.5487,30.185],ntungamo:[-0.8794,30.264],rukungiri:[-0.8411,29.941],kisoro:[-1.285,29.685],moroto:[2.534,34.666],kitgum:[3.278,32.887],lyantonde:[-0.4,31.16],kyambogo:[0.3600,32.6330],nakasero:[0.3220,32.5800]};
+function ugPlace(text){
+  const t=String(text||'').toLowerCase();
+  for(const k in UG_PLACES){ if(t.indexOf(k)>-1) return {name:k.replace(/\b\w/g,function(c){return c.toUpperCase();}), ll:UG_PLACES[k], exact:true}; }
+  return {name:'Kampala', ll:UG_PLACES.kampala, exact:false};
+}
+function drawRouteMap(d){
+  const host=document.getElementById('trkMap'); if(!host) return;
+  const A=ugPlace(d.pickup_location), B=ugPlace(d.delivery_location);
+  const W=600,H=260,TS=256;
+  const px=function(ll,z){ const n=Math.pow(2,z)*TS, la=ll[0]*Math.PI/180; return [(ll[1]+180)/360*n,(1-Math.log(Math.tan(la)+1/Math.cos(la))/Math.PI)/2*n]; };
+  let z=12; while(z>6){ const a=px(A.ll,z),b=px(B.ll,z); if(Math.abs(a[0]-b[0])<W*0.6&&Math.abs(a[1]-b[1])<H*0.6) break; z--; }
+  const a=px(A.ll,z), b=px(B.ll,z), cx=(a[0]+b[0])/2, cy=(a[1]+b[1])/2, ox=cx-W/2, oy=cy-H/2;
+  const x0=Math.floor(ox/TS), x1=Math.floor((ox+W)/TS), y0=Math.floor(oy/TS), y1=Math.floor((oy+H)/TS), max=Math.pow(2,z);
+  let tiles='';
+  for(let ty=y0;ty<=y1;ty++) for(let tx=x0;tx<=x1;tx++){
+    if(ty<0||ty>=max) continue; const wx=((tx%max)+max)%max;
+    tiles+='<img alt="" loading="lazy" draggable="false" src="https://tile.openstreetmap.org/'+z+'/'+wx+'/'+ty+'.png" style="position:absolute;left:'+(tx*TS-ox)+'px;top:'+(ty*TS-oy)+'px;width:'+TS+'px;height:'+TS+'px">';
+  }
+  const ax=a[0]-ox, ay=a[1]-oy, bx=b[0]-ox, by=b[1]-oy;
+  const same=(Math.abs(ax-bx)<4&&Math.abs(ay-by)<4);
+  const svg='<svg width="'+W+'" height="'+H+'" style="position:absolute;left:0;top:0">'
+    +(same?'':'<line x1="'+ax+'" y1="'+ay+'" x2="'+bx+'" y2="'+by+'" stroke="#fff" stroke-width="7" stroke-linecap="round" opacity=".85"/><line x1="'+ax+'" y1="'+ay+'" x2="'+bx+'" y2="'+by+'" stroke="#17b25a" stroke-width="4" stroke-dasharray="9 7" stroke-linecap="round"/>')
+    +'<circle cx="'+ax+'" cy="'+ay+'" r="9" fill="#17b25a" stroke="#fff" stroke-width="3"/>'
+    +'<circle cx="'+bx+'" cy="'+by+'" r="9" fill="#e5484d" stroke="#fff" stroke-width="3"/></svg>';
+  host.innerHTML='<div class="trk-map-wrap" style="position:relative;width:100%;overflow:hidden;border-radius:12px;border:1px solid var(--border);aspect-ratio:'+W+'/'+H+'">'
+    +'<div class="trk-map-stage" style="position:absolute;left:0;top:0;width:'+W+'px;height:'+H+'px;transform-origin:0 0">'+tiles+svg+'</div>'
+    +'<div style="position:absolute;right:4px;bottom:3px;font-size:10px;background:rgba(255,255,255,.8);color:#333;padding:1px 5px;border-radius:4px">© <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener" style="color:#333">OpenStreetMap</a> contributors</div></div>'
+    +'<div style="font-size:0.72rem;color:var(--text2);margin-top:6px">🟢 '+escHtml(A.name)+' → 🔴 '+escHtml(B.name)+' · approximate route between district centres'+((A.exact&&B.exact)?'':' (exact area not recognised, showing Kampala)')+'</div>';
+  const wrap=host.querySelector('.trk-map-wrap'), stage=host.querySelector('.trk-map-stage');
+  const fit=function(){ const k=wrap.clientWidth/W; stage.style.transform='scale('+k+')'; };
+  fit(); window.addEventListener('resize',fit);
 }
 // Premium order-tracking card: status stepper + ETA + route + driver/vehicle.
 function renderTrackingCard(d, ref){
@@ -3833,14 +3879,15 @@ function renderTrackingCard(d, ref){
         </div>
       </div>
     </div>
-    <div class="trk-driver">
+    <div id="trkMap" style="margin:12px 0"></div>
+    ${d.rider_assigned===false?'<div style="padding:12px;background:var(--bg3);border-radius:12px;color:var(--text2);font-size:0.85rem">🚚 A rider hasn\'t been assigned yet. We\'ll update this as soon as your order is on the way.</div>':`<div class="trk-driver">
       <div class="trk-driver-av">${escHtml(initials||'🚚')}</div>
       <div class="trk-driver-info">
         <div class="trk-driver-name">${escHtml(driver)}</div>
-        <div class="trk-driver-meta">${escHtml(vehicle)}</div>
+        <div class="trk-driver-meta">${escHtml(d.driver_name?'Your AgriBridge rider':vehicle)}</div>
       </div>
-      <a class="trk-call" href="tel:${escHtml(driverPhone.replace(/\s+/g,''))}" aria-label="Call driver">📞</a>
-    </div>
+      ${d.driver_phone?`<a class="trk-call" href="tel:${escHtml(String(d.driver_phone).replace(/\s+/g,''))}" aria-label="Call driver">📞</a>`:''}
+    </div>`}
   </div>`;
 }
 // Track an order right inside the dashboard (no jump to the Delivery page).
@@ -3850,8 +3897,9 @@ async function trackInDashboard(code){
   if(c.getAttribute('data-code')===code){ c.innerHTML=''; c.removeAttribute('data-code'); return; }
   c.setAttribute('data-code',code);
   c.innerHTML='<div class="loader"><div class="spinner"></div>Tracking…</div>';
-  var data=await sb('deliveries',{ select:'id,status,pickup_location,delivery_location,tracking_code,estimated_arrival,driver_name,driver_phone,created_at', filters:[['tracking_code','eq.'+code.toUpperCase()]], single:true });
-  c.innerHTML=(data&&data.id)?renderTrackingCard(data,code):'<div style="padding:14px;background:var(--bg3);border-radius:12px;color:var(--text2);margin-top:8px">🚚 A rider hasn\'t been assigned yet. We\'ll update this as soon as your order is on the way.</div>';
+  var res=await lookupShipment(code);
+  c.innerHTML=res.data?renderTrackingCard(res.data,code):'<div style="padding:14px;background:var(--bg3);border-radius:12px;color:var(--text2);margin-top:8px">'+(res.error?'Couldn\'t reach the tracker. Try again in a moment.':'No order found for this code.')+'</div>';
+  if(res.data) drawRouteMap(res.data);
   c.scrollIntoView({behavior:'smooth',block:'nearest'});
 }
 async function loadAlerts() {

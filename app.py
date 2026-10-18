@@ -2754,6 +2754,64 @@ def get_order_receipt(order_id):
     }), 200
 
 
+_TRACK_RE = re.compile(r'^[A-Za-z0-9][A-Za-z0-9\-]{3,39}$')
+_ORDER_TO_DELIVERY_STATUS = {
+    'confirmed': 'scheduled', 'processing': 'scheduled', 'accepted': 'scheduled',
+    'shipped': 'in_transit', 'in_transit': 'in_transit', 'out_for_delivery': 'in_transit',
+    'delivered': 'delivered', 'completed': 'delivered',
+}
+
+
+@app.route('/api/track/<code>', methods=['GET'])
+@rate_limit(max_req=30, window=60)
+def track_shipment(code):
+    """Public tracking lookup by tracking code (TRK-...) or order ref (AB-...).
+
+    The old tracker only searched the deliveries table, which has a row only after a
+    rider is assigned, so every fresh order showed "No delivery found". We start from
+    the order (always exists) and merge the delivery row when there is one. Only
+    non-personal fields are returned; the code itself is the shared secret."""
+    code = (code or '').strip()
+    if not _TRACK_RE.match(code):
+        return jsonify({'ok': False, 'error': 'invalid code'}), 400
+    code_u = code.upper()
+    order = None
+    for col in ('tracking_code', 'order_ref', 'payment_ref'):
+        rows = supa_get('orders', {col: f'eq.{code_u}'}, limit=1) or []
+        if rows:
+            order = rows[0]
+            break
+    delivery = None
+    if order and order.get('id'):
+        d = supa_get('deliveries', {'order_id': f"eq.{order['id']}"}, limit=1) or []
+        delivery = d[0] if d else None
+    if not order:
+        d = supa_get('deliveries', {'tracking_code': f'eq.{code_u}'}, limit=1) or []
+        delivery = d[0] if d else None
+        if not delivery:
+            return jsonify({'ok': False, 'error': 'not found'}), 404
+    order = order or {}
+    delivery = delivery or {}
+    pickup = delivery.get('pickup_location') or ''
+    if not pickup and order.get('farmer_id'):
+        fr = supa_get('farmers', {'id': f"eq.{order['farmer_id']}", 'select': 'district'}, limit=1) or []
+        pickup = (fr[0].get('district') if fr else '') or ''
+    ostatus = str(order.get('status') or '').lower()
+    status = (delivery.get('status') or _ORDER_TO_DELIVERY_STATUS.get(ostatus) or 'pending').lower()
+    return jsonify({
+        'ok': True,
+        'tracking_code': order.get('tracking_code') or delivery.get('tracking_code') or code_u,
+        'order_ref': order.get('order_ref') or '',
+        'status': status,
+        'pickup_location': pickup or 'Farm',
+        'delivery_location': delivery.get('delivery_location') or order.get('delivery_address') or '',
+        'estimated_arrival': delivery.get('estimated_arrival'),
+        'driver_name': delivery.get('driver_name') or '',
+        'rider_assigned': bool(delivery.get('driver_name') or delivery.get('transporter_id') or order.get('transporter_id')),
+        'created_at': order.get('created_at') or delivery.get('created_at'),
+    }), 200
+
+
 @app.route('/api/buyer/orders', methods=['GET'])
 @rate_limit(max_req=30, window=60)
 def buyer_orders():
