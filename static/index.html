@@ -4246,7 +4246,7 @@ async function submitReview(){
 // ─────────────────────────────────────────────────────────────────
 // CONTACT
 // ─────────────────────────────────────────────────────────────────
-async function sendContactMsg() {
+async function sendContactMsgCore() {
   const name=document.getElementById('cName')?.value.trim(), contact=document.getElementById('cContact')?.value.trim();
   const role=document.getElementById('cRole')?.value||'visitor', msg=document.getElementById('cMessage')?.value.trim();
   if(!name||!contact||!msg){ showToast('Please fill all fields'); return; }
@@ -4263,7 +4263,7 @@ function openListProduceModal() {
   const sel=document.getElementById('lpDistrict'); if(sel&&currentUser.district) sel.value=currentUser.district;
   openModal('listProduceModal');
 }
-async function submitListProduce() {
+async function submitListProduceCore() {
   const crop=document.getElementById('lpCrop')?.value, cat=document.getElementById('lpCat')?.value;
   const qty=parseFloat(document.getElementById('lpQty')?.value), price=parseFloat(document.getElementById('lpPrice')?.value);
   const district=document.getElementById('lpDistrict')?.value, organic=document.getElementById('lpOrganic')?.checked;
@@ -4284,7 +4284,7 @@ async function submitListProduce() {
   // Route through backend so Discord/admin is notified of every new listing
   const token = await getAuthToken();
   const apiRes = token
-    ? await fetch('/api/listings', {
+    ? await fetch(USSD_API + '/api/listings', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
         body: JSON.stringify({ crop_name:crop, category:cat, quantity_kg:qty, price_per_kg:price,
@@ -5436,7 +5436,9 @@ window.addEventListener('offline', function() {
 
 
 // ── Enhanced submitListProduce with sanitisation + rate limit ─
-var _origSubmitListProduce = window.submitListProduce;
+// NOTE: the real implementation is submitListProduceCore(). This wrapper must not
+// capture window.submitListProduce — function declarations hoist, so that would be
+// the wrapper itself and every click would loop until the rate limit tripped.
 function submitListProduce() {
   var crop  = sanitiseInput((document.getElementById('lpCrop')||{}).value, 100);
   var qty   = parseFloat((document.getElementById('lpQty')||{}).value||0);
@@ -5447,19 +5449,17 @@ function submitListProduce() {
   // Rate-limit only real, validated submissions (not incomplete attempts), and
   // allow a farmer to list a whole catalogue in one sitting.
   if (!checkRateLimit('submitListing', 20)) return;
-  if (_origSubmitListProduce) _origSubmitListProduce();
+  return submitListProduceCore();
 }
 
 // ── Enhanced sendContactMsg with sanitisation ─────────────
-var _origSendContact = window.sendContactMsg;
 function sendContactMsg() {
   if (!checkRateLimit('contactMsg', 3)) return;
   var name = sanitiseInput((document.getElementById('cName')||{}).value, 100);
   var msg  = sanitiseInput((document.getElementById('cMessage')||{}).value, 2000);
   if (!name){ showToast('Please enter your name'); return; }
   if (!msg) { showToast('Please enter a message'); return; }
-  if (_origSendContact) _origSendContact();
-  else showToast('Message sent! We will respond within 24 hours.');
+  return sendContactMsgCore();
 }
 
 
