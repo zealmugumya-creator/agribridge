@@ -7,6 +7,7 @@
 #   AT_SHORTCODE, AT_SMS_SENDER, SUPABASE_URL, SUPABASE_KEY, GEMINI_API_KEY
 # ═══════════════════════════════════════════════════════════════════════════
 
+import base64
 import datetime
 import hmac
 import json as _json
@@ -18,9 +19,17 @@ import uuid
 
 import jwt
 import requests
+from cryptography.hazmat.primitives import padding as _sym_padding
+from cryptography.hazmat.primitives.ciphers import Cipher as _SymCipher
+from cryptography.hazmat.primitives.ciphers import modes as _SymModes
 from flask import Flask, Response, g, jsonify, request
 from flask_cors import CORS
 from werkzeug.exceptions import RequestEntityTooLarge
+
+try:  # cryptography >= 43 keeps TripleDES in `decrepit`; older releases in `primitives`.
+    from cryptography.hazmat.decrepit.ciphers.algorithms import TripleDES as _TripleDES
+except ImportError:  # pragma: no cover - depends on the pinned cryptography version
+    from cryptography.hazmat.primitives.ciphers.algorithms import TripleDES as _TripleDES
 
 from services import business, monitoring
 
@@ -102,6 +111,11 @@ ACCOUNT_SERVICE = AccountService(SUPA, supabase_url=SUPABASE_URL, service_key=SU
 # ── Payments (pluggable; each provider stays OFF until its keys are set) ───────
 FLW_SECRET_KEY   = os.environ.get('FLW_SECRET_KEY',   '')  # Flutterwave secret key
 FLW_WEBHOOK_HASH = os.environ.get('FLW_WEBHOOK_HASH', '')  # must match the hash set in the FLW dashboard
+FLW_PUBLIC_KEY   = os.environ.get('FLW_PUBLIC_KEY',   '')
+FLW_ENCRYPTION_KEY = os.environ.get('FLW_ENCRYPTION_KEY', '')
+# On-page card entry charges the card directly, so raw card data reaches this server.
+# It is OFF unless the operator explicitly enables it after PCI DSS attestation.
+FLW_DIRECT_CARD  = os.environ.get('FLW_DIRECT_CARD', '').strip().lower() in ('1', 'true', 'yes')
 PESAPAL_KEY      = os.environ.get('PESAPAL_CONSUMER_KEY',    '')
 PESAPAL_SECRET   = os.environ.get('PESAPAL_CONSUMER_SECRET', '')
 MTN_MOMO_KEY     = os.environ.get('MTN_MOMO_SUBSCRIPTION_KEY', '')
@@ -3900,12 +3914,22 @@ def sms_receipt():
 # PAYMENTS  (pluggable; providers are OFF until their env keys are set, so this
 # never affects the live checkout until you deliberately enable one)
 # ══════════════════════════════════════════════════════════════════════════════
+def _direct_card_ready():
+    """Direct card charging needs the public + 24-byte encryption key and an explicit opt-in."""
+    try:
+        key_len = len(FLW_ENCRYPTION_KEY.encode('utf-8'))
+    except Exception:
+        key_len = 0
+    return bool(FLW_SECRET_KEY and FLW_PUBLIC_KEY and key_len == 24 and FLW_DIRECT_CARD)
+
+
 def _enabled_providers():
     at_momo_live = bool(AT_AVAILABLE and at_sms and AT_API_KEY and AT_API_KEY != 'atsk_REPLACE_ME')
     return {
         'cod':         True,   # cash on delivery — no gateway needed
         'direct':      True,   # pay the farmer's MoMo directly — no gateway needed
         'flutterwave': bool(FLW_SECRET_KEY),
+        'card':        _direct_card_ready(),  # on-page card form (opt-in, PCI DSS scope)
         'pesapal':     bool(PESAPAL_KEY and PESAPAL_SECRET),
         'mtn_momo':    bool(MTN_MOMO_KEY),
         'momo':        at_momo_live,   # AT mobile checkout push (MTN MoMo)
@@ -4113,6 +4137,265 @@ def _flw_initiate(order_ref, amount, email, phone):
         return jsonify({'ok': False, 'error': 'payment gateway unavailable'}), 200
 
 
+def _luhn_ok(number):
+    total = 0
+    for i, ch in enumerate(reversed(number)):
+        d = ord(ch) - 48
+        if i % 2:
+            d *= 2
+            if d > 9:
+                d -= 9
+        total += d
+    return total % 10 == 0
+
+
+def _parse_card_fields(data):
+    """Validate the card form and return (fields, error). Nothing is stored."""
+    number = re.sub(r'\D', '', str(data.get('card_number') or ''))[:19]
+    if not 13 <= len(number) <= 19 or not _luhn_ok(number):
+        return None, 'Enter a valid card number'
+    expiry = re.sub(r'\D', '', str(data.get('expiry') or ''))
+    if len(expiry) != 4:
+        return None, 'Enter the expiry date as MM/YY'
+    month, year = expiry[:2], expiry[2:]
+    try:
+        m, y = int(month), 2000 + int(year)
+    except ValueError:
+        return None, 'Enter the expiry date as MM/YY'
+    now = datetime.datetime.now(datetime.timezone.utc)
+    if not 1 <= m <= 12 or y < now.year or (y == now.year and m < now.month) or y > now.year + 20:
+        return None, 'That card is expired or the year is invalid'
+    cvv = re.sub(r'\D', '', str(data.get('cvv') or ''))
+    if len(cvv) not in (3, 4):
+        return None, 'Enter the 3 or 4 digit security code'
+    name = str(data.get('cardholder') or '').strip()[:80]
+    if len(name) < 2:
+        return None, 'Enter the name on the card'
+    return {'number': number, 'month': month, 'year': year, 'cvv': cvv, 'name': name}, None
+
+
+def _flw_encrypt(payload_json):
+    """3DES-ECB + PKCS7, base64 — the format the Flutterwave v3 card charge expects."""
+    key = FLW_ENCRYPTION_KEY.encode('utf-8')
+    padder = _sym_padding.PKCS7(64).padder()
+    padded = padder.update(payload_json.encode('utf-8')) + padder.finalize()
+    encryptor = _SymCipher(_TripleDES(key), _SymModes.ECB()).encryptor()
+    return base64.b64encode(encryptor.update(padded) + encryptor.finalize()).decode('ascii')
+
+
+def _flw_card_charge(order_ref, amount, email, phone, card):
+    """Charge a card through Flutterwave v3. Raw card data stays in this request only."""
+    payload = {
+        'enckey': FLW_ENCRYPTION_KEY,
+        'card_number': card['number'],
+        'cvv': card['cvv'],
+        'expiry_month': card['month'],
+        'expiry_year': card['year'],
+        'currency': 'UGX',
+        'amount': amount,
+        'email': email or business.SUPPORT_EMAIL,
+        'fullname': card['name'],
+        'tx_ref': _pay_attempt_ref(order_ref),
+        'redirect_url': PUBLIC_BASE_URL + '/?pay=done',
+        'meta': {'order_ref': order_ref},
+    }
+    if phone:
+        payload['phone_number'] = re.sub(r'[^\d+]', '', phone)[:20]
+    client = _flw_encrypt(_json.dumps(payload, separators=(',', ':')))
+    res = requests.post(
+        'https://api.flutterwave.com/v3/charges?type=card',
+        headers={'Authorization': 'Bearer ' + FLW_SECRET_KEY, 'Content-Type': 'application/json'},
+        json={'public_key': FLW_PUBLIC_KEY, 'client': client},
+        timeout=30,
+    )
+    return (res.json() if res.content else {}), payload['tx_ref']
+
+
+def _flw_card_result(j, fallback_ref):
+    """Map a charge/validate response to the next step the checkout must take."""
+    j = j if isinstance(j, dict) else {}
+    data = j.get('data') or {}
+    auth = (j.get('meta') or {}).get('authorization') or data.get('authorization') or {}
+    mode = (data.get('auth_mode') or auth.get('mode') or '').lower()
+    state = (data.get('status') or '').lower()
+    base = {'tx_ref': data.get('tx_ref') or fallback_ref,
+            'flw_ref': data.get('flw_ref') or '', 'flw_id': data.get('id')}
+    if (j.get('status') or '').lower() == 'success':
+        if state == 'successful' and data.get('id'):
+            return dict(base, ok=True, mode='paid')
+        if mode == 'redirect' and auth.get('redirect'):
+            return dict(base, ok=True, mode='redirect', link=auth['redirect'])
+        if mode == 'otp' and data.get('flw_ref'):
+            return dict(base, ok=True, mode='otp',
+                        message='Enter the one-time code sent to your phone.')
+        if mode == 'pin':
+            return {'ok': False, 'mode': 'pin',
+                    'error': 'This card needs a PIN. Please use the secure card page instead.'}
+        if data.get('flw_ref'):
+            return dict(base, ok=True, mode='pending', message='Waiting for the bank to confirm.')
+    msg = str(j.get('message') or 'Your card was not charged. Please try again.')[:160]
+    return {'ok': False, 'error': msg}
+
+
+def _flw_verify_and_mark(attempt_ref, flw_id, provider='Flutterwave'):
+    """Verify a Flutterwave transaction server-side, then mark its checkout paid.
+
+    The webhook body is never trusted on its own; this is also used after a
+    direct card charge or OTP validation."""
+    try:
+        v = requests.get(
+            'https://api.flutterwave.com/v3/transactions/' + str(flw_id) + '/verify',
+            headers={'Authorization': 'Bearer ' + FLW_SECRET_KEY}, timeout=20)
+        vj = v.json() if v.ok else {}
+        vdata = vj.get('data') or {}
+        tx_ref = _base_ref(attempt_ref)
+        owed = sum(float(o.get('total_price') or 0) for o in (supa_get(
+            'orders', {'payment_ref': f'eq.{tx_ref}', 'select': 'total_price'}, limit=50) or []))
+        if not ((vdata.get('status') or '').lower() == 'successful'
+                and _base_ref(vdata.get('tx_ref')) == tx_ref
+                and (vdata.get('currency') or 'UGX') == 'UGX'
+                and owed > 0 and float(vdata.get('amount') or 0) >= owed):
+            return False
+        # Mark every order row of this checkout paid (they share payment_ref).
+        # Idempotent: re-running just re-sets 'paid'; the match key is stable.
+        supa_update('orders', {'payment_status': 'paid'}, 'payment_ref', tx_ref)
+        amt = vdata.get('amount', 0)
+        cur = vdata.get('currency', 'UGX')
+        _discord_notify(
+            event_type='payment.confirmed',
+            title='💰 Payment Confirmed',
+            description=(
+                f"**Ref:** `{tx_ref}`\n"
+                f"**Amount:** {cur} {amt:,.0f}\n"
+                f"**Provider:** {provider}\n"
+                f"**FLW ID:** {flw_id}"
+            ),
+            severity='payment',
+        )
+        try:
+            paid_rows = supa_get('orders', {
+                'payment_ref': f'eq.{tx_ref}',
+                'select': 'buyer_id,order_ref,tracking_code',
+            }, limit=1) or []
+            if paid_rows:
+                pr = paid_rows[0]
+                b_id = pr.get('buyer_id')
+                o_ref = pr.get('order_ref', tx_ref[:8])
+                if b_id:
+                    NOTIFY.enqueue(
+                        channel='in_app',
+                        audience='user',
+                        recipient=b_id,
+                        event_type='payment.confirmed',
+                        severity='info',
+                        title='💰 Payment Confirmed!',
+                        body=(
+                            f'Your payment of {cur} {int(amt):,} for order {o_ref} has been received. '
+                            f'Your order will be dispatched shortly.'
+                        ),
+                        payload={'order_ref': o_ref, 'amount': amt, 'currency': cur},
+                        dedupe_key=f'payment_confirmed:{tx_ref}',
+                    )
+        except Exception as _pne:
+            print(f"payment notify error: {_pne}")
+        _send_payment_receipt(tx_ref)
+        return True
+    except Exception as e:
+        print(f"flw verify error: {e}")
+        return False
+
+
+@app.route('/api/pay/card', methods=['POST'])
+@rate_limit(max_req=10, window=300)
+def pay_card():
+    """Charge a card entered on our checkout form (opt-in; PCI DSS scoped)."""
+    uid, err = verify_supabase_user()
+    if err:
+        return err
+    if not _direct_card_ready():
+        return jsonify({'ok': False, 'enabled': False,
+                        'error': 'Direct card payments are not enabled'}), 200
+    data = request.get_json(force=True, silent=True) or {}
+    order_ref = (data.get('order_ref') or '').strip()[:60]
+    try:
+        amount = int(float(data.get('amount')))
+    except (TypeError, ValueError):
+        return jsonify({'ok': False, 'error': 'invalid amount'}), 400
+    if amount <= 0 or not order_ref:
+        return jsonify({'ok': False, 'error': 'missing order_ref or amount'}), 400
+    amount, perr = _checkout_amount(uid, order_ref, amount)
+    if perr:
+        return perr
+    card, cerr = _parse_card_fields(data)
+    if cerr:
+        return jsonify({'ok': False, 'error': cerr}), 400
+    try:
+        j, tx_ref = _flw_card_charge(
+            order_ref, amount, (data.get('email') or '').strip()[:120],
+            (data.get('phone') or '').strip()[:20], card)
+    except Exception:
+        return jsonify({'ok': False, 'error': 'payment gateway unavailable'}), 200
+    result = _flw_card_result(j, tx_ref)
+    if result.get('mode') == 'paid':
+        if _flw_verify_and_mark(tx_ref, result.get('flw_id'), provider='Flutterwave card'):
+            result['mode'] = 'paid'
+        else:
+            result['mode'] = 'pending'
+            result['message'] = 'The bank is confirming your payment.'
+    resp = jsonify(result)
+    resp.headers['Cache-Control'] = 'no-store'
+    return resp, 200
+
+
+@app.route('/api/pay/card/validate', methods=['POST'])
+@rate_limit(max_req=10, window=300)
+def pay_card_validate():
+    """Complete a card charge that the bank asked to authorise by OTP."""
+    uid, err = verify_supabase_user()
+    if err:
+        return err
+    if not _direct_card_ready():
+        return jsonify({'ok': False, 'enabled': False,
+                        'error': 'Direct card payments are not enabled'}), 200
+    data = request.get_json(force=True, silent=True) or {}
+    order_ref = (data.get('order_ref') or '').strip()[:60]
+    flw_ref = (data.get('flw_ref') or '').strip()[:100]
+    otp = (data.get('otp') or '').strip()
+    if not order_ref or not re.fullmatch(r'[A-Za-z0-9_\-/.]{6,100}', flw_ref):
+        return jsonify({'ok': False, 'error': 'missing payment reference'}), 400
+    if not re.fullmatch(r'\d{4,8}', otp):
+        return jsonify({'ok': False, 'error': 'Enter the code sent to your phone'}), 400
+    rows = supa_get('orders', {'payment_ref': f'eq.{order_ref}',
+                               'select': 'buyer_id,payment_status'}, limit=50) or []
+    if not rows:
+        return jsonify({'ok': False, 'error': 'order not found'}), 404
+    if any(str(r.get('buyer_id')) != str(uid) for r in rows):
+        return jsonify({'ok': False, 'error': 'not your order'}), 403
+    if all((r.get('payment_status') or '') == 'paid' for r in rows):
+        return jsonify({'ok': True, 'mode': 'paid'}), 200
+    try:
+        res = requests.post(
+            'https://api.flutterwave.com/v3/validate-charge',
+            headers={'Authorization': 'Bearer ' + FLW_SECRET_KEY,
+                     'Content-Type': 'application/json'},
+            json={'flw_ref': flw_ref, 'otp': otp}, timeout=30,
+        )
+        j = res.json() if res.content else {}
+    except Exception:
+        return jsonify({'ok': False, 'error': 'payment gateway unavailable'}), 200
+    result = _flw_card_result(j, order_ref)
+    if result.get('mode') == 'paid':
+        if _flw_verify_and_mark(result.get('tx_ref') or order_ref, result.get('flw_id'),
+                                provider='Flutterwave card'):
+            result['mode'] = 'paid'
+        else:
+            result['mode'] = 'pending'
+            result['message'] = 'The bank is confirming your payment.'
+    resp = jsonify(result)
+    resp.headers['Cache-Control'] = 'no-store'
+    return resp, 200
+
+
 @app.route('/api/pay/webhook/flutterwave', methods=['POST'])
 def pay_webhook_flw():
     # Only trust calls carrying the secret hash we configured in the FLW dashboard.
@@ -4122,68 +4405,9 @@ def pay_webhook_flw():
     data = request.get_json(force=True, silent=True) or {}
     ev = data.get('data') or {}
     attempt_ref = ev.get('tx_ref') or ''
-    tx_ref = _base_ref(attempt_ref)
     flw_id = ev.get('id')
-    if (ev.get('status') or '').lower() == 'successful' and tx_ref and flw_id:
-        # Never trust the webhook body alone — re-verify with Flutterwave server-side.
-        try:
-            v = requests.get(
-                'https://api.flutterwave.com/v3/transactions/' + str(flw_id) + '/verify',
-                headers={'Authorization': 'Bearer ' + FLW_SECRET_KEY}, timeout=20)
-            vj = v.json() if v.ok else {}
-            vdata = vj.get('data') or {}
-            owed = sum(float(o.get('total_price') or 0) for o in (supa_get(
-                'orders', {'payment_ref': f'eq.{tx_ref}', 'select': 'total_price'}, limit=50) or []))
-            if (vdata.get('status') or '').lower() == 'successful' \
-                    and _base_ref(vdata.get('tx_ref')) == tx_ref \
-                    and (vdata.get('currency') or 'UGX') == 'UGX' \
-                    and owed > 0 and float(vdata.get('amount') or 0) >= owed:
-                # Mark every order row of this checkout paid (they share payment_ref).
-                # Idempotent: re-running just re-sets 'paid'; the match key is stable.
-                supa_update('orders', {'payment_status': 'paid'}, 'payment_ref', tx_ref)
-                amt = vdata.get('amount', 0)
-                cur = vdata.get('currency', 'UGX')
-                _discord_notify(
-                    event_type='payment.confirmed',
-                    title='💰 Payment Confirmed',
-                    description=(
-                        f"**Ref:** `{tx_ref}`\n"
-                        f"**Amount:** {cur} {amt:,.0f}\n"
-                        f"**Provider:** Flutterwave\n"
-                        f"**FLW ID:** {flw_id}"
-                    ),
-                    severity='payment',
-                )
-                # Notify the buyer in-app that their payment was received
-                try:
-                    paid_rows = supa_get('orders', {
-                        'payment_ref': f'eq.{tx_ref}',
-                        'select': 'buyer_id,order_ref,tracking_code',
-                    }, limit=1) or []
-                    if paid_rows:
-                        pr = paid_rows[0]
-                        b_id = pr.get('buyer_id')
-                        o_ref = pr.get('order_ref', tx_ref[:8])
-                        if b_id:
-                            NOTIFY.enqueue(
-                                channel='in_app',
-                                audience='user',
-                                recipient=b_id,
-                                event_type='payment.confirmed',
-                                severity='info',
-                                title='💰 Payment Confirmed!',
-                                body=(
-                                    f'Your payment of {cur} {int(amt):,} for order {o_ref} has been received. '
-                                    f'Your order will be dispatched shortly.'
-                                ),
-                                payload={'order_ref': o_ref, 'amount': amt, 'currency': cur},
-                                dedupe_key=f'payment_confirmed:{tx_ref}',
-                            )
-                except Exception as _pne:
-                    print(f"payment notify error: {_pne}")
-                _send_payment_receipt(tx_ref)
-        except Exception as e:
-            print(f"flw verify error: {e}")
+    if (ev.get('status') or '').lower() == 'successful' and attempt_ref and flw_id:
+        _flw_verify_and_mark(attempt_ref, flw_id)
     return jsonify({'status': 'ok'}), 200
 
 

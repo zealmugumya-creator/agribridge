@@ -327,6 +327,20 @@ img{max-width:100%}
 .pm-icon{font-size:1.5rem;margin-bottom:4px}
 .pm-label{font-weight:700;font-size:0.82rem}
 .pm-sub{color:var(--text2);font-size:0.72rem;margin-top:2px}
+.card-form{background:var(--bg3);border:1.5px solid var(--green);border-radius:14px;padding:14px}
+.card-form label{display:block;font-size:0.72rem;font-weight:700;color:var(--text2);text-transform:uppercase;letter-spacing:0.04em;margin:10px 0 4px}
+.card-form label:first-child{margin-top:0}
+.card-form input{width:100%;padding:11px 12px;background:var(--bg2);border:1px solid var(--border);border-radius:9px;color:var(--text);font-family:inherit;font-size:0.95rem;box-sizing:border-box}
+.card-form input:focus{outline:none;border-color:var(--green)}
+.card-row{display:flex;gap:10px}
+.card-row>div{flex:1}
+.card-num-wrap{position:relative}
+.card-num-wrap input{padding-right:84px}
+.card-brand{position:absolute;right:10px;top:50%;transform:translateY(-50%);font-size:0.7rem;font-weight:800;color:var(--text2);letter-spacing:0.04em}
+.card-secure{display:flex;align-items:flex-start;gap:6px;font-size:0.72rem;color:var(--text2);line-height:1.45;margin-top:10px}
+.card-err{color:#f87171;font-size:0.78rem;margin-top:6px;min-height:1em}
+.otp-box{text-align:left;font-size:0.88rem;line-height:1.5}
+.otp-box input{width:100%;padding:11px 12px;background:var(--bg3);border:1px solid var(--green);border-radius:9px;color:var(--text);font-family:inherit;font-size:1.05rem;letter-spacing:0.18em;text-align:center;box-sizing:border-box;margin:9px 0 2px}
 .checkout-divider{border:none;border-top:1px solid var(--border);margin:16px 0}
 .order-success{text-align:center;padding:12px 0 20px}
 .order-success .ok-icon{font-size:3.5rem;margin-bottom:10px}
@@ -1893,10 +1907,33 @@ AgriBridge service</div>
         <div class="pay-method" id="pm-cash" onclick="selectPayMethod('cash')"><div class="pm-icon">💵</div><div class="pm-label">Cash on Delivery</div><div class="pm-sub">Pay on arrival</div></div>
       </div>
 
-      <!-- Card: entered on Flutterwave's secure page, never on our own page -->
-      <div id="cardInfoPanel" style="display:none;background:var(--bg3);border:1.5px solid var(--green);border-radius:12px;padding:14px;margin-top:10px;font-size:0.82rem;line-height:1.5">
-        <div style="font-weight:700;color:var(--green);margin-bottom:6px">💳 Pay by card</div>
-        You'll enter your card number, expiry (MM/YY), CVC and name on a <strong>secure Flutterwave page</strong> after you confirm. AgriBridge never sees or stores your card details.
+      <!-- Card: on-page fields when direct charging is enabled, otherwise Flutterwave's secure page -->
+      <div id="cardInfoPanel" style="display:none;margin-top:10px">
+        <div class="card-form" id="cardDirectFields" style="display:none">
+          <label for="cardName">Cardholder name</label>
+          <input id="cardName" type="text" autocomplete="cc-name" maxlength="80" placeholder="Name on card">
+          <label for="cardNumber">Card number</label>
+          <div class="card-num-wrap">
+            <input id="cardNumber" type="tel" inputmode="numeric" autocomplete="cc-number" maxlength="23" placeholder="1234 5678 9012 3456">
+            <span class="card-brand" id="cardBrand" aria-live="polite"></span>
+          </div>
+          <div class="card-row">
+            <div>
+              <label for="cardExpiry">Expiry</label>
+              <input id="cardExpiry" type="tel" inputmode="numeric" autocomplete="cc-exp" maxlength="5" placeholder="MM/YY">
+            </div>
+            <div>
+              <label for="cardCvv">CVC</label>
+              <input id="cardCvv" type="tel" inputmode="numeric" autocomplete="cc-csc" maxlength="4" placeholder="123">
+            </div>
+          </div>
+          <div class="card-err" id="cardErr" role="alert"></div>
+          <div class="card-secure">🔒 Encrypted and sent to Flutterwave for approval. AgriBridge never stores your card details.</div>
+        </div>
+        <div id="cardHostedNotice" style="background:var(--bg3);border:1.5px solid var(--green);border-radius:12px;padding:14px;font-size:0.82rem;line-height:1.5">
+          <div style="font-weight:700;color:var(--green);margin-bottom:6px">💳 Pay by card</div>
+          You'll enter your card number, expiry (MM/YY), CVC and name on a <strong>secure Flutterwave page</strong> after you confirm. AgriBridge never sees or stores your card details.
+        </div>
       </div>
       <!-- MoMo / Airtel number -->
       <div id="momoPhonePanel" style="background:var(--bg3);border:1.5px solid var(--green);border-radius:12px;padding:14px;margin-top:10px">
@@ -2218,6 +2255,7 @@ let currentListingId = null;
 let basketItems  = JSON.parse(localStorage.getItem('ab_basket') || '[]');
 let appliedPromo = JSON.parse(localStorage.getItem('ab_promo')  || 'null');
 let selectedPayMethod = 'momo';
+let cardOtpPending    = null; // {ref, flwRef, msg} while the bank waits for an OTP
 let basketOpen   = false;
 let aiOpen       = false;
 let voiceActive  = false;
@@ -2877,6 +2915,8 @@ document.addEventListener('DOMContentLoaded', function () {
 function closeCheckout() {
   const m = document.getElementById('checkoutModal');
   if (m) m.classList.remove('open');
+  clearCardInputs();
+  cardOtpPending = null;
   document.body.style.overflow = '';
 }
 // Close checkout when clicking the dark backdrop
@@ -2981,6 +3021,72 @@ function selectPickup(el, value) {
   document.getElementById('gpsStatus').innerHTML = `🏪 <strong>Pickup point:</strong> ${escHtml(value)}`;
 }
 
+// ── Card form: formatting, brand detection and validation ──────────────
+function onlyDigits(v){ return String(v == null ? '' : v).replace(/\D/g, ''); }
+function cardBrandOf(num){
+  if (/^4/.test(num)) return 'VISA';
+  if (/^(5[1-5]|2[2-7])/.test(num)) return 'MASTERCARD';
+  if (/^3[47]/.test(num)) return 'AMEX';
+  return '';
+}
+function formatCardNumber(v){
+  return onlyDigits(v).slice(0, 19).replace(/(.{4})/g, '$1 ').trim();
+}
+function formatCardExpiry(v){
+  var d = onlyDigits(v).slice(0, 4);
+  return d.length > 2 ? d.slice(0, 2) + '/' + d.slice(2) : d;
+}
+function cardLuhnOk(num){
+  var total = 0;
+  for (var i = 0; i < num.length; i++){
+    var d = num.charCodeAt(num.length - 1 - i) - 48;
+    if (i % 2){ d *= 2; if (d > 9) d -= 9; }
+    total += d;
+  }
+  return total % 10 === 0;
+}
+function cardExpiryOk(exp){
+  var m = /^(\d{2})\/(\d{2})$/.exec(String(exp || '').trim());
+  if (!m) return false;
+  var mm = +m[1], yy = 2000 + +m[2], now = new Date();
+  if (mm < 1 || mm > 12) return false;
+  return yy > now.getFullYear() || (yy === now.getFullYear() && mm >= now.getMonth() + 1);
+}
+function validateCardForm(){
+  var name = (document.getElementById('cardName')?.value || '').trim();
+  var num  = onlyDigits(document.getElementById('cardNumber')?.value || '');
+  var exp  = (document.getElementById('cardExpiry')?.value || '').trim();
+  var cvv  = onlyDigits(document.getElementById('cardCvv')?.value || '');
+  if (name.length < 2) return 'Enter the name on the card';
+  if (num.length < 13 || num.length > 19 || !cardLuhnOk(num)) return 'Enter a valid card number';
+  if (cardBrandOf(num) === 'AMEX' && num.length !== 15) return 'Enter a valid Amex card number';
+  if (!cardExpiryOk(exp)) return 'Enter a valid expiry date (MM/YY)';
+  if (cvv.length < 3 || cvv.length > 4) return 'Enter the 3 or 4 digit CVC';
+  return '';
+}
+function clearCardInputs(){
+  ['cardName','cardNumber','cardExpiry','cardCvv'].forEach(function(id){
+    var el = document.getElementById(id); if (el) el.value = '';
+  });
+  var b = document.getElementById('cardBrand'); if (b) b.textContent = '';
+  var e = document.getElementById('cardErr'); if (e) e.textContent = '';
+}
+document.addEventListener('input', function(e){
+  var el = e.target;
+  if (!el || !el.id) return;
+  if (el.id === 'cardNumber'){
+    el.value = formatCardNumber(el.value);
+    var b = document.getElementById('cardBrand');
+    if (b) b.textContent = cardBrandOf(onlyDigits(el.value));
+  } else if (el.id === 'cardExpiry'){
+    el.value = formatCardExpiry(el.value);
+  } else if (el.id === 'cardCvv'){
+    el.value = onlyDigits(el.value).slice(0, 4);
+  } else if (el.id === 'cardOtp'){
+    el.value = onlyDigits(el.value).slice(0, 8);
+  }
+});
+
 function selectPayMethod(method) {
   selectedPayMethod = method;
   ['card','momo','airtel','cash'].forEach(m => {
@@ -2989,17 +3095,23 @@ function selectPayMethod(method) {
   });
   const card = document.getElementById('cardInfoPanel');
   const phone = document.getElementById('momoPhonePanel');
+  const direct = !!(window._payProviders && window._payProviders.card);
   if (card) card.style.display = method === 'card' ? 'block' : 'none';
+  const fields = document.getElementById('cardDirectFields');
+  const hosted = document.getElementById('cardHostedNotice');
+  if (fields) fields.style.display = (method === 'card' && direct) ? 'block' : 'none';
+  if (hosted) hosted.style.display = (method === 'card' && !direct) ? 'block' : 'none';
   if (phone) phone.style.display = (method === 'momo' || method === 'airtel') ? 'block' : 'none';
   const pp = document.getElementById('payPhone');
   if (pp && !pp.value && currentUser && currentUser.phone) pp.value = currentUser.phone;
 }
-// Card only appears once the card gateway is live (so we never show a dead button).
+// Card options appear once a card gateway is live (never show a dead button).
 async function syncPayMethods() {
   const prov = await getEnabledProviders();
   const c = document.getElementById('pm-card');
-  if (c) c.style.display = prov.flutterwave ? '' : 'none';
-  if (!prov.flutterwave && selectedPayMethod === 'card') selectPayMethod('momo');
+  const hasCard = !!(prov.flutterwave || prov.card);
+  if (c) c.style.display = hasCard ? '' : 'none';
+  if (!hasCard && selectedPayMethod === 'card') selectPayMethod('momo');
   else selectPayMethod(selectedPayMethod);
 }
 
@@ -3094,6 +3206,90 @@ async function retryPayment(ref, total) {
   }
   if (waitBox) waitBox.innerHTML = '⚠️ ' + escHtml((res && res.error) || 'Payment could not be started. You can pay cash on delivery.');
 }
+
+// ── Direct card charge (server enables this only after an explicit opt-in) ──
+async function payWithCard(ref, total){
+  const tok = await refreshAuthToken();
+  if (!tok) return { error: 'Your session expired. Please log in again.' };
+  const body = {
+    order_ref: ref,
+    amount: Math.round(total || 0),
+    card_number: document.getElementById('cardNumber')?.value || '',
+    expiry: document.getElementById('cardExpiry')?.value || '',
+    cvv: document.getElementById('cardCvv')?.value || '',
+    cardholder: document.getElementById('cardName')?.value || '',
+    email: currentUser?.email || '',
+    phone: currentUser?.phone || ''
+  };
+  clearCardInputs();
+  try {
+    const r = await fetch(USSD_API + '/api/pay/card', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + tok },
+      body: JSON.stringify(body)
+    });
+    const j = await r.json().catch(function(){ return null; });
+    return j || { error: 'No response from the payment gateway. Please try again.' };
+  } catch (e) {
+    return { error: 'No connection. Please check your internet and try again.' };
+  }
+}
+
+function showCardOtp(ref, flwRef, msg){
+  cardOtpPending = { ref: ref, flwRef: flwRef, msg: msg || '' };
+  const box = document.getElementById('payWaitBox');
+  if (!box) return;
+  box.style.display = 'block';
+  box.innerHTML = '<div class="otp-box"><strong>Verify your card</strong><br>' +
+    '<span style="color:var(--text2)">' + escHtml(msg || 'Enter the one-time code sent to your phone.') + '</span>' +
+    '<input id="cardOtp" type="tel" inputmode="numeric" autocomplete="one-time-code" maxlength="8" placeholder="123456">' +
+    '<div class="card-err" id="cardOtpErr" role="alert"></div>' +
+    '<button class="btn-primary" style="width:100%;padding:11px;border-radius:9px" onclick="submitCardOtp()">Verify payment</button></div>';
+  setTimeout(function(){ const el = document.getElementById('cardOtp'); if (el) el.focus(); }, 150);
+}
+
+async function submitCardOtp(){
+  if (!cardOtpPending) return;
+  const inp = document.getElementById('cardOtp');
+  const err = document.getElementById('cardOtpErr');
+  const btn = document.querySelector('#payWaitBox button');
+  const otp = onlyDigits(inp && inp.value);
+  if (err) err.textContent = '';
+  if (otp.length < 4) { if (err) err.textContent = 'Enter the code sent to your phone'; return; }
+  const tok = await refreshAuthToken();
+  if (!tok) { if (err) err.textContent = 'Session expired — please log in again.'; return; }
+  if (btn) { btn.disabled = true; btn.textContent = 'Verifying…'; }
+  try {
+    const r = await fetch(USSD_API + '/api/pay/card/validate', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + tok },
+      body: JSON.stringify({ order_ref: cardOtpPending.ref, flw_ref: cardOtpPending.flwRef, otp: otp })
+    });
+    const j = await r.json().catch(function(){ return null; });
+    if (j && j.mode === 'paid') {
+      cardOtpPending = null;
+      const box = document.getElementById('payWaitBox');
+      if (box) box.innerHTML = '✅ <strong>Payment received. Thank you!</strong>';
+      showToast('✅ Payment received');
+      return;
+    }
+    if (j && j.mode === 'redirect' && j.link) { window.location.href = j.link; return; }
+    if (j && j.mode === 'pending') {
+      const box = document.getElementById('payWaitBox');
+      if (box) box.innerHTML = '⏳ <strong>' + escHtml(j.message || 'Waiting for your bank to confirm.') + '</strong>';
+      pollPayment(cardOtpPending.ref,
+        function(){ const b = document.getElementById('payWaitBox'); if (b) b.innerHTML = '✅ <strong>Payment received. Thank you!</strong>'; },
+        function(){ const b = document.getElementById('payWaitBox'); if (b) b.innerHTML = '⏳ Still waiting — we will update your order once the bank confirms.'; });
+      return;
+    }
+    if (btn) { btn.disabled = false; btn.textContent = 'Verify payment'; }
+    if (err) err.textContent = (j && j.error) || 'Could not verify that code. Please try again.';
+  } catch (e) {
+    if (btn) { btn.disabled = false; btn.textContent = 'Verify payment'; }
+    if (err) err.textContent = 'No connection. Please try again.';
+  }
+}
+
 async function placeOrder() {
   if (!currentUser?.supaId) { showToast('Please log in to place your order 🔐'); closeCheckout && closeCheckout(); setTimeout(()=>openModal('loginModal'),500); return; }
   const addr = document.getElementById('checkoutAddr')?.value.trim();
@@ -3103,6 +3299,16 @@ async function placeOrder() {
   const payPhone = (document.getElementById('payPhone')?.value || '').trim();
   if ((selectedPayMethod === 'momo' || selectedPayMethod === 'airtel') && payPhone.replace(/\D/g,'').length < 9) {
     showToast('Enter the mobile money number to pay from'); return;
+  }
+  const providers = await getEnabledProviders();
+  if (selectedPayMethod === 'card' && providers.card) {
+    const cardErr = validateCardForm();
+    if (cardErr) {
+      showToast(cardErr);
+      const e = document.getElementById('cardErr'); if (e) e.textContent = cardErr;
+      const el = document.getElementById('cardNumber'); if (el) el.focus();
+      return;
+    }
   }
   if (btn) { btn.textContent = 'Placing order…'; btn.disabled = true; }
   let ref   = 'AB-' + Date.now().toString(36).toUpperCase().slice(-6);
@@ -3155,20 +3361,42 @@ async function placeOrder() {
   sendSmsReceipt(currentUser?.phone, ref, total, 'order');
   // If an online gateway is live and the buyer chose an online method, try to
   // initiate payment. Falls back to manual instructions when no gateway is live.
-  let payPush = null, payError = '';
+  let payPush = null, payError = '', cardPaid = false;
+  cardOtpPending = null;
   if (selectedPayMethod && selectedPayMethod !== 'cash') {
-    const payResult = await startOnlinePayment(ref, total, selectedPayMethod, payPhone);
-    if (payResult && payResult.redirect) {
-      basketItems=[]; appliedPromo=null; saveBasket(); updateBasketBadge();
-      showToast('Opening secure payment…');
-      window.location.href = payResult.redirect;
-      return;
+    if (selectedPayMethod === 'card' && providers.card) {
+      const cardRes = (await payWithCard(ref, total)) || {};
+      if (cardRes.mode === 'paid') {
+        cardPaid = true;
+      } else if (cardRes.mode === 'redirect' && cardRes.link) {
+        basketItems=[]; appliedPromo=null; saveBasket(); updateBasketBadge();
+        showToast('Opening your bank’s secure page…');
+        window.location.href = cardRes.link;
+        return;
+      } else if (cardRes.mode === 'otp' && cardRes.flw_ref) {
+        cardOtpPending = { ref: ref, flwRef: cardRes.flw_ref, msg: cardRes.message || '' };
+      } else if (cardRes.mode === 'pending') {
+        payPush = cardRes.message || 'Waiting for your bank to confirm.';
+      } else {
+        payError = cardRes.error || 'Card payment could not be started.';
+      }
+    } else {
+      const payResult = await startOnlinePayment(ref, total, selectedPayMethod, payPhone);
+      if (payResult && payResult.redirect) {
+        basketItems=[]; appliedPromo=null; saveBasket(); updateBasketBadge();
+        showToast('Opening secure payment…');
+        window.location.href = payResult.redirect;
+        return;
+      }
+      if (payResult && payResult.pushed) { payPush = payResult.msg; }
+      if (payResult && payResult.error) { payError = payResult.error; }
+      if (!payResult && selectedPayMethod === 'card') {
+        payError = 'Card payment is unavailable right now. Please try again or pay on delivery.';
+      }
     }
-    if (payResult && payResult.pushed) { payPush = payResult.msg; }
-    if (payResult && payResult.error) { payError = payResult.error; }
     // null = no gateway live, fall through to manual payment instructions below
   }
-  if (btn) { btn.textContent = 'Place Order 🛒'; btn.disabled = false; }
+  if (btn) { btn.textContent = 'Confirm Order ✓'; btn.disabled = false; }
   // Show success
   const step1 = document.getElementById('checkoutStep1');
   const step2 = document.getElementById('checkoutStep2');
@@ -3224,7 +3452,12 @@ async function placeOrder() {
   }
   const waitBox = document.getElementById('payWaitBox');
   if (waitBox) {
-    if (payPush) {
+    if (cardPaid) {
+      waitBox.style.display = 'block';
+      waitBox.innerHTML = '✅ <strong>Payment received. Thank you!</strong>';
+    } else if (cardOtpPending) {
+      showCardOtp(cardOtpPending.ref, cardOtpPending.flwRef, cardOtpPending.msg);
+    } else if (payPush) {
       waitBox.style.display = 'block';
       waitBox.innerHTML = '📱 <strong>' + escHtml(payPush) + '</strong><br><span style="color:var(--text2)">Waiting for confirmation…</span>';
       pollPayment(ref, function(){ waitBox.innerHTML = '✅ <strong>Payment received. Thank you!</strong>'; showToast('✅ Payment received'); },

@@ -82,6 +82,22 @@ Runs automatically every Sunday. Restore instructions are in
 > Checkout automatically detects when Flutterwave is enabled. No code change needed —
 > add the keys and online payment turns on; remove them and it turns off.
 
+### Optional: on-page card fields (direct charge)
+
+By default the **Card** option sends buyers to Flutterwave's hosted, PCI-compliant
+card page. If you specifically need card fields inside our checkout, direct
+charging can be switched on — but raw card data then reaches this server, so the
+deployment and your Flutterwave account must be **PCI DSS attested**:
+
+1. Flutterwave → Settings → API → copy the **Public key** and **Encryption key**.
+2. In Render add `FLW_PUBLIC_KEY`, `FLW_ENCRYPTION_KEY` (must be exactly 24
+   characters), and `FLW_DIRECT_CARD=1`.
+3. Redeploy. The Card option now shows card number (4-4-4-4), MM/YY, CVC and
+   cardholder name. Card data is encrypted with 3DES-ECB before it leaves the
+   server, is never logged or stored, and OTP/3-D Secure prompts are handled.
+4. Test in Flutterwave sandbox first (test card `4242 4242 4242 4242`, any future
+   expiry, CVC `123`). Remove `FLW_DIRECT_CARD` to fall back to the hosted page.
+
 ---
 
 ## 6. Email receipts (Resend) — optional
