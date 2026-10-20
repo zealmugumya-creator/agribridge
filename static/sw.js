@@ -4,7 +4,7 @@
 // served stale code after deploys. This worker exists so Android can show
 // notifications in the system notification bar, even when the site is closed.
 
-const SW_VERSION = 'push-v1';
+const SW_VERSION = 'push-v2';
 
 self.addEventListener('install', () => {
   self.skipWaiting();
@@ -47,7 +47,12 @@ self.addEventListener('notificationclick', event => {
     self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then(list => {
       for (const client of list) {
         if (client.url.startsWith(self.location.origin) && 'focus' in client) {
-          return client.focus();
+          return client.focus().then(focused => {
+            // The page is already open: bring it forward and open the bell panel
+            // instead of doing a full navigation that would lose app state.
+            (focused || client).postMessage({ type: 'OPEN_NOTIFICATIONS' });
+            return focused;
+          });
         }
       }
       return self.clients.openWindow(target);
