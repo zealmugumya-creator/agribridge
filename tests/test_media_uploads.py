@@ -78,3 +78,72 @@ def test_upload_rejects_unknown_category(client, monkeypatch):
         'file': (BytesIO(_jpeg()), 'photo.jpg', 'image/jpeg'),
     }, content_type='multipart/form-data')
     assert r.status_code == 400
+
+
+# ── Listing media attach (listing saved before the optional upload) ──────────
+def _prepare_listing_attach(monkeypatch, owned=True):
+    _prepare_authenticated_upload(monkeypatch)
+    row = {'id': 'listing-1', 'farmer_id': 'farmer-1'} if owned else None
+    get_calls = []
+    update_calls = []
+
+    def fake_get(table, filters=None, limit=100):
+        get_calls.append((table, filters))
+        return [row] if row else []
+
+    def fake_update(table, data, eq_col, eq_val):
+        update_calls.append((table, data, eq_col, eq_val))
+        return True
+
+    monkeypatch.setattr(app_mod, 'supa_get', fake_get)
+    monkeypatch.setattr(app_mod, 'supa_update', fake_update)
+    return update_calls
+
+
+def _own_media_url(name='photo.jpg'):
+    return (f"{app_mod.SUPABASE_URL}/storage/v1/object/public/"
+            f"uploads/listings/farmer-1/{name}")
+
+
+def test_attach_media_requires_verified_session(client):
+    r = client.patch('/api/listings/listing-1/media', json={'image_url': 'https://x/y.jpg'})
+    assert r.status_code == 401
+
+
+def test_attach_media_rejects_listing_not_owned_by_caller(client, monkeypatch):
+    _prepare_listing_attach(monkeypatch, owned=False)
+    r = client.patch('/api/listings/listing-1/media',
+                     json={'image_url': _own_media_url()})
+    assert r.status_code == 404
+
+
+def test_attach_media_rejects_arbitrary_url(client, monkeypatch):
+    _prepare_listing_attach(monkeypatch)
+    r = client.patch('/api/listings/listing-1/media',
+                     json={'image_url': 'https://evil.example/tracker.jpg'})
+    assert r.status_code == 400
+    assert 'Invalid media URL' in r.get_json()['error']
+
+
+def test_attach_media_rejects_another_users_upload_path(client, monkeypatch):
+    _prepare_listing_attach(monkeypatch)
+    foreign = (f"{app_mod.SUPABASE_URL}/storage/v1/object/public/"
+               f"uploads/listings/farmer-2/photo.jpg")
+    r = client.patch('/api/listings/listing-1/media', json={'image_url': foreign})
+    assert r.status_code == 400
+
+
+def test_attach_media_updates_owned_listing(client, monkeypatch):
+    update_calls = _prepare_listing_attach(monkeypatch)
+    url = _own_media_url()
+    r = client.patch('/api/listings/listing-1/media', json={'image_url': url})
+    assert r.status_code == 200
+    assert r.get_json() == {'ok': True}
+    assert update_calls == [('listings', {'image_url': url}, 'id', 'listing-1')]
+
+
+def test_attach_media_requires_a_url(client, monkeypatch):
+    update_calls = _prepare_listing_attach(monkeypatch)
+    r = client.patch('/api/listings/listing-1/media', json={})
+    assert r.status_code == 400
+    assert update_calls == []

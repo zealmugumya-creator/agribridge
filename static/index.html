@@ -2125,10 +2125,10 @@ async function uploadMedia(file, prefix, maxMB){
     form.append('kind',prefix||'listings');
     var res=await fetch(USSD_API+'/api/uploads',{ method:'POST', headers:{ Authorization:'Bearer '+token }, body:form, signal:controller.signal });
     var data=await res.json().catch(function(){ return {}; });
-    if(!res.ok || !data.url){ showToast(data.error||'Photo/video upload failed. Your listing can still be posted without it.'); return null; }
+    if(!res.ok || !data.url){ showToast(data.error||'Photo/video upload failed. You can continue without it.'); return null; }
     return data.url;
   }catch(e){
-    showToast(e&&e.name==='AbortError'?'Upload timed out. Posting without the photo.':'Upload error. Posting without the photo.');
+    showToast(e&&e.name==='AbortError'?'Upload timed out. You can continue without the photo.':'Upload error. You can continue without the photo.');
     return null;
   }finally{ clearTimeout(timer); }
 }
@@ -4290,40 +4290,80 @@ async function submitListProduceCore() {
   const delivery=document.getElementById('lpDelivery')?.checked||false;
   const pays=[]; if(document.getElementById('lpPayMomo')?.checked)pays.push('MoMo'); if(document.getElementById('lpPayCash')?.checked)pays.push('Cash'); if(document.getElementById('lpPayBank')?.checked)pays.push('Bank');
   const photoFile=document.getElementById('lpPhoto')?.files?.[0]||null;
-  let imageUrl=null;
-  if(photoFile){
-    // Phone photos are commonly 4–12 MB. Resize an image locally before it
-    // crosses an intermittent mobile network; the original remains untouched.
-    let uploadPhoto=photoFile;
-    try{
-      if((photoFile.type||'').indexOf('image/')===0){
-        showToast('Preparing photo…');
-        const compressed=await downscaleImage(photoFile,1280,0.82);
-        uploadPhoto=new File([compressed],'listing.jpg',{type:'image/jpeg'});
-      }
-    }catch(e){ /* Upload the original only if device image processing fails. */ }
-    showToast('Uploading photo…');
-    imageUrl=await uploadMedia(uploadPhoto,'listings',5);
-  }
   const videoFile=document.getElementById('lpVideo')?.files?.[0]||null;
-  const videoUrl=videoFile ? await uploadMedia(videoFile,'listings',25) : null;
-  // Route through backend so Discord/admin is notified of every new listing
-  // `getAuthToken` was never defined in this single-file app. Use the active
-  // Supabase session (refreshing it once if necessary) before posting.
+  // Save the listing FIRST, without waiting on media. The old flow blocked the
+  // save behind a mobile upload that could take 30–45s or time out, so farmers
+  // saw "Uploading photo…" and ended up with no listing at all. Media is
+  // optional and is attached afterwards by attachListingMedia().
   const token = _authToken || await refreshAuthToken();
-  const apiRes = token
-    ? await fetch(USSD_API + '/api/listings', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
-        body: JSON.stringify({ crop_name:crop, category:cat, quantity_kg:qty, price_per_kg:price,
-          district, is_organic:organic, description:desc||null, sale_unit:saleUnit,
-          min_order_kg:minOrder, delivery_available:delivery,
-          payment_terms:pays.join(', ')||null, image_url:imageUrl, video_url:videoUrl })
-      }).then(r=>r.json()).catch(()=>null)
-    : null;
-  const result = apiRes?.ok || apiRes?.listing;
-  if(result){ closeModal('listProduceModal'); showToast(`✅ ${crop} listing posted! Buyers can now find you.`); allListings=[]; if(document.querySelector('.page.active')?.id==='page-market') loadListings(); if(typeof loadLiveBoard==='function') loadLiveBoard(); }
-  else showToast('Could not post listing — please try again');
+  if(!token){ showToast('Your session expired — please log in again.'); return; }
+  let apiRes=null, httpStatus=0;
+  try{
+    const r=await fetch(USSD_API + '/api/listings', {
+      method:'POST',
+      headers:{ 'Content-Type':'application/json', 'Authorization':'Bearer '+token },
+      body: JSON.stringify({ crop_name:crop, category:cat, quantity_kg:qty, price_per_kg:price,
+        district, is_organic:organic, description:desc||null, sale_unit:saleUnit,
+        min_order_kg:minOrder, delivery_available:delivery,
+        payment_terms:pays.join(', ')||null, image_url:null, video_url:null })
+    });
+    httpStatus=r.status;
+    apiRes=await r.json().catch(()=>null);
+  }catch(e){
+    showToast('Network error — check your connection and try again');
+    return;
+  }
+  const listing=apiRes&&apiRes.listing?apiRes.listing:null;
+  if(!apiRes||!apiRes.ok||!listing){
+    showToast('⚠️ '+(apiRes&&apiRes.error?apiRes.error:'Could not post listing ('+httpStatus+')'));
+    return;
+  }
+  closeModal('listProduceModal');
+  showToast(`✅ ${crop} listing posted! Buyers can now find you.`);
+  // Force a real refetch: clearing allListings while _listingsFull stayed true
+  // made loadListings() re-render an empty list instead of fetching the new row.
+  allListings=[]; window._listingsFull=false;
+  if(document.querySelector('.page.active')?.id==='page-market') loadListings();
+  if(typeof loadLiveBoard==='function') loadLiveBoard();
+  // Optional photo/video: never blocks or invalidates the saved listing.
+  if(photoFile||videoFile) attachListingMedia(listing.id, photoFile, videoFile);
+}
+
+// Best-effort media attachment for an already-saved listing. Runs after the
+// success toast; a failure here only costs the photo, never the listing.
+async function attachListingMedia(listingId, photoFile, videoFile){
+  if(!listingId) return;
+  try{
+    let imageUrl=null, videoUrl=null;
+    if(photoFile){
+      let uploadPhoto=photoFile;
+      try{
+        if((photoFile.type||'').indexOf('image/')===0){
+          const compressed=await downscaleImage(photoFile,1280,0.82);
+          uploadPhoto=new File([compressed],'listing.jpg',{type:'image/jpeg'});
+        }
+      }catch(e){ /* upload the original if on-device resizing fails */ }
+      imageUrl=await uploadMedia(uploadPhoto,'listings',5);
+    }
+    if(videoFile) videoUrl=await uploadMedia(videoFile,'listings',25);
+    if(!imageUrl&&!videoUrl) return;
+    const tok=_authToken||await refreshAuthToken();
+    if(!tok) return;
+    const r=await fetch(USSD_API+'/api/listings/'+encodeURIComponent(listingId)+'/media',{
+      method:'PATCH',
+      headers:{'Content-Type':'application/json','Authorization':'Bearer '+tok},
+      body:JSON.stringify({image_url:imageUrl,video_url:videoUrl})
+    });
+    if(r.ok){
+      window._listingsFull=false;
+      showToast('📷 Photo added to your listing');
+      if(document.querySelector('.page.active')?.id==='page-market') loadListings();
+    }else{
+      showToast('Listing saved. The photo could not be added — you can add it later.');
+    }
+  }catch(e){
+    showToast('Listing saved. The photo could not be added.');
+  }
 }
 
 // ─────────────────────────────────────────────────────────────────

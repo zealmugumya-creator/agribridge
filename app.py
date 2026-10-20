@@ -39,7 +39,7 @@ from services.matching import MatchingService
 from services.notifications import NotificationDispatcher
 from services.orders import OrderService
 from services.push import build_push
-from services.supabase_client import SupabaseClient
+from services.supabase_client import SupabaseClient, _UPLOADS_BUCKET
 from services.webpush import WebPushService
 
 configure_logging()
@@ -1411,6 +1411,49 @@ def create_listing():
         'quantity_kg': quantity_kg, 'district': district,
     }, severity='info', user_id=uid)
     return jsonify({'ok': True, 'listing': inserted[0] if isinstance(inserted, list) else inserted}), 201
+
+
+@app.route('/api/listings/<listing_id>/media', methods=['PATCH'])
+@rate_limit(max_req=20, window=300)
+def attach_listing_media(listing_id):
+    """Attach an optional photo/video to a listing the caller already owns.
+
+    Listings are saved before media uploads run, so a slow or failed mobile
+    upload can never leave a farmer with no listing. This route only accepts
+    media URLs this API generated for the caller's own uploads, preventing a
+    user from attaching arbitrary (or another user's) content.
+    """
+    uid, err = verify_supabase_user()
+    if err:
+        return err
+    blocked = legal_gate(uid)
+    if blocked:
+        return blocked
+    data = request.get_json(force=True, silent=True) or {}
+    image_url = str(data.get('image_url') or '').strip()
+    video_url = str(data.get('video_url') or '').strip()
+    if not image_url and not video_url:
+        return jsonify({'error': 'image_url or video_url is required'}), 400
+
+    owned = supa_get('listings', {'id': f'eq.{listing_id}',
+                                  'farmer_id': f'eq.{uid}'}, limit=1) or []
+    if not owned:
+        return jsonify({'error': 'Listing not found'}), 404
+
+    allowed_prefix = (f"{SUPABASE_URL}/storage/v1/object/public/"
+                      f"{_UPLOADS_BUCKET}/listings/{uid}/")
+    for url in (image_url, video_url):
+        if url and not url.startswith(allowed_prefix):
+            return jsonify({'error': 'Invalid media URL'}), 400
+
+    patch = {}
+    if image_url:
+        patch['image_url'] = image_url[:2048]
+    if video_url:
+        patch['video_url'] = video_url[:2048]
+    if not supa_update('listings', patch, 'id', listing_id):
+        return jsonify({'error': 'Could not attach media'}), 500
+    return jsonify({'ok': True})
 
 
 @app.route('/api/listings', methods=['GET'])
