@@ -77,8 +77,17 @@ def browser():
     with pw.sync_playwright() as p:
         try:
             b = p.chromium.launch()
-        except Exception as exc:  # no browser installed
-            pytest.skip(f"chromium unavailable: {exc}")
+        except Exception as chromium_error:
+            # CI installs Playwright Chromium. Developers may only have the
+            # normal Chrome browser installed, so use it as a test fallback
+            # rather than silently skipping the entire browser suite.
+            try:
+                b = p.chromium.launch(channel="chrome")
+            except Exception as chrome_error:  # no usable browser installed
+                pytest.skip(
+                    "chromium unavailable: "
+                    f"{chromium_error}; Chrome fallback unavailable: {chrome_error}"
+                )
         yield b
         b.close()
 

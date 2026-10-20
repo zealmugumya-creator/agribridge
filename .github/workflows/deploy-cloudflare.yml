@@ -22,6 +22,14 @@ jobs:
       CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
     steps:
       - uses: actions/checkout@v4
+      - name: Report missing deployment credential
+        if: ${{ env.CLOUDFLARE_API_TOKEN == '' }}
+        run: |
+          echo "::warning::Cloudflare deployment was skipped because CLOUDFLARE_API_TOKEN is not configured in GitHub Actions secrets."
+          {
+            echo "## Cloudflare deployment skipped"
+            echo "Add CLOUDFLARE_API_TOKEN (and, if required, CLOUDFLARE_ACCOUNT_ID) in GitHub repository Actions secrets, then rerun this workflow."
+          } >> "$GITHUB_STEP_SUMMARY"
       - name: Deploy Worker static assets
         # Skip rather than create a misleading red build until the repository
         # owner configures the two deployment secrets described in Operations.
