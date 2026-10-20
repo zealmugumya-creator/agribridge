@@ -20,6 +20,7 @@ import jwt
 import requests
 from flask import Flask, Response, g, jsonify, request
 from flask_cors import CORS
+from werkzeug.exceptions import RequestEntityTooLarge
 
 from services import business, monitoring
 
@@ -60,6 +61,9 @@ except ConfigError as _cfg_err:
     raise
 
 app = Flask(__name__)
+# A 25 MB video plus multipart metadata must be accepted, while an unlimited
+# request body would let unauthenticated clients exhaust a small Render worker.
+app.config['MAX_CONTENT_LENGTH'] = 28 * 1024 * 1024
 CORS(app, resources={r"/api/*": {"origins": SETTINGS.cors_origins}})
 
 # ── Config ────────────────────────────────────────────────────────────────────
@@ -149,6 +153,11 @@ def _security_headers(resp):
 @app.errorhandler(404)
 def _not_found(e):
     return jsonify({'error': 'Not found'}), 404
+
+
+@app.errorhandler(RequestEntityTooLarge)
+def _request_too_large(e):
+    return jsonify({'error': 'File is too large. Photos must be at most 5 MB and videos at most 25 MB.'}), 413
 
 @app.errorhandler(Exception)
 def _unhandled(e):
@@ -1254,6 +1263,91 @@ def admin_stats():
             if o.get('payment_status') == 'paid'
         )
     })
+
+_MEDIA_UPLOAD_KINDS = {
+    'listings': 'listing',
+    'animals': 'animal',
+    'avatars': 'avatar',
+    'supplies': 'supply',
+}
+_MEDIA_TYPES = {
+    'image/jpeg': (5 * 1024 * 1024, 'jpg'),
+    'image/png': (5 * 1024 * 1024, 'png'),
+    'image/webp': (5 * 1024 * 1024, 'webp'),
+    'video/mp4': (25 * 1024 * 1024, 'mp4'),
+    'video/webm': (25 * 1024 * 1024, 'webm'),
+    'video/quicktime': (25 * 1024 * 1024, 'mov'),
+}
+
+
+def _looks_like_declared_media(content_type: str, blob: bytes) -> bool:
+    """Reject HTML/executables renamed as an image or video before storage."""
+    if content_type == 'image/jpeg':
+        return blob.startswith(b'\xff\xd8\xff')
+    if content_type == 'image/png':
+        return blob.startswith(b'\x89PNG\r\n\x1a\n')
+    if content_type == 'image/webp':
+        return len(blob) >= 12 and blob[:4] == b'RIFF' and blob[8:12] == b'WEBP'
+    if content_type in ('video/mp4', 'video/quicktime'):
+        return len(blob) >= 12 and blob[4:8] == b'ftyp'
+    if content_type == 'video/webm':
+        return blob.startswith(b'\x1a\x45\xdf\xa3')
+    return False
+
+
+@app.route('/api/uploads', methods=['POST'])
+@rate_limit(max_req=12, window=300)
+def upload_media():
+    """Upload validated listing media through the API, never from the browser.
+
+    The previous browser-to-Supabase path made media uploads depend on a bucket
+    configured manually in a separate dashboard.  This route validates the
+    caller and the actual media bytes, creates that bucket idempotently through
+    the service role when necessary, and gives the client a bounded response.
+    """
+    uid, err = verify_supabase_user()
+    if err:
+        return err
+    blocked = legal_gate(uid)
+    if blocked:
+        return blocked
+
+    kind = str(request.form.get('kind', '')).strip().lower()
+    if kind not in _MEDIA_UPLOAD_KINDS:
+        return jsonify({'error': 'Invalid upload category'}), 400
+    uploaded = request.files.get('file')
+    if not uploaded or not uploaded.filename:
+        return jsonify({'error': 'Choose a photo or video first'}), 400
+
+    content_type = (uploaded.mimetype or '').lower().strip()
+    spec = _MEDIA_TYPES.get(content_type)
+    if not spec:
+        return jsonify({'error': 'Only JPG, PNG, WebP, MP4, WebM, and MOV files are allowed'}), 415
+    max_bytes, extension = spec
+    # Read at most one byte past the permitted size.  This keeps memory bounded
+    # and detects clients that lie about Content-Length.
+    blob = uploaded.stream.read(max_bytes + 1)
+    if not blob:
+        return jsonify({'error': 'The selected file is empty'}), 400
+    if len(blob) > max_bytes:
+        label = 'Videos' if content_type.startswith('video/') else 'Photos'
+        limit_mb = 25 if content_type.startswith('video/') else 5
+        return jsonify({'error': f'{label} must be at most {limit_mb} MB'}), 413
+    if not _looks_like_declared_media(content_type, blob):
+        return jsonify({'error': 'The file content does not match its media type'}), 415
+
+    object_path = f"{kind}/{uid}/{uuid.uuid4().hex}.{extension}"
+    stored = SUPA.upload_public_media(object_path, blob, content_type)
+    if not stored.ok:
+        log.error('media.upload_failed', user_id=uid, kind=kind,
+                  status=stored.status, error=stored.error)
+        return jsonify({'error': 'Photo upload is temporarily unavailable. You can post the listing without a photo and try again later.'}), 503
+
+    _log_system_event('media_uploaded', {
+        'kind': kind, 'bytes': len(blob), 'content_type': content_type,
+    }, severity='info', user_id=uid)
+    return jsonify({'ok': True, 'url': stored.data['url']}), 201
+
 
 @app.route('/api/listings', methods=['POST'])
 @rate_limit(max_req=20, window=60)

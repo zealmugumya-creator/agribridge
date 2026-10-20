@@ -2103,21 +2103,31 @@ async function refreshAuthToken() {
   return null;
 }
 async function sbInsert(t, d, opts) { return sb(t, { method:'POST', body:d, minimal: !!(opts && opts.minimal) }); }
-// Upload an image to the public 'uploads' bucket; returns its public URL (or null).
+// Upload an image through the authenticated API; returns its public URL (or null).
 async function uploadImage(file, prefix){ return uploadMedia(file, prefix, 5); }
-// Upload a photo (<=5MB) or short video (<=25MB) to the public uploads bucket.
+// Upload a photo (<=5MB) or short video (<=25MB) through the authenticated API.
 async function uploadMedia(file, prefix, maxMB){
   if(!file) return null;
   var isVideo=(file.type||'').indexOf('video')===0;
   var limit=(maxMB||(isVideo?25:5))*1024*1024;
   if(file.size > limit){ showToast((isVideo?'Video':'Image')+' too large (max '+(maxMB||(isVideo?25:5))+'MB)'); return null; }
+  var token=_authToken || await refreshAuthToken();
+  if(!token){ showToast('Your session expired. Please log in again before uploading.'); return null; }
+  var controller=new AbortController();
+  // A mobile connection or waking backend must not trap a farmer in this form.
+  var timer=setTimeout(function(){ controller.abort(); },45000);
   try{
-    var ext=((file.name||'file').split('.').pop()||(isVideo?'mp4':'jpg')).toLowerCase().replace(/[^a-z0-9]/g,'')||(isVideo?'mp4':'jpg');
-    var path=(prefix||'misc')+'/'+Date.now()+'-'+Math.random().toString(36).slice(2,8)+'.'+ext;
-    var res=await fetch(SUPA_URL+'/storage/v1/object/uploads/'+path,{ method:'POST', headers:{ apikey:SUPA_KEY, Authorization:'Bearer '+(_authToken||SUPA_KEY), 'Content-Type':file.type||'application/octet-stream', 'x-upsert':'true' }, body:file });
-    if(!res.ok){ showToast('Photo/video upload failed — please try again'); return null; }
-    return SUPA_URL+'/storage/v1/object/public/uploads/'+path;
-  }catch(e){ showToast('Upload error — check your connection'); return null; }
+    var form=new FormData();
+    form.append('file',file,file.name||'media');
+    form.append('kind',prefix||'listings');
+    var res=await fetch(USSD_API+'/api/uploads',{ method:'POST', headers:{ Authorization:'Bearer '+token }, body:form, signal:controller.signal });
+    var data=await res.json().catch(function(){ return {}; });
+    if(!res.ok || !data.url){ showToast(data.error||'Photo/video upload failed. Your listing can still be posted without it.'); return null; }
+    return data.url;
+  }catch(e){
+    showToast(e&&e.name==='AbortError'?'Upload timed out. Posting without the photo.':'Upload error. Posting without the photo.');
+    return null;
+  }finally{ clearTimeout(timer); }
 }
 async function sbUpdate(t, d, col, val) { return sb(t, { method:'PATCH', body:d, filters:[[col, `eq.${val}`]] }); }
 
@@ -4282,7 +4292,9 @@ async function submitListProduceCore() {
   const videoFile=document.getElementById('lpVideo')?.files?.[0]||null;
   const videoUrl=videoFile ? await uploadMedia(videoFile,'listings',25) : null;
   // Route through backend so Discord/admin is notified of every new listing
-  const token = await getAuthToken();
+  // `getAuthToken` was never defined in this single-file app. Use the active
+  // Supabase session (refreshing it once if necessary) before posting.
+  const token = _authToken || await refreshAuthToken();
   const apiRes = token
     ? await fetch(USSD_API + '/api/listings', {
         method: 'POST',

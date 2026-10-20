@@ -55,9 +55,18 @@ supabase db push            # if the project is linked with the Supabase CLI
 | 0001 | order-integrity columns, `order_events`, `stock_changes`, `create_order_atomic`, `set_order_status` | C1, C2, C4 |
 | 0002 | `user_roles`, `admin_audit_log`, `is_admin()`, `assign_role()`, RLS closing public order/payout inserts | C3, C5 |
 | 0003 | `notification_outbox`, `admin_devices`, `enqueue_notification`, `claim_notifications`, `resolve_notification` | H3, H4, H5 |
-| 0004 | `purchase_requests`, `order_offers`, `matching_config`, `match_eligible_farmers` | Phase 5 |
+| 0004 | in-app notification channel and user read access | Notifications |
+| 0004a | `purchase_requests`, `order_offers`, `matching_config`, `match_eligible_farmers` | Phase 5 |
 | 0005 | `create_purchase_request`, `match_and_offer`, `accept_offer`, `reject_offer`, `expire_overdue_offers`, `claim_unmatched_requests` | Phase 5 |
 | 0006 | `account_deletion_requests`, `_acct_anonymize`, `request_account_deletion`, `mark_account_purged`, `farmers.deleted_at` | H6 |
+| 0007 | versioned legal documents and consent records | Legal compliance |
+| 0007a | free-form order items in `create_order_atomic` | Marketplace orders |
+| 0008–0011 | profile validation, push subscriptions, service requests and market-price history | Product operations |
+| 0012 | secure public `uploads` bucket; backend-only media writes | Listing uploads |
+
+> **Listing-photo fix:** deploy the API and web app together, then apply
+> `0012_uploads_bucket.up.sql`. It creates the `uploads` bucket and removes any
+> browser-write storage policies. Do not use the older `storage-uploads.sql`.
 
 > **Verify after applying:** Supabase → Advisors → **Security** should show no new RLS-disabled or policy warnings on AgriBridge tables. Rollback with the matching `.down.sql` if needed.
 

@@ -22,6 +22,8 @@ service-account.json
 
 # Node / mobile generated artifacts
 node_modules/
+.test-deps/
+.pytest-tmp/
 mobile/www/
 mobile/android/
 mobile/ios/

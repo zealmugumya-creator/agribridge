@@ -67,7 +67,7 @@ app.py              ← Flask backend (USSD, SMS, AI, payments, admin, orders)
 services/           ← backend service modules (config, logging, monitoring,
                       supabase_client, orders, matching, notifications,
                       discord, push, account, worker)
-supabase/migrations/← reversible SQL migrations 0001–0006 (up + down)
+supabase/migrations/← reversible SQL migrations 0001–0012 (up + down)
 tests/              ← pytest suite (85 tests)
 requirements.txt    ← Python runtime deps
 requirements-dev.txt, pytest.ini, ruff.toml  ← dev/lint/test config

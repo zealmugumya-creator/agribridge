@@ -14,6 +14,8 @@ from conftest import FakeSupabase, RpcResult
 from services.notifications import NotificationDispatcher
 from services.orders import OrderService
 
+LISTING_ID = "11111111-1111-4111-8111-111111111111"
+
 
 def _svc(rpc_result):
     db = FakeSupabase(rpc_results={"create_order_atomic": rpc_result,
@@ -57,7 +59,7 @@ def test_client_supplied_price_is_ignored():
     svc, db, _ = _svc(RpcResult(ok=True, data={"order_ref": "AB-1", "tracking_code": "T",
                                                "total_price": 5000, "items": []}))
     svc.create_order(buyer_id="u1",
-                     items=[{"listing_id": "L1", "quantity": 5, "price": 1, "total_price": 1}],
+                     items=[{"listing_id": LISTING_ID, "quantity": 5, "price": 1, "total_price": 1}],
                      delivery_address="Kampala", payment_method="cod",
                      idempotency_key="k1", correlation_id="c1")
     fn, args = db.rpc_calls[0]
@@ -66,7 +68,7 @@ def test_client_supplied_price_is_ignored():
     sent_item = args["p_items"][0]
     assert "price" not in sent_item, "raw 'price' must not be forwarded to RPC"
     assert "total_price" not in sent_item, "raw 'total_price' must not be forwarded to RPC"
-    assert sent_item["listing_id"] == "L1"
+    assert sent_item["listing_id"] == LISTING_ID
     assert sent_item["quantity"] == 5.0
     assert args["p_buyer_id"] == "u1"
     assert args["p_idempotency_key"] == "k1"
@@ -74,8 +76,8 @@ def test_client_supplied_price_is_ignored():
 
 def test_successful_order_enqueues_admin_push_and_discord():
     svc, db, _ = _svc(RpcResult(ok=True, data={"order_ref": "AB-9", "tracking_code": "TRK",
-                                               "total_price": 12000, "items": [{"listing_id": "L"}]}))
-    res = svc.create_order(buyer_id="u1", items=[{"listing_id": "L", "quantity": 2}],
+                                               "total_price": 12000, "items": [{"listing_id": LISTING_ID}]}))
+    res = svc.create_order(buyer_id="u1", items=[{"listing_id": LISTING_ID, "quantity": 2}],
                            delivery_address="A", payment_method="momo",
                            idempotency_key="k", correlation_id="cid")
     assert res.ok and res.order_ref == "AB-9" and res.total_price == 12000
@@ -90,7 +92,7 @@ def test_successful_order_enqueues_admin_push_and_discord():
 def test_insufficient_stock_maps_to_409():
     svc, _, _ = _svc(RpcResult(ok=False, status=400,
                                error="insufficient stock for listing L1"))
-    res = svc.create_order(buyer_id="u1", items=[{"listing_id": "L1", "quantity": 999}],
+    res = svc.create_order(buyer_id="u1", items=[{"listing_id": LISTING_ID, "quantity": 999}],
                            delivery_address="", payment_method="cod",
                            idempotency_key=None, correlation_id=None)
     assert not res.ok and res.status_code == 409   # honest conflict, not a fake success
@@ -98,7 +100,7 @@ def test_insufficient_stock_maps_to_409():
 
 def test_reservation_race_maps_to_409():
     svc, _, _ = _svc(RpcResult(ok=False, status=400, error="stock reservation race lost"))
-    res = svc.create_order(buyer_id="u1", items=[{"listing_id": "L1", "quantity": 1}],
+    res = svc.create_order(buyer_id="u1", items=[{"listing_id": LISTING_ID, "quantity": 1}],
                            delivery_address="", payment_method="cod",
                            idempotency_key=None, correlation_id=None)
     assert not res.ok and res.status_code == 409
@@ -115,7 +117,7 @@ def test_notification_failure_does_not_fail_the_order():
     db = Boom(rpc_results={"create_order_atomic": RpcResult(
         ok=True, data={"order_ref": "AB-2", "tracking_code": "T", "total_price": 1, "items": []})})
     svc = OrderService(supabase=db, dispatcher=NotificationDispatcher(supabase=db))
-    res = svc.create_order(buyer_id="u1", items=[{"listing_id": "L", "quantity": 1}],
+    res = svc.create_order(buyer_id="u1", items=[{"listing_id": LISTING_ID, "quantity": 1}],
                            delivery_address="", payment_method="cod",
                            idempotency_key=None, correlation_id=None)
     assert res.ok and res.order_ref == "AB-2"
