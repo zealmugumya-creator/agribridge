@@ -42,7 +42,15 @@ jobs:
       - name: Unit + integration + browser tests
         env:
           FLASK_ENV: development
-        run: pytest -q --junitxml=reports/pytest.xml
+        run: |
+          set +e
+          pytest -q --junitxml=reports/pytest.xml
+          status=$?
+          if [ "$status" -ne 0 ]; then
+            echo "::error::Pytest failed. The JUnit failure details follow."
+            cat reports/pytest.xml || true
+          fi
+          exit "$status"
 
       - name: Upload test report
         if: always()
