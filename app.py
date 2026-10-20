@@ -3161,13 +3161,14 @@ def track_shipment(code):
     rider is assigned, so every fresh order showed "No delivery found". We start from
     the order (always exists) and merge the delivery row when there is one. Only
     non-personal fields are returned; the code itself is the shared secret."""
-    code = (code or '').strip()
-    if not _TRACK_RE.match(code):
+    # People paste codes with spaces ("TRK-ABC 123") and lower case; both refer
+    # to the same code. `ilike` also matches codes stored in lower case.
+    code_u = re.sub(r'\s+', '', code or '').upper()
+    if not _TRACK_RE.match(code_u):
         return jsonify({'ok': False, 'error': 'invalid code'}), 400
-    code_u = code.upper()
     order = None
     for col in ('tracking_code', 'order_ref', 'payment_ref'):
-        rows = supa_get('orders', {col: f'eq.{code_u}'}, limit=1) or []
+        rows = supa_get('orders', {col: f'ilike.{code_u}'}, limit=1) or []
         if rows:
             order = rows[0]
             break
@@ -3176,7 +3177,7 @@ def track_shipment(code):
         d = supa_get('deliveries', {'order_id': f"eq.{order['id']}"}, limit=1) or []
         delivery = d[0] if d else None
     if not order:
-        d = supa_get('deliveries', {'tracking_code': f'eq.{code_u}'}, limit=1) or []
+        d = supa_get('deliveries', {'tracking_code': f'ilike.{code_u}'}, limit=1) or []
         delivery = d[0] if d else None
         if not delivery:
             return jsonify({'ok': False, 'error': 'not found'}), 404
@@ -3197,6 +3198,7 @@ def track_shipment(code):
         'delivery_location': delivery.get('delivery_location') or order.get('delivery_address') or '',
         'estimated_arrival': delivery.get('estimated_arrival'),
         'driver_name': delivery.get('driver_name') or '',
+        'vehicle': delivery.get('vehicle_plate') or '',
         'rider_assigned': bool(delivery.get('driver_name') or delivery.get('transporter_id') or order.get('transporter_id')),
         'created_at': order.get('created_at') or delivery.get('created_at'),
     }), 200

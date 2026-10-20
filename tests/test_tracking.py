@@ -21,7 +21,13 @@ def _db(monkeypatch, orders=(), deliveries=(), farmers=()):
         rows = {"orders": orders, "deliveries": deliveries, "farmers": farmers}[table]
         out = []
         for r in rows:
-            if all(str(r.get(k)) == v[3:] for k, v in (filters or {}).items() if v.startswith("eq.")):
+            ok = True
+            for k, v in (filters or {}).items():
+                if v.startswith("eq."):
+                    ok = ok and str(r.get(k)) == v[3:]
+                elif v.startswith("ilike."):
+                    ok = ok and str(r.get(k) or "").lower() == v[6:].lower()
+            if ok:
                 out.append(r)
         return out
     monkeypatch.setattr(app_mod, "supa_get", fake)
@@ -48,13 +54,21 @@ def test_lookup_by_order_ref(client, monkeypatch):
     assert client.get("/api/track/AB-20260101-AAAA1111").get_json()["tracking_code"] == "TRK-ABC1234567"
 
 
+def test_codes_stored_in_lower_case_and_pasted_with_spaces_still_match(client, monkeypatch):
+    lower = dict(ORDER, tracking_code="trk-abc1234567")
+    _db(monkeypatch, orders=[lower])
+    assert client.get("/api/track/TRK-ABC1234567").status_code == 200
+    assert client.get("/api/track/trk%20-abc%201234567").status_code == 200
+
+
 def test_delivery_row_overrides_status_and_shows_rider(client, monkeypatch):
     _db(monkeypatch, orders=[ORDER],
         deliveries=[{"order_id": "o1", "status": "in_transit", "driver_name": "Moses",
-                     "driver_phone": "0700", "pickup_location": "Masaka"}])
+                     "driver_phone": "0700", "vehicle_plate": "UAX 123K",
+                     "pickup_location": "Masaka"}])
     j = client.get("/api/track/TRK-ABC1234567").get_json()
     assert j["status"] == "in_transit" and j["driver_name"] == "Moses" and j["pickup_location"] == "Masaka"
-    assert j["rider_assigned"] is True
+    assert j["rider_assigned"] is True and j["vehicle"] == "UAX 123K"
 
 
 def test_no_personal_data_leaks(client, monkeypatch):

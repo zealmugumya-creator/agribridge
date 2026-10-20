@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <script src="business-config.js"></script>
-<meta http-equiv="Content-Security-Policy" content="default-src 'self' https: data: blob:; script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://fonts.googleapis.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://fonts.gstatic.com; img-src 'self' https: data: blob:; connect-src 'self' https://lvloaweijidgcuezdnmu.supabase.co https://agribridge-1-og7a.onrender.com wss://lvloaweijidgcuezdnmu.supabase.co; font-src 'self' https://fonts.gstatic.com; frame-src https://www.youtube.com;">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self' https: data: blob:; script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://fonts.googleapis.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://fonts.gstatic.com; img-src 'self' https: data: blob:; connect-src 'self' https://lvloaweijidgcuezdnmu.supabase.co https://agribridge-1-og7a.onrender.com wss://lvloaweijidgcuezdnmu.supabase.co https://nominatim.openstreetmap.org https://router.project-osrm.org; font-src 'self' https://fonts.gstatic.com; frame-src https://www.youtube.com;">
 <meta http-equiv="X-Content-Type-Options" content="nosniff">
 <meta http-equiv="X-Frame-Options" content="SAMEORIGIN">
 <meta http-equiv="Referrer-Policy" content="strict-origin-when-cross-origin">
@@ -2966,9 +2966,11 @@ function useMyLocation() {
       const lat = pos.coords.latitude.toFixed(5);
       const lng = pos.coords.longitude.toFixed(5);
       const acc = Math.round(pos.coords.accuracy);
-      // Reverse-geocode via free Nominatim API
+      // Reverse-geocode via Nominatim (bounded so a slow network cannot hang checkout).
+      const ctrl = new AbortController();
+      const timer = setTimeout(() => ctrl.abort(), 8000);
       fetch(`https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lng}&format=json`, {
-        headers: { 'Accept-Language': 'en' }
+        headers: { 'Accept-Language': 'en' }, signal: ctrl.signal
       })
       .then(r => r.json())
       .then(d => {
@@ -2986,7 +2988,8 @@ function useMyLocation() {
         status.style.display = 'block';
         status.innerHTML = `📍 <strong>GPS coords</strong>: ${lat}, ${lng} (±${acc}m)`;
         btn.textContent = '✅ Location set';
-      });
+      })
+      .finally(() => clearTimeout(timer));
     },
     err => {
       btn.textContent = '📍 Use My Location';
@@ -4153,39 +4156,109 @@ async function lookupShipment(ref){
     return (r.ok&&j&&j.ok)?{data:j}:{data:null,error:true};
   }catch(e){ return {data:null,error:true}; }
 }
-// ── Static OpenStreetMap route (district centres; no API key, no map library) ──
-const UG_PLACES={kampala:[0.3476,32.5825],wakiso:[0.4,32.46],entebbe:[0.0512,32.4637],mukono:[0.3533,32.7553],jinja:[0.4244,33.2041],mbarara:[-0.6072,30.6545],gulu:[2.7746,32.299],lira:[2.2499,32.8998],mbale:[1.0821,34.1751],masaka:[-0.3136,31.7409],'fort portal':[0.671,30.275],kabale:[-1.249,29.9899],soroti:[1.7147,33.6111],arua:[3.0201,30.911],hoima:[1.4331,31.3524],masindi:[1.6744,31.715],iganga:[0.6092,33.4686],tororo:[0.6928,34.181],kasese:[0.1833,30.0833],luwero:[0.849,32.4731],mityana:[0.417,32.046],mpigi:[0.226,32.314],kayunga:[0.7019,32.8888],busia:[0.4608,34.0907],bushenyi:[-0.5487,30.185],ntungamo:[-0.8794,30.264],rukungiri:[-0.8411,29.941],kisoro:[-1.285,29.685],moroto:[2.534,34.666],kitgum:[3.278,32.887],lyantonde:[-0.4,31.16],kyambogo:[0.3600,32.6330],nakasero:[0.3220,32.5800]};
+// ── OpenStreetMap tiles + real road route (OSRM public server; no API key) ──
+const UG_PLACES={kampala:[0.3476,32.5825],wakiso:[0.4,32.46],entebbe:[0.0512,32.4637],mukono:[0.3533,32.7553],jinja:[0.4244,33.2041],mbarara:[-0.6072,30.6545],gulu:[2.7746,32.299],lira:[2.2499,32.8998],mbale:[1.0821,34.1751],masaka:[-0.3136,31.7409],'fort portal':[0.671,30.275],kabale:[-1.249,29.9899],soroti:[1.7147,33.6111],arua:[3.0201,30.911],hoima:[1.4331,31.3524],masindi:[1.6744,31.715],iganga:[0.6092,33.4686],tororo:[0.6928,34.181],kasese:[0.1833,30.0833],luwero:[0.849,32.4731],mityana:[0.417,32.046],mpigi:[0.226,32.314],kayunga:[0.7019,32.8888],busia:[0.4608,34.0907],bushenyi:[-0.5487,30.185],ntungamo:[-0.8794,30.264],rukungiri:[-0.8411,29.941],kisoro:[-1.285,29.685],moroto:[2.534,34.666],kitgum:[3.278,32.887],lyantonde:[-0.4,31.16],koboko:[3.41,30.96],nebbi:[2.478,31.09],adjumani:[3.377,31.79],yumbe:[3.465,31.247],moyo:[3.661,31.725],apac:[1.975,32.535],dokolo:[1.917,33.17],kamuli:[0.947,33.12],nakasongola:[1.309,32.456],mubende:[0.557,31.395],kyenjojo:[0.633,30.622],kamwenge:[0.186,30.454],kanungu:[-0.96,29.79],sembabule:[-0.08,31.46],kiruhura:[-0.21,30.83],bombo:[0.558,32.535],ntinda:[0.364,32.613],kawempe:[0.374,32.559],'jinja road':[0.317,32.61],kyambogo:[0.3600,32.6330],nakasero:[0.3220,32.5800]};
+const _routeCache={};
+let _mapSeq=0;
+function ugCoord(text){
+  const m=/(-?\d{1,2}\.\d{3,})\s*,\s*(-?\d{1,3}\.\d{3,})/.exec(String(text||''));
+  if(!m) return null;
+  const lat=parseFloat(m[1]), lng=parseFloat(m[2]);
+  // A GPS fix written into the address is only trusted inside Uganda.
+  if(!(lat>=-1.7&&lat<=4.4&&lng>=29.4&&lng<=35.2)) return null;
+  return {name:'Pinned location', ll:[lat,lng], exact:true};
+}
 function ugPlace(text){
+  const pin=ugCoord(text); if(pin) return pin;
   const t=String(text||'').toLowerCase();
-  for(const k in UG_PLACES){ if(t.indexOf(k)>-1) return {name:k.replace(/\b\w/g,function(c){return c.toUpperCase();}), ll:UG_PLACES[k], exact:true}; }
+  let hit=null, hitPos=-1;
+  for(const k in UG_PLACES){
+    // The place named last wins ("Kampala Road, Mbale" is Mbale); ties go to the
+    // longer name ("Jinja Road" beats "Jinja").
+    const pos=t.lastIndexOf(k);
+    if(pos>-1&&(pos>hitPos||(pos===hitPos&&(!hit||k.length>hit.length)))){ hit=k; hitPos=pos; }
+  }
+  if(hit) return {name:hit.replace(/\b\w/g,function(c){return c.toUpperCase();}), ll:UG_PLACES[hit], exact:true};
   return {name:'Kampala', ll:UG_PLACES.kampala, exact:false};
 }
-function drawRouteMap(d){
-  const host=document.getElementById('trkMap'); if(!host) return;
-  const A=ugPlace(d.pickup_location), B=ugPlace(d.delivery_location);
+function osrmRoute(A,B){
+  const key=A.ll[0].toFixed(4)+','+A.ll[1].toFixed(4)+';'+B.ll[0].toFixed(4)+','+B.ll[1].toFixed(4);
+  if(_routeCache[key]) return Promise.resolve(_routeCache[key]);
+  const ctrl=new AbortController(), timer=setTimeout(function(){ctrl.abort();},7000);
+  const url='https://router.project-osrm.org/route/v1/driving/'+A.ll[1]+','+A.ll[0]+';'+B.ll[1]+','+B.ll[0]+'?overview=simplified&geometries=geojson';
+  return fetch(url,{signal:ctrl.signal})
+    .then(function(r){ return r.ok?r.json():null; })
+    .then(function(j){
+      const route=j&&j.routes&&j.routes[0];
+      const pts=((route&&route.geometry&&route.geometry.coordinates)||[])
+        .map(function(p){ return [p[1],p[0]]; })
+        .filter(function(p){ return isFinite(p[0])&&isFinite(p[1]); });
+      const out=pts.length>1?{pts:pts,km:Math.round((route.distance||0)/1000)}:null;
+      if(out) _routeCache[key]=out;
+      return out;
+    })
+    .catch(function(){ return null; })
+    .then(function(out){ clearTimeout(timer); return out; });
+}
+function mapXY(ll,z){ const n=Math.pow(2,z)*256, la=ll[0]*Math.PI/180; return [(ll[1]+180)/360*n,(1-Math.log(Math.tan(la)+1/Math.cos(la))/Math.PI)/2*n]; }
+function paintRouteMap(host,A,B,route){
   const W=600,H=260,TS=256;
-  const px=function(ll,z){ const n=Math.pow(2,z)*TS, la=ll[0]*Math.PI/180; return [(ll[1]+180)/360*n,(1-Math.log(Math.tan(la)+1/Math.cos(la))/Math.PI)/2*n]; };
-  let z=12; while(z>6){ const a=px(A.ll,z),b=px(B.ll,z); if(Math.abs(a[0]-b[0])<W*0.6&&Math.abs(a[1]-b[1])<H*0.6) break; z--; }
-  const a=px(A.ll,z), b=px(B.ll,z), cx=(a[0]+b[0])/2, cy=(a[1]+b[1])/2, ox=cx-W/2, oy=cy-H/2;
+  const pts=(route&&route.pts?route.pts:[]).concat([A.ll,B.ll]);
+  let minLat=90,maxLat=-90,minLng=180,maxLng=-180;
+  pts.forEach(function(ll){ minLat=Math.min(minLat,ll[0]); maxLat=Math.max(maxLat,ll[0]); minLng=Math.min(minLng,ll[1]); maxLng=Math.max(maxLng,ll[1]); });
+  let z=15;
+  for(;z>4;z--){
+    const p1=mapXY([maxLat,minLng],z), p2=mapXY([minLat,maxLng],z);
+    if(Math.abs(p2[0]-p1[0])<=W*0.78&&Math.abs(p2[1]-p1[1])<=H*0.78) break;
+  }
+  const p1=mapXY([maxLat,minLng],z), p2=mapXY([minLat,maxLng],z);
+  const cx=(p1[0]+p2[0])/2, cy=(p1[1]+p2[1])/2, ox=cx-W/2, oy=cy-H/2;
   const x0=Math.floor(ox/TS), x1=Math.floor((ox+W)/TS), y0=Math.floor(oy/TS), y1=Math.floor((oy+H)/TS), max=Math.pow(2,z);
   let tiles='';
   for(let ty=y0;ty<=y1;ty++) for(let tx=x0;tx<=x1;tx++){
     if(ty<0||ty>=max) continue; const wx=((tx%max)+max)%max;
     tiles+='<img alt="" loading="lazy" draggable="false" src="https://tile.openstreetmap.org/'+z+'/'+wx+'/'+ty+'.png" style="position:absolute;left:'+(tx*TS-ox)+'px;top:'+(ty*TS-oy)+'px;width:'+TS+'px;height:'+TS+'px">';
   }
-  const ax=a[0]-ox, ay=a[1]-oy, bx=b[0]-ox, by=b[1]-oy;
-  const same=(Math.abs(ax-bx)<4&&Math.abs(ay-by)<4);
-  const svg='<svg width="'+W+'" height="'+H+'" style="position:absolute;left:0;top:0">'
-    +(same?'':'<line x1="'+ax+'" y1="'+ay+'" x2="'+bx+'" y2="'+by+'" stroke="#fff" stroke-width="7" stroke-linecap="round" opacity=".85"/><line x1="'+ax+'" y1="'+ay+'" x2="'+bx+'" y2="'+by+'" stroke="#17b25a" stroke-width="4" stroke-dasharray="9 7" stroke-linecap="round"/>')
-    +'<circle cx="'+ax+'" cy="'+ay+'" r="9" fill="#17b25a" stroke="#fff" stroke-width="3"/>'
-    +'<circle cx="'+bx+'" cy="'+by+'" r="9" fill="#e5484d" stroke="#fff" stroke-width="3"/></svg>';
+  const xy=function(ll){ const q=mapXY(ll,z); return [q[0]-ox,q[1]-oy]; };
+  const a=xy(A.ll), b=xy(B.ll);
+  const same=(Math.abs(a[0]-b[0])<4&&Math.abs(a[1]-b[1])<4);
+  let line='';
+  if(route&&route.pts&&route.pts.length>1){
+    const poly=route.pts.map(function(ll){ const q=xy(ll); return q[0].toFixed(1)+','+q[1].toFixed(1); }).join(' ');
+    line='<polyline points="'+poly+'" fill="none" stroke="#fff" stroke-width="8" stroke-linecap="round" stroke-linejoin="round" opacity=".9"/>'
+      +'<polyline points="'+poly+'" fill="none" stroke="#17b25a" stroke-width="4.5" stroke-linecap="round" stroke-linejoin="round"/>';
+  } else if(!same){
+    line='<line x1="'+a[0]+'" y1="'+a[1]+'" x2="'+b[0]+'" y2="'+b[1]+'" stroke="#fff" stroke-width="7" stroke-linecap="round" opacity=".85"/><line x1="'+a[0]+'" y1="'+a[1]+'" x2="'+b[0]+'" y2="'+b[1]+'" stroke="#17b25a" stroke-width="4" stroke-dasharray="9 7" stroke-linecap="round"/>';
+  }
+  const svg='<svg width="'+W+'" height="'+H+'" style="position:absolute;left:0;top:0">'+line
+    +'<circle cx="'+a[0]+'" cy="'+a[1]+'" r="9" fill="#17b25a" stroke="#fff" stroke-width="3"/>'
+    +'<circle cx="'+b[0]+'" cy="'+b[1]+'" r="9" fill="#e5484d" stroke="#fff" stroke-width="3"/></svg>';
+  const note=!A.exact||!B.exact
+    ? 'some areas not recognised — district centres shown'
+    : route&&route.km ? '~'+route.km+' km by road'
+    : same ? 'pickup and destination are in the same area'
+    : 'approximate direct line — road route unavailable';
   host.innerHTML='<div class="trk-map-wrap" style="position:relative;width:100%;overflow:hidden;border-radius:12px;border:1px solid var(--border);aspect-ratio:'+W+'/'+H+'">'
     +'<div class="trk-map-stage" style="position:absolute;left:0;top:0;width:'+W+'px;height:'+H+'px;transform-origin:0 0">'+tiles+svg+'</div>'
     +'<div style="position:absolute;right:4px;bottom:3px;font-size:10px;background:rgba(255,255,255,.8);color:#333;padding:1px 5px;border-radius:4px">© <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener" style="color:#333">OpenStreetMap</a> contributors</div></div>'
-    +'<div style="font-size:0.72rem;color:var(--text2);margin-top:6px">🟢 '+escHtml(A.name)+' → 🔴 '+escHtml(B.name)+' · approximate route between district centres'+((A.exact&&B.exact)?'':' (exact area not recognised, showing Kampala)')+'</div>';
+    +'<div style="font-size:0.72rem;color:var(--text2);margin-top:6px">🟢 '+escHtml(A.name)+' → 🔴 '+escHtml(B.name)+' · '+escHtml(note)+'</div>';
   const wrap=host.querySelector('.trk-map-wrap'), stage=host.querySelector('.trk-map-stage');
-  const fit=function(){ const k=wrap.clientWidth/W; stage.style.transform='scale('+k+')'; };
-  fit(); window.addEventListener('resize',fit);
+  const fit=function(){ if(wrap&&stage) stage.style.transform='scale('+(wrap.clientWidth/W)+')'; };
+  fit();
+  if(host._mapFit) window.removeEventListener('resize',host._mapFit);
+  host._mapFit=fit; window.addEventListener('resize',fit);
+}
+function drawRouteMap(d){
+  const host=document.getElementById('trkMap'); if(!host) return;
+  const seq=++_mapSeq;
+  const A=ugPlace(d.pickup_location), B=ugPlace(d.delivery_location);
+  paintRouteMap(host,A,B,null);
+  const same=(Math.abs(A.ll[0]-B.ll[0])<0.0002&&Math.abs(A.ll[1]-B.ll[1])<0.0002);
+  if(same||!A.exact||!B.exact) return;
+  osrmRoute(A,B).then(function(route){
+    if(seq!==_mapSeq||!host.isConnected||!route) return;
+    paintRouteMap(host,A,B,route);
+  });
 }
 // Premium order-tracking card: status stepper + ETA + route + driver/vehicle.
 function renderTrackingCard(d, ref){
@@ -4216,10 +4289,9 @@ function renderTrackingCard(d, ref){
     else time='Pending';
     return `<li class="trk-step ${cls}"><div class="trk-step-rail"><div class="trk-node">${done?'✓':s.icon}</div><div class="trk-line"></div></div><div class="trk-step-body"><div class="trk-step-title">${s.title}</div><div class="trk-step-time">${time}</div></div></li>`;
   }).join('');
-  const driver = d.driver_name || 'AgriBridge Rider';
-  const driverPhone = d.driver_phone || '+256 755 966 690';
-  const vehicle = d.vehicle || 'Refrigerated van · UAX 123K';
-  const initials = driver.split(/\s+/).map(w=>w[0]).slice(0,2).join('').toUpperCase();
+  const driver = d.driver_name || 'Rider assigned';
+  const vehicle = d.vehicle || 'Vehicle details shared on dispatch';
+  const initials = d.driver_name ? d.driver_name.split(/\s+/).map(w=>w[0]).slice(0,2).join('').toUpperCase() : '🚚';
   return `<div class="trk">
     <div class="trk-hero">
       <div class="trk-hero-top">
@@ -4242,10 +4314,10 @@ function renderTrackingCard(d, ref){
     </div>
     <div id="trkMap" style="margin:12px 0"></div>
     ${d.rider_assigned===false?'<div style="padding:12px;background:var(--bg3);border-radius:12px;color:var(--text2);font-size:0.85rem">🚚 A rider hasn\'t been assigned yet. We\'ll update this as soon as your order is on the way.</div>':`<div class="trk-driver">
-      <div class="trk-driver-av">${escHtml(initials||'🚚')}</div>
+      <div class="trk-driver-av">${escHtml(initials)}</div>
       <div class="trk-driver-info">
         <div class="trk-driver-name">${escHtml(driver)}</div>
-        <div class="trk-driver-meta">${escHtml(d.driver_name?'Your AgriBridge rider':vehicle)}</div>
+        <div class="trk-driver-meta">${escHtml(d.driver_name?vehicle:'Contact support for rider details')}</div>
       </div>
       ${d.driver_phone?`<a class="trk-call" href="tel:${escHtml(String(d.driver_phone).replace(/\s+/g,''))}" aria-label="Call driver">📞</a>`:''}
     </div>`}
