@@ -2080,14 +2080,20 @@ async function sb(table, opts = {}) {
       }
     }
     if (count) return parseInt(res.headers.get('content-range')?.split('/')[1] || '0');
-    if (!res.ok) return null;
+    if (!res.ok) {
+      let detail = '';
+      try { detail = await res.text(); } catch (e) {}
+      window._sbLastError = { table: table, status: res.status, detail: (detail || '').slice(0, 300) };
+      return null;
+    }
+    window._sbLastError = null;
     // return=minimal inserts (write-only tables with no SELECT policy) reply 201
     // with no body; PATCH/DELETE reply 204. Nothing to parse — success is enough.
     if (minimal) return true;
     if (res.status === 204) return true;
     const json = await res.json();
     return single ? (Array.isArray(json) ? json[0] : json) : json;
-  } catch { return null; }
+  } catch (e) { window._sbLastError = { table: table, status: 0, detail: String(e && e.message || e) }; return null; }
 }
 // Get a fresh access token from the Supabase client (auto-refreshes if the
 // current one is expired but the session is still valid). Returns null if the
@@ -2101,6 +2107,24 @@ async function refreshAuthToken() {
     if (s && s.access_token) { _authToken = s.access_token; return _authToken; }
   } catch (e) {}
   return null;
+}
+// Turn the last failed Supabase write into a message a farmer can act on.
+function explainWriteError(what) {
+  const e = window._sbLastError || {};
+  const d = (e.detail || '').toLowerCase();
+  if (e.status === 0) return 'No internet connection — check your data and try again.';
+  if (e.status === 401 || e.status === 403 || d.includes('row-level security') || d.includes('jwt')) {
+    return 'Your login session has expired. Please log out, log in again, then post your ' + what + '.';
+  }
+  if (d.includes('integer') || d.includes('numeric') || d.includes('invalid input syntax')) return 'Check the quantity and price — use whole numbers.';
+  if (d.includes('violates') || d.includes('constraint')) return 'Some details were not accepted. Check your name and phone in your profile, then try again.';
+  if (e.status >= 500) return 'Our server had a problem. Please try again in a minute.';
+  return 'Could not post your ' + what + ' (error ' + (e.status || '?') + '). Please try again or contact support.';
+}
+// Make sure the user really has a live session before a write (listings need auth.uid()).
+async function ensureSession() {
+  if (_authToken) return true;
+  return !!(await refreshAuthToken());
 }
 async function sbInsert(t, d, opts) { return sb(t, { method:'POST', body:d, minimal: !!(opts && opts.minimal) }); }
 // Upload an image to the public 'uploads' bucket; returns its public URL (or null).
@@ -2537,18 +2561,19 @@ async function submitListAnimal() {
   if (!name || !(qty>0) || !(price>0)) { showToast('Enter an animal name, and a quantity and price greater than 0'); return; }
   if (qty>100000) { showToast('That quantity looks too large — please double-check'); return; }
   if (price>500000000) { showToast('That price looks too high — please double-check'); return; }
+  if (!(await ensureSession())) { showToast('Your login session expired — please log in again to post.'); openModal('loginModal'); return; }
   const photoFile=document.getElementById('laPhoto')?.files?.[0]||null;
   const videoFile=document.getElementById('laVideo')?.files?.[0]||null;
   if(photoFile||videoFile) showToast('Uploading media…');
   const imageUrl = photoFile ? await uploadMedia(photoFile,'animals',5)  : null;
   const videoUrl = videoFile ? await uploadMedia(videoFile,'animals',25) : null;
-  const result = await sbInsert('animal_listings', { name, species:cat, category:cat, qty, price, unit, district:dist, maaif_certified:cert, health_cert:hcert, description:desc, farmer_id:currentUser?.supaId||null, farmer_name:currentUser?.name||null, farmer_phone:currentUser?.phone||null, status:'active', image_url:imageUrl, video_url:videoUrl });
+  const result = await sbInsert('animal_listings', { name, species:cat, category:cat, qty:Math.round(qty), price, unit, district:dist, maaif_certified:cert, health_cert:hcert, description:desc, farmer_id:currentUser?.supaId||null, farmer_name:currentUser?.name||null, farmer_phone:currentUser?.phone||null, status:'active', image_url:imageUrl, video_url:videoUrl });
   if (result) {
     closeModal('listAnimalModal');
     showToast(`✅ ${name} listing posted! Buyers can now find you.`);
     allAnimals=[]; loadAnimals();
   } else {
-    showToast('Could not post listing — please try again');
+    showToast(explainWriteError('animal listing'));
   }
 }
 
@@ -4295,7 +4320,7 @@ async function submitListProduce() {
     : null;
   const result = apiRes?.ok || apiRes?.listing;
   if(result){ closeModal('listProduceModal'); showToast(`✅ ${crop} listing posted! Buyers can now find you.`); allListings=[]; if(document.querySelector('.page.active')?.id==='page-market') loadListings(); if(typeof loadLiveBoard==='function') loadLiveBoard(); }
-  else showToast('Could not post listing — please try again');
+  else showToast(!token ? 'Your login session expired — please log out and log in again, then post.' : (apiRes && apiRes.error ? ('Could not post: ' + String(apiRes.error).slice(0,120)) : 'Could not reach the server — check your internet and try again.'));
 }
 
 // ─────────────────────────────────────────────────────────────────
