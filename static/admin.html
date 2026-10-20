@@ -100,6 +100,9 @@
     <div id="overviewExtras"></div>
     <div class="tabs">
       <div class="tab active" data-tab="orders"   onclick="showTab('orders',this)">Orders</div>
+      <div class="tab" data-tab="cold_storage"   onclick="showTab('cold_storage',this)">❄️ Cold Storage<span class="cnt" id="cnt_cold_storage"></span></div>
+      <div class="tab" data-tab="cold_transport" onclick="showTab('cold_transport',this)">🚚 Refrigerated Transport<span class="cnt" id="cnt_cold_transport"></span></div>
+      <div class="tab" data-tab="loans"          onclick="showTab('loans',this)">💰 Loan Requests<span class="cnt" id="cnt_loans"></span></div>
       <div class="tab" data-tab="listings" onclick="showTab('listings',this)">Crop Listings</div>
       <div class="tab" data-tab="animals"  onclick="showTab('animals',this)">Animals</div>
       <div class="tab" data-tab="deliveries" onclick="showTab('deliveries',this)">Deliveries</div>
@@ -107,9 +110,6 @@
       <div class="tab" data-tab="farmers"  onclick="showTab('farmers',this)">Users</div>
       <div class="tab" data-tab="requests" onclick="showTab('requests',this)">Requests</div>
       <div class="tab" data-tab="offers"   onclick="showTab('offers',this)">Offers</div>
-      <div class="tab" data-tab="cold_storage"   onclick="showTab('cold_storage',this)">❄️ Cold Storage<span class="cnt" id="cnt_cold_storage"></span></div>
-      <div class="tab" data-tab="cold_transport" onclick="showTab('cold_transport',this)">🚚 Cold Transport<span class="cnt" id="cnt_cold_transport"></span></div>
-      <div class="tab" data-tab="loans"          onclick="showTab('loans',this)">💰 Loans<span class="cnt" id="cnt_loans"></span></div>
       <div class="tab" data-tab="transporters" onclick="showTab('transporters',this)">🚛 Transporters</div>
       <div class="tab" data-tab="matching"     onclick="showTab('matching',this)" style="color:#60d090;">🔗 Matching</div>
       <div class="tab" data-tab="scans"        onclick="showTab('scans',this)" style="color:#60b0d0;">🌿 Scans</div>
@@ -148,6 +148,7 @@
   var TOKEN = sessionStorage.getItem('ab_admin_token') || '';
   var currentTab = 'orders';
   var DATA = { orders:[], listings:[], animals:[], farmers:[], requests:[], offers:[], transporters:[], matching:[], errors:[], cold_storage:[], cold_transport:[], loans:[], inbox:[] };
+  var DATA_ERR = {}; // tab -> error, so a failed load is never shown as "no requests"
   var INBOX_TABLES={account_deletion_requests:'Account deletions',privacy_requests:'Privacy requests',contact_messages:'Contact messages',disease_reports:'Disease reports',vet_bookings:'Vet bookings',purchase_requests:'Purchase requests',supply_orders:'Supply orders',payouts:'Payouts',fraud_flags:'Fraud flags',admin_devices:'Admin devices',user_roles:'User roles',reviews:'Reviews',community_posts:'Community posts',transporters:'Transporters',farmers:'Farmers',buyers:'Buyers',order_offers:'Match offers'};
   var inboxTable='contact_messages';
   // Admin tab -> service_requests.kind (cold storage, refrigerated transport and loan requests)
@@ -265,6 +266,7 @@
   async function refreshAll(){ await loadStats(); await Promise.all([load('orders'),load('listings'),load('animals'),load('deliveries'),load('supplies'),load('farmers'),load('requests'),load('offers'),load('transporters'),load('cold_storage'),load('cold_transport'),load('loans')]); renderOverviewExtras(); renderCurrent(); }
 
   function showTabByName(t){ var node=document.querySelector('.tab[data-tab="'+t+'"]'); showTab(t,node||undefined); if(node) node.scrollIntoView({behavior:'smooth',block:'nearest'}); }
+  function retryTab(tab){ load(tab).then(renderCurrent); }
 
   // Platform Overview chart (real orders/month) + Quick Actions, mockup style.
   function renderOverviewExtras(){
@@ -293,7 +295,13 @@
         '<button onclick="showTabByName(\'requests\')">📋 Requests</button>'+
         '<button onclick="showTabByName(\'transporters\')">🚛 Transporters</button>'+
         '<button onclick="showTabByName(\'matching\')">🔗 Match Orders</button>'+
+      '</div></div>'+
+      '<div class="ov-card"><div class="ov-head">Bookings &amp; loans<small>pending</small></div><div class="ov-qa">'+
+        '<button onclick="showTabByName(\'cold_storage\')">❄️ Cold Storage <span class="cnt" id="ov_cnt_cold_storage"></span></button>'+
+        '<button onclick="showTabByName(\'cold_transport\')">🚚 Refrigerated Transport <span class="cnt" id="ov_cnt_cold_transport"></span></button>'+
+        '<button onclick="showTabByName(\'loans\')">💰 Loan Requests <span class="cnt" id="ov_cnt_loans"></span></button>'+
       '</div></div>';
+    updateSvcCounts();
   }
 
   async function loadStats(){
@@ -303,10 +311,23 @@
       document.getElementById('stats').innerHTML=cards.map(function(c){return '<div class="stat"><div class="n">'+(typeof c[1]==='number'?c[1]:h(c[1]))+'</div><div class="l">'+c[0]+'</div></div>';}).join('');
     }catch(e){}
   }
-  async function load(tab){
+  async function load(tab, isRetry){
     var pathMap = {orders:'/api/admin/orders',listings:'/api/admin/listings',animals:'/api/admin/animals',deliveries:'/api/admin/deliveries',supplies:'/api/admin/supplies',farmers:'/api/admin/farmers',requests:'/api/admin/purchase-requests',offers:'/api/admin/offers',transporters:'/api/admin/transporters',cold_storage:'/api/admin/service-requests?kind=cold_storage',cold_transport:'/api/admin/service-requests?kind=refrigerated_transport',loans:'/api/admin/service-requests?kind=loan',matching:'/api/admin/match-candidates',errors:'/api/admin/events',scans:'/api/admin/events?event_type=scan',activity:'/api/admin/events?severity=info'};
     var path = tab==='inbox' ? ('/api/admin/inbox?table='+encodeURIComponent(inboxTable)) : (pathMap[tab] || ('/api/admin/'+tab));
-    try{ var rows=await api(path); DATA[tab]=Array.isArray(rows)?rows:[]; }catch(e){ DATA[tab]=[]; }
+    try{
+      var rows=await api(path);
+      if(rows && !Array.isArray(rows) && rows.error) throw new Error(rows.error);
+      DATA[tab]=Array.isArray(rows)?rows:[];
+      DATA_ERR[tab]=null;
+    }catch(e){
+      // Render may be waking up: retry once before telling the admin the tab failed.
+      if(!isRetry && (!e || e.message!=='unauthorized')){
+        await new Promise(function(r){ setTimeout(r,1200); });
+        return load(tab, true);
+      }
+      DATA[tab]=[];
+      DATA_ERR[tab]=e || new Error('load failed');
+    }
     if(SVC_TABS[tab]) updateSvcCounts();
   }
 
@@ -329,6 +350,11 @@
   function match(row,q){ if(!q)return true; q=q.toLowerCase(); return JSON.stringify(row).toLowerCase().indexOf(q)>-1; }
 
   function renderCurrent(){
+    if(DATA_ERR[currentTab]){
+      setPanel('<div class="loading">Could not load this tab — the server may be waking up. '+
+        '<button class="btn sm" style="margin-left:8px" onclick="retryTab(\''+currentTab+'\')">Retry</button></div>');
+      return;
+    }
     var q=document.getElementById('search').value;
     var rows=(DATA[currentTab]||[]).filter(function(r){return match(r,q);});
     if(SVC_TABS[currentTab])    return renderServiceRequests(rows, currentTab);
@@ -550,7 +576,9 @@
   function updateSvcCounts(){
     Object.keys(SVC_TABS).forEach(function(t){
       var n=(DATA[t]||[]).filter(function(r){return (r.status||'pending')==='pending';}).length;
-      var el=document.getElementById('cnt_'+t); if(el) el.textContent=n>0?n:'';
+      ['cnt_'+t,'ov_cnt_'+t].forEach(function(id){
+        var el=document.getElementById(id); if(el) el.textContent=n>0?n:'';
+      });
     });
   }
   function svcDetails(r){
