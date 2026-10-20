@@ -152,7 +152,24 @@ The existing verified webhook (`/api/pay/webhook/flutterwave`) is preserved: it 
 
 ---
 
-## 11. Running tests / lint locally
+## 11. Public web deployment (Cloudflare Worker)
+
+The public site is the `agribridge` Cloudflare Worker defined in `wrangler.jsonc`.
+To make every approved `main` push publish `static/` automatically, add these
+repository secrets in GitHub Settings > Secrets and variables > Actions:
+
+- `CLOUDFLARE_API_TOKEN` - a Cloudflare API token limited to editing this
+  Worker. Keep it out of Render and out of source code.
+- `CLOUDFLARE_ACCOUNT_ID` - the Cloudflare account that owns the Worker.
+
+The `Deploy public web app` workflow skips safely until the API token exists.
+For the current listing-upload repair, run that workflow manually after adding
+the secrets, or deploy from a correctly authenticated workstation with
+`npx wrangler@4 deploy`.
+
+---
+
+## 12. Running tests / lint locally
 ```bash
 pip install -r requirements-dev.txt
 ruff check app.py services/ tests/     # lint gate (must be clean)

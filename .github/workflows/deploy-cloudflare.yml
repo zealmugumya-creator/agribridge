@@ -1,0 +1,29 @@
+# Copyright (C) 2026 Mugumya Zeal. All rights reserved.
+
+name: Deploy public web app
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'static/**'
+      - 'wrangler.jsonc'
+      - '.github/workflows/deploy-cloudflare.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    env:
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Deploy Worker static assets
+        # Skip rather than create a misleading red build until the repository
+        # owner configures the two deployment secrets described in Operations.
+        if: ${{ env.CLOUDFLARE_API_TOKEN != '' }}
+        run: npx --yes wrangler@4 deploy
