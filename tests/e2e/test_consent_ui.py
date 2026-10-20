@@ -403,6 +403,10 @@ def test_settings_privacy_section_marketing_toggle_and_history(env):
     page.click("#legalReviewBtn")
     page.wait_for_selector("#legalReviewModal:not(.open)", state="attached")
     page.evaluate("openSettings()")
+    # Marketing consent lives behind the Privacy & legal row in the
+    # Telegram-style settings home, rather than on the home screen itself.
+    # Use the visible control a person uses so this test also guards that path.
+    page.get_by_role("button", name="Privacy & legal").click()
     page.wait_for_selector("#setMktSms:not([disabled])")
     assert page.is_checked("#setMktSms") is False
     page.check("#setMktSms")

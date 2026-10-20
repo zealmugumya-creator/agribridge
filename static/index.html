@@ -2115,7 +2115,10 @@ async function uploadMedia(file, prefix, maxMB){
   if(!token){ showToast('Your session expired. Please log in again before uploading.'); return null; }
   var controller=new AbortController();
   // A mobile connection or waking backend must not trap a farmer in this form.
-  var timer=setTimeout(function(){ controller.abort(); },45000);
+  // Listing media is optional. Do not leave a farmer trapped on a slow mobile
+  // connection: a compressed photo should complete well within this window and
+  // a timeout falls back to posting the listing without the attachment.
+  var timer=setTimeout(function(){ controller.abort(); },30000);
   try{
     var form=new FormData();
     form.append('file',file,file.name||'media');
@@ -4287,8 +4290,21 @@ async function submitListProduceCore() {
   const delivery=document.getElementById('lpDelivery')?.checked||false;
   const pays=[]; if(document.getElementById('lpPayMomo')?.checked)pays.push('MoMo'); if(document.getElementById('lpPayCash')?.checked)pays.push('Cash'); if(document.getElementById('lpPayBank')?.checked)pays.push('Bank');
   const photoFile=document.getElementById('lpPhoto')?.files?.[0]||null;
-  if(photoFile) showToast('Uploading photo…');
-  const imageUrl=photoFile ? await uploadMedia(photoFile,'listings',5) : null;
+  let imageUrl=null;
+  if(photoFile){
+    // Phone photos are commonly 4–12 MB. Resize an image locally before it
+    // crosses an intermittent mobile network; the original remains untouched.
+    let uploadPhoto=photoFile;
+    try{
+      if((photoFile.type||'').indexOf('image/')===0){
+        showToast('Preparing photo…');
+        const compressed=await downscaleImage(photoFile,1280,0.82);
+        uploadPhoto=new File([compressed],'listing.jpg',{type:'image/jpeg'});
+      }
+    }catch(e){ /* Upload the original only if device image processing fails. */ }
+    showToast('Uploading photo…');
+    imageUrl=await uploadMedia(uploadPhoto,'listings',5);
+  }
   const videoFile=document.getElementById('lpVideo')?.files?.[0]||null;
   const videoUrl=videoFile ? await uploadMedia(videoFile,'listings',25) : null;
   // Route through backend so Discord/admin is notified of every new listing
