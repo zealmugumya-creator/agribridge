@@ -5,7 +5,11 @@
 > ownership-checked; migration 0013 (ledger) and 0014 (internal-table lockdown)
 > are applied; migration 0015 now makes `create_order_atomic` category-aware
 > (livestock/supplier pricing and attribution), and the SPA no longer inserts or
-> updates orders directly. Migration 0002 remains the last unapplied security
+> updates orders directly. Migration 0016 adds farmer settlements in code:
+> delivered+paid orders create one pending payout, and
+> `POST /api/admin/payouts/<id>/settle` posts `settlement:<payout_id>` only with
+> an operator-supplied provider reference and a posted receipt. 0016 is **not
+> applied live** yet. Migration 0002 remains the last unapplied security
 > migration — apply 0015 and deploy this bundle first, then apply 0002 (see
 > `docs/OPERATIONS_SETUP.md` §2).
 

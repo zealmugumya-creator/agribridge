@@ -50,6 +50,14 @@ supabase db push            # if the project is linked with the Supabase CLI
 > apply **0002**. Applying 0002 before 0015/this bundle would break those
 > checkouts and the shared `payment_ref` reconciliation used by the payment
 > webhook. See the header of `0002_admin_identity_rls.up.sql`.
+>
+> **0016 (settlements)** can be applied after 0015, before or after 0002. It
+> creates `admin_audit_log` if 0002 has not run yet; 0002 later treats it as an
+> existing table. Applying 0016 backfills a **pending payout** for every order
+> already delivered and paid. It does not pay anyone. Settling a payout requires
+> the customer receipt to be posted in the ledger; historical paid orders from
+> before 0013 will be refused until their receipts are backfilled from verified
+> provider records.
 
 | Migration | Adds | Fixes |
 |---|---|---|
@@ -67,6 +75,7 @@ supabase db push            # if the project is linked with the Supabase CLI
 | 0013 | double-entry ledger: accounts, journals, lines, `post_journal`, `reverse_journal`, admin read policies | Financial correctness |
 | 0014 | locks down `system_events` and transporter rows to service role / owner | Internal-data leak |
 | 0015 | category-aware `create_order_atomic`: livestock and supplier prices/owners resolved server-side, stock decremented | Checkout regression after the SPA cutover |
+| 0016 | pending farmer payouts on delivered+paid, `mark_payout_paid` guarded by a posted settlement journal, `admin_audit_log` dependency | Financial settlement correctness |
 
 > **Listing-photo fix:** deploy the API and web app together, then apply
 > `0012_uploads_bucket.up.sql`. It creates the `uploads` bucket and removes any

@@ -229,6 +229,6 @@ Overall the backend is more hardened than most side-project-stage apps. The fron
 | Legal consent / GDPR requests | Built; not enforced |
 | Admin dashboard | Built; shared-password auth (security concern) |
 | Email receipts | Wired to Edge Function; requires Resend key |
-| Farmer payouts | Not implemented |
+| Farmer payouts | Built (0016): auto-created on delivered+paid, admin settle route posts the journal; migration not applied live |
 | Database backups | Described in GO-LIVE.md; not automated in code |
 | Cold chain / finance / SACCO | Frontend UI screens exist; no backend routes found |

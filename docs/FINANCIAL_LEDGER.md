@@ -1,13 +1,17 @@
 # AgriBridge — Financial Ledger
 
 **Last updated:** 2026-10-21
-**Migration:** `supabase/migrations/0013_ledger_core.up.sql` (applied to the live project and verified)
-**Backend:** `services/ledger.py`, wired into `_flw_verify_and_mark` and
-`/api/admin/orders/<id>/confirm-delivery` in `app.py`
+**Migrations:** `0013_ledger_core` (applied live and verified), `0016_farmer_settlements`
+(**not applied live yet**)
+**Backend:** `services/ledger.py`, wired into `_flw_verify_and_mark`,
+`/api/admin/orders/<id>/confirm-delivery` and
+`/api/admin/payouts/<id>/settle` in `app.py`
 
 This document describes what the ledger records today, the accounting rules it
 enforces, how a failed posting is detected, and what is deliberately not yet
-implemented. It does not claim that settlements or refunds are live.
+implemented. It does not claim that refunds are live. Farmer settlements are
+implemented in code but depend on migration 0016, which has not been applied to
+production.
 
 ---
 
@@ -18,13 +22,14 @@ implemented. It does not claim that settlements or refunds are live.
 | Customer payment received | Flutterwave server-side verification (webhook, direct card, OTP completion) | Debit `PROVIDER_CLEARING`; credit `FARMER_PAYABLE`, `CUSTOMER_REFUND_PAYABLE` and/or `SUSPENSE_OVERPAYMENT` | **Implemented** |
 | Admin reads journals / balances | `GET /api/admin/finance/*` | Read-only | **Implemented** |
 | Journal reversal | `reverse_journal()` SQL function | Mirror entry + audit row | **Database only** — no admin route yet |
-| Farmer / transporter settlement | — | Not posted | **Not implemented** |
+| Farmer settlement | Delivered + paid order creates a pending payout; admin settle route with a provider reference | Debit `FARMER_PAYABLE`; credit `COMMISSION_REVENUE` and `PROVIDER_CLEARING`/`COD_CASH_HELD` | **Implemented in code — migration 0016 not applied live** |
+| Transporter settlement | — | Not posted | **Not implemented** |
 | Cash-on-delivery collected | Admin delivery confirmation, order method `cash` | Debit `COD_CASH_HELD`; same credits as a provider receipt | **Implemented** |
 | Customer refund execution | — | Refund liability is recognised; money movement is manual | **Not implemented** |
 
-The ledger is the accounting record. The `payouts` table (used by the Finance
-tab for settlement status) is a separate operational record and is not yet
-created automatically.
+The ledger is the accounting record. The `payouts` table is the operational
+settlement record; migration 0016 creates it automatically from delivered, paid
+orders and refuses to mark a payout paid until its settlement journal exists.
 
 ---
 
@@ -128,7 +133,82 @@ implemented yet.
 
 ---
 
-## 4. Idempotency and concurrency
+## 4. Farmer settlements (migration 0016)
+
+> **Deployment status:** implemented and covered by tests, but migration 0016
+> has **not** been applied to the live project yet. Until it is, no payouts are
+> created automatically and the settle endpoint cannot mark one paid.
+
+### Payout creation
+
+`create_payout_for_order()` (trigger `orders_create_payout`, after insert or
+update of `status`/`payment_status`) creates **one** pending `payouts` row when
+an order is `delivered` **and** `payment_status = 'paid'` and has a
+`farmer_id`. It:
+
+* takes gross from the generated `total_amount` (falling back to `total_price`);
+* snapshots `platform_config.commission_pct`, clamped to 0–100;
+* computes `commission_amount = round(gross * pct / 100, 2)` and
+  `net_amount = gross - commission`;
+* inserts with `ON CONFLICT (order_id) DO NOTHING`, so re-updating an order can
+  never duplicate or reprice a payout.
+
+Migration 0016 backfills the same rows for orders that were already delivered
+and paid. A payout is an obligation, not a payment; the backfill posts no
+journal.
+
+### Settlement posting
+
+`POST /api/admin/payouts/<payout_id>/settle` (admin token) requires a
+`provider_ref` — an operator-entered mobile-money or bank reference proving the
+transfer happened. It refuses unless:
+
+* the payout is `pending`;
+* the order is still `delivered` and `paid`;
+* the payout gross still equals the order total;
+* the checkout has exactly **one** posted receipt journal
+  (`customer_payment` or `cod_collection`);
+* that receipt's debit account is unambiguous (`PROVIDER_CLEARING` or
+  `COD_CASH_HELD`).
+
+The journal is:
+
+```
+reference:   settlement:<payout_id>
+kind:        farmer_settlement
+payment_ref: null
+```
+
+| Account | Side | Amount |
+|---|---|---|
+| `FARMER_PAYABLE` | debit | gross |
+| `COMMISSION_REVENUE` | credit | commission, if non-zero |
+| receipt's asset account | credit | net, if non-zero |
+
+`payment_ref` is deliberately null: reconciliation groups active journals by
+`payment_ref`, so reusing the checkout reference would be reported as a
+duplicate receipt. The order, payout and provider reference are recorded in the
+journal metadata.
+
+Only after the journal returns is `mark_payout_paid()` called. That SQL
+function re-checks that a posted `settlement:<payout_id>` journal exists, then
+updates the payout to `paid` with `paid_at`, `provider` and `provider_ref` in
+one conditional update. If the journal posts but the status update fails, the
+API returns `503` with `retryable: true`; retrying posts nothing new and marks
+the same payout. If two operators race, the second sees `already_settled`.
+
+The admin UI's Settle action asks for the channel and reference, shows the net
+amount and farmer, and reloads the table after a successful post.
+
+### What a settlement does not do
+
+It does not verify the transfer with a bank or mobile-money API, and it does
+not move money. It records a transfer the operator states has happened, with a
+reference, and refuses to record it without one.
+
+---
+
+## 5. Idempotency and concurrency
 
 * The journal reference is derived only from the checkout reference:
   `payment:<tx_ref>`. Flutterwave attempt suffixes (`~abc123`) are stripped by
@@ -141,7 +221,7 @@ implemented yet.
 
 ---
 
-## 5. Failure handling
+## 6. Failure handling
 
 Order of operations in `_flw_verify_and_mark`:
 
@@ -170,7 +250,7 @@ If step 4 fails:
 
 ---
 
-## 6. Reconciliation checks
+## 7. Reconciliation checks
 
 `services/finance.py:build_reconciliation` compares paid orders with active
 journals sharing the same `payment_ref` and reports:
@@ -189,7 +269,7 @@ A journal is "active" when `status = 'posted'` and `kind <> 'reversal'`.
 
 ---
 
-## 7. Read-only verification (Supabase SQL Editor)
+## 8. Read-only verification (Supabase SQL Editor)
 
 ```sql
 -- Account balances: assets/expenses debit-normal, liabilities/revenue credit-normal
@@ -236,15 +316,17 @@ the SQL Editor runs with the service role.
 
 ---
 
-## 8. Deliberately not implemented yet
+## 9. Deliberately not implemented yet
 
-* Automatic creation of `payouts` rows and settlement journals.
-* Farmer and transporter payout execution and postings.
-* Commission recognition and its configuration rollout.
+* Transporter payout execution and postings.
 * Banking transfers from `COD_CASH_HELD` and `PROVIDER_CLEARING` to the bank.
 * A backend route to call `reverse_journal` for refunds and disputes.
 * Transporter agreed charge and delivery fee capture (needed before
   `TRANSPORTER_PAYABLE` / `DELIVERY_REVENUE` can hold real money).
+* An admin UI to edit `platform_config.commission_pct` (SQL only today).
+* A workflow for payouts marked `failed` or `disputed`; only `pending` payouts
+  can be settled.
+* Partial settlement or netting several orders into one payout.
 
 No dashboard figure is fabricated while these are missing: the Finance API
 returns `available: false` with a reason for transporter payables and delivery

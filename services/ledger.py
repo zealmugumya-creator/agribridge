@@ -14,9 +14,14 @@ instead of PROVIDER_CLEARING and uses a `cod:` reference so it cannot collide
 with a gateway receipt for the same checkout.
 
 Commission is deliberately NOT recognised here. `platform_config.commission_pct`
-applies to future payouts and no payout exists at receipt time; the settlement
-entry will move the commission out of FARMER_PAYABLE into COMMISSION_REVENUE.
+applies to future payouts and no payout exists at receipt time. The settlement
+entry (`settlement:<payout_id>`) moves the gross out of FARMER_PAYABLE, credits
+COMMISSION_REVENUE and clears the same asset account the receipt debited.
 Recognising it twice would overstate revenue.
+
+Settlement journals intentionally carry no `payment_ref`: reconciliation groups
+active journals by that column, so reusing the checkout ref would look like a
+duplicate receipt.
 
 Everything up to the RPC call is pure arithmetic so the money rules can be
 tested offline. The database enforces balance, append-only and idempotency
@@ -42,6 +47,10 @@ ACCOUNT_COD_CASH_HELD = "COD_CASH_HELD"
 ACCOUNT_FARMER_PAYABLE = "FARMER_PAYABLE"
 ACCOUNT_CUSTOMER_REFUND_PAYABLE = "CUSTOMER_REFUND_PAYABLE"
 ACCOUNT_SUSPENSE_OVERPAYMENT = "SUSPENSE_OVERPAYMENT"
+ACCOUNT_COMMISSION_REVENUE = "COMMISSION_REVENUE"
+
+SETTLEMENT_KIND = "farmer_settlement"
+SETTLEMENT_ASSET_ACCOUNTS = (ACCOUNT_PROVIDER_CLEARING, ACCOUNT_COD_CASH_HELD)
 
 CANCELLED_STATUSES = {"cancelled"}
 
@@ -261,3 +270,151 @@ def post_verified_payment(db, *, tx_ref: str, orders: list[dict], received,
              amount=_fmt(summary["received"]))
     return PaymentPosting(ok=True, reference=reference, journal_id=journal_id,
                           lines=lines, summary=summary)
+
+
+@dataclass
+class SettlementPosting:
+    ok: bool
+    reference: str
+    journal_id: str | None = None
+    error: str = ""
+    lines: list[dict] = field(default_factory=list)
+    summary: dict = field(default_factory=dict)
+
+
+def settlement_reference(payout_id) -> str:
+    return f"settlement:{str(payout_id or '').strip()}"
+
+
+def build_settlement_lines(payout: dict, *, channel_account: str
+                           ) -> tuple[list[dict], dict]:
+    """Build the journal that pays a farmer payout.
+
+    The payout row is the snapshot: gross, commission and net must already add
+    up. `channel_account` is the asset the customer receipt debited
+    (PROVIDER_CLEARING or COD_CASH_HELD), never a caller-supplied choice.
+    """
+    if not isinstance(payout, dict):
+        raise LedgerError("payout row must be an object")
+    if channel_account not in SETTLEMENT_ASSET_ACCOUNTS:
+        raise LedgerError(f"unsupported settlement channel: {channel_account!r}")
+
+    gross = money(payout.get("gross_amount"))
+    commission = money(payout.get("commission_amount"))
+    net = money(payout.get("net_amount"))
+    pct = money(payout.get("commission_pct") or 0)
+
+    if gross <= ZERO:
+        raise LedgerError("settlement gross must be positive")
+    if commission < ZERO or net < ZERO:
+        raise LedgerError("settlement amounts cannot be negative")
+    if commission + net != gross:
+        raise LedgerError("settlement commission and net do not add up to gross")
+    if pct < ZERO or pct > Decimal("100"):
+        raise LedgerError(f"invalid commission percentage: {pct}")
+
+    lines = [_line(ACCOUNT_FARMER_PAYABLE, "debit", gross,
+                   "farmer payable settled")]
+    if commission > ZERO:
+        lines.append(_line(ACCOUNT_COMMISSION_REVENUE, "credit", commission,
+                           f"commission {pct}%"))
+    if net > ZERO:
+        lines.append(_line(channel_account, "credit", net,
+                           "farmer payout paid"))
+
+    debits = sum((money(line["amount"]) for line in lines if line["side"] == "debit"), ZERO)
+    credits = sum((money(line["amount"]) for line in lines if line["side"] == "credit"), ZERO)
+    if debits != credits or len(lines) < 2:
+        raise LedgerError("settlement journal does not balance")
+
+    summary = {
+        "currency": UGX,
+        "gross": gross,
+        "commission_pct": pct,
+        "commission": commission,
+        "net": net,
+        "channel_account": channel_account,
+    }
+    return lines, summary
+
+
+def post_settlement(db, *, payout: dict, channel_account: str, provider: str,
+                    provider_ref: str, actor=None) -> SettlementPosting:
+    """Post one idempotent farmer-settlement journal (`settlement:<payout_id>`).
+
+    The provider reference is the evidence that money actually moved. The
+    caller must only invoke this after verifying the payout is pending, its
+    order is delivered and paid, and the customer receipt is in the ledger.
+    """
+    payout_id = str((payout or {}).get("id") or "").strip()
+    reference = settlement_reference(payout_id)
+    provider_ref = str(provider_ref or "").strip()
+    if not payout_id or len(payout_id) > 80:
+        return SettlementPosting(ok=False, reference=reference,
+                                 error="a valid payout id is required")
+    if not provider_ref or len(provider_ref) > 120:
+        return SettlementPosting(ok=False, reference=reference,
+                                 error="a provider reference is required")
+    if not all(32 <= ord(ch) < 127 for ch in provider_ref):
+        return SettlementPosting(ok=False, reference=reference,
+                                 error="provider reference must be printable text")
+
+    try:
+        lines, summary = build_settlement_lines(
+            payout, channel_account=channel_account)
+    except LedgerError as exc:
+        return SettlementPosting(ok=False, reference=reference, error=str(exc))
+
+    metadata = {
+        "payout_id": payout_id,
+        "order_id": (payout or {}).get("order_id"),
+        "farmer_id": (payout or {}).get("farmer_id"),
+        "gross": _fmt(summary["gross"]),
+        "commission_pct": _fmt(summary["commission_pct"]),
+        "commission": _fmt(summary["commission"]),
+        "net": _fmt(summary["net"]),
+        "channel_account": channel_account,
+        "provider": str(provider or "")[:40],
+        "provider_ref": provider_ref,
+        "currency": summary["currency"],
+        "commission_policy": "recognized_at_settlement",
+    }
+    args = {
+        "p_reference": reference,
+        "p_kind": SETTLEMENT_KIND,
+        "p_description": (f"Farmer settlement for payout {payout_id} "
+                          f"order {metadata.get('order_id') or '-'}"),
+        "p_lines": lines,
+        "p_payment_ref": None,
+        "p_actor": actor,
+        "p_metadata": metadata,
+        "p_currency": summary["currency"],
+    }
+
+    try:
+        result = db.rpc("post_journal", args)
+    except Exception as exc:  # a transport failure must leave the payout pending
+        log.error("ledger.settlement_exception", reference=reference,
+                  error=type(exc).__name__)
+        return SettlementPosting(ok=False, reference=reference, lines=lines,
+                                 summary=summary, error=type(exc).__name__)
+
+    if not getattr(result, "ok", False):
+        error = str(getattr(result, "error", "") or "ledger post failed")[:300]
+        log.error("ledger.settlement_failed", reference=reference, error=error)
+        return SettlementPosting(ok=False, reference=reference, lines=lines,
+                                 summary=summary, error=error)
+
+    data = getattr(result, "data", None)
+    if isinstance(data, list) and data:
+        data = data[0]
+    journal_id = str(data) if isinstance(data, str) and data else None
+    if not journal_id:
+        log.error("ledger.settlement_without_id", reference=reference)
+        return SettlementPosting(ok=False, reference=reference, lines=lines,
+                                 summary=summary, error="post_journal returned no journal id")
+
+    log.info("ledger.settlement_posted", reference=reference, journal_id=journal_id,
+             net=_fmt(summary["net"]))
+    return SettlementPosting(ok=True, reference=reference, journal_id=journal_id,
+                             lines=lines, summary=summary)

@@ -121,6 +121,30 @@ Fix: only `picked_up`, `in_transit` and `at_checkpoint` deliveries are updated
 
 Evidence: `tests/test_identity_and_admin.py`.
 
+### 6. Settlement integrity controls (migration 0016)
+
+New admin mutation, new invariants. A payout can only be marked paid when the
+settlement journal exists; the endpoint refuses to create that journal without
+a posted customer receipt and an operator-supplied provider reference.
+
+* Admin token required (`verify_token(required_role='admin')`); payout id must
+  be a UUID.
+* The order must still be `delivered` and `paid`, and the payout gross must
+  equal the server-computed order total.
+* Exactly one posted receipt (`customer_payment` / `cod_collection`) must exist
+  for the checkout. The settlement clears the same asset account the receipt
+  debited (`PROVIDER_CLEARING` or `COD_CASH_HELD`), not a client-supplied one.
+* `settlement:<payout_id>` is unique and idempotent; `payment_ref` is null so
+  reconciliation cannot mistake it for a second receipt.
+* `mark_payout_paid()` re-checks the posted journal in SQL and is executable
+  only by `service_role`; anon/authenticated are revoked.
+* `payouts` remain backend-only (RLS; 0002 closes direct inserts).
+* A provider/bank reference is required as evidence of money movement. The
+  system does not claim the transfer is verified by the provider.
+
+Evidence: `tests/test_settlements.py` (23 tests) and
+`tests/sql/settlements.test.mjs` (11 assertions).
+
 ## Verified as not exploitable
 
 The following tables returned zero rows to `anon` and their policies are

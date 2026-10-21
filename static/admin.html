@@ -413,14 +413,49 @@
     if(!d.rows||!d.rows.length){
       return html+'<div class="fin-note ok">No farmer payouts have been created yet.</div>';
     }
+    FIN.farmerRows={};
+    (d.rows||[]).forEach(function(r){ FIN.farmerRows[String(r.id)]=r; });
     var body=d.rows.map(function(r){
+      var action='';
+      if(r.status==='pending'){
+        action=(r.order_status==='delivered' && r.order_payment_status==='paid')
+          ? '<button class="btn sm" onclick="settlePayout(\''+h(r.id)+'\')">Settle</button>'
+          : '<span class="muted" style="font-size:.72rem">Order not settleable</span>';
+      } else if(r.status==='paid'){
+        action='<span class="muted" style="font-size:.72rem">'+finDate(r.paid_at)+'</span>';
+      }
       return '<tr><td>'+finDate(r.created_at)+'</td><td>'+h(finShortId(r.order_id))+'</td>'+
         '<td>'+h(r.farmer_name)+'</td><td class="num">'+finMoney(r.gross_amount)+'</td>'+
         '<td class="num">'+finMoney(r.commission_amount)+'<div class="muted" style="font-size:.72rem">'+h(r.commission_pct)+'%</div></td>'+
         '<td class="num">'+finMoney(r.net_amount)+'</td><td>'+finBadge(r.status)+'</td>'+
-        '<td>'+h(r.provider_ref||'—')+'</td></tr>';
+        '<td>'+h(r.provider_ref||'—')+'</td><td>'+action+'</td></tr>';
     }).join('');
-    return html+'<div class="tblwrap"><table class="fin-table"><thead><tr><th>Created</th><th>Order</th><th>Farmer</th><th class="num">Gross</th><th class="num">Commission</th><th class="num">Net</th><th>Status</th><th>Payment ref</th></tr></thead><tbody>'+body+'</tbody></table></div>';
+    return html+'<div class="tblwrap"><table class="fin-table"><thead><tr><th>Created</th><th>Order</th><th>Farmer</th><th class="num">Gross</th><th class="num">Commission</th><th class="num">Net</th><th>Status</th><th>Payment ref</th><th>Action</th></tr></thead><tbody>'+body+'</tbody></table></div>'+
+      '<div class="fin-note" style="margin-top:12px">Settling posts an immutable journal: debit FARMER_PAYABLE, credit COMMISSION_REVENUE and the account the customer paid into. The provider reference is recorded as proof the money moved.</div>';
+  }
+
+  async function settlePayout(id){
+    var r=(FIN.farmerRows||{})[String(id)];
+    if(!r) return;
+    var provider=prompt('Payment channel (e.g. MTN MoMo, Airtel Money, bank):','MTN MoMo');
+    if(provider===null) return;
+    var ref=prompt('Provider / bank transaction reference (proof the money moved):');
+    if(ref===null) return;
+    ref=(ref||'').trim();
+    if(!ref){ alert('A provider reference is required.'); return; }
+    if(!confirm('Settle '+finMoney(r.net_amount)+' to '+r.farmer_name+'?\n\nThis posts an immutable settlement journal and marks the payout paid.')) return;
+    try{
+      var res=await api('/api/admin/payouts/'+encodeURIComponent(id)+'/settle',{
+        method:'POST',
+        body:JSON.stringify({provider:provider,provider_ref:ref})
+      });
+      if(res&&res.ok){
+        alert(res.already_settled?'This payout was already settled.':'Settlement posted.');
+        await loadFinance(FIN.view);
+      } else {
+        alert((res&&(res.error||res.detail))||'Settlement failed.');
+      }
+    }catch(e){ alert('Settlement request failed.'); }
   }
 
   function finTransporters(d){

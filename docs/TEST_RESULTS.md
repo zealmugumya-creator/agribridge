@@ -17,7 +17,7 @@ PYTHONPATH=.test-deps python -m pytest -q
 ```
 
 ```
-339 passed, 1 skipped, 1 warning in 7.93s
+362 passed, 1 skipped, 87 warnings in 13.37s
 ```
 
 The skipped test is `tests/e2e/test_consent_ui.py`; it requires Playwright,
@@ -28,11 +28,11 @@ Targeted payment/ledger run:
 
 ```bash
 PYTHONPATH=.test-deps python -m pytest tests/test_ledger.py tests/test_payments.py \
-  tests/test_card_payments.py tests/test_admin_finance.py -q
+  tests/test_card_payments.py tests/test_admin_finance.py tests/test_settlements.py -q
 ```
 
 ```
-67 passed, 1 warning in 1.31s
+96 passed, 65 warnings in 3.74s
 ```
 
 ## 2. Lint
@@ -57,6 +57,7 @@ cd tests/sql && npm test
 | `ledger.test.mjs` | 36 | all passed |
 | `security_lockdown.test.mjs` | 17 | all passed |
 | `category_orders.test.mjs` | 10 | all passed |
+| `settlements.test.mjs` | 11 | all passed |
 
 The ledger suite applies migration 0013, verifies account seeding, balanced and
 unbalanced journals, idempotent replay, append-only guards, reversal rules,
@@ -68,7 +69,11 @@ suite applies migration 0015 and proves livestock/supplier prices and owners are
 resolved from `animal_listings` / `supplier_products` (client prices ignored),
 stock is decremented, cancellation restores it, oversell is rejected, produce
 reservation is unchanged, free-form items still work, and the down migration
-restores 0007a.
+restores 0007a. The settlements suite applies migration 0016 and proves payouts
+are created once for delivered+paid orders, commission is snapshotted,
+backfill is idempotent, `mark_payout_paid` refuses without a posted settlement
+journal and is callable only by the service role, and the down migration keeps
+financial and audit records.
 
 ## 4. New coverage in this stage
 
@@ -128,6 +133,27 @@ card and OTP tests exercise verification without network access.
 * An unpaid `momo`/gateway order stays unpaid at delivery and posts nothing.
 * Custom COD lines and reference/kind are also covered in `tests/test_ledger.py`.
 
+`tests/test_settlements.py` (this stage):
+
+* Settlement journal: debit `FARMER_PAYABLE` gross, credit
+  `COMMISSION_REVENUE`, credit the receipt's asset account (`PROVIDER_CLEARING`
+  or `COD_CASH_HELD`); zero commission and 100% commission both balance.
+* Payout rows whose commission and net do not add up to gross are rejected
+  before any RPC call.
+* The settlement journal uses `settlement:<payout_id>`, kind
+  `farmer_settlement`, **null** `payment_ref`, and records the provider
+  reference in metadata.
+* The endpoint requires admin auth, a UUID payout, and a non-empty printable
+  provider reference.
+* It refuses unknown/non-pending payouts, orders that are not delivered and
+  paid, a payout whose gross no longer matches the order, a missing receipt, an
+  ambiguous receipt, and an unknown receipt channel.
+* Success posts the journal first, then calls `mark_payout_paid`; a journal
+  failure returns `503` and never marks paid; a status-update failure is
+  reported as retryable; a concurrent settlement returns `already_settled`.
+* A posted settlement writes `admin_audit_log` (`payout.settled`) when the
+  service-role write succeeds.
+
 ## 5. Live verification status
 
 | Item | Evidence | Status |
@@ -140,6 +166,8 @@ card and OTP tests exercise verification without network access.
 | Browser E2E / Playwright | Playwright not installed | **Not run** |
 | Admin status dropdown / SMS receipt in browser | Code changed; no browser run | **Not yet exercised** |
 | COD → ledger posting | Unit/API tests with faked RPC only | **Not yet exercised live** |
+| Migration 0016 (settlements) | Not applied to Supabase | **Pending owner action** |
+| Payout → settlement journal | Unit/API tests and PGlite only | **Not yet exercised live** |
 
 A live posting can only be claimed after a real verified transaction produces a
 `payment:<tx_ref>` journal. The read-only queries in

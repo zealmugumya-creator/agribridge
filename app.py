@@ -1470,6 +1470,182 @@ def admin_finance_farmer_settlements():
     return jsonify(result)
 
 
+@app.route('/api/admin/payouts/<payout_id>/settle', methods=['POST'])
+def admin_settle_payout(payout_id):
+    """Settle a pending farmer payout against an operator-verified transfer.
+
+    Refuses to put the operational record ahead of the accounting record:
+    the order must still be delivered and paid, its customer receipt must be
+    posted exactly once, the settlement journal must post, and only then is the
+    payout marked paid. A retry is idempotent on `settlement:<payout_id>`.
+    """
+    payload, err = verify_token(required_role='admin')
+    if err:
+        return err
+    try:
+        uuid.UUID(str(payout_id))
+    except (ValueError, AttributeError, TypeError):
+        return jsonify({'error': 'Invalid payout id'}), 400
+
+    data = request.get_json(force=True, silent=True) or {}
+    provider_ref = str(data.get('provider_ref') or '').strip()
+    provider = str(data.get('provider') or '').strip()[:40]
+    if not provider_ref:
+        return jsonify({'error': 'A provider reference is required as proof of payment',
+                        'code': 'provider_ref_required'}), 400
+    if len(provider_ref) > 120 or not all(32 <= ord(ch) < 127 for ch in provider_ref):
+        return jsonify({'error': 'Provider reference must be 1-120 printable characters',
+                        'code': 'provider_ref_invalid'}), 400
+
+    payouts, payout_err = _fin_read(
+        'payouts', _FIN_PAYOUT_SELECT, {'id': f'eq.{payout_id}'}, limit=1)
+    if payout_err:
+        return jsonify({'error': 'Could not read payouts', 'code': 'payouts_read_failed',
+                        'detail': payout_err}), 503
+    if not payouts:
+        return jsonify({'error': 'Payout not found'}), 404
+    payout = payouts[0]
+    payout_status = str(payout.get('status') or '').lower()
+
+    if payout_status == 'paid':
+        return jsonify({'ok': True, 'already_settled': True, 'payout_id': payout_id,
+                        'provider_ref': payout.get('provider_ref'),
+                        'paid_at': payout.get('paid_at')})
+    if payout_status != 'pending':
+        return jsonify({
+            'error': f'Payout is {payout_status or "unknown"}; only pending payouts can be settled',
+            'code': 'payout_not_pending'}), 409
+
+    order_id = str(payout.get('order_id') or '').strip()
+    if not order_id:
+        return jsonify({'error': 'Payout has no order', 'code': 'payout_order_missing'}), 409
+    orders, order_err = _fin_read(
+        'orders', _FIN_ORDER_SELECT, {'id': f'eq.{order_id}'}, limit=1)
+    if order_err:
+        return jsonify({'error': 'Could not read the order', 'code': 'orders_read_failed',
+                        'detail': order_err}), 503
+    if not orders:
+        return jsonify({'error': 'Order not found', 'code': 'order_not_found'}), 409
+    order = orders[0]
+    if (str(order.get('status') or '').lower() != 'delivered'
+            or str(order.get('payment_status') or '').lower() != 'paid'):
+        return jsonify({'error': 'Only delivered, paid orders can be settled',
+                        'code': 'order_not_settleable',
+                        'order_status': order.get('status'),
+                        'payment_status': order.get('payment_status')}), 409
+
+    try:
+        payout_gross = ledger.money(payout.get('gross_amount'))
+        order_value = ledger.money(finance.order_total(order))
+    except ledger.LedgerError:
+        return jsonify({'error': 'Payout or order amount is invalid',
+                        'code': 'amount_invalid'}), 409
+    if payout_gross != order_value:
+        return jsonify({'error': 'Payout gross does not match the order total',
+                        'code': 'payout_amount_mismatch',
+                        'payout_gross': f'{payout_gross:.2f}',
+                        'order_total': f'{order_value:.2f}'}), 409
+
+    pay_ref = str(order.get('payment_ref') or '').strip()
+    if not pay_ref:
+        return jsonify({'error': 'Order has no payment reference; the receipt cannot be verified',
+                        'code': 'payment_ref_missing'}), 409
+
+    receipts, receipt_err = _fin_read(
+        'ledger_journals', 'id,reference,kind,status,payment_ref',
+        {'payment_ref': f'eq.{pay_ref}', 'status': 'eq.posted',
+         'kind': 'in.(customer_payment,cod_collection)'}, limit=20)
+    if receipt_err:
+        return _fin_ledger_unavailable(receipt_err)
+    if not receipts:
+        return jsonify({
+            'error': 'The customer receipt is not posted to the ledger; settle only after it is posted',
+            'code': 'receipt_not_posted', 'payment_ref': pay_ref}), 409
+    if len(receipts) > 1:
+        return jsonify({'error': 'More than one active receipt exists for this checkout',
+                        'code': 'receipt_ambiguous', 'payment_ref': pay_ref}), 409
+
+    receipt_lines, lines_err = _fin_lines([receipts[0].get('id')])
+    if lines_err:
+        return _fin_ledger_unavailable(lines_err)
+    debit_accounts = {
+        str(line.get('account_code')) for line in receipt_lines or []
+        if str(line.get('side') or '').lower() == 'debit'
+        and str(line.get('account_code')) in ledger.SETTLEMENT_ASSET_ACCOUNTS
+    }
+    if len(debit_accounts) != 1:
+        return jsonify({'error': 'Cannot determine which asset account received the payment',
+                        'code': 'receipt_channel_unknown', 'payment_ref': pay_ref}), 409
+    channel_account = debit_accounts.pop()
+
+    try:
+        actor = str(uuid.UUID(str(payload.get('sub') or '')))
+    except (ValueError, AttributeError, TypeError):
+        actor = None
+
+    posting = ledger.post_settlement(
+        SUPA, payout=payout, channel_account=channel_account,
+        provider=provider, provider_ref=provider_ref, actor=actor)
+    if not posting.ok:
+        log.error('payout.settle_ledger_failed', payout_id=payout_id,
+                  order_id=order_id, error=posting.error)
+        _log_system_event('payout_settlement_ledger_failed', {
+            'payout_id': payout_id, 'order_id': order_id,
+            'payment_ref': pay_ref, 'error': posting.error}, severity='error')
+        return jsonify({'error': 'Settlement journal could not be posted; the payout is still pending',
+                        'code': 'settlement_posting_failed',
+                        'detail': posting.error}), 503
+
+    marked = SUPA.rpc('mark_payout_paid', {
+        'p_payout_id': payout_id,
+        'p_provider': provider,
+        'p_provider_ref': provider_ref,
+    })
+    if not marked.ok:
+        log.error('payout.mark_paid_failed', payout_id=payout_id, error=marked.error)
+        _log_system_event('payout_mark_paid_failed', {
+            'payout_id': payout_id, 'order_id': order_id,
+            'journal_id': posting.journal_id, 'error': marked.error}, severity='error')
+        return jsonify({
+            'error': 'Settlement journal posted but the payout status was not updated; retry',
+            'code': 'payout_status_update_failed',
+            'journal_id': posting.journal_id,
+            'reference': posting.reference,
+            'retryable': True}), 503
+
+    # False means a concurrent request already moved the payout out of pending;
+    # both requests used the same idempotent settlement reference.
+    already_settled = marked.data is False
+    if not already_settled:
+        supa_insert('admin_audit_log', {
+            'actor': actor,
+            'action': 'payout.settled',
+            'target': payout_id,
+            'metadata': {
+                'order_id': order_id,
+                'journal_id': posting.journal_id,
+                'provider': provider,
+                'provider_ref': provider_ref,
+                'gross': f"{posting.summary['gross']:.2f}",
+                'commission': f"{posting.summary['commission']:.2f}",
+                'net': f"{posting.summary['net']:.2f}",
+                'channel_account': channel_account,
+            },
+        })
+    return jsonify({
+        'ok': True,
+        'already_settled': already_settled,
+        'payout_id': payout_id,
+        'order_id': order_id,
+        'journal_id': posting.journal_id,
+        'reference': posting.reference,
+        'channel_account': channel_account,
+        'gross': f"{posting.summary['gross']:.2f}",
+        'commission': f"{posting.summary['commission']:.2f}",
+        'net': f"{posting.summary['net']:.2f}",
+    })
+
+
 @app.route('/api/admin/finance/transporter-settlements', methods=['GET'])
 def admin_finance_transporter_settlements():
     _payload, err = verify_token(required_role='admin')
