@@ -4685,7 +4685,7 @@ async function attachListingMedia(listingId, photoFile, videoFile){
       showToast('📷 Photo added to your listing');
       if(document.querySelector('.page.active')?.id==='page-market') loadListings();
     }else{
-      showToast('Listing saved. The photo could not be added — you can add it later.');
+      showToast('Listing saved. The photo could not be attached.');
     }
   }catch(e){
     showToast('Listing saved. The photo could not be added.');
