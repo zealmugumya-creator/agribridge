@@ -48,7 +48,7 @@ from services.matching import MatchingService
 from services.notifications import NotificationDispatcher
 from services.orders import OrderService
 from services.push import build_push
-from services.supabase_client import SupabaseClient, _UPLOADS_BUCKET
+from services.supabase_client import _UPLOADS_BUCKET, SupabaseClient
 from services.webpush import WebPushService
 
 configure_logging()
