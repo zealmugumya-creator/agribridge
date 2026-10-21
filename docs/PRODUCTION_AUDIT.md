@@ -82,7 +82,7 @@ Overall the backend is more hardened than most side-project-stage apps. The fron
 | POST | `/api/offers/<id>/reject` | Supabase session | Yes (30/min) | Reject a farmer offer |
 | POST | `/api/sms-receipt` | Supabase session | Yes (10/5min) | Order SMS to the buyer's number on file (no free-form recipient) |
 | GET | `/api/pay/providers` | No | No | Lists enabled payment providers |
-| POST | `/api/pay/initiate` | **None** (F18) | Yes (20/5min) | Initiate payment session |
+| POST | `/api/pay/initiate` | Supabase session | Yes (20/5min) | Initiate payment session (order ownership enforced) |
 | POST | `/api/pay/webhook/flutterwave` | verif-hash header | No | Flutterwave payment webhook |
 | GET | `/api/legal/manifest` | No | Yes (60/min) | Legal document manifest |
 | GET | `/api/legal/status` | Supabase session | Yes (60/min) | User's acceptance status |

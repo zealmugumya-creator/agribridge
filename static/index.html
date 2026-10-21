@@ -4826,12 +4826,25 @@ async function loadSupplierKpis() {
     set('hd-ssales', 'UGX '+fmtShort(monthSales));
   } else { set('hd-sorders','0'); set('hd-ssales','UGX 0'); }
 }
-// Farmer advances an order's status (RLS allows only the order's farmer).
+// Farmer advances an order through the server-side state machine, which
+// enforces ownership, legal transitions, stock release and order events.
 async function updateOrderStatus(id, status, btn){
   if(btn){ btn.disabled=true; btn.dataset.orig=btn.textContent; btn.textContent='…'; }
-  const ok=await sbUpdate('orders', { status, updated_at:new Date().toISOString() }, 'id', id);
-  if(ok){ showToast('Order marked '+status+' ✅'); loadDashboard(); }
-  else { showToast('Could not update the order — please try again'); if(btn){ btn.disabled=false; btn.textContent=btn.dataset.orig||'Retry'; } }
+  try{
+    const tok = await refreshAuthToken();
+    if(!tok) throw new Error('not signed in');
+    const r = await fetch(USSD_API+'/api/orders/'+encodeURIComponent(id)+'/status',{
+      method:'POST',
+      headers:{ 'Content-Type':'application/json', 'Authorization':'Bearer '+tok },
+      body:JSON.stringify({ status: status })
+    });
+    const data = await r.json().catch(function(){ return {}; });
+    if(r.ok && data.ok){ showToast('Order marked '+status+' ✅'); loadDashboard(); return; }
+    showToast(data.error || 'Could not update the order — please try again');
+  }catch(e){
+    showToast('Could not update the order — please try again');
+  }
+  if(btn){ btn.disabled=false; btn.textContent=btn.dataset.orig||'Retry'; }
 }
 // Build the farmer analytics header (revenue + 30-day chart + top products) from real orders.
 function renderFarmerAnalytics(orders){
@@ -4924,7 +4937,7 @@ async function loadDashboard() {
     if(listings?.length) html+=listings.map(l=>`<div class="dash-row"><span>${escHtml(l.crop_name||'Item')}</span><span style="color:var(--green)">UGX ${(l.price_per_kg||0).toLocaleString()}/kg</span><span style="color:var(--text2);font-size:0.8rem">${l.quantity_kg||0}kg · ${l.views||0} views</span></div>`).join('');
     else html+=`<p style="color:var(--text2);font-size:0.9rem">No listings yet. <button class="btn-sm" onclick="openListProduceModal()">List Produce</button></p>`;
     html+=`</div><div><h3 style="font-size:1rem;font-weight:700;margin-bottom:12px">📥 Orders Received (${orders?.length||0})</h3>`;
-    if(orders?.length) html+=orders.map(o=>{ const amt=o.total_price||o.total_amount||(o.quantity_kg*(o.price_per_kg||0))||0; const st=o.status||'pending'; let act=''; if(st==='pending') act=`<button class="btn-sm" onclick="updateOrderStatus('${o.id}','confirmed',this)">✅ Confirm</button><button class="btn-sm ghost" onclick="updateOrderStatus('${o.id}','cancelled',this)">✕ Reject</button>`; else if(st==='confirmed') act=`<button class="btn-sm" onclick="updateOrderStatus('${o.id}','delivered',this)">🚚 Mark Delivered</button>`; return `<div class="dash-row" style="flex-wrap:wrap;gap:6px"><span>${o.quantity_kg||0} kg</span><span style="color:var(--green)">UGX ${Number(amt).toLocaleString()}</span><span class="status-badge ${st}">${st}</span>${act?`<span style="flex-basis:100%;display:flex;gap:6px;margin-top:6px">${act}</span>`:''}</div>`; }).join('');
+    if(orders?.length) html+=orders.map(o=>{ const amt=o.total_price||o.total_amount||(o.quantity_kg*(o.price_per_kg||0))||0; const st=o.status||'pending'; let act=''; if(st==='pending') act=`<button class="btn-sm" onclick="updateOrderStatus('${o.id}','confirmed',this)">✅ Confirm</button><button class="btn-sm ghost" onclick="updateOrderStatus('${o.id}','cancelled',this)">✕ Reject</button>`; else if(st==='confirmed') act=`<button class="btn-sm" onclick="updateOrderStatus('${o.id}','in_transit',this)">🚚 Mark In Transit</button>`; else if(st==='in_transit') act=`<button class="btn-sm" onclick="updateOrderStatus('${o.id}','delivered',this)">📦 Mark Delivered</button>`; return `<div class="dash-row" style="flex-wrap:wrap;gap:6px"><span>${o.quantity_kg||0} kg</span><span style="color:var(--green)">UGX ${Number(amt).toLocaleString()}</span><span class="status-badge ${st}">${st}</span>${act?`<span style="flex-basis:100%;display:flex;gap:6px;margin-top:6px">${act}</span>`:''}</div>`; }).join('');
     else html+=`<p style="color:var(--text2);font-size:0.9rem">No orders yet.</p>`;
     html+=`</div>`;
     // Payouts owed to this farmer (created on delivered + paid orders, net of commission).
@@ -4946,7 +4959,7 @@ async function loadDashboard() {
     } else html+=`<p style="color:var(--text2);font-size:.9rem">No products yet. <button class="btn-sm" onclick="openSupplierProductModal()">Add your first product</button></p>`;
     html+=`<div style="margin-top:20px"><h3 style="font-size:1rem;font-weight:700;margin-bottom:12px">📥 Orders Received (${anOrders.length})</h3>`;
     if(anOrders.length){
-      html+=anOrders.slice(0,20).map(o=>{ const amt=o.total_price||o.total_amount||(o.quantity_kg*(o.price_per_kg||0))||0; const st=o.status||'pending'; const nm=((/Item:(.*)$/.exec(o.notes||'')||[])[1]||'Order').trim(); let act=''; if(st==='pending') act=`<button class="btn-sm" onclick="updateOrderStatus('${o.id}','confirmed',this)">✅ Confirm</button><button class="btn-sm ghost" onclick="updateOrderStatus('${o.id}','cancelled',this)">✕ Reject</button>`; else if(st==='confirmed') act=`<button class="btn-sm" onclick="updateOrderStatus('${o.id}','delivered',this)">🚚 Mark Delivered</button>`; return `<div class="dash-row" style="flex-wrap:wrap;gap:6px"><span style="font-size:.82rem">${escHtml(nm)} · ${o.quantity_kg||0}</span><span style="color:var(--green)">UGX ${Number(amt).toLocaleString()}</span><span class="status-badge ${st}">${st}</span>${act?`<span style="flex-basis:100%;display:flex;gap:6px;margin-top:6px">${act}</span>`:''}</div>`; }).join('');
+      html+=anOrders.slice(0,20).map(o=>{ const amt=o.total_price||o.total_amount||(o.quantity_kg*(o.price_per_kg||0))||0; const st=o.status||'pending'; const nm=((/Item:(.*)$/.exec(o.notes||'')||[])[1]||'Order').trim(); let act=''; if(st==='pending') act=`<button class="btn-sm" onclick="updateOrderStatus('${o.id}','confirmed',this)">✅ Confirm</button><button class="btn-sm ghost" onclick="updateOrderStatus('${o.id}','cancelled',this)">✕ Reject</button>`; else if(st==='confirmed') act=`<button class="btn-sm" onclick="updateOrderStatus('${o.id}','in_transit',this)">🚚 Mark In Transit</button>`; else if(st==='in_transit') act=`<button class="btn-sm" onclick="updateOrderStatus('${o.id}','delivered',this)">📦 Mark Delivered</button>`; return `<div class="dash-row" style="flex-wrap:wrap;gap:6px"><span style="font-size:.82rem">${escHtml(nm)} · ${o.quantity_kg||0}</span><span style="color:var(--green)">UGX ${Number(amt).toLocaleString()}</span><span class="status-badge ${st}">${st}</span>${act?`<span style="flex-basis:100%;display:flex;gap:6px;margin-top:6px">${act}</span>`:''}</div>`; }).join('');
     } else html+=`<p style="color:var(--text2);font-size:.9rem">No orders yet. When a buyer orders your inputs, they appear here to confirm and deliver.</p>`;
     html+=`</div>`;
     el.innerHTML=html;

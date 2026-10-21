@@ -96,6 +96,12 @@ Fix:
   records a `order_status_changed` system event.
 - The admin console edits only delivery address and notes, and advances status
   through a dedicated dropdown that calls the state-machine endpoint.
+- The farmer dashboard had the same bypass from the other side: its Confirm /
+  Reject / Deliver buttons called `sbUpdate('orders', {status})` directly from
+  the browser. They now call `POST /api/orders/<id>/status`, which verifies the
+  session, checks that the caller is the order's farmer (or an admin), and runs
+  `set_order_status`; the UI follows the legal `confirmed → in_transit →
+  delivered` path instead of jumping straight to delivered.
 - Payment status is no longer writable from any generic editor. It changes only
   when a gateway payment is verified, or when a `cash` order is delivered and
   the COD journal posts first (`cod:<ref>`); an unpaid gateway order stays

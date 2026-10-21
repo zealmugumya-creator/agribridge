@@ -202,3 +202,10 @@ def test_transporter_location_reports_a_failed_write(client, as_user, monkeypatc
 
 def test_transporter_location_rejects_bad_coordinates(client, as_user):
     assert client.post('/api/transporter/location', json={'lat': 91, 'lng': 32}).status_code == 400
+
+
+def test_farmer_order_actions_use_the_server_state_machine():
+    from pathlib import Path
+    html = (Path(__file__).resolve().parents[1] / 'static/index.html').read_text(encoding='utf-8')
+    assert "sbUpdate('orders'" not in html
+    assert "/api/orders/'+encodeURIComponent(id)+'/status" in html

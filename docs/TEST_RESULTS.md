@@ -17,7 +17,7 @@ PYTHONPATH=.test-deps python -m pytest -q
 ```
 
 ```
-338 passed, 1 skipped, 1 warning in 6.84s
+339 passed, 1 skipped, 1 warning in 7.93s
 ```
 
 The skipped test is `tests/e2e/test_consent_ui.py`; it requires Playwright,
@@ -108,6 +108,9 @@ card and OTP tests exercise verification without network access.
   transitions return `409` and a missing order returns `404`.
 * Transporter GPS updates target only `picked_up`/`in_transit`/`at_checkpoint`
   deliveries by id (never completed rows) and report `503` when the write fails.
+* The farmer dashboard no longer writes `orders` directly: a static check
+  asserts that `static/index.html` contains no `sbUpdate('orders'` call and
+  that its actions use `POST /api/orders/<id>/status`.
 
 `tests/test_admin_finance.py` (delivery and COD):
 
