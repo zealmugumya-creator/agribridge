@@ -15,9 +15,10 @@ CREATE TABLE IF NOT EXISTS public.system_events (
 );
 ALTER TABLE public.system_events ENABLE ROW LEVEL SECURITY;
 -- Service role (backend) has full access; no client-side reads allowed.
+-- TO service_role is mandatory: without it the policy applies to PUBLIC.
 DROP POLICY IF EXISTS "service role full access" ON public.system_events;
 CREATE POLICY "service role full access" ON public.system_events
-  USING (true) WITH CHECK (true);
+  FOR ALL TO service_role USING (true) WITH CHECK (true);
 CREATE INDEX IF NOT EXISTS system_events_created_at_idx ON public.system_events (created_at DESC);
 CREATE INDEX IF NOT EXISTS system_events_severity_idx   ON public.system_events (severity, created_at DESC);
 
@@ -43,10 +44,11 @@ CREATE TABLE IF NOT EXISTS public.transporters (
 );
 ALTER TABLE public.transporters ENABLE ROW LEVEL SECURITY;
 
--- Backend (service role) can do everything.
+-- Backend (service role) can do everything. TO service_role is mandatory:
+-- without it the policy applies to PUBLIC.
 DROP POLICY IF EXISTS "service role full access" ON public.transporters;
 CREATE POLICY "service role full access" ON public.transporters
-  USING (true) WITH CHECK (true);
+  FOR ALL TO service_role USING (true) WITH CHECK (true);
 
 -- Transporters can read and update their OWN row only (via supabase_uid = auth.uid()).
 DROP POLICY IF EXISTS "transporter read own" ON public.transporters;
