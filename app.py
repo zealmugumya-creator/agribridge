@@ -442,7 +442,7 @@ def health():
     payload = {
         'status': 'ok' if healthy else 'degraded',
         'service': 'AgriBridge API',
-        'version': '3.1.0',
+        'version': '3.1.1',
         'at_enabled': AT_AVAILABLE and at_sms is not None,
         'supabase_configured': SUPA.configured,
         'supabase_connected': db.ok,          # actual round-trip result
