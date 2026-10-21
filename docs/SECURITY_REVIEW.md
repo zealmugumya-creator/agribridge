@@ -83,7 +83,16 @@ was the exception because its policy explicitly allowed every role.
 
 ## Live verification steps
 
-After `0014` is applied in the Supabase SQL Editor, re-run:
+Applied in the Supabase SQL Editor on 2026-10-21. Post-fix probes:
+
+| Probe | Before | After |
+|---|---|---|
+| anon `GET /system_events` | `200` + internal rows | `401` permission denied |
+| anon `POST /system_events` | `23502` (write privilege) | `401` permission denied |
+| anon `GET /transporters` | `200` (empty) | `401` permission denied |
+| anon `GET /ledger_account_balances` | `401` | `401` |
+
+Reproduce with:
 
 ```bash
 # expect 401 permission denied (was 200 with data)
