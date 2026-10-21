@@ -31,7 +31,7 @@ try:  # cryptography >= 43 keeps TripleDES in `decrepit`; older releases in `pri
 except ImportError:  # pragma: no cover - depends on the pinned cryptography version
     from cryptography.hazmat.primitives.ciphers.algorithms import TripleDES as _TripleDES
 
-from services import business, finance, monitoring
+from services import business, finance, ledger, monitoring
 
 # ── AgriBridge service modules (isolated integrations, Phase 10) ──────────────
 from services.account import AccountService
@@ -4302,14 +4302,21 @@ def pay_initiate():
 def _checkout_amount(uid, order_ref, client_amount):
     """Return (amount_to_charge, error_response). Orders of one checkout share payment_ref."""
     rows = supa_get('orders', {'payment_ref': f'eq.{order_ref}',
-                               'select': 'buyer_id,total_price,payment_status'}, limit=50) or []
+                               'select': 'buyer_id,total_amount,total_price,quantity_kg,'
+                                         'price_per_kg,payment_status'}, limit=50) or []
     if not rows:
         return 0, (jsonify({'ok': False, 'error': 'order not found'}), 404)
     if any(str(r.get('buyer_id')) != str(uid) for r in rows):
         return 0, (jsonify({'ok': False, 'error': 'not your order'}), 403)
     if all((r.get('payment_status') or '') == 'paid' for r in rows):
         return 0, (jsonify({'ok': False, 'error': 'already paid', 'paid': True}), 409)
-    floor = int(round(sum(float(r.get('total_price') or 0) for r in rows)))
+    # Use the server-generated total, never a client-carried amount.
+    try:
+        floor = ledger.whole(sum(
+            (ledger.money(finance.order_total(r)) for r in rows), ledger.ZERO))
+    except ledger.LedgerError:
+        log.error('payment.invalid_order_total', order_ref=order_ref)
+        return 0, (jsonify({'ok': False, 'error': 'order total is unavailable'}), 422)
     return max(int(client_amount), floor), None
 
 
@@ -4557,7 +4564,8 @@ def _flw_verify_and_mark(attempt_ref, flw_id, provider='Flutterwave'):
     """Verify a Flutterwave transaction server-side, then mark its checkout paid.
 
     The webhook body is never trusted on its own; this is also used after a
-    direct card charge or OTP validation."""
+    direct card charge or OTP validation. A confirmed receipt is posted to the
+    ledger under `payment:<tx_ref>`, so retries cannot post twice."""
     try:
         v = requests.get(
             'https://api.flutterwave.com/v3/transactions/' + str(flw_id) + '/verify',
@@ -4565,38 +4573,72 @@ def _flw_verify_and_mark(attempt_ref, flw_id, provider='Flutterwave'):
         vj = v.json() if v.ok else {}
         vdata = vj.get('data') or {}
         tx_ref = _base_ref(attempt_ref)
-        owed = sum(float(o.get('total_price') or 0) for o in (supa_get(
-            'orders', {'payment_ref': f'eq.{tx_ref}', 'select': 'total_price'}, limit=50) or []))
+        rows = supa_get('orders', {
+            'payment_ref': f'eq.{tx_ref}',
+            'select': 'id,total_amount,total_price,quantity_kg,price_per_kg,status',
+        }, limit=50) or []
+        try:
+            owed = sum((ledger.money(finance.order_total(o)) for o in rows), ledger.ZERO)
+            received = ledger.money(vdata.get('amount'))
+        except ledger.LedgerError:
+            return False
+        cur = str(vdata.get('currency') or '').strip().upper()
         if not ((vdata.get('status') or '').lower() == 'successful'
                 and _base_ref(vdata.get('tx_ref')) == tx_ref
-                and (vdata.get('currency') or 'UGX') == 'UGX'
-                and owed > 0 and float(vdata.get('amount') or 0) >= owed):
+                and cur == 'UGX'
+                and owed > 0 and received >= owed):
             return False
+
         # Mark every order row of this checkout paid (they share payment_ref).
         # Idempotent: re-running just re-sets 'paid'; the match key is stable.
-        supa_update('orders', {'payment_status': 'paid'}, 'payment_ref', tx_ref)
-        amt = vdata.get('amount', 0)
-        cur = vdata.get('currency', 'UGX')
-        _discord_notify(
-            event_type='payment.confirmed',
-            title='💰 Payment Confirmed',
-            description=(
-                f"**Ref:** `{tx_ref}`\n"
-                f"**Amount:** {cur} {amt:,.0f}\n"
-                f"**Provider:** {provider}\n"
-                f"**FLW ID:** {flw_id}"
-            ),
-            severity='payment',
-        )
+        if not supa_update('orders', {'payment_status': 'paid'}, 'payment_ref', tx_ref):
+            log.error('payment.mark_paid_failed', payment_ref=tx_ref, provider=provider)
+            _log_system_event('payment_mark_paid_failed',
+                              {'payment_ref': tx_ref, 'provider': provider})
+            return False
+
+        posting = ledger.post_verified_payment(
+            SUPA, tx_ref=tx_ref, orders=rows, received=received, currency=cur,
+            provider=provider, flw_id=flw_id)
+        if not posting.ok:
+            # Money is confirmed and the order is paid; a ledger gap is an
+            # operator alert (reconciliation also reports it), not a failed
+            # payment. Do not make the buyer pay again over a bookkeeping fault.
+            log.error('payment.ledger_post_failed', payment_ref=tx_ref,
+                      error=posting.error)
+            _log_system_event('payment_ledger_post_failed', {
+                'payment_ref': tx_ref, 'provider': provider, 'error': posting.error,
+            })
+            _discord_notify(
+                event_type='payment.ledger_failed',
+                title='⚠️ Payment received but not posted to ledger',
+                description=(f"**Ref:** `{tx_ref}`\n**Provider:** {provider}\n"
+                             f"**Error:** {posting.error[:200]}"),
+                severity='error',
+            )
+
         try:
+            amt = float(received)
+            _discord_notify(
+                event_type='payment.confirmed',
+                title='💰 Payment Confirmed',
+                description=(
+                    f"**Ref:** `{tx_ref}`\n"
+                    f"**Amount:** {cur} {amt:,.0f}\n"
+                    f"**Provider:** {provider}\n"
+                    f"**FLW ID:** {flw_id}\n"
+                    f"**Ledger:** `{posting.journal_id or 'not posted'}`"
+                ),
+                severity='payment',
+            )
             paid_rows = supa_get('orders', {
                 'payment_ref': f'eq.{tx_ref}',
-                'select': 'buyer_id,order_ref,tracking_code',
+                'select': 'buyer_id,payment_ref,tracking_code',
             }, limit=1) or []
             if paid_rows:
                 pr = paid_rows[0]
                 b_id = pr.get('buyer_id')
-                o_ref = pr.get('order_ref', tx_ref[:8])
+                o_ref = pr.get('payment_ref') or tx_ref
                 if b_id:
                     NOTIFY.enqueue(
                         channel='in_app',
@@ -4613,11 +4655,11 @@ def _flw_verify_and_mark(attempt_ref, flw_id, provider='Flutterwave'):
                         dedupe_key=f'payment_confirmed:{tx_ref}',
                     )
         except Exception as _pne:
-            print(f"payment notify error: {_pne}")
+            log.warning('payment.notify_failed', error=type(_pne).__name__)
         _send_payment_receipt(tx_ref)
         return True
     except Exception as e:
-        print(f"flw verify error: {e}")
+        log.error('payment.verify_exception', error=type(e).__name__)
         return False
 
 

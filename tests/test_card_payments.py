@@ -13,6 +13,7 @@ from cryptography.hazmat.primitives.ciphers import Cipher, modes
 from cryptography.hazmat.primitives.ciphers.algorithms import TripleDES
 
 import app as app_mod
+from services.ledger import PaymentPosting
 
 KEY = "0123456789abcdefghijklmn"  # exactly 24 bytes for 3DES
 
@@ -42,6 +43,8 @@ def as_user(monkeypatch):
     monkeypatch.setattr(app_mod, "_discord_notify", lambda *a, **k: None)
     monkeypatch.setattr(app_mod, "_send_payment_receipt", lambda *a, **k: None)
     monkeypatch.setattr(app_mod.NOTIFY, "enqueue", lambda *a, **k: None)
+    monkeypatch.setattr(app_mod.ledger, "post_verified_payment", lambda *a, **k: PaymentPosting(
+        ok=True, reference="payment:test", journal_id="journal-test"))
 
 
 def _orders(monkeypatch, rows):

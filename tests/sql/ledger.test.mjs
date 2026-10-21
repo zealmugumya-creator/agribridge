@@ -114,6 +114,17 @@ await post('payment:flw-2', payment, ADMIN);
 r = await db.query(`select count(*)::int c from public.admin_audit_log where action = 'ledger.posted'`);
 assert.equal(r.rows[0].c, 1); ok('posting with an actor is audited');
 
+// The backend serialises amounts as 2-decimal strings and posts as the system (null actor).
+const appShape = JSON.stringify([
+  { account: 'PROVIDER_CLEARING', side: 'debit', amount: '50000.00', memo: 'customer payment received' },
+  { account: 'FARMER_PAYABLE', side: 'credit', amount: '50000.00', memo: 'product value owed to farmers' },
+]);
+r = await post('payment:app-shape', appShape);
+const JAPP = r.rows[0].id; assert.ok(JAPP);
+r = await db.query(`select amount::text a from public.ledger_lines where journal_id = $1`, [JAPP]);
+assert.deepEqual(r.rows.map((x) => x.a), ['50000.00', '50000.00']);
+ok('backend string amounts post exactly');
+
 // Access control.
 r = await as('authenticated', USER, `select count(*)::int c from public.ledger_journals`);
 assert.equal(r.rows[0].c, 0); ok('non-admin sees no journals');

@@ -4,9 +4,12 @@
 Flutterwave MoMo, status polling and webhook amount check. Network is faked."""
 from __future__ import annotations
 
+from decimal import Decimal
+
 import pytest
 
 import app as app_mod
+from services.ledger import PaymentPosting
 
 
 class Resp:
@@ -103,27 +106,95 @@ def test_status_only_for_own_orders(client, as_user, monkeypatch):
 def _webhook(client, monkeypatch, verified, owed=50000):
     monkeypatch.setattr(app_mod, "FLW_WEBHOOK_HASH", "h")
     monkeypatch.setattr(app_mod, "FLW_SECRET_KEY", "k")
-    updates = []
-    monkeypatch.setattr(app_mod, "supa_get", lambda *a, **k: [{"total_price": owed, "buyer_id": None}])
+    updates, postings = [], []
+    monkeypatch.setattr(app_mod, "supa_get", lambda *a, **k: [
+        {"id": "o1", "total_price": owed, "buyer_id": None, "status": "pending"}])
     monkeypatch.setattr(app_mod, "supa_update", lambda *a, **k: updates.append(a) or True)
     monkeypatch.setattr(app_mod, "_discord_notify", lambda *a, **k: None)
     monkeypatch.setattr(app_mod, "_send_payment_receipt", lambda *a, **k: None)
+
+    def fake_post(db, **kwargs):
+        postings.append(kwargs)
+        return PaymentPosting(ok=True, reference=f"payment:{kwargs['tx_ref']}",
+                              journal_id="journal-test")
+
+    monkeypatch.setattr(app_mod.ledger, "post_verified_payment", fake_post)
     monkeypatch.setattr(app_mod.requests, "get", lambda *a, **k: Resp({"data": verified}))
     r = client.post("/api/pay/webhook/flutterwave", headers={"verif-hash": "h"},
                     json={"data": {"status": "successful", "tx_ref": "AB-1~abc", "id": 7}})
     assert r.status_code == 200
-    return updates
+    return updates, postings
 
 
-def test_webhook_marks_paid_on_full_amount(client, monkeypatch):
-    ups = _webhook(client, monkeypatch, {"status": "successful", "tx_ref": "AB-1~abc", "amount": 50000, "currency": "UGX"})
+def test_webhook_marks_paid_on_full_amount_and_posts_the_ledger(client, monkeypatch):
+    ups, postings = _webhook(
+        client, monkeypatch,
+        {"status": "successful", "tx_ref": "AB-1~abc", "amount": 50000, "currency": "UGX"})
     assert ups and ups[0][2:] == ("payment_ref", "AB-1")
+    assert len(postings) == 1
+    assert postings[0]["tx_ref"] == "AB-1"
+    assert postings[0]["received"] == Decimal("50000.00")
+    assert postings[0]["provider"] == "Flutterwave"
+    assert postings[0]["flw_id"] == 7
+    assert postings[0]["currency"] == "UGX"
 
 
 def test_webhook_ignores_underpayment_and_wrong_ref(client, monkeypatch):
-    assert not _webhook(client, monkeypatch, {"status": "successful", "tx_ref": "AB-1~abc", "amount": 100, "currency": "UGX"})
-    assert not _webhook(client, monkeypatch, {"status": "successful", "tx_ref": "AB-9~abc", "amount": 50000, "currency": "UGX"})
-    assert not _webhook(client, monkeypatch, {"status": "successful", "tx_ref": "AB-1~abc", "amount": 50000, "currency": "USD"})
+    cases = [
+        {"status": "successful", "tx_ref": "AB-1~abc", "amount": 100, "currency": "UGX"},
+        {"status": "successful", "tx_ref": "AB-9~abc", "amount": 50000, "currency": "UGX"},
+        {"status": "successful", "tx_ref": "AB-1~abc", "amount": 50000, "currency": "USD"},
+        {"status": "successful", "tx_ref": "AB-1~abc", "amount": 50000},
+        {"status": "failed", "tx_ref": "AB-1~abc", "amount": 50000, "currency": "UGX"},
+    ]
+    for verified in cases:
+        ups, postings = _webhook(client, monkeypatch, verified)
+        assert not ups
+        assert not postings
+
+
+def _run_verify(monkeypatch, *, update=True, posting=None, rows=None):
+    monkeypatch.setattr(app_mod, "FLW_SECRET_KEY", "k")
+    monkeypatch.setattr(app_mod, "supa_get", lambda *a, **k: rows if rows is not None else [
+        {"id": "o1", "total_price": 50000, "buyer_id": None, "status": "pending"}])
+    monkeypatch.setattr(app_mod, "supa_update", lambda *a, **k: update)
+    monkeypatch.setattr(app_mod.requests, "get", lambda *a, **k: Resp({"data": {
+        "status": "successful", "tx_ref": "AB-1~abc", "amount": 50000, "currency": "UGX"}}))
+    monkeypatch.setattr(app_mod, "_discord_notify", lambda *a, **k: None)
+    monkeypatch.setattr(app_mod, "_send_payment_receipt", lambda *a, **k: None)
+    monkeypatch.setattr(app_mod.NOTIFY, "enqueue", lambda *a, **k: None)
+    if posting is not None:
+        monkeypatch.setattr(app_mod.ledger, "post_verified_payment",
+                            lambda *a, **kw: posting)
+    events = []
+    monkeypatch.setattr(app_mod, "_log_system_event",
+                        lambda et, d, **k: events.append((et, d)))
+    return events
+
+
+def test_payment_mark_failure_is_not_reported_as_success(monkeypatch):
+    events = _run_verify(monkeypatch, update=False)
+    assert app_mod._flw_verify_and_mark("AB-1~abc", 7) is False
+    assert events and events[0][0] == "payment_mark_paid_failed"
+
+
+def test_ledger_failure_alerts_but_does_not_turn_a_paid_order_into_a_failed_payment(monkeypatch):
+    events = _run_verify(monkeypatch, posting=PaymentPosting(
+        ok=False, reference="payment:AB-1", error="unknown account"))
+    assert app_mod._flw_verify_and_mark("AB-1~abc", 7) is True
+    assert events and events[0][0] == "payment_ledger_post_failed"
+    assert "unknown account" in events[0][1]["error"]
+
+
+def test_notification_failure_does_not_report_the_payment_as_failed(monkeypatch):
+    _run_verify(monkeypatch, posting=PaymentPosting(
+        ok=True, reference="payment:AB-1", journal_id="journal-test"))
+
+    def boom(*a, **k):
+        raise RuntimeError("discord down")
+
+    monkeypatch.setattr(app_mod, "_discord_notify", boom)
+    assert app_mod._flw_verify_and_mark("AB-1~abc", 7) is True
 
 
 def test_no_fake_bank_account_left():
