@@ -1,5 +1,14 @@
 # AgriBridge — Implementation Status
 
+> **2026-10-21 update:** The baseline below is the original Phase 1 audit. Since
+> then: `/api/pay/initiate` and the SMS/admin/order update paths are session- and
+> ownership-checked; migration 0013 (ledger) and 0014 (internal-table lockdown)
+> are applied; migration 0015 now makes `create_order_atomic` category-aware
+> (livestock/supplier pricing and attribution), and the SPA no longer inserts or
+> updates orders directly. Migration 0002 remains the last unapplied security
+> migration — apply 0015 and deploy this bundle first, then apply 0002 (see
+> `docs/OPERATIONS_SETUP.md` §2).
+
 **Phase 1 COMPLETE — Baseline Audit**
 **Completed:** 2026-10-10
 **Auditor:** Claude Code (baseline inspection, no live environment access)

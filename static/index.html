@@ -3326,12 +3326,14 @@ async function placeOrder() {
       var a = (allAnimals || []).find(function(x){ return String(x.id) === String(item.id); });
       farmerId  = (a && a.farmer_id) ? a.farmer_id : null;
       listingId = uuidRe.test(item.id) ? item.id : null;  // fix: animal orders need listing_id too
+    } else if (item.category === 'supply') {
+      listingId = uuidRe.test(item.id) ? item.id : null;
+      farmerId  = (item.sellerId && uuidRe.test(item.sellerId)) ? item.sellerId : null;
     } else if (uuidRe.test(item.id)) {
       var l = (allListings || []).find(function(x){ return String(x.id) === String(item.id); });
       farmerId  = (l && l.farmer_id) ? l.farmer_id : null;
       listingId = item.id;
     }
-    if (item.category === 'supply' && item.sellerId && uuidRe.test(item.sellerId)) { farmerId = item.sellerId; }
     return { listing_id:listingId, farmer_id:farmerId, product:item.name, quantity:item.qty, unit:item.unit||'kg', price_per_unit:item.price, currency:'UGX', item_category:item.category||'produce' };
   });
   try {
@@ -3984,7 +3986,7 @@ let _suppliesLoaded = false;
 async function loadSupplies(){
   const rows = await sb('supplier_products', { select:'category,name,brand,price,unit,badge,description,image_id,image_url,in_stock,stock_qty,supplier_name,supplier_id', filters:[['order','category.asc'],['limit','300']] });
   if(Array.isArray(rows) && rows.length){
-    _supplyItems = rows.filter(r=>r.in_stock!==false).map(r=>({ cat:r.category, name:r.name, brand:r.brand||'', price:Number(r.price)||0, unit:r.unit, img:(r.image_url||r.image_id||''), badge:r.badge, desc:r.description||'', stock:r.stock_qty, supplier:r.supplier_name, sid:r.supplier_id||'' }));
+    _supplyItems = rows.filter(r=>r.in_stock!==false).map(r=>({ id:r.id, cat:r.category, name:r.name, brand:r.brand||'', price:Number(r.price)||0, unit:r.unit, img:(r.image_url||r.image_id||''), badge:r.badge, desc:r.description||'', stock:r.stock_qty, supplier:r.supplier_name, sid:r.supplier_id||'' }));
   }
   renderSupply();
 }
@@ -4062,7 +4064,7 @@ function renderSupply() {
   const catLabel = { seeds:'🌱 Seeds', fertilizer:'🧪 Fertilizer', pesticide:'🐛 Pesticide', tool:'🔧 Tool', animal_supply:'🐾 Animal Care' };
   const el = document.getElementById('supplyGrid');
   if (!el) return;
-  el.innerHTML = items.map(item => { const src=supplyImg(item.img); const meta=[item.brand?('🏷️ '+item.brand):'', item.supplier?('🏪 '+item.supplier):'', (item.stock!=null&&item.stock!=='')?('📦 '+Number(item.stock).toLocaleString()+' in stock'):''].filter(Boolean).join(' · '); return `<div class="card"><img class="card-img" src="${src}" alt="${item.name}" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'"><div class="card-img-placeholder" style="display:${src?'none':'flex'}">${catLabel[item.cat]||'📦'}</div><div class="card-body">${item.badge?`<span class="card-tag">${item.badge}</span>`:`<span class="card-tag">${catLabel[item.cat]||''}</span>`}<div class="card-title">${item.name}</div><div class="card-desc">${item.desc}</div><div style="font-size:0.78rem;color:var(--text2);margin-bottom:12px">${meta||('Per '+item.unit)}</div><div class="card-footer"><div><div class="card-price">UGX ${item.price.toLocaleString()}</div><div class="card-unit">per ${item.unit}</div></div><button class="btn-card" onclick="addToBasket('supply-${encodeURIComponent(item.name)}','${escHtml(item.name)}',${item.price},'${item.unit}','${(catLabel[item.cat]||'📦').split(' ')[0]}','supply','${item.sid||''}')">🛒 Order</button></div></div></div>`; }).join('');
+  el.innerHTML = items.map(item => { const src=supplyImg(item.img); const meta=[item.brand?('🏷️ '+item.brand):'', item.supplier?('🏪 '+item.supplier):'', (item.stock!=null&&item.stock!=='')?('📦 '+Number(item.stock).toLocaleString()+' in stock'):''].filter(Boolean).join(' · '); return `<div class="card"><img class="card-img" src="${src}" alt="${item.name}" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'"><div class="card-img-placeholder" style="display:${src?'none':'flex'}">${catLabel[item.cat]||'📦'}</div><div class="card-body">${item.badge?`<span class="card-tag">${item.badge}</span>`:`<span class="card-tag">${catLabel[item.cat]||''}</span>`}<div class="card-title">${item.name}</div><div class="card-desc">${item.desc}</div><div style="font-size:0.78rem;color:var(--text2);margin-bottom:12px">${meta||('Per '+item.unit)}</div><div class="card-footer"><div><div class="card-price">UGX ${item.price.toLocaleString()}</div><div class="card-unit">per ${item.unit}</div></div><button class="btn-card" onclick="addToBasket('${item.id||('supply-'+encodeURIComponent(item.name))}','${escHtml(item.name)}',${item.price},'${item.unit}','${(catLabel[item.cat]||'📦').split(' ')[0]}','supply','${item.sid||''}')">🛒 Order</button></div></div></div>`; }).join('');
 }
 
 // ─────────────────────────────────────────────────────────────────

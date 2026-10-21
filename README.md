@@ -123,9 +123,12 @@ GO-LIVE.md          ← accounts/keys/toggles checklist
   - *Service role key* — backend only (`SUPABASE_KEY` in Render). Never in the web app.
 - **Login required** to place an order or create a listing.
 - **Orders are server-authoritative** — `POST /api/orders` recomputes the price from
-  the listing and reserves stock atomically via a `SECURITY DEFINER` Postgres RPC
+  the source catalogue (`listings`, `animal_listings` or `supplier_products`) and
+  reserves/decrements stock atomically via a `SECURITY DEFINER` Postgres RPC
   (`create_order_atomic`), so a tampered client cannot set its own total or oversell.
-  Direct authenticated INSERTs into `orders`/`payouts` are closed by RLS.
+  Direct authenticated INSERTs/UPDATEs into `orders` are closed by RLS only after
+  migration **0002** is applied; until then the API path is enforced in the client
+  and backend, not by the database.
 - **Admin authority is server-controlled** — a `user_roles` table + `is_admin()`
   predicate, not a client-side email check or hidden button. The owner is assigned by
   **verified UUID** (`assign_role`), and sensitive actions write to `admin_audit_log`.

@@ -2384,10 +2384,11 @@ def create_order():
             if fphone and fphone not in notified:
                 notified.add(fphone)
                 try:
+                    item_name = str(item.get('product_name') or 'item')[:40]
                     at_sms.send(
                         message=(
                             f"AgriBridge: New order {result.order_ref}!\n"
-                            f"{item.get('quantity','')} {item.get('listing_id','')[:6]}. "
+                            f"{item.get('quantity','')} {item_name}. "
                             f"Total UGX {int(item.get('unit_price',0)*item.get('quantity',1)):,}.\n"
                             f"Log in to confirm: agribrige.com"
                         ),

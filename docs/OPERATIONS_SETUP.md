@@ -41,14 +41,15 @@ supabase db push            # if the project is linked with the Supabase CLI
 # or paste each 000N_*.up.sql into Supabase → SQL Editor, in numeric order.
 ```
 
-> **⚠️ APPLY ORDER — 0002 IS HELD BACK.** Apply **0001, 0003, 0004, 0005, 0006** now.
-> **Do NOT apply 0002 yet.** Its `orders_no_direct_insert` policy closes the
-> authenticated INSERT path on `orders`, which the *current* web app still uses for
-> livestock and supplier-input orders (only produce has a server-side price source
-> via `create_order_atomic`). Applying 0002 before the client cutover to
-> `POST /api/orders` (Phase 2) would break those checkouts and the shared
-> `payment_ref` reconciliation used by the payment webhook. Apply 0002 together
-> with that cutover. See the header of `0002_admin_identity_rls.up.sql`.
+> **APPLY ORDER — 0015 BEFORE 0002.** The web client now sends produce,
+> livestock and supplier checkout through `POST /api/orders`, so the direct-insert
+> path that 0002 closes is unused. Apply **0015** first: it makes
+> `create_order_atomic` price livestock from `animal_listings` and supplier inputs
+> from `supplier_products` (0015 is also required for those checkouts to work at
+> all). Deploy this client bundle, verify a test livestock and supply order, then
+> apply **0002**. Applying 0002 before 0015/this bundle would break those
+> checkouts and the shared `payment_ref` reconciliation used by the payment
+> webhook. See the header of `0002_admin_identity_rls.up.sql`.
 
 | Migration | Adds | Fixes |
 |---|---|---|
@@ -63,6 +64,9 @@ supabase db push            # if the project is linked with the Supabase CLI
 | 0007a | free-form order items in `create_order_atomic` | Marketplace orders |
 | 0008–0011 | profile validation, push subscriptions, service requests and market-price history | Product operations |
 | 0012 | secure public `uploads` bucket; backend-only media writes | Listing uploads |
+| 0013 | double-entry ledger: accounts, journals, lines, `post_journal`, `reverse_journal`, admin read policies | Financial correctness |
+| 0014 | locks down `system_events` and transporter rows to service role / owner | Internal-data leak |
+| 0015 | category-aware `create_order_atomic`: livestock and supplier prices/owners resolved server-side, stock decremented | Checkout regression after the SPA cutover |
 
 > **Listing-photo fix:** deploy the API and web app together, then apply
 > `0012_uploads_bucket.up.sql`. It creates the `uploads` bucket and removes any

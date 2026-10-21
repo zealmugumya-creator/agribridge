@@ -56,13 +56,19 @@ cd tests/sql && npm test
 | `legal_consent.test.mjs` | 31 | all passed |
 | `ledger.test.mjs` | 36 | all passed |
 | `security_lockdown.test.mjs` | 17 | all passed |
+| `category_orders.test.mjs` | 10 | all passed |
 
 The ledger suite applies migration 0013, verifies account seeding, balanced and
 unbalanced journals, idempotent replay, append-only guards, reversal rules,
 admin/anon access, and rollback. It also posts the exact backend payload shape
 (two-decimal string amounts, null actor) to prove the app's journal format is
 accepted by Postgres. The security suite reproduces the original
-anonymous-read vulnerability and proves migration 0014 closes it.
+anonymous-read vulnerability and proves migration 0014 closes it. The category
+suite applies migration 0015 and proves livestock/supplier prices and owners are
+resolved from `animal_listings` / `supplier_products` (client prices ignored),
+stock is decremented, cancellation restores it, oversell is rejected, produce
+reservation is unchanged, free-form items still work, and the down migration
+restores 0007a.
 
 ## 4. New coverage in this stage
 

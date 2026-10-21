@@ -12,18 +12,15 @@
 --
 -- SAFETY: additive; does not drop existing policies. Review before applying.
 --
--- ⚠️ APPLY-ORDER WARNING (read before applying):
+-- ✅ APPLY-ORDER NOTE (updated 2026-10-21):
 -- The `orders_no_direct_insert` policy below closes the authenticated INSERT
--- path on `orders`. The CURRENT web app (static/index.html) still creates orders
--- by direct insert for three categories: produce (listings), livestock
--- (animal_listings) and supplier inputs. Only the produce path has a
--- server-side price source today (`create_order_atomic`, migration 0001).
--- Therefore apply this migration ONLY together with the client cutover to
--- `POST /api/orders` (mandate Phase 2), or after a category-aware extension of
--- `create_order_atomic` ships. Applying it early would break livestock/supplier
--- checkout and the shared `payment_ref` reconciliation used by the payment
--- webhook. Until then this file is deliberately held back (Rule 1: preserve
--- working functionality). Migrations 0001, 0003–0006 are safe to apply now.
+-- path on `orders`. The web app no longer inserts orders directly: produce,
+-- livestock and supplier checkout all go through `POST /api/orders`, and
+-- migration 0015 makes `create_order_atomic` resolve animal/supply prices and
+-- owners from their own catalogue tables. Apply 0015 FIRST, deploy this client
+-- bundle, then apply this migration. Applying 0002 against an older client
+-- (one that still inserts directly) would break checkout and the shared
+-- `payment_ref` reconciliation used by the payment webhook.
 
 begin;
 
