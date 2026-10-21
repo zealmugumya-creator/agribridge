@@ -31,7 +31,7 @@ try:  # cryptography >= 43 keeps TripleDES in `decrepit`; older releases in `pri
 except ImportError:  # pragma: no cover - depends on the pinned cryptography version
     from cryptography.hazmat.primitives.ciphers.algorithms import TripleDES as _TripleDES
 
-from services import business, monitoring
+from services import business, finance, monitoring
 
 # ── AgriBridge service modules (isolated integrations, Phase 10) ──────────────
 from services.account import AccountService
@@ -225,6 +225,51 @@ def supa_get(table, filters=None, limit=100):
     except Exception as e:
         print(f"Supabase GET error: {e}")
         return []
+
+def supa_get_checked(table, filters=None, limit=100):
+    """Read rows but return (rows, error) instead of hiding failures as [].
+
+    The admin finance views must not present an unreachable or missing table as
+    "zero money", so this variant surfaces PostgREST's error code/message.
+    """
+    if not SUPABASE_KEY:
+        return None, 'supabase not configured'
+    url = f"{SUPABASE_URL}/rest/v1/{table}"
+    headers = {
+        'apikey': SUPABASE_KEY,
+        'Authorization': f'Bearer {SUPABASE_KEY}',
+        'Content-Type': 'application/json'
+    }
+    try:
+        page_size = min(int(limit), 1000)
+        rows = []
+        offset = 0
+        while len(rows) < limit:
+            params = {'limit': page_size, 'offset': offset}
+            if filters:
+                params.update(filters)
+            res = requests.get(url, params=params, headers=headers, timeout=8)
+            if not res.ok:
+                try:
+                    detail = res.json()
+                except Exception:
+                    detail = {}
+                code = str(detail.get('code') or '')
+                message = str(detail.get('message') or f'http {res.status_code}')
+                log.error('supabase.read_failed', table=table, status=res.status_code,
+                          code=code, message=message)
+                return None, f"{code}: {message}" if code else message
+            batch = res.json()
+            if not isinstance(batch, list) or not batch:
+                break
+            rows.extend(batch)
+            if len(batch) < page_size:
+                break
+            offset += len(batch)
+        return rows[:limit], None
+    except Exception as e:
+        log.error('supabase.read_exception', table=table, error=type(e).__name__)
+        return None, type(e).__name__
 
 def supa_insert(table, data):
     if not SUPABASE_KEY:
@@ -442,7 +487,7 @@ def health():
     payload = {
         'status': 'ok' if healthy else 'degraded',
         'service': 'AgriBridge API',
-        'version': '3.1.1',
+        'version': '3.2.0',
         'at_enabled': AT_AVAILABLE and at_sms is not None,
         'supabase_configured': SUPA.configured,
         'supabase_connected': db.ok,          # actual round-trip result
@@ -1299,6 +1344,231 @@ def admin_stats():
             if o.get('payment_status') == 'paid'
         )
     })
+
+# ══════════════════════════════════════════════════════════════════════════════
+# FINANCIAL CONTROL CENTER (admin, read-only)
+# ══════════════════════════════════════════════════════════════════════════════
+# Every figure below comes from a real row. Metrics without a source column are
+# reported as unavailable; a missing ledger table is an explicit 503, never 0.
+_FIN_ORDER_SELECT = (
+    'id,total_price,total_amount,quantity_kg,price_per_kg,payment_status,'
+    'payment_ref,status,farmer_id,buyer_id,created_at,delivery_type,listing_id'
+)
+_FIN_PAYOUT_SELECT = (
+    'id,order_id,farmer_id,gross_amount,commission_pct,commission_amount,'
+    'net_amount,status,provider,provider_ref,created_at,paid_at'
+)
+_FIN_JOURNAL_SELECT = (
+    'id,reference,kind,currency,payment_ref,description,status,posted_by,'
+    'posted_at,reverses_journal_id'
+)
+
+
+def _fin_read(table, select, filters=None, limit=500):
+    params = {'select': select}
+    if filters:
+        params.update(filters)
+    return supa_get_checked(table, params, limit=limit)
+
+
+def _fin_lines(journal_ids):
+    """Fetch journal lines in bounded chunks so the URL never grows unbounded."""
+    ids = [str(i) for i in journal_ids if i]
+    rows = []
+    for start in range(0, len(ids), 100):
+        chunk = ids[start:start + 100]
+        data, err = _fin_read(
+            'ledger_lines',
+            'journal_id,account_code,side,amount,memo',
+            {'journal_id': f'in.({",".join(chunk)})'},
+            limit=5000,
+        )
+        if err:
+            return None, err
+        rows.extend(data or [])
+    return rows, None
+
+
+def _fin_ledger_unavailable(detail):
+    missing = any(token in str(detail) for token in ('PGRST205', '42P01', 'does not exist'))
+    return jsonify({
+        'error': 'Ledger is not initialized' if missing else 'Could not read the ledger',
+        'code': 'ledger_not_initialized' if missing else 'ledger_read_failed',
+        'detail': detail,
+        'fix': ('Run supabase/migrations/0013_ledger_core.up.sql in the Supabase '
+                'SQL Editor, then reload this page.') if missing else None,
+    }), 503
+
+
+@app.route('/api/admin/finance/overview', methods=['GET'])
+def admin_finance_overview():
+    _payload, err = verify_token(required_role='admin')
+    if err:
+        return err
+    orders, orders_err = _fin_read('orders', _FIN_ORDER_SELECT, limit=5000)
+    if orders_err:
+        return jsonify({'error': 'Could not read orders', 'code': 'orders_read_failed',
+                        'detail': orders_err}), 503
+    payouts, payouts_err = _fin_read('payouts', _FIN_PAYOUT_SELECT, limit=5000)
+    if payouts_err:
+        return jsonify({'error': 'Could not read payouts', 'code': 'payouts_read_failed',
+                        'detail': payouts_err}), 503
+    balances, balances_err = _fin_read('ledger_account_balances', '*', limit=100)
+    result = finance.build_overview(
+        orders or [], payouts or [], balances or [], balances is not None, balances_err)
+    warnings = []
+    if len(orders or []) >= 5000:
+        warnings.append('More than 5,000 orders exist; payment totals only include the first 5,000.')
+    if len(payouts or []) >= 5000:
+        warnings.append('More than 5,000 payouts exist; payable totals only include the first 5,000.')
+    result['warnings'] = warnings
+    return jsonify(result)
+
+
+@app.route('/api/admin/finance/journals', methods=['GET'])
+def admin_finance_journals():
+    _payload, err = verify_token(required_role='admin')
+    if err:
+        return err
+    try:
+        limit = min(max(int(request.args.get('limit', '100')), 1), 200)
+    except (TypeError, ValueError):
+        limit = 100
+    journals, journals_err = _fin_read(
+        'ledger_journals', _FIN_JOURNAL_SELECT, {'order': 'posted_at.desc'}, limit=limit)
+    if journals_err:
+        return _fin_ledger_unavailable(journals_err)
+    lines, lines_err = _fin_lines([j.get('id') for j in journals or []])
+    if lines_err:
+        return _fin_ledger_unavailable(lines_err)
+    rows = finance.build_journal_rows(journals or [], lines or [])
+    return jsonify({'currency': 'UGX', 'count': len(rows), 'rows': rows})
+
+
+@app.route('/api/admin/finance/farmer-settlements', methods=['GET'])
+def admin_finance_farmer_settlements():
+    _payload, err = verify_token(required_role='admin')
+    if err:
+        return err
+    payouts, payouts_err = _fin_read('payouts', _FIN_PAYOUT_SELECT, limit=5000)
+    if payouts_err:
+        return jsonify({'error': 'Could not read payouts', 'code': 'payouts_read_failed',
+                        'detail': payouts_err}), 503
+    orders, orders_err = _fin_read('orders', _FIN_ORDER_SELECT, limit=5000)
+    farmers, farmers_err = _fin_read(
+        'farmers', 'id,full_name,district', {'order': 'full_name.asc'}, limit=2000)
+    warnings = []
+    if orders_err:
+        warnings.append(f'Order details are unavailable: {orders_err}')
+    if farmers_err:
+        warnings.append(f'Farmer names are unavailable: {farmers_err}')
+    if len(payouts or []) >= 5000:
+        warnings.append('More than 5,000 payouts exist; this view only includes the first 5,000.')
+    result = finance.build_farmer_settlements(
+        payouts or [], orders or [], farmers or [])
+    result['warnings'] = warnings
+    return jsonify(result)
+
+
+@app.route('/api/admin/finance/transporter-settlements', methods=['GET'])
+def admin_finance_transporter_settlements():
+    _payload, err = verify_token(required_role='admin')
+    if err:
+        return err
+    deliveries, deliveries_err = _fin_read(
+        'deliveries',
+        'id,order_id,driver_name,driver_phone,status,'
+        'tracking_code,actual_arrival,created_at',
+        {'order': 'created_at.desc'}, limit=2000)
+    if deliveries_err:
+        return jsonify({'error': 'Could not read deliveries', 'code': 'deliveries_read_failed',
+                        'detail': deliveries_err}), 503
+    result = finance.build_transporter_settlements(deliveries or [])
+    result['warnings'] = (
+        ['More than 2,000 deliveries exist; this view only includes the first 2,000.']
+        if len(deliveries or []) >= 2000 else [])
+    return jsonify(result)
+
+
+@app.route('/api/admin/finance/reconciliation', methods=['GET'])
+def admin_finance_reconciliation():
+    _payload, err = verify_token(required_role='admin')
+    if err:
+        return err
+    orders, orders_err = _fin_read('orders', _FIN_ORDER_SELECT, limit=5000)
+    if orders_err:
+        return jsonify({'error': 'Could not read orders', 'code': 'orders_read_failed',
+                        'detail': orders_err}), 503
+    journals, journals_err = _fin_read('ledger_journals', _FIN_JOURNAL_SELECT, limit=5000)
+    if journals_err:
+        return _fin_ledger_unavailable(journals_err)
+    lines, lines_err = _fin_lines([j.get('id') for j in journals or []])
+    if lines_err:
+        return _fin_ledger_unavailable(lines_err)
+    result = finance.build_reconciliation(
+        orders or [], journals or [], lines or [])
+    result['warnings'] = (
+        ['More than 5,000 orders or journals exist; reconciliation only checked the first 5,000.']
+        if len(orders or []) >= 5000 or len(journals or []) >= 5000 else [])
+    return jsonify(result)
+
+
+@app.route('/api/admin/finance/reports', methods=['GET'])
+def admin_finance_reports():
+    _payload, err = verify_token(required_role='admin')
+    if err:
+        return err
+    today = datetime.date.today()
+    try:
+        start = (datetime.date.fromisoformat(request.args['from'])
+                 if request.args.get('from') else today - datetime.timedelta(days=29))
+        end = (datetime.date.fromisoformat(request.args['to'])
+               if request.args.get('to') else today)
+    except ValueError:
+        return jsonify({'error': 'Dates must be YYYY-MM-DD'}), 400
+    if start > end:
+        return jsonify({'error': 'from must be on or before to'}), 400
+    if (end - start).days > 366:
+        return jsonify({'error': 'Report range is limited to 366 days'}), 400
+
+    orders, orders_err = _fin_read('orders', _FIN_ORDER_SELECT, limit=5000)
+    if orders_err:
+        return jsonify({'error': 'Could not read orders', 'code': 'orders_read_failed',
+                        'detail': orders_err}), 503
+    payouts, payouts_err = _fin_read('payouts', _FIN_PAYOUT_SELECT, limit=5000)
+    if payouts_err:
+        return jsonify({'error': 'Could not read payouts', 'code': 'payouts_read_failed',
+                        'detail': payouts_err}), 503
+
+    warnings = []
+    journals, journals_err = _fin_read(
+        'ledger_journals', _FIN_JOURNAL_SELECT,
+        {'posted_at': f'gte.{start.isoformat()}T00:00:00'}, limit=2000)
+    lines = []
+    ledger_ready = journals_err is None
+    if journals_err:
+        journals = []
+        warnings.append(f'Ledger figures are unavailable: {journals_err}')
+    else:
+        journals = [
+            j for j in journals or []
+            if finance.in_date_range(j.get('posted_at'), start, end)
+        ]
+        lines, lines_err = _fin_lines([j.get('id') for j in journals])
+        if lines_err:
+            ledger_ready = False
+            lines = []
+            warnings.append(f'Ledger lines are unavailable: {lines_err}')
+
+    if len(orders or []) >= 5000:
+        warnings.append('More than 5,000 orders exist; report totals only include the first 5,000.')
+    if len(payouts or []) >= 5000:
+        warnings.append('More than 5,000 payouts exist; report totals only include the first 5,000.')
+    result = finance.build_reports(orders or [], payouts or [], journals or [],
+                                   lines or [], start, end)
+    result['ledger']['ready'] = ledger_ready
+    result['warnings'] = warnings
+    return jsonify(result)
 
 _MEDIA_UPLOAD_KINDS = {
     'listings': 'listing',
@@ -3059,19 +3329,33 @@ def admin_assign_transporter(order_id):
     if not t_rows:
         return jsonify({'error': 'Transporter not found'}), 404
     t = t_rows[0]
-    # Upsert a deliveries row
+    # deliveries has driver_name/driver_phone, not transporter_id, and its status
+    # check does not include 'assigned'. Persist the real columns and fail loudly
+    # if the assignment cannot be saved; never report a phantom success.
     existing = supa_get('deliveries', {'order_id': f'eq.{order_id}'}, limit=1)
     now = datetime.datetime.utcnow().isoformat()
+    delivery_fields = {
+        'driver_name': t.get('full_name') or '',
+        'driver_phone': t.get('phone') or '',
+        'updated_at': now,
+    }
     if existing:
-        supa_update('deliveries', {'transporter_id': transporter_id, 'updated_at': now}, 'order_id', order_id)
+        saved = supa_update('deliveries', delivery_fields, 'order_id', order_id)
     else:
-        supa_insert('deliveries', {
+        delivery_fields.update({
             'order_id': order_id,
-            'transporter_id': transporter_id,
-            'status': 'assigned',
-            'created_at': now, 'updated_at': now,
+            'status': 'scheduled',
+            'created_at': now,
         })
-    supa_update('orders', {'status': 'in_transit', 'updated_at': now}, 'id', order_id)
+        saved = bool(supa_insert('deliveries', delivery_fields))
+    if not saved:
+        log.error('delivery.assign_failed', order_id=order_id, transporter_id=transporter_id)
+        return jsonify({'error': 'Could not save the delivery assignment. Nothing was changed.',
+                        'code': 'delivery_assignment_failed'}), 503
+    if not supa_update('orders', {'status': 'in_transit', 'updated_at': now}, 'id', order_id):
+        log.error('delivery.assign_order_status_failed', order_id=order_id)
+        return jsonify({'error': 'Transporter was recorded but the order status could not be updated.',
+                        'code': 'order_status_update_failed'}), 503
     _log_system_event('order_transporter_assigned', {
         'order_id': order_id, 'transporter_id': transporter_id,
         'transporter_name': t.get('full_name'),
@@ -3131,12 +3415,20 @@ def admin_confirm_delivery(order_id):
     data = request.get_json(force=True, silent=True) or {}
     note = str(data.get('note', '')).strip()[:300]
     now = datetime.datetime.utcnow().isoformat()
-    supa_update('orders', {
+    order_ok = supa_update('orders', {
         'status': 'delivered',
         'payment_status': 'paid',
         'delivered_at': now,
     }, 'id', order_id)
-    supa_update('deliveries', {'status': 'delivered', 'delivered_at': now}, 'order_id', order_id)
+    # deliveries records completion in actual_arrival; there is no delivered_at.
+    delivery_ok = supa_update(
+        'deliveries', {'status': 'delivered', 'actual_arrival': now, 'updated_at': now},
+        'order_id', order_id)
+    if not order_ok or not delivery_ok:
+        log.error('delivery.confirm_failed', order_id=order_id,
+                  order_updated=bool(order_ok), delivery_updated=bool(delivery_ok))
+        return jsonify({'error': 'Delivery confirmation was incomplete. Retry once the backend is reachable.',
+                        'code': 'delivery_confirmation_failed'}), 503
     _log_system_event('order_delivered', {'order_id': order_id, 'note': note}, severity='info')
     _discord_notify(
         event_type='order.delivered',

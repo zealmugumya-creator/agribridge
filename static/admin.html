@@ -60,7 +60,8 @@
   .badge.in_transit{background:rgba(120,110,240,.15);color:#8f86ff}
   .badge.delivered,.badge.available,.badge.active,.badge.paid{background:rgba(40,190,110,.15);color:var(--green)}
   .badge.cancelled,.badge.failed,.badge.sold,.badge.rejected{background:rgba(224,85,85,.15);color:var(--red)}
-  .badge.completed{background:rgba(40,190,110,.15);color:var(--green)}
+  .badge.completed,.badge.posted{background:rgba(40,190,110,.15);color:var(--green)}
+  .badge.reversed,.badge.not_captured{background:rgba(240,160,32,.15);color:var(--amber)}
   .cnt{background:var(--amber);color:#3a2600;border-radius:999px;padding:0 7px;font-size:.7rem;font-weight:800;margin-left:4px}
   .cnt:empty{display:none}
   select.svc-st{width:auto;padding:5px 8px;font-size:.78rem}
@@ -78,6 +79,25 @@
   .media-preview img,.media-preview video{max-width:100%;max-height:160px;border-radius:8px}
   .savebar{display:flex;gap:8px;margin-top:16px}
   .up-status{font-size:.75rem;color:var(--text2);margin-top:4px}
+  /* Financial Control Center */
+  .fin-subnav{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:14px}
+  .fin-sub{background:var(--bg3);color:var(--text2);padding:6px 12px;border-radius:16px;font-size:.8rem;font-weight:700;border:1px solid var(--border)}
+  .fin-sub.active{background:var(--green-dim);color:var(--green);border-color:var(--green)}
+  .fin-kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;margin-bottom:14px}
+  .fin-kpi{background:var(--bg3);border:1px solid var(--border);border-radius:10px;padding:12px}
+  .fin-kpi .l{font-size:.68rem;color:var(--text2);text-transform:uppercase;letter-spacing:.03em}
+  .fin-kpi .v{font-size:1.15rem;font-weight:800;margin-top:4px}
+  .fin-kpi .s{font-size:.68rem;color:var(--text2);margin-top:2px}
+  .fin-note{background:rgba(240,160,32,.08);border:1px solid rgba(240,160,32,.35);color:#f0c060;border-radius:10px;padding:11px 13px;margin-bottom:12px;font-size:.82rem}
+  .fin-note.ok{background:rgba(46,204,113,.08);border-color:rgba(46,204,113,.35);color:var(--green)}
+  .fin-note code{background:rgba(0,0,0,.25);padding:1px 5px;border-radius:4px}
+  .fin-section{font-weight:800;font-size:.9rem;margin:16px 0 8px}
+  .fin-good{color:var(--green)}
+  .fin-bad{color:var(--red)}
+  .fin-table td.num,.fin-table th.num{text-align:right}
+  .fin-range{display:flex;gap:8px;align-items:end;flex-wrap:wrap;margin-bottom:12px}
+  .fin-range label{margin:0 0 4px}
+  .fin-range input{width:auto;padding:7px 10px}
 </style>
 </head>
 <body>
@@ -100,6 +120,7 @@
     <div id="overviewExtras"></div>
     <div class="tabs">
       <div class="tab active" data-tab="orders"   onclick="showTab('orders',this)">Orders</div>
+      <div class="tab" data-tab="finance"        onclick="showTab('finance',this)">💵 Finance</div>
       <div class="tab" data-tab="cold_storage"   onclick="showTab('cold_storage',this)">❄️ Cold Storage<span class="cnt" id="cnt_cold_storage"></span></div>
       <div class="tab" data-tab="cold_transport" onclick="showTab('cold_transport',this)">🚚 Refrigerated Transport<span class="cnt" id="cnt_cold_transport"></span></div>
       <div class="tab" data-tab="loans"          onclick="showTab('loans',this)">💰 Loan Requests<span class="cnt" id="cnt_loans"></span></div>
@@ -155,6 +176,8 @@
   var SVC_TABS = { cold_storage:'cold_storage', cold_transport:'refrigerated_transport', loans:'loan' };
   var SVC_STATUSES = ['pending','confirmed','completed','rejected','cancelled'];
   var editState = null; // {table, id, isNew}
+  var FIN = { view:'overview', cache:{}, errors:{}, loading:false, report:{ from:'', to:'' } };
+  var FIN_VIEWS = [['overview','Overview'],['ledger','Ledger'],['farmers','Farmer settlements'],['transporters','Transporter settlements'],['reconciliation','Reconciliation'],['reports','Reports']];
 
   function h(s){return String(s==null?'':s).replace(/[<>&"]/g,function(c){return {'<':'&lt;','>':'&gt;','&':'&amp;','"':'&quot;'}[c];});}
   function fmt(n){return 'UGX '+(Number(n)||0).toLocaleString('en-UG');}
@@ -263,10 +286,218 @@
   function showDash(){ document.getElementById('login').classList.add('hidden'); document.getElementById('dash').classList.remove('hidden'); refreshAll(); }
   function logout(){ TOKEN=''; sessionStorage.removeItem('ab_admin_token'); document.getElementById('dash').classList.add('hidden'); document.getElementById('login').classList.remove('hidden'); }
 
-  async function refreshAll(){ await loadStats(); await Promise.all([load('orders'),load('listings'),load('animals'),load('deliveries'),load('supplies'),load('farmers'),load('requests'),load('offers'),load('transporters'),load('cold_storage'),load('cold_transport'),load('loans')]); renderOverviewExtras(); renderCurrent(); }
+  async function refreshAll(){ await loadStats(); await Promise.all([load('orders'),load('listings'),load('animals'),load('deliveries'),load('supplies'),load('farmers'),load('requests'),load('offers'),load('transporters'),load('cold_storage'),load('cold_transport'),load('loans')]); renderOverviewExtras(); if(currentTab==='finance'){ loadFinance(FIN.view); } else { renderCurrent(); } }
 
   function showTabByName(t){ var node=document.querySelector('.tab[data-tab="'+t+'"]'); showTab(t,node||undefined); if(node) node.scrollIntoView({behavior:'smooth',block:'nearest'}); }
   function retryTab(tab){ load(tab).then(renderCurrent); }
+
+  // ── Financial Control Center (read-only) ────────────────────────
+  function finMoney(v){ return (v===null||v===undefined)?'—':fmt(v); }
+  function finKpi(label,value,sub){
+    return '<div class="fin-kpi"><div class="l">'+h(label)+'</div><div class="v">'+value+'</div>'+
+      (sub?'<div class="s">'+h(sub)+'</div>':'')+'</div>';
+  }
+  function finBadge(status){
+    var s=String(status||'unknown');
+    return '<span class="badge '+h(s)+'">'+h(s.replace(/_/g,' '))+'</span>';
+  }
+  function finDate(v){
+    if(!v) return '—';
+    var d=new Date(v); return isNaN(d)?h(v):d.toLocaleString('en-UG');
+  }
+  function finShortId(v){ return v?String(v).slice(0,8):'—'; }
+
+  async function loadFinance(view){
+    if(!FIN_VIEWS.some(function(v){return v[0]===view;})) view='overview';
+    FIN.view=view; FIN.loading=true; FIN.errors[view]=null;
+    renderFinance();
+    var paths={overview:'/api/admin/finance/overview',ledger:'/api/admin/finance/journals?limit=100',farmers:'/api/admin/finance/farmer-settlements',transporters:'/api/admin/finance/transporter-settlements',reconciliation:'/api/admin/finance/reconciliation',reports:'/api/admin/finance/reports'};
+    var path=paths[view];
+    if(view==='reports'){
+      var q=[];
+      if(FIN.report.from) q.push('from='+encodeURIComponent(FIN.report.from));
+      if(FIN.report.to) q.push('to='+encodeURIComponent(FIN.report.to));
+      if(q.length) path+='?'+q.join('&');
+    }
+    try{
+      var d=await api(path);
+      if(!d) throw new Error('The server returned no data.');
+      if(d.error) throw new Error(d.error+(d.fix?' — '+d.fix:''));
+      FIN.cache[view]=d;
+    }catch(e){ FIN.errors[view]=(e&&e.message)?e.message:'Could not load finance data.'; }
+    FIN.loading=false;
+    if(currentTab==='finance') renderFinance();
+  }
+
+  function renderFinance(){
+    if(currentTab!=='finance') return;
+    var v=FIN.view, d=FIN.cache[v], err=FIN.errors[v];
+    var html='<div class="fin-subnav">'+FIN_VIEWS.map(function(p){
+      return '<button class="fin-sub'+(p[0]===v?' active':'')+'" onclick="loadFinance(\''+p[0]+'\')">'+h(p[1])+'</button>';
+    }).join('')+'</div>';
+    if(err){
+      html+='<div class="fin-note"><strong>Could not load this view.</strong><br>'+h(err)+'</div>'+
+        '<button class="btn sm" onclick="loadFinance(\''+v+'\')">Retry</button>';
+      setPanel(html); return;
+    }
+    if(!d){ setPanel(html+'<div class="loading">Loading…</div>'); return; }
+    if(v==='overview') html+=finOverview(d);
+    else if(v==='ledger') html+=finLedger(d);
+    else if(v==='farmers') html+=finFarmers(d);
+    else if(v==='transporters') html+=finTransporters(d);
+    else if(v==='reconciliation') html+=finReconciliation(d);
+    else if(v==='reports') html+=finReports(d);
+    if(d.warnings&&d.warnings.length){
+      html+='<div class="fin-note">'+d.warnings.map(h).join('<br>')+'</div>';
+    }
+    setPanel(html);
+  }
+
+  function finOverview(d){
+    var cp=d.customer_payments||{}, fp=d.farmer_payables||{};
+    var cr=d.commission_revenue||{}, rf=d.refunds||{}, os=d.outstanding_settlements||{};
+    var l=d.ledger||{};
+    var html='<div class="fin-kpis">'+
+      finKpi('Customer payments received', finMoney(cp.received), (cp.count||0)+' paid order(s)')+
+      finKpi('Farmer payables outstanding', finMoney(fp.outstanding), (fp.count||0)+' unpaid payout(s)')+
+      finKpi('Commission revenue', finMoney(cr.recognized), 'Pending '+finMoney(cr.pending))+
+      finKpi('Refunds', finMoney(rf.amount), (rf.count||0)+' refunded order(s)')+
+      finKpi('Outstanding settlements', finMoney(os.amount), (os.count||0)+' settlement(s)')+
+      finKpi('Transporter payables', 'Not captured', 'No agreed charge stored')+
+      finKpi('Delivery revenue', 'Not captured', 'No separate fee stored')+
+      '</div>';
+    html+='<div class="fin-section">Ledger position</div>';
+    if(!l.ready){
+      html+='<div class="fin-note"><strong>Ledger not initialized.</strong> The double-entry tables from migration 0013 are not in this database, so ledger balances and reconciliation are unavailable. The payment and payout figures above come from orders and payouts — not from the ledger.<br>'+
+        'Run <code>supabase/migrations/0013_ledger_core.up.sql</code> in Supabase → SQL Editor, then reload this page.</div>';
+    }else{
+      html+='<div class="fin-note '+(l.balanced?'ok':'')+'">Debits '+finMoney(l.total_debits)+' · Credits '+finMoney(l.total_credits)+' · '+
+        (l.balanced?'<strong>Balanced</strong>':'<strong class="fin-bad">NOT balanced — investigate before paying out</strong>')+'</div>';
+      var body=(l.accounts||[]).map(function(a){
+        return '<tr><td><code>'+h(a.code)+'</code></td><td>'+h(a.name)+'</td><td>'+h(a.type)+'</td>'+
+          '<td class="num">'+finMoney(a.total_debits)+'</td><td class="num">'+finMoney(a.total_credits)+'</td>'+
+          '<td class="num">'+finMoney(a.balance)+'</td></tr>';
+      }).join('');
+      html+='<div class="tblwrap"><table class="fin-table"><thead><tr><th>Account</th><th>Name</th><th>Type</th><th class="num">Debits</th><th class="num">Credits</th><th class="num">Balance</th></tr></thead><tbody>'+body+'</tbody></table></div>';
+    }
+    html+='<div class="fin-note" style="margin-top:12px">Transporter payables and delivery revenue stay blank until the database stores an agreed transporter charge and a separate delivery fee. They are not zero.</div>';
+    return html;
+  }
+
+  function finLedger(d){
+    if(!d.rows||!d.rows.length){
+      return '<div class="fin-note ok">The ledger is initialized but no journals have been posted yet. Verified payments and settlements are not wired to it so far.</div>';
+    }
+    var body=d.rows.map(function(j){
+      var lines=(j.lines||[]).map(function(ln){
+        return '<div class="muted" style="font-size:.74rem">'+h(ln.account_code)+' · '+h(ln.side)+' · '+finMoney(ln.amount)+(ln.memo?' · '+h(ln.memo):'')+'</div>';
+      }).join('');
+      return '<tr><td>'+finDate(j.posted_at)+'</td>'+
+        '<td><code>'+h(j.reference)+'</code>'+(j.payment_ref?'<div class="muted" style="font-size:.72rem">pay '+h(j.payment_ref)+'</div>':'')+'</td>'+
+        '<td>'+h(j.kind)+'</td><td>'+h(j.description||'—')+'</td>'+
+        '<td class="num">'+finMoney(j.amount)+'</td><td>'+finBadge(j.status)+'</td><td>'+lines+'</td></tr>';
+    }).join('');
+    return '<div class="fin-section">'+d.count+' most recent journal(s)</div>'+
+      '<div class="tblwrap"><table class="fin-table"><thead><tr><th>Posted</th><th>Reference</th><th>Kind</th><th>Description</th><th class="num">Total</th><th>Status</th><th>Entries</th></tr></thead><tbody>'+body+'</tbody></table></div>'+
+      '<div class="fin-note" style="margin-top:12px">Posted entries are immutable. A correction must be a reversing journal, never an edit.</div>';
+  }
+
+  function finFarmers(d){
+    var s=d.summary||{};
+    var html='<div class="fin-kpis">'+
+      finKpi('Completed sales', finMoney(s.completed_sales_value), (s.completed_sales_count||0)+' delivered order(s)')+
+      finKpi('Outstanding', finMoney(s.outstanding), 'Net owed to farmers')+
+      finKpi('Paid to date', finMoney((s.paid||{}).amount), ((s.paid||{}).count||0)+' paid')+
+      finKpi('Pending', finMoney((s.pending||{}).amount), ((s.pending||{}).count||0)+' payout(s)')+
+      finKpi('Failed', finMoney((s.failed||{}).amount), ((s.failed||{}).count||0)+' payout(s)')+
+      finKpi('Disputed', finMoney((s.disputed||{}).amount), ((s.disputed||{}).count||0)+' payout(s)')+
+      '</div>';
+    if(!d.rows||!d.rows.length){
+      return html+'<div class="fin-note ok">No farmer payouts have been created yet.</div>';
+    }
+    var body=d.rows.map(function(r){
+      return '<tr><td>'+finDate(r.created_at)+'</td><td>'+h(finShortId(r.order_id))+'</td>'+
+        '<td>'+h(r.farmer_name)+'</td><td class="num">'+finMoney(r.gross_amount)+'</td>'+
+        '<td class="num">'+finMoney(r.commission_amount)+'<div class="muted" style="font-size:.72rem">'+h(r.commission_pct)+'%</div></td>'+
+        '<td class="num">'+finMoney(r.net_amount)+'</td><td>'+finBadge(r.status)+'</td>'+
+        '<td>'+h(r.provider_ref||'—')+'</td></tr>';
+    }).join('');
+    return html+'<div class="tblwrap"><table class="fin-table"><thead><tr><th>Created</th><th>Order</th><th>Farmer</th><th class="num">Gross</th><th class="num">Commission</th><th class="num">Net</th><th>Status</th><th>Payment ref</th></tr></thead><tbody>'+body+'</tbody></table></div>';
+  }
+
+  function finTransporters(d){
+    var s=d.summary||{};
+    var html='<div class="fin-note"><strong>Transporter payables are not available.</strong> '+h(d.reason||'')+'</div>';
+    html+='<div class="fin-kpis">'+
+      finKpi('Deliveries', s.deliveries_total||0, 'All records')+
+      finKpi('Delivered', s.delivered_count||0, 'Completion recorded')+
+      finKpi('Failed', s.failed_count||0, 'Needs follow-up')+
+      finKpi('Payable', 'Not captured', 'No agreed charge')+
+      '</div>';
+    if(!d.rows||!d.rows.length){
+      return html+'<div class="fin-note ok">No deliveries have been recorded yet.</div>';
+    }
+    var body=d.rows.map(function(r){
+      return '<tr><td>'+h(finShortId(r.order_id))+'</td><td>'+h(r.driver_name||'Unassigned')+'</td>'+
+        '<td>'+finBadge(r.status)+'</td><td>'+finDate(r.delivered_at)+'</td>'+
+        '<td class="num">—</td><td>'+finBadge('not_captured')+'</td></tr>';
+    }).join('');
+    return html+'<div class="tblwrap"><table class="fin-table"><thead><tr><th>Order</th><th>Driver</th><th>Status</th><th>Delivered</th><th class="num">Agreed charge</th><th>Payable</th></tr></thead><tbody>'+body+'</tbody></table></div>';
+  }
+
+  function finReconciliation(d){
+    var s=d.summary||{}, c=d.checked||{};
+    var html='<div class="fin-kpis">'+
+      finKpi('Paid orders checked', c.paid_orders||0, (c.payment_refs||0)+' payment ref(s)')+
+      finKpi('Issues', s.issues_total||0, (s.errors||0)+' error(s) · '+(s.warnings||0)+' warning(s)')+
+      finKpi('Active journals', c.active_journals||0, 'Posted, non-reversal')+
+      '</div>';
+    if(!d.issues||!d.issues.length){
+      return html+'<div class="fin-note ok">No discrepancies found between paid orders and the ledger.</div>';
+    }
+    var body=d.issues.map(function(i){
+      var sev=i.severity==='error'?'cancelled':'pending';
+      return '<tr><td><span class="badge '+sev+'">'+h(i.severity)+'</span></td><td>'+h(i.type.replace(/_/g,' '))+'</td>'+
+        '<td>'+h(i.payment_ref||'—')+'</td><td class="num">'+finMoney(i.amount)+'</td>'+
+        '<td style="max-width:320px">'+h(i.detail)+(i.order_ids&&i.order_ids.length?'<div class="muted" style="font-size:.72rem">Orders: '+h(i.order_ids.map(finShortId).join(', '))+'</div>':'')+'</td></tr>';
+    }).join('');
+    return html+'<div class="tblwrap"><table class="fin-table"><thead><tr><th>Severity</th><th>Type</th><th>Payment ref</th><th class="num">Amount</th><th>Detail</th></tr></thead><tbody>'+body+'</tbody></table></div>';
+  }
+
+  function finReports(d){
+    var r=d.range||{}, o=d.orders||{}, st=d.settlements||{}, li=d.liabilities||{}, l=d.ledger||{};
+    var html='<div class="fin-range">'+
+      '<div><label>From</label><input type="date" id="finFrom" value="'+h(FIN.report.from||r.from||'')+'"></div>'+
+      '<div><label>To</label><input type="date" id="finTo" value="'+h(FIN.report.to||r.to||'')+'"></div>'+
+      '<button class="btn sm" onclick="applyFinanceReport()">Apply</button>'+
+      '</div>';
+    html+='<div class="fin-kpis">'+
+      finKpi('Orders', finMoney(o.value), (o.count||0)+' order(s)')+
+      finKpi('Paid orders', finMoney(o.paid_value), (o.paid_count||0)+' order(s)')+
+      finKpi('Refunded', finMoney(o.refunded_value), (o.refunded_count||0)+' order(s)')+
+      finKpi('Gross settlements', finMoney(st.gross), (st.payouts_count||0)+' payout(s)')+
+      finKpi('Commission', finMoney(st.commission), 'In period')+
+      finKpi('Net settlements', finMoney(st.net), 'In period')+
+      finKpi('Unpaid liability', finMoney(li.unpaid_net), (li.unpaid_count||0)+' payout(s), all time')+
+      finKpi('Journals', l.journals_count||0, 'Posted in period')+
+      '</div>';
+    if(l.account_activity&&l.account_activity.length){
+      var body=l.account_activity.map(function(a){
+        return '<tr><td><code>'+h(a.account_code)+'</code></td><td class="num">'+finMoney(a.debits)+'</td><td class="num">'+finMoney(a.credits)+'</td><td class="num">'+finMoney(a.net)+'</td></tr>';
+      }).join('');
+      html+='<div class="fin-section">Ledger account activity</div><div class="tblwrap"><table class="fin-table"><thead><tr><th>Account</th><th class="num">Debits</th><th class="num">Credits</th><th class="num">Net</th></tr></thead><tbody>'+body+'</tbody></table></div>';
+    }else{
+      html+='<div class="fin-note">No ledger activity in this period'+(l.ready===false?' (ledger not initialized)':'')+'. Order and payout totals above do not depend on the ledger.</div>';
+    }
+    return html;
+  }
+
+  function applyFinanceReport(){
+    var f=document.getElementById('finFrom'), t=document.getElementById('finTo');
+    var from=f?f.value:'', to=t?t.value:'';
+    if(from&&to&&from>to){ alert('From must be on or before To.'); return; }
+    FIN.report.from=from; FIN.report.to=to; loadFinance('reports');
+  }
 
   // Platform Overview chart (real orders/month) + Quick Actions, mockup style.
   function renderOverviewExtras(){
@@ -345,11 +576,12 @@
     }catch(e){ alert('Matching failed: '+(e&&e.message?e.message:'check server logs.')); }
   }
 
-  function showTab(t,node){ currentTab=t; document.querySelectorAll('.tab').forEach(function(x){x.classList.remove('active');}); if(node)node.classList.add('active'); document.getElementById('search').value=''; var noAdd=['orders','requests','offers','cold_storage','cold_transport','loans','errors','matching','scans','activity','inbox']; document.getElementById('addBtn').style.display=noAdd.indexOf(t)>-1?'none':'inline-block'; load(t).then(renderCurrent); }
+  function showTab(t,node){ currentTab=t; document.querySelectorAll('.tab').forEach(function(x){x.classList.remove('active');}); if(node)node.classList.add('active'); document.getElementById('search').value=''; var noAdd=['orders','requests','offers','cold_storage','cold_transport','loans','errors','matching','scans','activity','inbox','finance']; document.getElementById('addBtn').style.display=noAdd.indexOf(t)>-1?'none':'inline-block'; var tb=document.querySelector('.toolbar'); if(tb) tb.style.display=(t==='finance')?'none':'flex'; if(t==='finance'){ loadFinance(FIN.view); return; } load(t).then(renderCurrent); }
 
   function match(row,q){ if(!q)return true; q=q.toLowerCase(); return JSON.stringify(row).toLowerCase().indexOf(q)>-1; }
 
   function renderCurrent(){
+    if(currentTab==='finance'){ renderFinance(); return; }
     if(DATA_ERR[currentTab]){
       setPanel('<div class="loading">Could not load this tab — the server may be waking up. '+
         '<button class="btn sm" style="margin-left:8px" onclick="retryTab(\''+currentTab+'\')">Retry</button></div>');
