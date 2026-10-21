@@ -62,11 +62,11 @@ Overall the backend is more hardened than most side-project-stage apps. The fron
 | GET | `/api/admin/listings` | JWT (admin role) | No | Up to 200 listings |
 | GET | `/api/admin/orders` | JWT (admin role) | No | Up to 200 orders |
 | GET | `/api/admin/farmers` | JWT (admin role) | No | Up to 500 farmers |
-| PATCH | `/api/admin/order/<id>/status` | JWT (admin role) | No | Direct DB update, bypasses state machine |
+| PATCH | `/api/admin/order/<id>/status` | JWT (admin role) | No | Order transition via `set_order_status` state machine |
 | GET | `/api/admin/animals` | JWT (admin role) | No | Up to 300 animal listings |
 | GET | `/api/admin/deliveries` | JWT (admin role) | No | Up to 300 deliveries |
 | GET | `/api/admin/supplies` | JWT (admin role) | No | Supplier products |
-| POST/PATCH/DELETE | `/api/admin/row` | JWT (admin role) | No | Generic table editor; column allowlist enforced |
+| POST/PATCH/DELETE | `/api/admin/row` | JWT (admin role) | No | Generic table editor; column allowlist enforced (order/payment status rejected) |
 | POST | `/api/admin/devices` | Supabase + admin UUID | Yes (30/min) | FCM device registration |
 | DELETE | `/api/admin/devices` | Supabase + admin UUID | Yes (30/min) | FCM device unregistration |
 | POST | `/api/worker/match` | Supabase + admin UUID | No | Manual matching trigger |
@@ -80,8 +80,7 @@ Overall the backend is more hardened than most side-project-stage apps. The fron
 | POST | `/api/requests` | Supabase session | Yes (20/min) | Purchase request creation |
 | POST | `/api/offers/<id>/accept` | Supabase session | Yes (30/min) | Accept a farmer offer |
 | POST | `/api/offers/<id>/reject` | Supabase session | Yes (30/min) | Reject a farmer offer |
-| POST | `/api/notify-order` | No | Yes (30/5min) | SMS notification to farmer |
-| POST | `/api/sms-receipt` | No | Yes (30/5min) | SMS receipt to buyer |
+| POST | `/api/sms-receipt` | Supabase session | Yes (10/5min) | Order SMS to the buyer's number on file (no free-form recipient) |
 | GET | `/api/pay/providers` | No | No | Lists enabled payment providers |
 | POST | `/api/pay/initiate` | **None** (F18) | Yes (20/5min) | Initiate payment session |
 | POST | `/api/pay/webhook/flutterwave` | verif-hash header | No | Flutterwave payment webhook |

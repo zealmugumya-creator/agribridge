@@ -2,7 +2,8 @@
 
 **Last updated:** 2026-10-21
 **Migration:** `supabase/migrations/0013_ledger_core.up.sql` (applied to the live project and verified)
-**Backend:** `services/ledger.py`, wired into `_flw_verify_and_mark` in `app.py`
+**Backend:** `services/ledger.py`, wired into `_flw_verify_and_mark` and
+`/api/admin/orders/<id>/confirm-delivery` in `app.py`
 
 This document describes what the ledger records today, the accounting rules it
 enforces, how a failed posting is detected, and what is deliberately not yet
@@ -18,7 +19,7 @@ implemented. It does not claim that settlements or refunds are live.
 | Admin reads journals / balances | `GET /api/admin/finance/*` | Read-only | **Implemented** |
 | Journal reversal | `reverse_journal()` SQL function | Mirror entry + audit row | **Database only** — no admin route yet |
 | Farmer / transporter settlement | — | Not posted | **Not implemented** |
-| Cash-on-delivery | — | Not posted | **Not implemented** |
+| Cash-on-delivery collected | Admin delivery confirmation, order method `cash` | Debit `COD_CASH_HELD`; same credits as a provider receipt | **Implemented** |
 | Customer refund execution | — | Refund liability is recognised; money movement is manual | **Not implemented** |
 
 The ledger is the accounting record. The `payouts` table (used by the Finance
@@ -101,13 +102,38 @@ is invented.
   `SUSPENSE_OVERPAYMENT`. It is never credited to a farmer or to revenue.
 * Underpayment fails verification and posts nothing.
 
+### Cash on delivery
+
+`POST /api/admin/orders/<id>/confirm-delivery` first moves the order to
+`delivered` through `set_order_status`, then handles payment:
+
+* Already `paid` → nothing further is posted.
+* Method `cash` and unpaid → one journal per checkout:
+
+  ```
+  reference:   cod:<checkout_ref>
+  kind:        cod_collection
+  debit:       COD_CASH_HELD   amount = order total
+  credit:      FARMER_PAYABLE / CUSTOMER_REFUND_PAYABLE / SUSPENSE_OVERPAYMENT
+  ```
+
+  The order is marked `paid` only after the journal posts. A ledger failure
+  returns `503` and leaves the order unpaid so the admin can retry; the retry is
+  idempotent. The driver is assumed to have collected exactly the order total.
+* Any other unpaid method → the order stays `unpaid` and the response says so.
+  Confirming a delivery never invents a gateway payment.
+
+Cash held on delivery is an asset until it is banked; a banking transfer is not
+implemented yet.
+
 ---
 
 ## 4. Idempotency and concurrency
 
 * The journal reference is derived only from the checkout reference:
   `payment:<tx_ref>`. Flutterwave attempt suffixes (`~abc123`) are stripped by
-  `_base_ref` before use.
+  `_base_ref` before use. COD uses `cod:<ref>` so the two events can never
+  collide.
 * `ledger_journals.reference` is `UNIQUE`. `post_journal` returns the existing
   journal id and posts nothing when the reference already exists, including
   when two webhook deliveries race.
@@ -215,7 +241,7 @@ the SQL Editor runs with the service role.
 * Automatic creation of `payouts` rows and settlement journals.
 * Farmer and transporter payout execution and postings.
 * Commission recognition and its configuration rollout.
-* COD cash receipt and banking postings.
+* Banking transfers from `COD_CASH_HELD` and `PROVIDER_CLEARING` to the bank.
 * A backend route to call `reverse_journal` for refunds and disputes.
 * Transporter agreed charge and delivery fee capture (needed before
   `TRANSPORTER_PAYABLE` / `DELIVERY_REVENUE` can hold real money).

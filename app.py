@@ -487,7 +487,7 @@ def health():
     payload = {
         'status': 'ok' if healthy else 'degraded',
         'service': 'AgriBridge API',
-        'version': '3.2.0',
+        'version': '3.3.0',
         'at_enabled': AT_AVAILABLE and at_sms is not None,
         'supabase_configured': SUPA.configured,
         'supabase_connected': db.ok,          # actual round-trip result
@@ -1805,18 +1805,31 @@ def admin_farmers():
 
 @app.route('/api/admin/order/<order_id>/status', methods=['PATCH'])
 def update_order_status(order_id):
+    """Advance an order through the server-side state machine.
+
+    The generic row editor must never write `orders.status`/`payment_status`
+    directly: doing so would skip stock release, order events and the ledger.
+    """
     payload, err = verify_token(required_role='admin')
     if err:
         return err
-    data = request.get_json(force=True) or {}
-    new_status = data.get('status')
+    data = request.get_json(force=True, silent=True) or {}
+    new_status = str(data.get('status') or '').strip()
     valid = ('pending', 'confirmed', 'in_transit', 'delivered', 'cancelled')
     if new_status not in valid:
         return jsonify({'error': 'Invalid status'}), 400
-    ok = supa_update('orders', {'status': new_status}, 'id', order_id)
-    if ok:
-        return jsonify({'message': f'Order {order_id} updated to {new_status}'}), 200
-    return jsonify({'error': 'Update failed'}), 500
+    res = SUPA.rpc('set_order_status', {'p_order_id': order_id, 'p_new_status': new_status})
+    if not res.ok:
+        message = res.error or 'Update failed'
+        if res.status == 404 or 'not found' in message.lower():
+            return jsonify({'error': message}), 404
+        if res.status in (400, 409, 422):
+            return jsonify({'error': message}), 409
+        return jsonify({'error': 'Order service unavailable'}), 503
+    _log_system_event('order_status_changed',
+                      {'order_id': order_id, 'status': new_status, 'actor': 'admin'},
+                      severity='info')
+    return jsonify({'ok': True, 'status': new_status}), 200
 
 @app.route('/api/admin/animals', methods=['GET'])
 def admin_animals():
@@ -1997,7 +2010,7 @@ _ADMIN_COLS = {
                         'description', 'health_cert', 'maaif_certified', 'status',
                         'image_url', 'video_url', 'farmer_id', 'farmer_name', 'farmer_phone'],
     'farmers':         ['full_name', 'phone', 'email', 'district', 'is_verified', 'is_premium'],
-    'orders':          ['status', 'payment_status', 'delivery_address', 'notes'],
+    'orders':          ['delivery_address', 'notes'],
     'market_prices':   ['crop_name', 'price', 'unit', 'district', 'market'],
     'deliveries':      ['status', 'driver_name', 'driver_phone', 'pickup_location',
                         'delivery_location', 'estimated_arrival', 'tracking_code', 'notes'],
@@ -2028,10 +2041,14 @@ def admin_row():
         return (jsonify({'ok': True}), 200) if supa_delete(table, 'id', row_id) \
             else (jsonify({'error': 'Delete failed'}), 500)
 
-    fields = _filter_cols(table, data.get('fields'))
+    raw_fields = data.get('fields') or {}
+    if table == 'orders' and any(k in raw_fields for k in ('status', 'payment_status')):
+        return jsonify({
+            'error': 'Order and payment status change through their workflow endpoints, not the editor',
+        }), 400
+    fields = _filter_cols(table, raw_fields)
     if not fields:
         return jsonify({'error': 'No editable fields provided'}), 400
-
     if request.method == 'POST':
         row = supa_insert(table, fields)
         return (jsonify({'ok': True, 'row': row}), 200) if row else (jsonify({'error': 'Create failed'}), 500)
@@ -2916,20 +2933,34 @@ def transporter_update_location():
         return jsonify({'error': 'No transporter account found'}), 404
     transporter_id = rows[0]['id']
 
-    # Update the delivery row that's currently in_transit for this transporter
+    # Update only deliveries that are still active; completed/failed rows keep
+    # the position they finished at.
     now = datetime.datetime.utcnow().isoformat()
-    supa_update('deliveries', {
-        'transporter_lat': lat,
-        'transporter_lng': lng,
-        'location_updated_at': now,
-    }, 'transporter_id', transporter_id)
+    active = supa_get('deliveries', {
+        'transporter_id': f'eq.{transporter_id}',
+        'status': 'in.(picked_up,in_transit,at_checkpoint)',
+        'select': 'id',
+    }, limit=20) or []
+    delivery_updates = 0
+    for row in active:
+        if row.get('id') and supa_update('deliveries', {
+            'transporter_lat': lat,
+            'transporter_lng': lng,
+            'location_updated_at': now,
+        }, 'id', row['id']):
+            delivery_updates += 1
 
     # Also update the transporter row itself for quick dashboard reads
-    supa_update('transporters', {
+    transporter_ok = supa_update('transporters', {
         'last_lat': lat, 'last_lng': lng, 'last_location_at': now,
     }, 'id', transporter_id)
 
-    return jsonify({'ok': True}), 200
+    if not transporter_ok or (active and delivery_updates == 0):
+        log.error('transporter.location_not_saved', transporter_id=transporter_id,
+                  active_deliveries=len(active), saved=delivery_updates)
+        return jsonify({'error': 'Location could not be saved. Retry.'}), 503
+
+    return jsonify({'ok': True, 'deliveries_updated': delivery_updates}), 200
 
 
 @app.route('/api/admin/active-deliveries', methods=['GET'])
@@ -3408,35 +3439,114 @@ def admin_assign_transporter(order_id):
 
 @app.route('/api/admin/orders/<order_id>/confirm-delivery', methods=['POST'])
 def admin_confirm_delivery(order_id):
-    """Admin or buyer confirms delivery completion."""
+    """Confirm delivery and record payment honestly.
+
+    Delivery advances through the state machine. An unpaid cash-on-delivery
+    order posts a COD receipt (debit COD_CASH_HELD) before it is marked paid.
+    An unpaid gateway order is left unpaid: confirming a delivery must never
+    invent a payment that no provider verified.
+    """
     payload, err = verify_token(required_role='admin')
     if err:
         return err
     data = request.get_json(force=True, silent=True) or {}
     note = str(data.get('note', '')).strip()[:300]
     now = datetime.datetime.utcnow().isoformat()
-    order_ok = supa_update('orders', {
-        'status': 'delivered',
-        'payment_status': 'paid',
-        'delivered_at': now,
-    }, 'id', order_id)
-    # deliveries records completion in actual_arrival; there is no delivered_at.
+
+    rows = supa_get('orders', {
+        'id': f'eq.{order_id}',
+        'select': 'id,payment_ref,payment_method,payment_status,status,'
+                  'total_amount,total_price,quantity_kg,price_per_kg',
+    }, limit=1) or []
+    if not rows:
+        return jsonify({'error': 'Order not found'}), 404
+    order = rows[0]
+    pay_ref = str(order.get('payment_ref') or '').strip()
+
+    res = SUPA.rpc('set_order_status', {'p_order_id': order_id, 'p_new_status': 'delivered'})
+    if not res.ok:
+        message = res.error or 'Delivery status update failed'
+        code_status = 409 if res.status in (400, 409, 422) else 503
+        if res.status == 404 or 'not found' in message.lower():
+            code_status = 404
+        return jsonify({'error': message, 'code': 'delivery_status_failed'}), code_status
+
+    # deliveries records completion in actual_arrival; orders has no delivered_at.
     delivery_ok = supa_update(
         'deliveries', {'status': 'delivered', 'actual_arrival': now, 'updated_at': now},
         'order_id', order_id)
-    if not order_ok or not delivery_ok:
-        log.error('delivery.confirm_failed', order_id=order_id,
-                  order_updated=bool(order_ok), delivery_updated=bool(delivery_ok))
+    if not delivery_ok:
+        log.error('delivery.confirm_failed', order_id=order_id, delivery_updated=False)
         return jsonify({'error': 'Delivery confirmation was incomplete. Retry once the backend is reachable.',
                         'code': 'delivery_confirmation_failed'}), 503
-    _log_system_event('order_delivered', {'order_id': order_id, 'note': note}, severity='info')
+
+    paid = str(order.get('payment_status') or '').lower() == 'paid'
+    method = str(order.get('payment_method') or '').lower()
+    payment_status = 'paid'
+    journal_id = None
+    warning = ''
+
+    if not paid and method == 'cash':
+        if not pay_ref:
+            return jsonify({'error': 'Order has no payment reference; COD cannot be posted.',
+                            'code': 'cod_reference_missing'}), 503
+        pay_rows = supa_get('orders', {
+            'payment_ref': f'eq.{pay_ref}',
+            'select': 'id,status,payment_status,total_amount,total_price,quantity_kg,price_per_kg',
+        }, limit=50) or rows
+        try:
+            total = sum((ledger.money(finance.order_total(o)) for o in pay_rows), ledger.ZERO)
+        except ledger.LedgerError:
+            total = ledger.ZERO
+        posting = ledger.post_verified_payment(
+            SUPA, tx_ref=pay_ref, orders=pay_rows, received=total, provider='cash',
+            reference_prefix='cod', kind='cod_collection',
+            debit_account=ledger.ACCOUNT_COD_CASH_HELD,
+            debit_memo='cash collected on delivery',
+            description=f'Cash on delivery {pay_ref}')
+        if not posting.ok:
+            log.error('delivery.cod_ledger_failed', order_id=order_id,
+                      payment_ref=pay_ref, error=posting.error)
+            _log_system_event('delivery_cod_ledger_failed',
+                              {'order_id': order_id, 'payment_ref': pay_ref,
+                               'error': posting.error}, severity='error')
+            _discord_notify(
+                event_type='ledger.cod_failed',
+                title='⚠️ COD ledger post failed',
+                description=f"**Order:** `{order_id}`\n**Ref:** `{pay_ref}`\n"
+                            f"**Error:** {posting.error}",
+                severity='error',
+            )
+            return jsonify({'error': 'Delivery recorded but the COD ledger entry failed. Retry.',
+                            'code': 'ledger_post_failed'}), 503
+        journal_id = posting.journal_id
+        if not supa_update('orders', {'payment_status': 'paid'}, 'payment_ref', pay_ref):
+            log.error('delivery.cod_mark_paid_failed', order_id=order_id, payment_ref=pay_ref,
+                      journal_id=journal_id)
+            _log_system_event('delivery_cod_mark_paid_failed',
+                              {'order_id': order_id, 'payment_ref': pay_ref,
+                               'journal_id': journal_id}, severity='error')
+            return jsonify({'error': 'COD ledger posted but the order could not be marked paid. Retry.',
+                            'code': 'payment_mark_failed'}), 503
+    elif not paid:
+        payment_status = 'unpaid'
+        warning = 'Payment is not verified; the order stays unpaid.'
+        _log_system_event('order_delivered_unpaid',
+                          {'order_id': order_id, 'payment_method': method}, severity='warning')
+
+    _log_system_event('order_delivered',
+                      {'order_id': order_id, 'note': note, 'payment_status': payment_status,
+                       'ledger_journal_id': journal_id}, severity='info')
     _discord_notify(
         event_type='order.delivered',
         title='📦 Delivery Confirmed',
-        description=f"**Order:** `{order_id}`\n**Note:** {note or 'No note'}",
+        description=(f"**Order:** `{order_id}`\n**Note:** {note or 'No note'}\n"
+                     f"**Payment:** {payment_status}"
+                     + (f"\n**COD journal:** `{journal_id}`" if journal_id else "")),
         severity='info',
     )
-    return jsonify({'ok': True}), 200
+    return jsonify({'ok': True, 'payment_status': payment_status,
+                    'ledger_journal_id': journal_id, 'warning': warning}), 200
 
 
 @app.route('/api/orders/<order_id>/receipt', methods=['GET'])
@@ -4166,36 +4276,6 @@ def delete_account():
     return jsonify({'ok': True, 'status': result.status}), 200
 
 
-@app.route('/api/notify-order', methods=['POST'])
-@rate_limit(max_req=30, window=300)
-def notify_order():
-    """Best-effort SMS to a farmer when a new order comes in. Looks up the farmer's
-    phone server-side (never trusts the client for it). Always returns ok so the
-    order flow is never blocked; SMS only actually sends once Africa's Talking is
-    live (in sandbox this is a no-op)."""
-    data = request.get_json(force=True, silent=True) or {}
-    farmer_id = (data.get('farmer_id') or '').strip()
-    item = (data.get('item') or 'produce').strip()[:60]
-    qty = (data.get('qty') or '').strip()[:20]
-    if not at_sms or not farmer_id:
-        return jsonify({'ok': True, 'sent': False}), 200
-    rows = supa_get('farmers', filters={'id': f'eq.{farmer_id}', 'select': 'phone'}, limit=1)
-    phone = (rows[0].get('phone') if rows else '') or ''
-    if not phone:
-        return jsonify({'ok': True, 'sent': False}), 200
-    try:
-        at_sms.send(
-            message=(f"AgriBridge: New order!\n{qty} {item}. "
-                     f"Log in to confirm: agribrige.com"),
-            recipients=[phone],
-            sender_id=AT_SMS_SENDER,
-        )
-        return jsonify({'ok': True, 'sent': True}), 200
-    except Exception as e:
-        print(f"notify-order SMS error: {e}")
-        return jsonify({'ok': True, 'sent': False}), 200
-
-
 def _sms_receipt(phone, ref, total, kind='order'):
     """Best-effort SMS receipt to a buyer. No-op unless Africa's Talking is live."""
     if not at_sms or not phone:
@@ -4213,17 +4293,35 @@ def _sms_receipt(phone, ref, total, kind='order'):
 
 
 @app.route('/api/sms-receipt', methods=['POST'])
-@rate_limit(max_req=30, window=300)
+@rate_limit(max_req=10, window=300)
 def sms_receipt():
+    """Send an order-confirmation SMS to the buyer's number on file.
+
+    The recipient and amount are read from the caller's own order; the request
+    body cannot name a phone number or a total, so a signed-in account cannot be
+    used as an SMS relay. Payment receipts are sent by the payment path instead.
+    """
+    uid, err = verify_supabase_user()
+    if err:
+        return err
     data = request.get_json(force=True, silent=True) or {}
-    phone = (data.get('phone') or '').strip()[:20]
-    ref   = (data.get('ref')   or '').strip()[:40]
-    kind  = (data.get('kind')  or 'order').strip()[:20]
+    ref = str(data.get('ref') or data.get('order_ref') or '').strip()[:80]
+    if not ref:
+        return jsonify({'ok': False, 'sent': False, 'error': 'missing order reference'}), 400
+    rows = supa_get('orders', {
+        'payment_ref': f'eq.{ref}',
+        'select': 'buyer_id,buyer_phone,total_amount,total_price,quantity_kg,price_per_kg',
+    }, limit=50) or []
+    if not rows or any(str(r.get('buyer_id') or '') != uid for r in rows):
+        # Same answer for unknown and foreign orders: no order-existence oracle.
+        return jsonify({'ok': False, 'sent': False, 'error': 'order not found'}), 404
     try:
-        total = int(float(data.get('total') or 0))
-    except Exception:
-        total = 0
-    return jsonify({'ok': True, 'sent': _sms_receipt(phone, ref, total, kind)}), 200
+        total = sum((ledger.money(finance.order_total(r)) for r in rows), ledger.ZERO)
+    except ledger.LedgerError:
+        return jsonify({'ok': False, 'sent': False,
+                        'error': 'order total is unavailable'}), 422
+    phone = next((r.get('buyer_phone') for r in rows if r.get('buyer_phone')), '') or ''
+    return jsonify({'ok': True, 'sent': _sms_receipt(phone, ref, float(total), 'order')}), 200
 
 
 # ══════════════════════════════════════════════════════════════════════════════

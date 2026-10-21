@@ -3132,21 +3132,21 @@ async function pollPayment(ref, onDone, onTimeout) {
   onTimeout();
 }
 
-// Best-effort SMS to the farmer (server sends it once Africa's Talking is live).
-function notifyFarmer(farmerId, item, qty){
-  if(!farmerId) return;
-  try{ fetch(USSD_API+'/api/notify-order',{ method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({ farmer_id:farmerId, item:item||'produce', qty:String(qty||'') }) }).catch(function(){}); }catch(e){}
-}
 // Which online payment gateways are live (cached). Empty/unknown => none, so
 // checkout falls back to cash / pay-farmer-direct.
 async function getEnabledProviders(){
   if(window._payProviders) return window._payProviders;
   try{ const r=await fetch(USSD_API+'/api/pay/providers'); const j=await r.json(); window._payProviders=(j&&j.providers)||{}; return window._payProviders; }catch(e){ return {}; }
 }
-// Best-effort SMS receipt to the buyer (no-op until Africa's Talking is live).
-function sendSmsReceipt(phone, ref, total, kind){
-  if(!phone) return;
-  try{ fetch(USSD_API+'/api/sms-receipt',{ method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({ phone:phone, ref:ref, total:total, kind:kind||'order' }) }).catch(function(){}); }catch(e){}
+// Best-effort order SMS to the buyer. The server reads the phone number and
+// total from the order, so the client only identifies the order.
+async function sendSmsReceipt(ref){
+  if(!ref) return;
+  try{
+    const tok = await refreshAuthToken();
+    if(!tok) return;
+    fetch(USSD_API+'/api/sms-receipt',{ method:'POST', headers:{'Content-Type':'application/json','Authorization':'Bearer '+tok}, body:JSON.stringify({ ref:ref }) }).catch(function(){});
+  }catch(e){}
 }
 // Best-effort receipt/confirmation email via the Supabase Edge Function
 // (safe no-op until an email provider key is set). Never blocks the order.
@@ -3332,7 +3332,6 @@ async function placeOrder() {
       listingId = item.id;
     }
     if (item.category === 'supply' && item.sellerId && uuidRe.test(item.sellerId)) { farmerId = item.sellerId; }
-    notifyFarmer(farmerId, item.name, item.qty);
     return { listing_id:listingId, farmer_id:farmerId, product:item.name, quantity:item.qty, unit:item.unit||'kg', price_per_unit:item.price, currency:'UGX', item_category:item.category||'produce' };
   });
   try {
@@ -3361,7 +3360,7 @@ async function placeOrder() {
   saved.unshift({ ref, track, date:new Date().toISOString(), items:basketItems.map(i=>({name:i.name,qty:i.qty,price:i.price})), total, addr, payment:selectedPayMethod, status:'confirmed' });
   localStorage.setItem('ab_orders', JSON.stringify(saved.slice(0,20)));
   sendReceiptEmail({ type:'booking', email:currentUser?.email, name:currentUser?.name, ref, total, tracking:track, items:basketItems.map(i=>({name:i.name,qty:i.qty,price:i.price})) });
-  sendSmsReceipt(currentUser?.phone, ref, total, 'order');
+  sendSmsReceipt(ref);
   // If an online gateway is live and the buyer chose an online method, try to
   // initiate payment. Falls back to manual instructions when no gateway is live.
   let payPush = null, payError = '', cardPaid = false;
@@ -4550,9 +4549,8 @@ async function submitOrder() {
     const ref=j.order_ref||('AB-'+Date.now().toString(36).toUpperCase().slice(-6));
     const track=j.tracking_code||('TRK-'+Math.random().toString(36).substr(2,6).toUpperCase());
     const total=qty*(listing?.price_per_kg||listing?.price_per_unit||0);
-    notifyFarmer(listing?.farmer_id, listing?.crop_name, qty);
     sendReceiptEmail({ type:'booking', email:currentUser?.email, name:currentUser?.name, ref, total, tracking:track, items:[{name:listing?.crop_name||'Order', qty, price:listing?.price_per_kg||0}] });
-    sendSmsReceipt(currentUser?.phone, ref, total, 'order');
+    sendSmsReceipt(ref);
     if(pay && pay!=='cash'){ const pr=await startOnlinePayment(ref, total, pay, currentUser&&currentUser.phone); if(pr&&pr.redirect){ closeModal('orderModal'); showToast('Opening secure payment…'); window.location.href=pr.redirect; return; } if(pr&&pr.error){ showToast('⚠️ '+pr.error+' — order saved, pay on delivery'); } }
     closeModal('orderModal'); showToast('Order placed! Track: '+track+' ✅ Farmer will confirm');
   } catch(e) {

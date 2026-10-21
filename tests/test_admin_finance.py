@@ -324,25 +324,55 @@ def test_assign_transporter_failure_is_not_reported_as_success(client, monkeypat
     assert updates == []
 
 
+def _delivery_order(payment='paid', method='cash', total=50000, ref='AB-1'):
+    return {'id': 'o1', 'payment_ref': ref, 'payment_method': method,
+            'payment_status': payment, 'status': 'in_transit',
+            'total_amount': total, 'total_price': total,
+            'quantity_kg': 1, 'price_per_kg': total}
+
+
+def _delivery_stubs(monkeypatch, order, rpc_ok=True):
+    from services.supabase_client import RpcResult
+    calls = {'update': [], 'rpc': [], 'ledger': []}
+
+    def fake_get(table, filters=None, limit=100):
+        return [order] if table == 'orders' else []
+
+    def fake_update(table, data, eq_col, eq_val):
+        calls['update'].append((table, data, eq_col, eq_val))
+        return True
+
+    def fake_rpc(fn, args):
+        calls['rpc'].append((fn, args))
+        return RpcResult(ok=rpc_ok, data=True, status=200 if rpc_ok else 400,
+                         error='' if rpc_ok else 'illegal order transition')
+
+    monkeypatch.setattr(app_mod, 'supa_get', fake_get)
+    monkeypatch.setattr(app_mod, 'supa_update', fake_update)
+    monkeypatch.setattr(app_mod.SUPA, 'rpc', fake_rpc)
+    return calls
+
+
 def test_confirm_delivery_uses_actual_arrival_column(client, monkeypatch):
     _stub_notifications(monkeypatch)
-    calls = []
-    monkeypatch.setattr(app_mod, 'supa_update',
-                        lambda table, data, eq_col, eq_val: calls.append(
-                            (table, data, eq_col, eq_val)) or True)
+    calls = _delivery_stubs(monkeypatch, _delivery_order())
 
     r = client.post('/api/admin/orders/o1/confirm-delivery',
                     json={'note': 'handed over'}, headers=_admin_headers())
     assert r.status_code == 200
 
-    delivery_update = [c for c in calls if c[0] == 'deliveries'][0]
+    delivery_update = [c for c in calls['update'] if c[0] == 'deliveries'][0]
     assert 'actual_arrival' in delivery_update[1]
     assert 'delivered_at' not in delivery_update[1]
     assert delivery_update[1]['status'] == 'delivered'
+    assert calls['rpc'] == [('set_order_status',
+                             {'p_order_id': 'o1', 'p_new_status': 'delivered'})]
+    assert [c for c in calls['update'] if c[0] == 'orders'] == []
 
 
 def test_confirm_delivery_failure_is_reported(client, monkeypatch):
     _stub_notifications(monkeypatch)
+    _delivery_stubs(monkeypatch, _delivery_order())
 
     def fake_update(table, data, eq_col, eq_val):
         return table == 'orders'
@@ -352,3 +382,62 @@ def test_confirm_delivery_failure_is_reported(client, monkeypatch):
                     json={}, headers=_admin_headers())
     assert r.status_code == 503
     assert r.get_json()['code'] == 'delivery_confirmation_failed'
+
+
+def test_confirm_delivery_rejects_an_illegal_state_transition(client, monkeypatch):
+    _stub_notifications(monkeypatch)
+    calls = _delivery_stubs(monkeypatch, _delivery_order(), rpc_ok=False)
+    r = client.post('/api/admin/orders/o1/confirm-delivery',
+                    json={}, headers=_admin_headers())
+    assert r.status_code == 409
+    assert calls['update'] == []
+
+
+def test_cod_delivery_posts_the_ledger_and_marks_paid(client, monkeypatch):
+    _stub_notifications(monkeypatch)
+    calls = _delivery_stubs(monkeypatch, _delivery_order(payment='unpaid'))
+    from services.ledger import PaymentPosting
+
+    def fake_post(db, **kwargs):
+        calls['ledger'].append(kwargs)
+        return PaymentPosting(ok=True, reference='cod:AB-1', journal_id='j-cod')
+
+    monkeypatch.setattr(app_mod.ledger, 'post_verified_payment', fake_post)
+    r = client.post('/api/admin/orders/o1/confirm-delivery', json={},
+                    headers=_admin_headers())
+    assert r.status_code == 200
+    body = r.get_json()
+    assert body['payment_status'] == 'paid' and body['ledger_journal_id'] == 'j-cod'
+    post = calls['ledger'][0]
+    assert post['tx_ref'] == 'AB-1' and post['received'] == 50000
+    assert post['reference_prefix'] == 'cod' and post['kind'] == 'cod_collection'
+    assert post['debit_account'] == 'COD_CASH_HELD'
+    assert post.get('actor') is None
+    paid_update = [c for c in calls['update'] if c[0] == 'orders'][0]
+    assert paid_update[1] == {'payment_status': 'paid'}
+    assert paid_update[2:] == ('payment_ref', 'AB-1')
+
+
+def test_cod_ledger_failure_does_not_mark_paid(client, monkeypatch):
+    _stub_notifications(monkeypatch)
+    calls = _delivery_stubs(monkeypatch, _delivery_order(payment='unpaid'))
+    from services.ledger import PaymentPosting
+    monkeypatch.setattr(app_mod.ledger, 'post_verified_payment', lambda db, **kw:
+                        PaymentPosting(ok=False, reference='cod:AB-1', error='db down'))
+    r = client.post('/api/admin/orders/o1/confirm-delivery', json={},
+                    headers=_admin_headers())
+    assert r.status_code == 503 and r.get_json()['code'] == 'ledger_post_failed'
+    assert [c for c in calls['update'] if c[0] == 'orders'] == []
+
+
+def test_unpaid_online_delivery_is_not_marked_paid(client, monkeypatch):
+    _stub_notifications(monkeypatch)
+    calls = _delivery_stubs(monkeypatch, _delivery_order(payment='unpaid', method='momo'))
+    monkeypatch.setattr(app_mod.ledger, 'post_verified_payment',
+                        lambda *a, **k: pytest.fail('no ledger post for unverified payment'))
+    r = client.post('/api/admin/orders/o1/confirm-delivery', json={},
+                    headers=_admin_headers())
+    assert r.status_code == 200
+    assert r.get_json()['payment_status'] == 'unpaid'
+    assert [c for c in calls['update'] if c[0] == 'orders'] == []
+    assert calls['ledger'] == []

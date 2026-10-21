@@ -1,7 +1,7 @@
 # AgriBridge — Test Results
 
 **Date:** 2026-10-21
-**Stage:** Verified customer payments posted to the double-entry ledger
+**Stage:** Identity-scoped SMS, admin write boundaries and cash-on-delivery posting
 **Environment:** Windows, Python 3.12, repository `C:\Users\HP\Documents\agribridge`
 
 Every result below was produced by a command run in this session. Live payment
@@ -17,7 +17,7 @@ PYTHONPATH=.test-deps python -m pytest -q
 ```
 
 ```
-318 passed, 1 skipped, 1 warning in 15.66s
+338 passed, 1 skipped, 1 warning in 6.84s
 ```
 
 The skipped test is `tests/e2e/test_consent_ui.py`; it requires Playwright,
@@ -94,6 +94,31 @@ anonymous-read vulnerability and proves migration 0014 closes it.
 `tests/test_card_payments.py`: the shared fixture now fakes the ledger RPC, so
 card and OTP tests exercise verification without network access.
 
+`tests/test_identity_and_admin.py` (this stage):
+
+* Anonymous `POST /api/sms-receipt` is rejected with `401`; a removed
+  `/api/notify-order` returns `404`.
+* A foreign order reference returns `404` and sends nothing; a missing
+  reference returns `400`.
+* A caller's own order sends exactly one SMS, to the phone stored on the order,
+  with the server-computed total (a body-supplied phone and total are ignored).
+* The generic admin editor rejects `orders.status` and `orders.payment_status`
+  with `400` and performs no write; delivery address still updates.
+* `PATCH /api/admin/order/<id>/status` calls `set_order_status`; illegal
+  transitions return `409` and a missing order returns `404`.
+* Transporter GPS updates target only `picked_up`/`in_transit`/`at_checkpoint`
+  deliveries by id (never completed rows) and report `503` when the write fails.
+
+`tests/test_admin_finance.py` (delivery and COD):
+
+* Delivery confirmation advances through `set_order_status` and writes only
+  `deliveries.actual_arrival`; it no longer writes `orders.delivered_at`
+  (a column the migrations do not define).
+* An unpaid `cash` order posts a `cod:<ref>` journal (debit `COD_CASH_HELD`),
+  then marks the order paid; a ledger failure returns `503` and leaves it unpaid.
+* An unpaid `momo`/gateway order stays unpaid at delivery and posts nothing.
+* Custom COD lines and reference/kind are also covered in `tests/test_ledger.py`.
+
 ## 5. Live verification status
 
 | Item | Evidence | Status |
@@ -104,6 +129,8 @@ card and OTP tests exercise verification without network access.
 | Payment → ledger posting | Unit/API tests with faked Flutterwave and RPC only | **Not yet exercised live** |
 | Render deployment of this stage | Not deployed at the time of writing | **Pending** |
 | Browser E2E / Playwright | Playwright not installed | **Not run** |
+| Admin status dropdown / SMS receipt in browser | Code changed; no browser run | **Not yet exercised** |
+| COD → ledger posting | Unit/API tests with faked RPC only | **Not yet exercised live** |
 
 A live posting can only be claimed after a real verified transaction produces a
 `payment:<tx_ref>` journal. The read-only queries in

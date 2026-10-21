@@ -231,8 +231,6 @@
       {k:'is_premium',label:'Premium',t:'check'}
     ],
     orders: [
-      {k:'status',label:'Order status',t:'select',opts:['pending','confirmed','in_transit','delivered','cancelled']},
-      {k:'payment_status',label:'Payment status',t:'select',opts:['unpaid','paid']},
       {k:'delivery_address',label:'Delivery address',t:'text'},
       {k:'notes',label:'Notes',t:'textarea'}
     ],
@@ -720,16 +718,34 @@
     setPanel('<table><thead><tr><th></th><th>Event</th><th>Summary</th><th>User</th><th>Time</th></tr></thead><tbody>'+body+'</tbody></table>');
   }
 
-  function actionsCell(tab,id){
+  function actionsCell(tab,id,status){
     var edit='<button class="btn sm ghost" onclick="openEdit(\''+tab+'\',\''+h(id)+'\')">Edit</button>';
     var del = tab==='orders' ? '' : '<button class="btn sm red" onclick="delRow(\''+tab+'\',\''+h(id)+'\')">Delete</button>';
-    return '<div class="rowbtns">'+edit+del+'</div>';
+    var move = '';
+    if(tab==='orders'){
+      var cur=status||'pending';
+      var opts=['pending','confirmed','in_transit','delivered','cancelled'].map(function(s){
+        return '<option value="'+s+'"'+(s===cur?' selected':'')+'>'+s+'</option>';
+      }).join('');
+      move='<select title="Advance status (server-enforced)" onchange="setOrderStatus(\''+h(id)+'\',this.value)">'+opts+'</select>';
+    }
+    return '<div class="rowbtns">'+move+edit+del+'</div>';
+  }
+
+  async function setOrderStatus(id,status){
+    if(!status) return;
+    if(!confirm('Move this order to "'+status+'"? Only legal transitions are accepted.')){ renderCurrent(); return; }
+    try{
+      var r=await api('/api/admin/order/'+encodeURIComponent(id)+'/status',{method:'PATCH',body:JSON.stringify({status:status})});
+      if(r&&r.ok){ await load('orders'); } else alert((r&&r.error)||'Status update failed.');
+    }catch(e){ alert('Status update failed.'); }
+    renderCurrent();
   }
 
   function renderOrders(rows){
     if(!rows.length){ panelMsg('No orders.'); return; }
     var body=rows.map(function(o){var st=o.status||'pending';var amt=o.total_price||o.total_amount||0;
-      return '<tr><td>'+h(o.payment_ref||(o.tracking_code||'')||(o.id||'').slice(0,8))+'</td><td>'+h(o.buyer_phone||'—')+'</td><td>'+(o.quantity_kg||0)+'</td><td>'+fmt(amt)+'</td><td><span class="badge '+st+'">'+st+'</span></td><td><span class="badge '+(o.payment_status==='paid'?'paid':'pending')+'">'+h(o.payment_status||'unpaid')+'</span></td><td>'+actionsCell('orders',o.id)+'</td></tr>';
+      return '<tr><td>'+h(o.payment_ref||(o.tracking_code||'')||(o.id||'').slice(0,8))+'</td><td>'+h(o.buyer_phone||'—')+'</td><td>'+(o.quantity_kg||0)+'</td><td>'+fmt(amt)+'</td><td><span class="badge '+st+'">'+st+'</span></td><td><span class="badge '+(o.payment_status==='paid'?'paid':'pending')+'">'+h(o.payment_status||'unpaid')+'</span></td><td>'+actionsCell('orders',o.id,st)+'</td></tr>';
     }).join('');
     setPanel('<table><thead><tr><th>Ref</th><th>Buyer</th><th>Qty</th><th>Amount</th><th>Status</th><th>Payment</th><th></th></tr></thead><tbody>'+body+'</tbody></table>');
   }

@@ -9,6 +9,10 @@ Accounting policy for a receipt:
   credit CUSTOMER_REFUND_PAYABLE    product value of cancelled orders in the batch
   credit SUSPENSE_OVERPAYMENT       anything received above the order total
 
+Cash collected on delivery posts the same credits, but debits COD_CASH_HELD
+instead of PROVIDER_CLEARING and uses a `cod:` reference so it cannot collide
+with a gateway receipt for the same checkout.
+
 Commission is deliberately NOT recognised here. `platform_config.commission_pct`
 applies to future payouts and no payout exists at receipt time; the settlement
 entry will move the commission out of FARMER_PAYABLE into COMMISSION_REVENUE.
@@ -34,6 +38,7 @@ ZERO = Decimal("0.00")
 UGX = "UGX"
 
 ACCOUNT_PROVIDER_CLEARING = "PROVIDER_CLEARING"
+ACCOUNT_COD_CASH_HELD = "COD_CASH_HELD"
 ACCOUNT_FARMER_PAYABLE = "FARMER_PAYABLE"
 ACCOUNT_CUSTOMER_REFUND_PAYABLE = "CUSTOMER_REFUND_PAYABLE"
 ACCOUNT_SUSPENSE_OVERPAYMENT = "SUSPENSE_OVERPAYMENT"
@@ -92,16 +97,24 @@ def _line(account: str, side: str, amount: Decimal, memo: str) -> dict:
     return {"account": account, "side": side, "amount": _fmt(amount), "memo": memo}
 
 
-def build_payment_lines(orders: list[dict], received, currency: str = UGX) -> tuple[list[dict], dict]:
+def build_payment_lines(orders: list[dict], received, currency: str = UGX, *,
+                        debit_account: str = ACCOUNT_PROVIDER_CLEARING,
+                        debit_memo: str = "customer payment received"
+                        ) -> tuple[list[dict], dict]:
     """Build the journal lines for one verified receipt.
 
     `orders` are the order rows sharing the checkout's payment_ref. Cancelled
     orders are still part of the money received, but that value is owed back to
     the customer rather than to the farmer.
+
+    `debit_account` names where the money landed: provider clearing for gateway
+    payments, COD_CASH_HELD for cash collected on delivery.
     """
     cur = str(currency or "").strip().upper()
     if cur != UGX:
         raise LedgerError(f"unsupported ledger currency: {currency!r}")
+    if not str(debit_account or "").strip():
+        raise LedgerError("a debit account is required")
 
     received_amount = money(received)
     if received_amount <= ZERO:
@@ -139,8 +152,7 @@ def build_payment_lines(orders: list[dict], received, currency: str = UGX) -> tu
         )
     suspense = received_amount - orders_total
 
-    lines = [_line(ACCOUNT_PROVIDER_CLEARING, "debit", received_amount,
-                   "customer payment received")]
+    lines = [_line(debit_account, "debit", received_amount, debit_memo)]
     if farmer_total > ZERO:
         lines.append(_line(ACCOUNT_FARMER_PAYABLE, "credit", farmer_total,
                            "product value owed to farmers"))
@@ -172,20 +184,28 @@ def build_payment_lines(orders: list[dict], received, currency: str = UGX) -> tu
 
 def post_verified_payment(db, *, tx_ref: str, orders: list[dict], received,
                           currency: str = UGX, provider: str = "",
-                          flw_id=None, actor=None) -> PaymentPosting:
-    """Post one idempotent customer-payment journal through `post_journal`.
+                          flw_id=None, actor=None, reference_prefix: str = "payment",
+                          kind: str = "customer_payment", debit_account: str = ACCOUNT_PROVIDER_CLEARING,
+                          debit_memo: str = "customer payment received",
+                          description: str | None = None) -> PaymentPosting:
+    """Post one idempotent receipt journal through `post_journal`.
 
     `db` is a SupabaseClient-like object with `.rpc(name, args)`. The reference
-    is derived from the checkout ref, so retries return the original journal.
+    is derived from the checkout ref plus a prefix, so retries return the
+    original journal. COD collection uses prefix/reference `cod` so a gateway
+    receipt and a cash collection for the same checkout cannot collide.
     """
     tx_ref = str(tx_ref or "").strip()
-    reference = f"payment:{tx_ref}"
-    if not tx_ref or len(tx_ref) > 160:
+    prefix = str(reference_prefix or "").strip()
+    reference = f"{prefix}:{tx_ref}"
+    if not tx_ref or len(tx_ref) > 160 or not prefix:
         return PaymentPosting(ok=False, reference=reference,
                               error="a valid payment reference is required")
 
     try:
-        lines, summary = build_payment_lines(orders, received, currency)
+        lines, summary = build_payment_lines(
+            orders, received, currency, debit_account=debit_account,
+            debit_memo=debit_memo)
     except LedgerError as exc:
         return PaymentPosting(ok=False, reference=reference, error=str(exc))
 
@@ -193,6 +213,7 @@ def post_verified_payment(db, *, tx_ref: str, orders: list[dict], received,
         "provider": str(provider or "")[:80],
         "flw_id": None if flw_id is None else str(flw_id)[:80],
         "currency": summary["currency"],
+        "debit_account": debit_account,
         "received": _fmt(summary["received"]),
         "orders_total": _fmt(summary["orders_total"]),
         "farmer_payable": _fmt(summary["farmer_payable"]),
@@ -204,8 +225,9 @@ def post_verified_payment(db, *, tx_ref: str, orders: list[dict], received,
     }
     args = {
         "p_reference": reference,
-        "p_kind": "customer_payment",
-        "p_description": f"Customer payment {tx_ref}" + (f" via {provider}" if provider else ""),
+        "p_kind": kind,
+        "p_description": description or (
+            f"Customer payment {tx_ref}" + (f" via {provider}" if provider else "")),
         "p_lines": lines,
         "p_payment_ref": tx_ref,
         "p_actor": actor,

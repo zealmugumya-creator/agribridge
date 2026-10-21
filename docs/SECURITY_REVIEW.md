@@ -59,6 +59,62 @@ No client code reads or writes these tables directly; transporter management is
 server-side (`service_role`) and transporter self-service uses the authenticated
 owner policies.
 
+### 3. HIGH — SMS endpoints were an unauthenticated relay
+
+`POST /api/notify-order` and `POST /api/sms-receipt` required no session. Anyone
+could name a farmer id or a phone number and make AgriBridge send SMS to it on
+AgriBridge's Africa's Talking account. That is an SMS-toll abuse vector and lets
+an attacker text arbitrary numbers with AgriBridge branding (the receipt text
+also echoed a client-supplied total).
+
+Fix:
+
+- `/api/notify-order` is removed. Farmer SMS is already sent server-side inside
+  `POST /api/orders` after the order is committed, so no functionality is lost.
+- `/api/sms-receipt` now requires a verified Supabase session. It accepts only an
+  order reference; recipient phone and amount come from the caller's own order
+  rows. Unknown and foreign orders both return `404` (no order-existence
+  oracle). Payment receipts are sent only by the verified payment path.
+- The browser no longer sends a phone number or total for receipts.
+
+Evidence: `tests/test_identity_and_admin.py` (anonymous `401`, foreign order
+`404`, body-supplied phone/total ignored, removed endpoint `404`).
+
+### 4. HIGH — admin generic editor could rewrite order and payment state
+
+`POST/PATCH /api/admin/row` allowed `orders.status` and `orders.payment_status`
+in its column allowlist. An admin token could move an order to `delivered`
+without `set_order_status` (skipping stock release and `order_events`) or mark
+it `paid` without any gateway verification or ledger posting.
+
+Fix:
+
+- Both columns are removed from the generic allowlist; a request naming either
+  is rejected with `400` instead of being silently dropped.
+- `PATCH /api/admin/order/<id>/status` now calls the `set_order_status` Postgres
+  state machine (`404` for a missing order, `409` for an illegal transition) and
+  records a `order_status_changed` system event.
+- The admin console edits only delivery address and notes, and advances status
+  through a dedicated dropdown that calls the state-machine endpoint.
+- Payment status is no longer writable from any generic editor. It changes only
+  when a gateway payment is verified, or when a `cash` order is delivered and
+  the COD journal posts first (`cod:<ref>`); an unpaid gateway order stays
+  unpaid at delivery confirmation. See [`docs/FINANCIAL_LEDGER.md`](FINANCIAL_LEDGER.md) §3.
+
+Evidence: `tests/test_identity_and_admin.py`.
+
+### 5. MEDIUM — transporter GPS writes overwrote finished deliveries silently
+
+`POST /api/transporter/location` updated every delivery row for the transporter,
+including delivered and failed ones, and ignored the result of both writes. A
+transporter could move the recorded end position of historical deliveries, and a
+database outage still returned `{"ok": true}`.
+
+Fix: only `picked_up`, `in_transit` and `at_checkpoint` deliveries are updated
+(by row id), completed rows are untouched, and a failed write returns `503`.
+
+Evidence: `tests/test_identity_and_admin.py`.
+
 ## Verified as not exploitable
 
 The following tables returned zero rows to `anon` and their policies are
@@ -118,3 +174,6 @@ transporter.
 - 17 security assertions pass (vulnerability reproduced before the fix, denied
   after; owner isolation; idempotent re-apply; down migration keeps the revokes).
 - Existing legal-consent and ledger SQL suites continue to pass.
+- `tests/test_identity_and_admin.py`: 10 checks pass covering SMS auth/scoping
+  and the admin status boundary; full pytest suite is 338 passed / 1 skipped
+  (Playwright not installed).

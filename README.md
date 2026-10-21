@@ -166,8 +166,7 @@ button; after delivery they can **Rate** the seller.
 | `/api/ussd` | POST | Africa's Talking USSD handler (`*789#`) |
 | `/api/ai` | POST | AI assistant (Groq); returns `{reply:null}` if unconfigured |
 | `/api/crop-doctor` | POST | Crop disease helper |
-| `/api/notify-order` | POST | Best-effort SMS to a farmer on a new order |
-| `/api/orders` | POST | **Server-authoritative order create** — recomputes price, reserves stock atomically, idempotent (fixes C1/C2/C4) |
+| `/api/orders` | POST | **Server-authoritative order create** — recomputes price, reserves stock atomically, idempotent (fixes C1/C2/C4); also sends the farmer SMS |
 | `/api/orders/<id>/status` | POST | Order state transition via the Postgres state machine (owner/admin only) |
 | `/api/requests` | POST | Create a **purchase request** (distinct from a paid order) for matching |
 | `/api/offers/<id>/accept` | POST | Farmer accepts an offer — atomic reservation, expires sibling offers |

@@ -71,6 +71,29 @@ def test_overpayment_is_held_in_suspense_and_the_journal_still_balances():
     assert summary["suspense"] == Decimal("5000.00")
 
 
+def test_cod_collection_debits_cash_held_instead_of_provider_clearing():
+    lines, _ = ledger.build_payment_lines(
+        [_order("o1", 50000)], 50000,
+        debit_account=ledger.ACCOUNT_COD_CASH_HELD,
+        debit_memo="cash collected on delivery")
+    assert _accounts(lines)[0] == ("COD_CASH_HELD", "debit", "50000.00")
+    assert lines[0]["memo"] == "cash collected on delivery"
+
+
+def test_cod_post_uses_its_own_reference_and_kind():
+    db = Db()
+    posting = ledger.post_verified_payment(
+        db, tx_ref="AB-1", orders=[_order("o1", 50000)], received=50000,
+        provider="cash", reference_prefix="cod", kind="cod_collection",
+        debit_account=ledger.ACCOUNT_COD_CASH_HELD,
+        description="Cash on delivery AB-1")
+    assert posting.ok
+    args = db.calls[0][1]
+    assert args["p_reference"] == "cod:AB-1" and args["p_kind"] == "cod_collection"
+    assert args["p_metadata"]["debit_account"] == "COD_CASH_HELD"
+    assert args["p_description"] == "Cash on delivery AB-1"
+
+
 def test_decimal_arithmetic_has_no_float_drift():
     lines, summary = ledger.build_payment_lines(
         [_order("o1", 10000.10), _order("o2", 20000.20)], 30000.30)
