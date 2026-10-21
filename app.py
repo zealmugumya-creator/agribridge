@@ -238,9 +238,18 @@ def supa_insert(table, data):
     }
     try:
         res = requests.post(url, json=data, headers=headers, timeout=8)
-        return res.json() if res.ok else None
+        if res.ok:
+            return res.json()
+        try:
+            detail = res.json()
+        except Exception:
+            detail = {}
+        # Log the schema/constraint failure without writing row data (PII) to logs.
+        log.error('supabase.insert_failed', table=table, status=res.status,
+                  code=detail.get('code'), message=detail.get('message'))
+        return None
     except Exception as e:
-        print(f"Supabase INSERT error: {e}")
+        log.error('supabase.insert_exception', table=table, error=str(e))
         return None
 
 def supa_update(table, data, eq_col, eq_val):
@@ -721,14 +730,27 @@ def ussd_route(parts, depth, last, session_id, phone):
             price = last
             crop  = session.get('crop', 'Crop')
             qty   = session.get('qty', '0')
-            supa_insert('listings', {
+            farmer_rows = supa_get('farmers', {'phone': f'eq.{phone}'}, limit=1) or []
+            farmer = farmer_rows[0] if farmer_rows else {}
+            # listings has no farmer_name/source columns; district is NOT NULL.
+            saved = supa_insert('listings', {
+                'farmer_id':    farmer.get('id'),
                 'crop_name':    crop,
                 'quantity_kg':  float(qty)   if qty.replace('.', '').isdigit()   else 0,
                 'price_per_kg': float(price) if price.replace('.', '').isdigit() else 0,
+                'district':     farmer.get('district') or 'Unknown',
                 'farmer_phone': phone,
                 'is_available': True,
-                'source':       'ussd'
             })
+            if not saved:
+                _log_system_event('listing_create_failed', {'channel': 'ussd'}, severity='error')
+                _ussd_del(session_id)
+                return (
+                    "END Sorry, we could not save\n"
+                    "your listing right now.\n\n"
+                    "Please try again shortly or\n"
+                    "call +256 755 966 690."
+                )
             _discord_notify(
                 event_type='listing.created',
                 title='🌾 New Listing via USSD',
@@ -1384,6 +1406,8 @@ def create_listing():
     # Look up farmer profile for phone/name
     farmer_rows = supa_get('farmers', {'id': f'eq.{uid}'}, limit=1) or []
     farmer_info = farmer_rows[0] if farmer_rows else {}
+    # Only write columns that exist in public.listings. Farmer names are joined
+    # from farmers(full_name) in the marketplace, and source is not stored.
     row = {
         'farmer_id':          uid,
         'crop_name':          crop_name,
@@ -1391,15 +1415,13 @@ def create_listing():
         'price_per_kg':       float(price_per_kg),
         'district':           district or farmer_info.get('district', ''),
         'description':        description or None,
-        'farmer_name':        farmer_info.get('full_name', ''),
         'farmer_phone':       farmer_info.get('phone', ''),
         'is_available':       True,
-        'source':             'web',
         # Optional extra fields from the web form
         'category':           str(data.get('category', '')).strip()[:40] or None,
         'is_organic':         bool(data.get('is_organic', False)),
         'sale_unit':          str(data.get('sale_unit', 'per kg')).strip()[:20] or None,
-        'min_order_kg':       int(data.get('min_order_kg') or 0) or None,
+        'min_order_kg':       max(0, int(data.get('min_order_kg') or 0)),
         'delivery_available': bool(data.get('delivery_available', False)),
         'payment_terms':      str(data.get('payment_terms', '')).strip()[:100] or None,
         'image_url':          str(data.get('image_url', '')).strip() or None,

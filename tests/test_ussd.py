@@ -171,8 +171,9 @@ def test_ussd_crop_listing_flow(monkeypatch, client):
     -> crop choice 1 (Maize) -> quantity -> price -> END.
     """
     store = _patch_ussd(monkeypatch)
-    # Stub the supa_insert helper used inside the route
-    monkeypatch.setattr(app_mod, "supa_insert", lambda table, data: None)
+    # Stub the Supabase helpers used inside the route
+    monkeypatch.setattr(app_mod, "supa_get", lambda *a, **kw: [])
+    monkeypatch.setattr(app_mod, "supa_insert", lambda table, data: [{"id": "fake"}])
     # Stub SMS send
     monkeypatch.setattr(app_mod, "at_sms", None)
 
