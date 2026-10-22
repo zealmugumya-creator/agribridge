@@ -10,16 +10,17 @@ exercised. Migration 0017, 0016, 0002 and **0015** are applied live (verified by
 read-only PostgREST probes on 2026-10-22; `orders.source_ref` returns HTTP 200).
 Push `9123b38` (Pesapal + Google) and push `6077883` (Bank Transfer + signup
 fix) both deployed the **API on Render** — live `/api/pay/providers` now returns
-`bank:true`. The **Cloudflare SPA auto-deploy is still broken**: the
-`Deploy public web app` workflow now attempts a real deploy but Cloudflare
-rejects the stored secret (`Authentication error [code: 10000]` /
-`Invalid access token [code: 9109]`), and Workers Builds also fails. The SPA is
-therefore published manually with `wrangler deploy`. Verified live 2026-10-22:
-`agribrige.com/` serves the `pm-bank` checkout card and the Stage 1 buyer
-surface (Worker version `bb9e65fb-974d-4381-8bf0-c78191a2e6d0`, sha256-identical
-to `static/index.html`); `agribrige.com/admin` serves the `Bank paid` /
-`verifyBankTransfer` button. Replacing the GitHub token with a valid value is
-still required so future `static/` pushes publish on their own.
+`bank:true`. The **Cloudflare SPA auto-deploy is restored**: the owner replaced
+the rejected secret with a token scoped to **Specified Workers → agribridge →
+Individual Workers Editor**, and manual run `39859133726` (commit `bb2cd7a`)
+succeeded, publishing Worker version `a6a1d85b-f203-4e90-8dd3-b405455c32c4`.
+Both `agribrige.com` and the workers.dev host now serve the Git blob of
+`static/index.html` from `bb2cd7a` (752,146 bytes, sha256 `439306a7…a19a13`;
+content-identical to the workstation file after CRLF normalisation). The
+`pm-bank` checkout card and the Stage 1 buyer surface are live, and
+`agribrige.com/admin` serves the `Bank paid` / `verifyBankTransfer` button.
+**Workers Builds still fails** and should be disabled so only one publisher
+targets the Worker.
 See §6 for exact evidence. Livestock/supplier checkout runs on the category-aware
 `create_order_atomic`.
 
@@ -312,11 +313,13 @@ production: the live bundle does not contain it (see §6).
 | `Deploy public web app` with the owner's new secrets | Run `39785941174` job `119849040101` **failure**, annotation: `Authentication error [code: 10000]` + `Invalid access token [code: 9109]` | **VERIFIED BLOCKER — stored token value rejected by Cloudflare**; nothing published by CI |
 | Redesigned SPA + checkout fix | Published from an authenticated workstation: version `ffecfbb1-7937-4d90-8f97-2d610004a934`. Live HTML is sha256-identical to `static/index.html` at `db9d92f`; production browser check shows `window._payProviders` empty on load, then populated by `syncPayMethods()` → Bank tile visible, Pesapal correctly hidden | **DEPLOYED and verified live**; provider-gated tile behavior confirmed in production |
 | Duplicate signup alert fix (API) | Once-per-account gate on the `signup_alerted` system_event + account-age window, carried by the deployed `6077883` API | **Deployed on Render**; live `#signups` behavior not yet observed over subsequent logins |
-| Stage 1 buyer storefront (home / cards / details / cart) | Committed and pushed as `30f8784`: `static/index.html` sha256 `8d73dd5a…2b9107` (762,544 bytes); 6 new Playwright tests (5 consecutive green runs; all 28 browser tests green twice); 447-test suite green; 51/51 ad-hoc checks against live Supabase read-only | **DEPLOYED and verified live.** Worker version `bb9e65fb-974d-4381-8bf0-c78191a2e6d0`; both `agribrige.com` and the workers.dev host serve 762,544 bytes, sha256 `8d73dd5a…2b9107`, byte-identical to local; live HTML contains all Stage 1 markers |
-| CI for `30f8784` | `Backend lint + type + tests` **success**, `Migration 0007 on real PostgreSQL (PGlite)` **success** | **Green in GitHub** |
-| Stage 1 publish attempt (first) | `Deploy public web app` **failure**: `Authentication error [code: 10000]` / `Invalid access token [code: 9109]`; Workers Builds build `d901d774-…` **failure**; manual `wrangler deploy` against account `7a675255…` failed before upload because local OAuth was then logged in as `mugumyazeal@gmail.com` (account `0b66e23d…`) | **Resolved** — owner re-ran `wrangler login` against the owning account; the retry published successfully. GitHub token and Workers Builds remain broken |
+| Stage 1 buyer storefront (home / cards / details / cart) | Committed and pushed as `30f8784`: `static/index.html` sha256 `8d73dd5a…2b9107` (762,544 bytes, CRLF checkout); 6 new Playwright tests (5 consecutive green runs; all 28 browser tests green twice); 447-test suite green; 51/51 ad-hoc checks against live Supabase read-only | **DEPLOYED and verified live** |
+| CI for `30f8784` and `bb2cd7a` | `Backend lint + type + tests` **success**, `Migration 0007 on real PostgreSQL (PGlite)` **success** on both commits | **Green in GitHub** |
+| Stage 1 publish attempt (first) | `Deploy public web app` **failure**: `Authentication error [code: 10000]` / `Invalid access token [code: 9109]`; Workers Builds build `d901d774-…` **failure**; manual `wrangler deploy` against account `7a675255…` failed before upload because local OAuth was then logged in as `mugumyazeal@gmail.com` (account `0b66e23d…`) | **Resolved** — owner re-ran `wrangler login`, then later replaced the GitHub token |
+| CI auto-deploy restored (2026-10-22T21:40Z) | Token scoped to **Specified Workers → agribridge → Individual Workers Editor** (no expiration, all IPs), `CLOUDFLARE_ACCOUNT_ID` `7a675255…`; manual `workflow_dispatch` run `39859133726` on `bb2cd7a` **success** (27 s). `wrangler deployments list` shows new deployment at `21:40:43Z`, author `undefined` (CI token), version `a6a1d85b-f203-4e90-8dd3-b405455c32c4` | **DEPLOYED BY CI and verified live** on both domains |
 | Stage 1 live browser verification | Production headless Chrome at 390×844: landing → Launch app → splash → Browse as guest → 6 real home cards (Groundnuts / Zeal / Gulu / UGX 1,500/kg) → Vegetables filter (10 cards; survives a forced late `loadHomeStats()`) → Groundnuts detail (real fallback description) → add to cart → cart subtotal/total `UGX 1,500`, delivery "Arranged after confirmation", checkout enabled | **Verified in production, zero page errors**; checkout not clicked, no order placed |
-| Stage 1 live HTML probe | `curl https://agribrige.com/` → 762,544 bytes, sha256 `8d73dd5a…2b9107`; markers `splashBrowseGuest` ×2, `pdTrustVerified` ×2, `homeMoreHead` ×3, `_homeCat` ×4, "Arranged after confirmation" ×4; workers.dev host identical | **In production** on both domains |
+| Stage 1 live HTML probe (post-CI) | `curl https://agribrige.com/` → 752,146 bytes, sha256 `439306a7…a19a13`, exactly `git show bb2cd7a:static/index.html`; after `tr -d '\r'` it matches the workstation file (`8d73dd5a…` raw, CRLF). Markers `splashBrowseGuest` ×2, `pdTrustVerified` ×2, `homeMoreHead` ×3, `_homeCat` ×3, "Arranged after confirmation" ×4; workers.dev host identical | **In production** on both domains; raw-byte hash differs only by line endings |
+| Workers Builds on `bb2cd7a` | Check-run **failure** while the Actions deploy succeeds | **Still a second, failing publisher**; disable it so one publisher wins |
 
 A live payment can only be claimed after a real verified transaction produces a
 `payment:<tx_ref>` journal. Pesapal additionally requires live credentials and

@@ -29,20 +29,18 @@
 > had **silently skipped** (green run, deploy step skipped), so the SPA has since
 > been published from an authenticated workstation each time.
 >
-> **Deploy automation, now honest and observed (pushes `5321418` + `db9d92f`,
-> 2026-10-22):** `Deploy public web app` no longer can pass while publishing
-> nothing — it exits 1 when a secret is missing, and on any wrangler failure it
-> captures the output and republishes the reason as a check annotation plus the
-> run summary (job logs are not readable without owner authentication). Both
-> `CLOUDFLARE_API_TOKEN` and `CLOUDFLARE_ACCOUNT_ID` now exist in GitHub, and the
-> step genuinely runs — it **fails with Cloudflare `Authentication error [10000]`
-> / `Invalid access token [9109]`, i.e. the stored token value is rejected.** The
-> identical `static/` tree deploys fine from a workstation, which isolates the
-> fault to the secret, not the code. **Owner action: replace `CLOUDFLARE_API_TOKEN`
-> with a freshly copied Cloudflare token *secret* value and re-run the workflow**
-> (`docs/OPERATIONS_SETUP.md` §11, `docs/LIVE_BASELINE_AUDIT.md` §16). Note that
-> Cloudflare *Workers Builds* also targets the same Worker and is failing — pick
-> one publisher.
+> **Deploy automation, now honest and working (2026-10-23):** `Deploy public web
+> app` can no longer pass while publishing nothing — it exits 1 when a secret is
+> missing, and on any wrangler failure it captures the output and republishes the
+> reason as a check annotation plus the run summary. Both
+> `CLOUDFLARE_API_TOKEN` and `CLOUDFLARE_ACCOUNT_ID` exist in GitHub. After an
+> invalid-token phase (`Authentication error [10000]` / `Invalid access token
+> [9109]`), the owner replaced the token with one scoped to **Specified Workers →
+> agribridge → Individual Workers Editor**; manual run `39859133726` succeeded
+> and published Worker version `a6a1d85b-f203-4e90-8dd3-b405455c32c4`. CI
+> publishing is restored; Cloudflare *Workers Builds* still fails and should be
+> disabled so only one publisher targets the Worker
+> (`docs/OPERATIONS_SETUP.md` §11, `docs/LIVE_BASELINE_AUDIT.md` §20).
 >
 > **Buyer-UI redesign (`74879f8`/`20f45f2`) merged red and was repaired in
 > `db9d92f`:** the redesign had reintroduced the retired `support@agribridge.ug`
@@ -52,12 +50,14 @@
 > accounts could stay hidden on a fresh page load. Fixed and confirmed in
 > **production** (the live page now populates `window._payProviders` on first
 > checkout render; Bank tile visible, Pesapal correctly hidden while unconfigured).
-> Live SPA = wrangler version `bb9e65fb-974d-4381-8bf0-c78191a2e6d0`, sha256
-> identical to `static/index.html` after commit `30f8784`.
+> Live SPA = wrangler version `a6a1d85b-f203-4e90-8dd3-b405455c32c4`, published
+> by CI run `39859133726` from commit `bb2cd7a`; live HTML is the Git blob of
+> `static/index.html` (sha256 `439306a7…a19a13`; content-identical to the
+> workstation file after CRLF normalisation).
 > Current verified suite: **447 Python tests** (including 28 Playwright browser
-> tests) and 129 SQL assertions; CI green on `db9d92f` and on `30f8784`; the
-> Stage 1 bundle is **published and verified live** (see
-> `docs/LIVE_BASELINE_AUDIT.md` §20); see `docs/TEST_RESULTS.md`.
+> tests) and 129 SQL assertions; CI green on `db9d92f`, `30f8784` and `bb2cd7a`;
+> the Stage 1 bundle is **published by the restored CI workflow and verified
+> live** (see `docs/LIVE_BASELINE_AUDIT.md` §20); see `docs/TEST_RESULTS.md`.
 >
 > **Pesapal is now configured live (2026-10-22).** The owner added consumer
 > credentials and `PESAPAL_ENV=live` in Render; `/api/pay/providers` returns
@@ -124,18 +124,21 @@ and CI-pinned 0.8.4; `node --check` passes all four inline script blocks; a
 51/51 ad-hoc browser harness ran at mobile/desktop widths against the live
 Supabase project **read-only** (no order placed, no row written).
 
-**Production status: PUBLISHED AND VERIFIED.** The work is commit `30f8784` on
-`main`; CI (`Backend lint + type + tests`, `Migration 0007`) is green. Published
-as Worker version `bb9e65fb-974d-4381-8bf0-c78191a2e6d0`; both
-`https://agribrige.com/` and the workers.dev host serve 762,544 bytes, sha256
-`8d73dd5a411adedc0fd6a9e198e29e5ff98746397fd573fcc4728908992b9107`, identical to
-the local file, with all Stage 1 markers. A production browser smoke test went
+**Production status: PUBLISHED BY CI AND VERIFIED.** The work is commit
+`30f8784` on `main`; CI (`Backend lint + type + tests`, `Migration 0007`) is
+green. The `Deploy public web app` workflow is working again: after the owner
+replaced `CLOUDFLARE_API_TOKEN` with a token scoped to **Specified Workers →
+agribridge → Editor**, manual run `39859133726` succeeded and published Worker
+version `a6a1d85b-f203-4e90-8dd3-b405455c32c4`. Both
+`https://agribrige.com/` and the workers.dev host serve the Git blob of
+`static/index.html` at `bb2cd7a`: 752,146 bytes, sha256
+`439306a7…a19a13`, content-identical to the workstation file after CRLF
+normalisation, with all Stage 1 markers. A production browser smoke test went
 landing → Launch app → splash → Browse as guest → home cards → category filter →
 detail → add to cart → cart, with honest totals and **zero page errors** (no
-order placed). Previous version `8ef07b1d-36db-4a92-abfc-2a56de640a93` is the
-rollback target. CI auto-deploy is still broken: the GitHub
-`CLOUDFLARE_API_TOKEN` is rejected (`9109`) and Workers Builds still fails, so
-this publish was manual; see `docs/LIVE_BASELINE_AUDIT.md` §20.
+order placed). Previous version `bb9e65fb-974d-4381-8bf0-c78191a2e6d0` is the
+rollback target. Workers Builds still fails and must be disabled so only one
+publisher targets the Worker; see `docs/LIVE_BASELINE_AUDIT.md` §20.
 
 **Residual / out of scope:** cart is device-local (no server cart); promo codes
 remain deliberately absent; the legacy B2B invoice generator still hardcodes a

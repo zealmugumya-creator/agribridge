@@ -280,16 +280,25 @@ without opening the job log (`docs/LIVE_BASELINE_AUDIT.md` §14). Do not read a
 green deploy as proof unless you also confirm the served HTML (e.g.
 `curl -s https://agribrige.com/ | grep pm-bank`).
 
-**Current state (verified 2026-10-22):** both secrets now exist in GitHub, and the
-deploy step really runs — it fails with Cloudflare `Authentication error [10000]`
-and `Invalid access token [9109]`, i.e. **the stored token value is rejected by
-Cloudflare** (most often the token *ID* was pasted instead of the one-time secret,
-or the token was revoked). The same `static/` tree deploys successfully from an
-authenticated workstation, which proves the artifact and Worker config are fine.
-Until the secret is replaced with a valid token value, publish from a workstation
-with `npx wrangler@4 deploy` (this is how version `ffecfbb1`, the redesigned buyer
-app + bank checkout, and version `bb9e65fb`, Stage 1 of the buyer storefront,
-went live).
+**Current state (verified 2026-10-22T21:40Z): auto-deploy is working.** The
+owner replaced the rejected token with one scoped to **Specified Workers →
+`agribridge` → Individual Workers Editor** (no expiration, all IPs allowed) and
+kept `CLOUDFLARE_ACCOUNT_ID` = `7a6752557859ee5998bdc81c0989743b`. Manual
+`workflow_dispatch` run `39859133726` on `bb2cd7a` completed green, and
+`wrangler deployments list` shows the new deployment at `21:40:43Z` with version
+`a6a1d85b-f203-4e90-8dd3-b405455c32c4` — proof that CI published rather than
+no-opped. Earlier failures were `Authentication error [10000]` /
+`Invalid access token [9109]` from an invalid stored value; that is history.
+
+**Verification must normalise line endings on this repo.** The workstation
+checkout is CRLF (`core.autocrlf=true`) while CI checks out LF, so raw sha256
+values legitimately differ. Compare content instead:
+
+```bash
+git show HEAD:static/index.html | sha256sum
+curl -s https://agribrige.com/ | tr -d '\r' | sha256sum   # must match
+curl -s https://agribrige.com/ | grep -c splashBrowseGuest # must be > 0
+```
 
 **Workstation login check (verified 2026-10-22):** do not assume the local
 wrangler login owns the Worker. A login can silently belong to a different
@@ -306,10 +315,9 @@ CLOUDFLARE_ACCOUNT_ID=7a6752557859ee5998bdc81c0989743b npx --yes wrangler@4 depl
 curl -s https://agribrige.com/ | grep -c splashBrowseGuest   # must be > 0
 ```
 
-The re-login performed on 2026-10-22 published Worker version
-`bb9e65fb-974d-4381-8bf0-c78191a2e6d0`; both domains then served 762,544 bytes,
-sha256 `8d73dd5a…2b9107`, matching the local `static/index.html`, and a
-production browser smoke test passed with zero page errors.
+The manual path remains the fallback if CI is unavailable. It published Worker
+version `bb9e65fb-974d-4381-8bf0-c78191a2e6d0` on 2026-10-22 before CI was
+restored; a production browser smoke test passed with zero page errors.
 
 Never run `wrangler deploy` without the account override while logged in to
 `0b66…`: it targets the wrong account and leaves the public site untouched.
