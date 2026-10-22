@@ -30,11 +30,12 @@ PYTHONPATH=.test-deps /c/Users/HP/OneDrive/Python314/python.exe -m pytest -q
 ```
 
 ```
-431 passed, 103 warnings in 53.80s
+434 passed, 103 warnings in 45.77s
 ```
 
-This includes the 22 Playwright browser tests and the 14 new Bank Transfer /
-signup-alert tests (`tests/test_bank_transfer.py`). Run with the system `python`
+This includes the 22 Playwright browser tests, the 14 Bank Transfer /
+signup-alert tests (`tests/test_bank_transfer.py`) and the 3 deploy-workflow
+contract tests (`tests/test_deploy_workflow.py`). Run with the system `python`
 (3.12) the Playwright E2E module skips because `.test-deps` is built for Python
 3.14 and its native `greenlet` extension cannot load there. The skip is a local
 interpreter mismatch, not a product failure; the 3.14 run is the full result.

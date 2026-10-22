@@ -261,18 +261,22 @@ repository secrets in GitHub Settings > Secrets and variables > Actions:
   Worker. Keep it out of Render and out of source code.
 - `CLOUDFLARE_ACCOUNT_ID` - the Cloudflare account that owns the Worker.
 
-The `Deploy public web app` workflow skips safely until the API token exists —
-**it still reports a green run, but the "Deploy Worker static assets" step is
-`skipped`, so nothing new is published.** Do not read a green deploy run as
-proof the live site updated; confirm by checking the served HTML for the new
-marker (e.g. `curl -s https://agribrige.com/ | grep pm-bank`). As of 2026-10-22
-the token is **still not configured**; the Bank Transfer checkout card from push
-`6077883` was published **manually** with `npx wrangler@4 deploy` (version
-`15ff5212`), so it is live, but every future `static/` change will keep needing a
-manual publish until the secrets are added. To enable automatic deploys: add the
-two secrets above, then re-run the workflow (Actions → Deploy public web app →
-Run workflow, or `gh workflow run deploy-cloudflare.yml`), or keep deploying from
-an authenticated workstation with `npx wrangler@4 deploy`.
+The `Deploy public web app` workflow now **fails (red)** when
+`CLOUDFLARE_API_TOKEN` or `CLOUDFLARE_ACCOUNT_ID` is missing — it no longer
+reports a misleading green run while publishing nothing (an earlier version did
+exactly that and silently stranded SPA releases; fixed on branch
+`fix/deploy-workflow-honest-status`, see `docs/LIVE_BASELINE_AUDIT.md` §13).
+**A red `Deploy public web app` run with that `::error::` means the token is not
+yet configured, not that your code is broken.** Do not read a green deploy as
+proof unless you also confirm the served HTML (e.g.
+`curl -s https://agribrige.com/ | grep pm-bank`). As of 2026-10-22 the token is
+**still not configured**; the Bank Transfer checkout card from push `6077883` was
+published **manually** with `npx wrangler@4 deploy` (version `15ff5212`), so it is
+live, but every future `static/` change will keep failing the deploy until the
+secrets are added. To enable automatic deploys: add the two secrets above, then
+re-run the workflow (Actions → Deploy public web app → Run workflow, or
+`gh workflow run deploy-cloudflare.yml`), or keep deploying from an authenticated
+workstation with `npx wrangler@4 deploy`.
 
 ---
 

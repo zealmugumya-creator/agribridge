@@ -22,16 +22,28 @@ jobs:
       CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
     steps:
       - uses: actions/checkout@v4
-      - name: Report missing deployment credential
-        if: ${{ env.CLOUDFLARE_API_TOKEN == '' }}
-        run: |
-          echo "::warning::Cloudflare deployment was skipped because CLOUDFLARE_API_TOKEN is not configured in GitHub Actions secrets."
-          {
-            echo "## Cloudflare deployment skipped"
-            echo "Add CLOUDFLARE_API_TOKEN (and, if required, CLOUDFLARE_ACCOUNT_ID) in GitHub repository Actions secrets, then rerun this workflow."
-          } >> "$GITHUB_STEP_SUMMARY"
       - name: Deploy Worker static assets
-        # Skip rather than create a misleading red build until the repository
-        # owner configures the two deployment secrets described in Operations.
-        if: ${{ env.CLOUDFLARE_API_TOKEN != '' }}
-        run: npx --yes wrangler@4 deploy
+        # A deploy that did not happen must never look like a passing release.
+        # The previous version guarded the deploy on `CLOUDFLARE_API_TOKEN != ''`
+        # and only warned on the empty path, so the run finished green while
+        # publishing nothing — that silently stranded SPA releases (verified live
+        # on push 6077883, where the bank checkout never reached the site).
+        # We now fail loudly until the owner adds the deployment secrets.
+        run: |
+          if [ -z "$CLOUDFLARE_API_TOKEN" ] || [ -z "$CLOUDFLARE_ACCOUNT_ID" ]; then
+            echo "::error::Cloudflare SPA deploy FAILED: CLOUDFLARE_API_TOKEN and/or CLOUDFLARE_ACCOUNT_ID are not set in GitHub Actions secrets. NOTHING was published — this is a real failure, not a no-op."
+            {
+              echo "## Cloudflare SPA deploy failed: missing secrets"
+              echo ""
+              echo "No files were published. A green \`Deploy public web app\` run is the only signal that a \`static/\` change actually shipped."
+              echo ""
+              echo "Add these under GitHub Settings > Secrets and variables > Actions, then re-run this workflow:"
+              echo "- \`CLOUDFLARE_API_TOKEN\`"
+              echo "- \`CLOUDFLARE_ACCOUNT_ID\`"
+              echo ""
+              echo "Until then, publish manually from an authenticated workstation: \`npx --yes wrangler@4 deploy\`."
+              echo "See \`docs/OPERATIONS_SETUP.md\` section 11."
+            } >> "$GITHUB_STEP_SUMMARY"
+            exit 1
+          fi
+          npx --yes wrangler@4 deploy

@@ -33,8 +33,12 @@
 > button. **Add `CLOUDFLARE_API_TOKEN` to GitHub secrets so future `static/`
 > pushes publish automatically** (see `docs/OPERATIONS_SETUP.md` §11). Pesapal
 > and Google remain unconfigured and unverified live.
-> Current verified suite: 431 Python tests (including 22 Playwright browser
+> Current verified suite: 434 Python tests (including 22 Playwright browser
 > tests) and 129 SQL assertions; see `docs/TEST_RESULTS.md`.
+> **Live-baseline audit:** `docs/LIVE_BASELINE_AUDIT.md` (2026-10-22) records the
+> evidence-based production state and the first verified blocker (the SPA deploy
+> workflow reporting green while publishing nothing), with its fix on branch
+> `fix/deploy-workflow-honest-status`.
 
 **Phase 1 COMPLETE — Baseline Audit**
 **Completed:** 2026-10-10
