@@ -7,7 +7,10 @@
 Every result below was produced by a command run in this session. No live
 Pesapal transaction was made and no real Google OAuth consent screen was
 exercised. Migration 0017, 0016 and 0002 are applied live (verified by
-read-only PostgREST probes on 2026-10-22); **0015 is still missing**. See §6.
+read-only PostgREST probes on 2026-10-22); **0015 is still missing**. Push
+`9123b38` was deployed automatically by Render and the Cloudflare workflow;
+because 0015 was not applied, livestock/supplier checkout is degraded live.
+See §6.
 
 ---
 
@@ -179,7 +182,7 @@ order flows and checkout UI).
 |---|---|---|
 | Migration 0013 (ledger core) | Supabase SQL Editor success; SQL suite passes | Applied by owner, verified |
 | Migration 0014 (internal-table lockdown) | Supabase SQL Editor success; anon `GET` on `system_events`/`transporters` returns `401` | Applied, verified |
-| Migration 0015 (category pricing) | Read-only probe: `orders.source_ref` returns `42703` | **Not applied live** — apply before the SPA bundle |
+| Migration 0015 (category pricing) | Read-only probe after deploy: `orders.source_ref` returns `42703` | **Not applied live** — new API/SPA already live; apply immediately |
 | Migration 0002 (admin identity RLS) | Read-only probe: `user_roles` exists (anon gets `200 []` through RLS) | Applied live; policy behavior tested in PGlite |
 | Migration 0016 (settlements) | Read-only probe: `payouts.commission_amount`/`net_amount` select succeeds | Applied live; settle flow not exercised live |
 | Migration 0017 (Pesapal) | Live tables exist; anon reads return `401` / `42501` | Applied live, RLS verified by probe |
@@ -192,8 +195,8 @@ order flows and checkout UI).
 | Google sign-in | Stubbed OAuth in Playwright | **Not yet exercised live** |
 | Browser E2E / Playwright | 22 passed locally (Chromium) | Verified in test harness |
 | Pesapal UI / Google UI in a real browser against live services | Served locally with stubs | **Not yet exercised live** |
-| API deployment of this stage | Code committed and pushed on 2026-10-22; Render deployment confirmation pending | **Pending confirmation** |
-| Public SPA bundle (Pesapal/Google) | Not deployed at the time of writing | **Pending** |
+| API deployment of this stage | Push `9123b38`; live `/health` returns `200` with `supabase_connected:true`; `/api/pay/providers` includes `pesapal`; Pesapal callback route returns `302`; admin recurring route returns `401` | **Deployed and reachable**; business flows unverified |
+| Public SPA bundle (Pesapal/Google) | Cloudflare run `39710797408` succeeded; live HTML contains `pm-pesapal` and `googleLoginBtn` | **Deployed**; live flows unverified |
 
 A live payment can only be claimed after a real verified transaction produces a
 `payment:<tx_ref>` journal. Pesapal additionally requires live credentials and

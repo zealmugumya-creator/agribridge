@@ -13,16 +13,17 @@
 > adds Pesapal API 3.0 hosted checkout and recurring-charge recording; recurring
 > money posts to `SUSPENSE_OVERPAYMENT`, never to a farmer. The SPA also offers
 > Google sign-in through Supabase OAuth, with a locked onboarding modal for
-> phone/role/district/terms. **Live schema status (verified 2026-10-22 by
-> read-only PostgREST probes):** 0002, 0016 and 0017 are applied;
-> `payment_gateway_state`, `payment_subscriptions` and `subscription_charges`
-> exist and reject `anon` with `42501`. **0015 is still missing** —
-> `orders.source_ref` does not exist. Apply 0015 **before deploying this SPA
-> bundle**, because 0002 has already closed direct order inserts and the legacy
-> `create_order_atomic` is not category-aware. Pesapal and Google are
-> unconfigured and unverified live. Current verified suite: 417 Python tests
-> (including 22 Playwright browser tests) and 129 SQL assertions; see
-> `docs/TEST_RESULTS.md`.
+> phone/role/district/terms. **Live schema and deployment status (verified
+> 2026-10-22 by read-only PostgREST probes and public endpoint probes):** 0002,
+> 0016 and 0017 are applied; `payment_gateway_state`, `payment_subscriptions` and
+> `subscription_charges` exist and reject `anon` with `42501`. Push `9123b38`
+> deployed the API on Render and the SPA via the `Deploy public web app`
+> workflow. **0015 is still missing** — `orders.source_ref` does not exist — so
+> livestock/supplier checkout is running against the legacy non-category
+> function and will fail until `0015_category_order_pricing.up.sql` is applied.
+> Apply it immediately. Pesapal and Google are unconfigured and unverified live.
+> Current verified suite: 417 Python tests (including 22 Playwright browser
+> tests) and 129 SQL assertions; see `docs/TEST_RESULTS.md`.
 
 **Phase 1 COMPLETE — Baseline Audit**
 **Completed:** 2026-10-10
@@ -75,7 +76,7 @@
 - Admin login rate-limited: DONE
 - Flutterwave webhook re-verification: DONE
 - Legal consent framework built: DONE (not enforced)
-- **Migration 0002 (blocking direct order inserts) was not applied at baseline; it is now applied. Migration 0015 remains missing**, so the live `create_order_atomic` is not category-aware. Apply 0015 before the new SPA checkout goes live.
+- **Migration 0002 (blocking direct order inserts) is applied and the new SPA is live. Migration 0015 remains missing**, so the live `create_order_atomic` is not category-aware. Apply 0015 immediately; livestock/supplier checkout fails until it runs.
 - **Admin panel uses shared-password JWT**, not Supabase identity
 - **In-memory rate limiting and USSD sessions** — not safe with 2 workers
 
@@ -100,7 +101,7 @@
 | # | Issue | Action |
 |---|-------|--------|
 | 1 | Default admin password `agribridge2026` may still be set | Set strong `ADMIN_PASSWORD` in Render immediately |
-| 2 | Migration 0015 not applied — live `create_order_atomic` lacks category-aware livestock/supplier pricing | Apply 0015 before deploying this SPA bundle; 0002 is now applied, so direct inserts are already closed |
+| 2 | Migration 0015 not applied — live `create_order_atomic` lacks category-aware livestock/supplier pricing | Apply 0015 now; the new SPA and API are already deployed and 0002 has closed direct inserts |
 | 3 | USSD sessions in-process dict — breaks with 2 workers and on restart | Switch to `ussd_sessions` table in Supabase |
 | 4 | `farmer_ratings` table referenced in matching function does not exist | Create table in a migration |
 

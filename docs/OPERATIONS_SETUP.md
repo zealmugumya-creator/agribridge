@@ -42,22 +42,21 @@ supabase db push            # if the project is linked with the Supabase CLI
 # or paste each 000N_*.up.sql into Supabase → SQL Editor, in numeric order.
 ```
 
-> **LIVE STATUS (verified 2026-10-22):** 0013, 0014, 0002, 0016 and 0017 are
-> applied. **0015 is still missing** (`orders.source_ref` does not exist).
-> Because 0002 is already live, direct browser order inserts are closed; do not
-> deploy this SPA bundle until **0015** has been applied, or livestock/supplier
-> checkout will run against the legacy non-category pricing function. Apply
-> 0015 now (it is additive and safe to re-run), then deploy and verify.
+> **LIVE STATUS (verified 2026-10-22 after push `9123b38`):** 0013, 0014, 0002,
+> 0016 and 0017 are applied. The new API and SPA bundle were deployed
+> automatically by Render and the `Deploy public web app` workflow immediately
+> after the push. **0015 is still missing** (`orders.source_ref` does not exist),
+> so livestock and supplier checkout runs against the legacy non-category
+> pricing function and will fail. **Apply `0015_category_order_pricing.up.sql`
+> now** (additive and safe to re-run). Produce checkout through `POST /api/orders`
+> still works on the legacy path; 0002 has already closed direct browser inserts.
 >
-> **APPLY ORDER — 0015 BEFORE 0002.** The web client now sends produce,
-> livestock and supplier checkout through `POST /api/orders`, so the direct-insert
-> path that 0002 closes is unused. Apply **0015** first: it makes
-> `create_order_atomic` price livestock from `animal_listings` and supplier inputs
-> from `supplier_products` (0015 is also required for those checkouts to work at
-> all). Deploy this client bundle, verify a test livestock and supply order, then
-> apply **0002**. Applying 0002 before 0015/this bundle would break those
-> checkouts and the shared `payment_ref` reconciliation used by the payment
-> webhook. See the header of `0002_admin_identity_rls.up.sql`.
+> **APPLY ORDER (historical).** 0015 was meant to run before 0002 and before the
+> SPA cutover. Both 0002 and the cutover are now live, so apply 0015 immediately;
+> it is the remaining fix. It makes `create_order_atomic` price livestock from
+> `animal_listings` and supplier inputs from `supplier_products`. The shared
+> `payment_ref` reconciliation used by the payment webhook is unaffected.
+> See the header of `0002_admin_identity_rls.up.sql`.
 >
 > **0016 (settlements)** is applied live. It creates `admin_audit_log` if 0002
 > has not run yet; 0002 later treats it as an existing table. Applying 0016

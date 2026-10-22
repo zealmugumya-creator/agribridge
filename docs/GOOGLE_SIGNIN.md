@@ -1,11 +1,11 @@
 # AgriBridge — Google Sign-In
 
-**Last updated:** 2026-10-21
+**Last updated:** 2026-10-22
 **Status:** implemented in the production SPA source (`static/index.html`) and
-verified in a browser test against a stubbed Supabase OAuth endpoint. The real
-Google flow has **not** been run: it requires the project owner to enable the
-provider in Supabase and Google Cloud, and the current SPA bundle is not
-deployed. No migration is required.
+verified in a browser test against a stubbed Supabase OAuth endpoint. The bundle
+was deployed on 2026-10-22 (Cloudflare run `39710797408`). The real Google flow
+has **not** been run: it requires the project owner to enable the provider in
+Supabase and Google Cloud. No migration is required.
 
 ---
 

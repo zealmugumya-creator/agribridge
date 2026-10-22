@@ -128,9 +128,9 @@ it is a development rollback, not a financial archive operation.
 
 **Apply order:** after 0015 and 0016 (see `docs/OPERATIONS_SETUP.md` §2). The
 migration is safe to re-run: all objects are guarded. On the live project, 0016
-and 0017 are applied but **0015 is still missing**; that does not affect Pesapal
-journaling, but it must be fixed before the new category checkout bundle goes
-live.
+and 0017 are applied and the API/SPA carrying this code were deployed on
+2026-10-22, but **0015 is still missing**. That does not affect Pesapal
+journaling, but livestock/supplier checkout fails until 0015 is applied.
 
 Without 0017:
 
