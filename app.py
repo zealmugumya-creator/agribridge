@@ -4048,6 +4048,99 @@ def mark_all_notifications_read(notif_id=None):
     return jsonify({'ok': True, 'marked': len(rows)}), 200
 
 
+# ── Web Push subscription (VAPID) ─────────────────────────────────────────────
+# Users subscribe their browser/PWA to push so OS-level notifications appear in
+# the Android notification bar even when the app is in the background.
+# Subscriptions are stored in push_subscriptions table keyed by (user_id, endpoint).
+@app.route('/api/user/push-subscribe', methods=['POST'])
+@rate_limit(max_req=10, window=60)
+def user_push_subscribe():
+    uid, err = verify_supabase_user()
+    if err:
+        return err
+    data = request.get_json(force=True, silent=True) or {}
+    sub = data.get('subscription') or data  # accept {subscription:{...}} or flat
+    if isinstance(sub, str):
+        try:
+            import json as _json2
+            sub = _json2.loads(sub)
+        except Exception:
+            return jsonify({'error': 'invalid subscription'}), 400
+    endpoint = sub.get('endpoint', '')
+    if not endpoint or not endpoint.startswith('https://'):
+        return jsonify({'error': 'invalid subscription'}), 400
+    keys = sub.get('keys', {})
+    now = datetime.datetime.utcnow().isoformat()
+    # Upsert subscription — if endpoint already exists for this user, update it
+    existing = supa_get('push_subscriptions', {'user_id': f'eq.{uid}', 'endpoint': f'eq.{endpoint}'}, limit=1) or []
+    if existing:
+        supa_update('push_subscriptions', {'keys': keys, 'updated_at': now}, 'id', existing[0]['id'])
+    else:
+        SUPA.insert('push_subscriptions', {
+            'user_id': uid, 'endpoint': endpoint, 'keys': keys,
+            'created_at': now, 'updated_at': now
+        })
+    return jsonify({'ok': True}), 200
+
+
+@app.route('/api/user/push-unsubscribe', methods=['POST'])
+@rate_limit(max_req=10, window=60)
+def user_push_unsubscribe():
+    uid, err = verify_supabase_user()
+    if err:
+        return err
+    data = request.get_json(force=True, silent=True) or {}
+    endpoint = data.get('endpoint', '')
+    if endpoint:
+        rows = supa_get('push_subscriptions', {'user_id': f'eq.{uid}', 'endpoint': f'eq.{endpoint}'}, limit=1) or []
+        for r in rows:
+            SUPA.delete('push_subscriptions', 'id', r['id'])
+    return jsonify({'ok': True}), 200
+
+
+# ── Helper: send a Web Push notification to one user ──────────────────────────
+def _send_web_push(user_id: str, title: str, body: str, url: str = '/'):
+    """Fire-and-forget Web Push to all subscriptions for a user."""
+    VAPID_PRIVATE_KEY = os.environ.get('VAPID_PRIVATE_KEY', '')
+    VAPID_PUBLIC_KEY  = os.environ.get('VAPID_PUBLIC_KEY', '')
+    VAPID_CONTACT     = os.environ.get('VAPID_CONTACT', 'mailto:support@agribridge.ug')
+    if not VAPID_PRIVATE_KEY or not VAPID_PUBLIC_KEY:
+        return  # Not configured — silently skip
+
+    subs = supa_get('push_subscriptions', {'user_id': f'eq.{user_id}'}, limit=20) or []
+    if not subs:
+        return
+
+    try:
+        from pywebpush import webpush, WebPushException
+    except ImportError:
+        log.warning('webpush.pywebpush_missing', note='install pywebpush to enable browser push')
+        return
+
+    import json as _json2
+    payload = _json2.dumps({'title': title, 'body': body, 'url': url, 'tag': 'agribridge'})
+    dead_ids = []
+    for sub in subs:
+        try:
+            webpush(
+                subscription_info={'endpoint': sub['endpoint'], 'keys': sub['keys']},
+                data=payload,
+                vapid_private_key=VAPID_PRIVATE_KEY,
+                vapid_claims={'sub': VAPID_CONTACT, 'aud': sub['endpoint'].split('/')[2]}
+            )
+        except WebPushException as e:
+            status = getattr(e.response, 'status_code', None)
+            if status in (404, 410):  # subscription gone
+                dead_ids.append(sub['id'])
+            else:
+                log.warning('webpush.send_failed', user=user_id, status=status)
+        except Exception as e:
+            log.warning('webpush.send_error', user=user_id, error=str(e))
+    for did in dead_ids:
+        try: SUPA.delete('push_subscriptions', 'id', did)
+        except Exception: pass
+
+
 # ══════════════════════════════════════════════════════════════════════════════
 # SMART MATCHING — orders vs. farmer listings; admin approval workflow
 # ══════════════════════════════════════════════════════════════════════════════

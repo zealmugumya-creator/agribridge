@@ -65,3 +65,46 @@ self.addEventListener('message', event => {
     event.ports[0].postMessage({ version: SW_VERSION });
   }
 });
+
+// ── PUSH: Show OS notification when a Web Push arrives ──
+self.addEventListener('push', event => {
+  let data = { title: 'AgriBridge', body: 'You have a new notification', icon: '/icon-192.png', badge: '/icon-96.png' };
+  try {
+    if (event.data) {
+      const parsed = event.data.json();
+      data = { ...data, ...parsed };
+    }
+  } catch (e) {
+    if (event.data) data.body = event.data.text() || data.body;
+  }
+
+  const options = {
+    body: data.body,
+    icon: data.icon || '/icon-192.png',
+    badge: data.badge || '/icon-96.png',
+    tag: data.tag || 'agribridge-notif',
+    renotify: true,
+    data: { url: data.url || '/' },
+    vibrate: [200, 100, 200],
+    requireInteraction: false,
+  };
+
+  event.waitUntil(self.registration.showNotification(data.title, options));
+});
+
+// ── NOTIFICATIONCLICK: Open the app when the user taps the notification ──
+self.addEventListener('notificationclick', event => {
+  event.notification.close();
+  const target = (event.notification.data && event.notification.data.url) || '/';
+  event.waitUntil(
+    clients.matchAll({ type: 'window', includeUncontrolled: true }).then(windowClients => {
+      for (const client of windowClients) {
+        if (client.url.includes(self.location.origin) && 'focus' in client) {
+          client.postMessage({ type: 'PUSH_NAV', url: target });
+          return client.focus();
+        }
+      }
+      return clients.openWindow(target);
+    })
+  );
+});

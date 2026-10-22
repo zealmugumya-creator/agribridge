@@ -19,6 +19,6 @@ cryptography==44.0.0
 # Optional: Redis-backed rate limiting (Phase 11). Falls back to in-process
 # limiter when REDIS_URL is not set — app runs fine without Redis.
 redis==5.2.1
-# Web Push (VAPID) for the website/PWA notification bar uses PyJWT + cryptography
-# above (no extra dependency). Push stays a safe no-op until VAPID_PUBLIC_KEY /
-# VAPID_PRIVATE_KEY are set.
+# Optional: Web Push / VAPID (OS-level push to Android notification bar).
+# App runs fine without it — push silently skips when pywebpush is absent.
+pywebpush==2.0.0
