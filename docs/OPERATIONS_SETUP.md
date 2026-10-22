@@ -186,7 +186,14 @@ rules, recurring accounting and verification queries.
    `PESAPAL_IPN_ID` when switching.
 4. Set `PESAPAL_CALLBACK_BASE_URL` to the public **API** origin
    (`https://agribridge-1-og7a.onrender.com`). The static site does not proxy
-   `/api`, so it cannot be the callback base.
+   `/api`, so it cannot be the callback base. **Deleting the variable is also
+   correct** — that origin is the built-in default. A host-less value (a pasted
+   URL truncated at a hyphen, for example) used to be sent to Pesapal as-is, so
+   it registered a notification endpoint that could not be reached: the buyer
+   paid, Pesapal reported success, yet the order stayed unpaid. The app now
+   rejects any base URL whose host has no dot, logs
+   `pesapal.callback_base_url_rejected` with the fallback it used, and keeps the
+   known-good origin instead. Check that log line after changing this variable.
 5. Leave `PESAPAL_IPN_ID` empty to auto-register
    `<base>/api/pay/webhook/pesapal`; the id is stored in
    `payment_gateway_state`. Pin the variable only if the endpoint was registered
@@ -261,30 +268,87 @@ repository secrets in GitHub Settings > Secrets and variables > Actions:
   Worker. Keep it out of Render and out of source code.
 - `CLOUDFLARE_ACCOUNT_ID` - the Cloudflare account that owns the Worker.
 
-The `Deploy public web app` workflow skips safely until the API token exists —
-**it still reports a green run, but the "Deploy Worker static assets" step is
-`skipped`, so nothing new is published.** Do not read a green deploy run as
-proof the live site updated; confirm by checking the served HTML for the new
-marker (e.g. `curl -s https://agribrige.com/ | grep pm-bank`). As of 2026-10-22
-the token is **still not configured**; the Bank Transfer checkout card from push
-`6077883` was published **manually** with `npx wrangler@4 deploy` (version
-`15ff5212`), so it is live, but every future `static/` change will keep needing a
-manual publish until the secrets are added. To enable automatic deploys: add the
-two secrets above, then re-run the workflow (Actions → Deploy public web app →
-Run workflow, or `gh workflow run deploy-cloudflare.yml`), or keep deploying from
-an authenticated workstation with `npx wrangler@4 deploy`.
+The `Deploy public web app` workflow now **fails (red)** when
+`CLOUDFLARE_API_TOKEN` or `CLOUDFLARE_ACCOUNT_ID` is missing — it no longer
+reports a misleading green run while publishing nothing (an earlier version did
+exactly that and silently stranded SPA releases; fixed in `5321418` + `db9d92f`,
+both on `main` — see `docs/LIVE_BASELINE_AUDIT.md` §13).
+**A red `Deploy public web app` run means the deploy did not happen.** Since
+2026-10-22 the step also captures wrangler's own output and republishes its last
+lines as a check annotation and in the run summary, so a failure is diagnosable
+without opening the job log (`docs/LIVE_BASELINE_AUDIT.md` §14). Do not read a
+green deploy as proof unless you also confirm the served HTML (e.g.
+`curl -s https://agribrige.com/ | grep pm-bank`).
+
+**Current state (verified 2026-10-22T21:40Z): auto-deploy is working.** The
+owner replaced the rejected token with one scoped to **Specified Workers →
+`agribridge` → Individual Workers Editor** (no expiration, all IPs allowed) and
+kept `CLOUDFLARE_ACCOUNT_ID` = `7a6752557859ee5998bdc81c0989743b`. Manual
+`workflow_dispatch` run `39859133726` on `bb2cd7a` completed green, and
+`wrangler deployments list` shows the new deployment at `21:40:43Z` with version
+`a6a1d85b-f203-4e90-8dd3-b405455c32c4` — proof that CI published rather than
+no-opped. Earlier failures were `Authentication error [10000]` /
+`Invalid access token [9109]` from an invalid stored value; that is history.
+
+**Verification must normalise line endings on this repo.** The workstation
+checkout is CRLF (`core.autocrlf=true`) while CI checks out LF, so raw sha256
+values legitimately differ. Compare content instead:
+
+```bash
+git show HEAD:static/index.html | sha256sum
+curl -s https://agribrige.com/ | tr -d '\r' | sha256sum   # must match
+curl -s https://agribrige.com/ | grep -c splashBrowseGuest # must be > 0
+```
+
+**Workstation login check (verified 2026-10-22):** do not assume the local
+wrangler login owns the Worker. A login can silently belong to a different
+Cloudflare account (`0b66e23d…`) and then fail with `Authentication error
+[code: 10000]` before upload. Always run `npx wrangler@4 whoami` first; for this
+project it must report the account owning `agribridge`,
+`7a6752557859ee5998bdc81c0989743b`. If it does not, sign in with the owning
+account (`npx wrangler@4 login`, Cloudflare user `Zealmugumya@gmail.com`), then:
+
+```bash
+export PATH="/c/Program Files/nodejs:$PATH"
+export NODE_EXTRA_CA_CERTS="C:\\Users\\HP\\win-root-ca.pem"
+CLOUDFLARE_ACCOUNT_ID=7a6752557859ee5998bdc81c0989743b npx --yes wrangler@4 deploy
+curl -s https://agribrige.com/ | grep -c splashBrowseGuest   # must be > 0
+```
+
+The manual path remains the fallback if CI is unavailable. It published Worker
+version `bb9e65fb-974d-4381-8bf0-c78191a2e6d0` on 2026-10-22 before CI was
+restored; a production browser smoke test passed with zero page errors.
+
+Never run `wrangler deploy` without the account override while logged in to
+`0b66…`: it targets the wrong account and leaves the public site untouched.
+
+Note that Cloudflare's **Workers Builds** Git integration targets the *same*
+`agribridge` Worker and is currently failing too. Pick one publisher — disable
+Workers Builds, or drop the two GitHub secrets — otherwise whichever integration
+last succeeded decides what the public site serves.
 
 ---
 
 ## 12. Running tests / lint locally
 ```bash
 pip install -r requirements-dev.txt
-ruff check app.py services/ tests/     # lint gate (must be clean)
-pytest tests/ -q                       # 431 passed with Playwright installed
-cd tests/sql && npm install && npm test # PGlite migration suites
+ruff check app.py services/ scripts/ tests/  # lint gate (must be clean)
+pytest tests/ -q                       # 447 passed with Playwright installed
+cd tests/sql && npm install && npm test # PGlite migration suites (129 assertions)
 ```
 Playwright lives outside `requirements-dev.txt` in this environment; the E2E
-module skips cleanly when it is absent. CI (`.github/workflows/ci.yml`) runs
-lint + (non-blocking) mypy + pytest on push/PR. **SQL-migration integration
-tests and Android builds are not part of CI yet** — they need a live DB /
-Android SDK and are not faked.
+modules skip cleanly when it is absent, and fall back to the system Chrome
+channel when Playwright's bundled Chromium is unavailable.
+
+The buyer storefront is covered by `tests/e2e/test_buyer_ui.py` (6 tests:
+home/cards, signed-in landing, detail, cart totals and reload persistence,
+search/filter, JS errors). It serves the real `static/index.html` from disk via
+Playwright routes and stubs only Supabase auth/REST, so it is deterministic and
+writes nothing. `tests/e2e/test_consent_ui.py` covers consent, Google sign-in
+and the server-gated payment tiles.
+
+CI (`.github/workflows/ci.yml`) runs lint + (non-blocking) mypy + pytest on
+push/PR. **SQL-migration integration tests and Android builds are not part of
+CI yet** — they need a live DB / Android SDK and are not faked. Static-site
+publishing is still manual until the rejected `CLOUDFLARE_API_TOKEN` is replaced
+(§11); a green local suite says nothing about what the Cloudflare Worker serves.

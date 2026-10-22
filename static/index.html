@@ -1110,6 +1110,112 @@ html.is-web:not(.app-entered) body{overflow:hidden}
 .prod-card-qty span{font-size:.85rem;font-weight:700;min-width:18px;text-align:center}
 .prod-card-stars{font-size:.68rem;color:var(--amber);margin-top:1px}
 
+/* ── Buyer home v2: search, location sheet, farmers, footer ── */
+.bh-search-results{position:absolute;top:calc(100% + 6px);left:0;right:0;background:var(--card);
+  border:1px solid var(--border);border-radius:14px;box-shadow:0 18px 40px -18px rgba(0,0,0,.8);
+  z-index:80;max-height:58vh;overflow:auto;display:none;padding:6px}
+.bh-search-results.open{display:block}
+.bh-sr-row{display:flex;align-items:center;gap:10px;padding:9px 10px;border-radius:10px;cursor:pointer;width:100%;
+  background:none;border:none;text-align:left;font-family:inherit;color:var(--text)}
+.bh-sr-row:hover,.bh-sr-row:focus{background:var(--bg3);outline:none}
+.bh-sr-thumb{width:40px;height:40px;border-radius:9px;background:var(--bg3);display:flex;align-items:center;
+  justify-content:center;font-size:1.3rem;flex-shrink:0;overflow:hidden}
+.bh-sr-thumb img{width:100%;height:100%;object-fit:cover}
+.bh-sr-name{font-size:.86rem;font-weight:700;color:#fff}
+.bh-sr-meta{font-size:.72rem;color:var(--text2);margin-top:1px}
+.bh-sr-price{margin-left:auto;font-size:.8rem;font-weight:800;color:var(--green-light);white-space:nowrap}
+.bh-sr-empty{padding:16px;text-align:center;color:var(--text2);font-size:.85rem}
+.bh-sr-all{width:100%;padding:10px;background:none;border:0;border-top:1px solid var(--border);
+  color:var(--green-light);font-family:inherit;font-size:.8rem;font-weight:700;cursor:pointer}
+
+.loc-overlay{position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:1200;display:none}
+.loc-overlay.open{display:block}
+.loc-sheet{position:fixed;left:0;right:0;bottom:0;background:var(--bg2);border-radius:22px 22px 0 0;
+  z-index:1201;padding:18px 16px calc(18px + env(safe-area-inset-bottom));transform:translateY(105%);
+  transition:transform .28s cubic-bezier(.22,.8,.3,1);max-height:80vh;overflow:auto}
+.loc-sheet.open{transform:translateY(0)}
+.loc-sheet h3{font-size:1.02rem;font-weight:800;margin-bottom:4px}
+.loc-sheet p{font-size:.8rem;color:var(--text2);margin-bottom:12px}
+.loc-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.loc-opt{padding:11px 12px;border-radius:11px;border:1.5px solid var(--border);background:var(--bg3);
+  color:var(--text);font-family:inherit;font-size:.85rem;font-weight:600;cursor:pointer;text-align:left;
+  display:flex;align-items:center;gap:7px}
+.loc-opt.sel{border-color:var(--green);background:var(--green-dim);color:var(--green-light)}
+.loc-close{width:100%;margin-top:12px;padding:11px;border-radius:11px;border:none;background:var(--green);
+  color:var(--g-ink);font-weight:800;font-family:inherit;cursor:pointer}
+
+.farmer-strip{display:flex;gap:10px;padding:0 16px 6px;overflow-x:auto;scrollbar-width:none}
+.farmer-strip::-webkit-scrollbar{display:none}
+.farmer-chip{flex:0 0 auto;width:136px;background:var(--card);border:1px solid var(--border);
+  border-radius:15px;padding:12px;cursor:pointer;text-align:left;font-family:inherit}
+.farmer-chip:active{transform:scale(.97)}
+.farmer-chip-av{width:42px;height:42px;border-radius:50%;background:var(--green-dim);border:1px solid var(--border);
+  display:flex;align-items:center;justify-content:center;font-weight:800;color:var(--green-light);
+  margin-bottom:8px;font-size:.95rem}
+.farmer-chip-name{font-size:.8rem;font-weight:700;color:#fff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.farmer-chip-meta{font-size:.68rem;color:var(--text2);margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.farmer-chip-rate{font-size:.7rem;color:var(--amber);margin-top:4px}
+
+.buyer-footer{margin:22px 16px 8px;padding:18px 16px;background:var(--card);border:1px solid var(--border);
+  border-radius:16px;text-align:center}
+.buyer-footer-brand{font-family:'Syne',sans-serif;font-weight:800;font-size:1rem;color:#fff;margin-bottom:4px}
+.buyer-footer-tag{font-size:.76rem;color:var(--text2);margin-bottom:12px}
+.buyer-footer-links{display:flex;flex-wrap:wrap;justify-content:center;gap:8px 14px;font-size:.76rem}
+.buyer-footer-links a{color:var(--green-light);text-decoration:none;font-weight:600}
+.buyer-footer-fine{font-size:.68rem;color:var(--text2);margin-top:12px;line-height:1.5}
+
+.home-feed-state{grid-column:1/-1;padding:26px 16px;text-align:center;color:var(--text2);font-size:.85rem}
+.home-feed-state .ic{font-size:2rem;margin-bottom:8px}
+.home-feed-state button{margin-top:10px}
+
+/* ── Product card v2 extras ── */
+.prod-card-meta{display:flex;align-items:center;gap:4px;font-size:.68rem;color:var(--text2);min-width:0}
+.prod-card-meta span{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.prod-card-stock{align-self:flex-start;font-size:.62rem;font-weight:800;padding:2px 7px;border-radius:999px;margin-top:3px}
+.prod-card-stock.ok{background:var(--green-dim);color:var(--green-light)}
+.prod-card-stock.low{background:rgba(255,193,7,.12);color:#ffc107}
+.prod-card-stock.out{background:rgba(244,67,54,.12);color:#f44336}
+.prod-card-rating{font-size:.66rem;color:var(--amber);margin-top:1px}
+.prod-card-rating.muted{color:var(--text2)}
+.prod-card:focus-visible{outline:2px solid var(--green-light);outline-offset:2px}
+.prod-card[aria-disabled="true"]{opacity:.72}
+.prod-card[aria-disabled="true"] .prod-card-cart{background:var(--bg3);color:var(--text2);cursor:not-allowed}
+.prod-card-discount{position:absolute;bottom:8px;left:8px;background:#f44336;color:#fff;font-size:.62rem;
+  font-weight:800;padding:3px 8px;border-radius:999px}
+.prod-card-price-row{display:flex;align-items:baseline;gap:6px;flex-wrap:wrap}
+.prod-card-was{font-size:.66rem;color:var(--text2)}
+.prod-card-stock-row{display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+.prod-card-min{font-size:.64rem;color:var(--text2)}
+.prod-card-cart:disabled{background:var(--bg3);color:var(--text2);cursor:not-allowed}
+
+/* ── Product detail v2 extras ── */
+.pd-thumb img{width:100%;height:100%;object-fit:cover;border-radius:8px}
+.pd-thumb-video{font-size:1.3rem;text-decoration:none;color:var(--text)}
+.pd-info-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:0 0 14px}
+.pd-info{background:var(--bg3);border:1px solid var(--border);border-radius:11px;padding:10px 12px}
+.pd-info-lbl{font-size:.64rem;font-weight:800;text-transform:uppercase;letter-spacing:.5px;color:var(--text2);margin-bottom:3px}
+.pd-info-val{font-size:.8rem;font-weight:700;color:#fff;line-height:1.35}
+.pd-related-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:12px;padding:0 16px 12px}
+@media(min-width:520px){.pd-related-grid{grid-template-columns:repeat(3,1fr)}}
+.pd-out-note{background:rgba(244,67,54,.1);border:1px solid rgba(244,67,54,.3);color:#ff8a80;
+  border-radius:10px;padding:9px 12px;font-size:.8rem;margin:0 0 12px}
+.pd-stock-ok{color:var(--green-light)}
+.pd-stock-low{color:#ffc107}
+.pd-stock-out{color:#f44336}
+
+/* ── Cart v2 extras ── */
+.cart-item-unit{font-size:.72rem;color:var(--text2);margin-top:1px}
+.cart-item-line{font-size:.72rem;color:var(--text2);margin-top:2px}
+.cart-item-stock{font-size:.68rem;font-weight:700;margin-top:2px}
+.cart-note{display:flex;gap:8px;align-items:flex-start;background:var(--bg3);border:1px solid var(--border);
+  border-radius:11px;padding:10px 12px;font-size:.76rem;color:var(--text2);line-height:1.45;margin:0 0 10px}
+.cart-actions-row{display:flex;gap:8px;margin:12px 16px 0}
+.cart-actions-row button{flex:1;padding:10px;border-radius:11px;font-family:inherit;font-size:.82rem;font-weight:700;cursor:pointer}
+.cart-continue{background:var(--bg3);border:1.5px solid var(--border);color:var(--text)}
+.cart-clear{background:rgba(244,67,54,.08);border:1.5px solid rgba(244,67,54,.25);color:#f44336}
+.cart-summary-note{font-size:.72rem;color:var(--text2);margin-top:6px;line-height:1.4}
+.cart-summary-row .val.muted{color:var(--text2);font-weight:600}
+
 /* ── Skeleton loader ── */
 .skel{background:linear-gradient(90deg,var(--card) 25%,var(--bg3) 37%,var(--card) 63%);
   background-size:400% 100%;animation:skelShimmer 1.4s ease infinite;border-radius:8px}
@@ -1582,6 +1688,7 @@ html.is-web:not(.app-entered) body{overflow:hidden}
     </div>
     <button class="splash-btn-primary" onclick="splashGetStarted()">Get Started →</button>
     <button class="splash-btn-secondary" onclick="splashLogin()">I Already Have an Account</button>
+    <button class="splash-btn-secondary" style="margin-top:10px;border:none;background:none;color:var(--green-light);font-size:.9rem;padding:10px" onclick="splashBrowseGuest()">Browse as guest →</button>
   </div>
 </div>
 
@@ -1652,8 +1759,13 @@ html.is-web:not(.app-entered) body{overflow:hidden}
   <!-- ── Search bar ── -->
   <div class="bh-search">
     <span class="bh-search-ic">🔍</span>
-    <input type="text" id="bhSearchInput" placeholder="Search fresh produce, farmers…" oninput="handleSearch(this.value)" aria-label="Search">
+    <input type="text" id="bhSearchInput" placeholder="Search fresh produce, farmers…"
+      oninput="bhSearch(this.value)" onfocus="bhSearch(this.value)"
+      onblur="setTimeout(function(){bhHideSearch();},180)"
+      onkeydown="if(event.key==='Enter'){event.preventDefault();bhSearchSeeAll();}else if(event.key==='Escape'){bhClearSearch();}"
+      autocomplete="off" aria-label="Search produce and farmers" aria-controls="bhSearchResults" aria-expanded="false">
     <button class="bh-search-voice" onclick="toggleVoice()" title="Voice search" aria-label="Voice search">🎤</button>
+    <div class="bh-search-results" id="bhSearchResults" role="listbox" aria-label="Search results"></div>
   </div>
 
   <!-- ── Hero banner ── -->
@@ -1663,9 +1775,6 @@ html.is-web:not(.app-entered) body{overflow:hidden}
       <div class="bh-hero-tag">🌱 Farm Fresh · Zero Middlemen</div>
       <div class="bh-hero-title">Support Local <em>Farmers</em>,<br>Eat Fresh Today</div>
       <button class="bh-hero-btn" onclick="showPage('market')">Shop Now ›</button>
-    </div>
-    <div class="bh-hero-dots">
-      <span class="active"></span><span></span><span></span>
     </div>
   </div>
 
@@ -1706,8 +1815,8 @@ html.is-web:not(.app-entered) body{overflow:hidden}
   </div>
 
   <!-- ── Featured Products ── -->
-  <div class="bh-sec">
-    <span class="bh-sec-title">Featured Products</span>
+  <div class="bh-sec" id="homeFeaturedHead">
+    <span class="bh-sec-title" id="homeFeaturedTitle">Featured Products</span>
     <span class="bh-sec-see" onclick="showPage('market')">See All ›</span>
   </div>
   <div class="prod-grid" id="homeProdGrid">
@@ -1749,13 +1858,13 @@ html.is-web:not(.app-entered) body{overflow:hidden}
   <!-- ── Promo strip ── -->
   <div style="margin:4px 16px 6px;background:linear-gradient(135deg,#ff8f0022,#ffb30011);border:1px solid #ff8f0033;border-radius:14px;padding:13px 16px;display:flex;align-items:center;gap:12px">
     <span style="font-size:1.5rem">🐄</span>
-    <div style="flex:1"><div style="font-weight:800;font-size:.88rem;color:var(--amber)">Animals Marketplace</div><div style="font-size:.76rem;color:var(--text2);margin-top:1px">Cattle, goats, poultry — MAAIF certified</div></div>
+    <div style="flex:1"><div style="font-weight:800;font-size:.88rem;color:var(--amber)">Animals Marketplace</div><div style="font-size:.76rem;color:var(--text2);margin-top:1px">Cattle, goats and poultry — direct from farmers</div></div>
     <button class="btn-sm" onclick="showPage('animals')" style="background:var(--amber);font-size:.76rem;padding:7px 12px;white-space:nowrap">Browse 🐄</button>
   </div>
 
   <!-- ── Popular Near You ── -->
-  <div class="bh-sec" style="margin-top:6px">
-    <span class="bh-sec-title">Popular Near You</span>
+  <div class="bh-sec" id="homeMoreHead" style="margin-top:6px">
+    <span class="bh-sec-title">More Fresh Picks</span>
     <span class="bh-sec-see" onclick="showPage('market')">See All ›</span>
   </div>
   <div class="prod-grid" id="homePopularGrid">
@@ -1777,9 +1886,46 @@ html.is-web:not(.app-entered) body{overflow:hidden}
     </div>
   </div>
 
+  <!-- ── Fresh arrivals ── -->
+  <div class="bh-sec" id="homeRecentHead" style="margin-top:6px">
+    <span class="bh-sec-title">Fresh Arrivals</span>
+    <span class="bh-sec-see" onclick="showPage('market')">See All ›</span>
+  </div>
+  <div class="prod-grid" id="homeRecentGrid"></div>
+
+  <!-- ── Top-rated farmers (built from real listings + farmer_ratings) ── -->
+  <div class="bh-sec" id="homeFarmersHead" style="display:none;margin-top:6px">
+    <span class="bh-sec-title">Top-rated Farmers</span>
+    <span class="bh-sec-see" onclick="showPage('market')">Browse ›</span>
+  </div>
+  <div class="farmer-strip" id="homeFarmerStrip" aria-label="Top-rated farmers" style="display:none"></div>
+
+  <!-- ── Footer ── -->
+  <footer class="buyer-footer">
+    <div class="buyer-footer-brand">AgriBridge</div>
+    <div class="buyer-footer-tag">Fresh Food. Fair Prices. Stronger Farmers.</div>
+    <div class="buyer-footer-links">
+      <a href="#" onclick="showPage('about');return false">Help &amp; Support</a>
+      <a href="legal/privacy-policy.html">Privacy Policy</a>
+      <a href="legal/terms-of-use.html">Terms of Use</a>
+      <a href="mailto:agribrige@gmail.com">agribrige@gmail.com</a>
+      <a href="tel:+256755966690">+256 755 966 690</a>
+    </div>
+    <div class="buyer-footer-fine">AgriBridge Ltd · Kampala, Uganda · All prices in UGX. Produce availability and delivery are confirmed by the seller after an order is placed.</div>
+  </footer>
+
   <!-- ── Farmer featured section (existing cards-grid hidden from main, reused here) ── -->
   <div id="roleHomePanel" style="display:none"></div>
   <div class="cards-grid" id="homeFeatured" style="display:none"></div>
+</div>
+
+<!-- Delivery location sheet (buyer home) -->
+<div class="loc-overlay" id="locOverlay" onclick="closeLocSheet()"></div>
+<div class="loc-sheet" id="locSheet" role="dialog" aria-modal="true" aria-label="Choose delivery location">
+  <h3>Where should we deliver?</h3>
+  <p>We show produce from farmers across Uganda. Your district helps us keep delivery expectations accurate.</p>
+  <div class="loc-grid" id="locGrid"></div>
+  <button class="loc-close" onclick="closeLocSheet()">Use this location</button>
 </div>
 
 <!-- ══════════════════ PAGE: MARKETPLACE ══════════════════ -->
@@ -2411,9 +2557,9 @@ AgriBridge service</div>
         </div>
       </div>
       <div class="pd-stars-row">
-        <div class="pd-stars" id="pdStars">★★★★★</div>
-        <div class="pd-rating-val" id="pdRatingVal">4.8</div>
-        <div class="pd-rating-ct" id="pdRatingCt">(24 reviews)</div>
+        <div class="pd-stars" id="pdStars"></div>
+        <div class="pd-rating-val" id="pdRatingVal">—</div>
+        <div class="pd-rating-ct" id="pdRatingCt">No ratings yet</div>
       </div>
       <div class="pd-price-row">
         <div class="pd-price" id="pdPrice">UGX –</div>
@@ -2429,27 +2575,36 @@ AgriBridge service</div>
         <span class="pd-row-lbl">Min. order</span>
         <span class="pd-row-val" id="pdMin">1 kg</span>
       </div>
+      <div class="pd-info-grid">
+        <div class="pd-info"><div class="pd-info-lbl">Delivery</div><div class="pd-info-val" id="pdDeliveryInfo">Confirmed after order</div></div>
+        <div class="pd-info"><div class="pd-info-lbl">Payment</div><div class="pd-info-val" id="pdPayInfo">Chosen at checkout</div></div>
+      </div>
+      <div class="pd-out-note" id="pdOutNote" style="display:none" role="status"></div>
       <div class="pd-row" style="margin-bottom:0">
         <span class="pd-row-lbl">Quantity</span>
         <div class="pd-qty-sel">
-          <button class="pd-qty-btn" onclick="pdAdjQty(-1)">−</button>
-          <span class="pd-qty-val" id="pdQtyVal">1</span>
-          <button class="pd-qty-btn" onclick="pdAdjQty(1)">+</button>
+          <button class="pd-qty-btn" id="pdQtyMinus" onclick="pdAdjQty(-1)" aria-label="Decrease quantity">−</button>
+          <span class="pd-qty-val" id="pdQtyVal" aria-live="polite">1</span>
+          <button class="pd-qty-btn" id="pdQtyPlus" onclick="pdAdjQty(1)" aria-label="Increase quantity">+</button>
         </div>
       </div>
     </div>
     <div class="pd-trust">
-      <div class="pd-trust-item"><div class="ic">✅</div><div class="lbl">Verified Farmer</div></div>
-      <div class="pd-trust-item"><div class="ic">🚚</div><div class="lbl">1–2 Day Delivery</div></div>
+      <div class="pd-trust-item"><div class="ic">✅</div><div class="lbl" id="pdTrustVerified">Direct from Farmer</div></div>
+      <div class="pd-trust-item"><div class="ic">🚚</div><div class="lbl">Delivery Arranged</div></div>
       <div class="pd-trust-item"><div class="ic">💯</div><div class="lbl">Quality Assured</div></div>
     </div>
     <div class="pd-actions" style="margin:0 16px 16px">
-      <button class="pd-act-fav" id="pdFavBtn" onclick="pdToggleFav()">♡</button>
+      <button class="pd-act-fav" id="pdFavBtn" onclick="pdToggleFav()" aria-label="Save product" aria-pressed="false">♡</button>
       <div style="display:flex;flex-direction:column;gap:8px;flex:1">
-        <button class="pd-act-buy" onclick="pdAddToCart()" style="background:var(--card);border:1.5px solid var(--green);color:var(--green-light)">Add to Cart 🛒</button>
-        <button class="pd-act-buy" onclick="pdBuyNow()">Buy Now →</button>
+        <button class="pd-act-buy" id="pdAddBtn" onclick="pdAddToCart()" style="background:var(--card);border:1.5px solid var(--green);color:var(--green-light)">Add to Cart 🛒</button>
+        <button class="pd-act-buy" id="pdBuyBtn" onclick="pdBuyNow()">Buy Now →</button>
       </div>
     </div>
+  </div>
+  <div class="pd-related" id="pdRelatedWrap" style="display:none">
+    <div class="bh-sec"><span class="bh-sec-title">You may also like</span></div>
+    <div class="pd-related-grid" id="pdRelatedGrid"></div>
   </div>
 </div>
 
@@ -2468,12 +2623,18 @@ AgriBridge service</div>
       <button class="btn-sm" onclick="showPage('market')" style="margin-top:4px">Shop Now →</button>
     </div>
   </div>
+  <div id="cartNotices" style="padding:0 16px"></div>
+  <div class="cart-actions-row" id="cartActionsRow">
+    <button class="cart-continue" onclick="showPage('market')">‹ Continue Shopping</button>
+    <button class="cart-clear" onclick="clearCartPage()">Clear Cart</button>
+  </div>
   <div class="cart-sep"></div>
   <div class="cart-summary" id="cartPageSummary" style="display:none">
     <div class="cart-summary-row"><span class="lbl">Subtotal</span><span class="val" id="cartSubtotal">UGX 0</span></div>
-    <div class="cart-summary-row"><span class="lbl">Delivery fee</span><span class="val" id="cartDelivery">UGX 3,000</span></div>
+    <div class="cart-summary-row"><span class="lbl">Delivery</span><span class="val muted" id="cartDelivery">Arranged after confirmation</span></div>
     <div class="cart-summary-row total"><span class="lbl">Total</span><span class="val" id="cartTotal">UGX 0</span></div>
-    <button class="cart-checkout-btn" onclick="openCheckout()">Proceed to Checkout →</button>
+    <div class="cart-summary-note">Payment is for the produce total. Delivery is quoted by AgriBridge after the farmer confirms your order.</div>
+    <button class="cart-checkout-btn" id="cartCheckoutBtn" onclick="openCheckout()">Proceed to Checkout →</button>
   </div>
 </div>
 
@@ -2585,11 +2746,6 @@ AgriBridge service</div>
     <div class="basket-empty"><div class="be-icon">🛒</div><p style="color:var(--text2)">Your basket is empty</p><button class="btn-sm" onclick="closeBasket();showPage('market')" style="margin-top:12px">Browse Marketplace</button></div>
   </div>
   <div class="basket-footer" id="basketFooter" style="display:none">
-    <div class="promo-row">
-      <input type="text" id="promoInput" placeholder="PROMO CODE" maxlength="12" oninput="this.value=this.value.toUpperCase()">
-      <button onclick="applyPromo()">Apply</button>
-    </div>
-    <div id="promoTagArea"></div>
     <div id="basketTotals"></div>
     <button style="width:100%;padding:13px;background:var(--green);color:#000;border:none;border-radius:10px;font-size:1rem;font-weight:700;cursor:pointer;font-family:inherit;margin-top:4px" onclick="openCheckout()">Checkout →</button>
   </div>
@@ -2606,11 +2762,6 @@ AgriBridge service</div>
       <!-- Order summary -->
       <div class="checkout-section-label">Order Summary</div>
       <div class="checkout-summary" id="checkoutSummaryText"></div>
-      <!-- Promo code row -->
-      <div style="display:flex;gap:8px;margin-bottom:16px">
-        <input type="text" id="checkoutPromoInput" placeholder="Enter promo code" style="flex:1;padding:8px 12px;background:var(--bg3);border:1px solid var(--border);border-radius:8px;color:var(--text);font-family:inherit;font-size:0.85rem">
-        <button class="btn-sm outline" onclick="applyCheckoutPromo()">Apply</button>
-      </div>
       <!-- Payment method -->
       <div class="checkout-section-label">Payment Method</div>
       <div class="pay-methods">
@@ -3027,7 +3178,11 @@ let currentListingId = null;
 
 // ── BASKET STATE ──────────────────────────────────────────────────
 let basketItems  = JSON.parse(localStorage.getItem('ab_basket') || '[]');
-let appliedPromo = JSON.parse(localStorage.getItem('ab_promo')  || 'null');
+// Order totals are computed and validated by the server. There is no promo
+// table or delivery-fee field in the API, so the browser must not invent either
+// one: a discount shown here would not exist on the order the buyer pays for.
+let appliedPromo = null;
+try { localStorage.removeItem('ab_promo'); } catch (e) {}
 let selectedPayMethod = 'momo';
 let cardOtpPending    = null; // {ref, flwRef, msg} while the bank waits for an OTP
 let basketOpen   = false;
@@ -3035,15 +3190,6 @@ let aiOpen       = false;
 let voiceActive  = false;
 let voiceRecognizer = null;
 let voiceTimeout = null;
-const DELIVERY_FEE = 5000;
-const PROMO_CODES = {
-  FRESH10:{ pct:10, label:'10% off fresh produce' },
-  FARM20 :{ pct:20, label:'20% off for farmers' },
-  AGRI15 :{ pct:15, label:'15% AgriBridge promo' },
-  ZEAL50 :{ pct:50, label:'50% founder discount' },
-  AB2026 :{ pct:12, label:'12% launch offer 2026' },
-  ANIMAL10:{ pct:10, label:'10% off livestock orders' },
-};
 
 // ── USSD ──────────────────────────────────────────────────────────
 const USSD_SID = 'web-' + Math.random().toString(36).slice(2,10);
@@ -3161,42 +3307,150 @@ window.addEventListener('popstate', () => {
 // HOME
 // ─────────────────────────────────────────────────────────────────
 async function loadHomeStats() {
-  const [farmerCount, listingCount, animalCount, listings] = await Promise.all([
+  const [farmerCount, listingCount, animalCount, listings, ratings] = await Promise.all([
     sb('farmers',  { count:true }),
     sb('listings', { count:true }),
     sb('animal_listings', { count:true }),
-    sb('listings', { select:'id,crop_name,category,quantity_kg,price_per_kg,unit,district,is_organic,is_verified,description,discount_pct,sale_unit,min_order_kg,delivery_available,payment_terms,image_url,farmers(full_name,is_verified)', filters:[['is_available','eq.true'],['limit','6']] })
+    sb('listings', { select:'id,farmer_id,crop_name,category,quantity_kg,reserved_qty,price_per_kg,unit,district,is_organic,is_verified,description,discount_pct,sale_unit,min_order_kg,delivery_available,payment_terms,image_url,created_at,farmers(full_name,is_verified)', filters:[['is_available','eq.true'],['order','created_at.desc'],['limit','24']] }),
+    sb('farmer_ratings', { select:'farmer_id,avg_rating,review_count' })
   ]);
-  const fc = (farmerCount||0).toLocaleString();
-  const lc = (listingCount||0).toLocaleString();
+  if (Array.isArray(ratings)) {
+    window.farmerRatings = {};
+    ratings.forEach(r => { if (r.farmer_id) window.farmerRatings[r.farmer_id] = r; });
+  }
+  const fc = typeof farmerCount === 'number' ? farmerCount.toLocaleString() : '—';
+  const lc = typeof listingCount === 'number' ? listingCount.toLocaleString() : '—';
   ['h-farmers'].forEach(id => { const el=document.getElementById(id); if(el) el.textContent=fc+'+'; });
   ['h-listings'].forEach(id => { const el=document.getElementById(id); if(el) el.textContent=lc+'+'; });
   ['sp-farmers'].forEach(id => { const el=document.getElementById(id); if(el) el.textContent=fc+'+'; });
   ['sp-listings'].forEach(id => { const el=document.getElementById(id); if(el) el.textContent=lc+'+'; });
-  const ac = (animalCount||0).toLocaleString() + '+';
+  const ac = (typeof animalCount === 'number' ? animalCount.toLocaleString() : '—') + '+';
   ['an-count','h-animals'].forEach(id => { const el=document.getElementById(id); if(el) el.textContent=ac; });
-  // Render the home "Featured" strip from its own small fetch WITHOUT clobbering
-  // the shared marketplace cache. Previously this overwrote allListings with just
-  // 6 items, so after visiting Home the marketplace (which skips re-fetching once
-  // loaded) was stuck showing only those 6 — whole categories looked empty.
-  const featured = (listings && listings.length) ? listings.map(normalise) : sampleListings();
-  if (!window._listingsFull) allListings = featured;
-  document.getElementById('homeFeatured').innerHTML = featured.slice(0,4).map(listingCard).join('');
-  // Render new buyer product grids
   const grid = document.getElementById('homeProdGrid');
-  if (grid) grid.innerHTML = featured.slice(0,6).map(prodCardHtml).join('') || '<div style="padding:20px;color:var(--text2);text-align:center">No listings available</div>';
-  const popGrid = document.getElementById('homePopularGrid');
-  if (popGrid) {
-    const pop = [...featured].sort((a,b) => (b.views||0)-(a.views||0)).slice(0,4);
-    popGrid.innerHTML = pop.map(prodCardHtml).join('') || '<div style="padding:20px;color:var(--text2);text-align:center">No listings available</div>';
+  const moreGrid = document.getElementById('homePopularGrid');
+  const recentGrid = document.getElementById('homeRecentGrid');
+  const moreHead = document.getElementById('homeMoreHead');
+  if (listings === null) {
+    const msg = '<div class="home-feed-state"><div class="ic">⚠️</div><div>We could not load produce right now. Check your connection and try again.</div><button class="btn-sm outline" onclick="loadHomeStats()">Retry</button></div>';
+    [grid, moreGrid, recentGrid].forEach(g => { if (g) g.innerHTML = msg; });
+    if (moreHead) moreHead.style.display = 'none';
+    renderHomeFarmers([]);
+    updateBuyerCartBadge();
+    return;
   }
-  // Update buyer cart badge
+  const rows = (listings || []).map(normalise);
+  if (!window._listingsFull) allListings = rows;
+  if (!rows.length) {
+    const msg = '<div class="home-feed-state"><div class="ic">🌾</div><div>No produce is listed right now. New harvests appear here as soon as farmers publish them.</div><button class="btn-sm outline" onclick="loadHomeStats()">Refresh</button></div>';
+    [grid, moreGrid, recentGrid].forEach(g => { if (g) g.innerHTML = msg; });
+    if (moreHead) moreHead.style.display = 'none';
+    renderHomeFarmers([]);
+    updateBuyerCartBadge();
+    return;
+  }
+  const inStock = rows.filter(l => listingAvailable(l) > 0);
+  const dated = function(l) { const t = Date.parse(l.created_at || ''); return isFinite(t) ? t : 0; };
+  const featured = [...inStock].sort((a, b) => (Number(b.is_verified) - Number(a.is_verified)) || (Number(b.is_organic) - Number(a.is_organic)) || (dated(b) - dated(a)));
+  const recent = [...inStock].sort((a, b) => dated(b) - dated(a));
+  const more = featured.slice(6, 12);
+  window._homeRows = rows;
+  window._homeFeatured = featured;
+  if (grid) grid.innerHTML = featured.slice(0, 6).map(prodCardHtml).join('');
+  if (recentGrid) recentGrid.innerHTML = recent.slice(0, 6).map(prodCardHtml).join('');
+  if (moreGrid && moreHead) {
+    moreGrid.innerHTML = more.map(prodCardHtml).join('');
+    moreHead.style.display = more.length ? '' : 'none';
+  }
+  if (window._homeCat && window._homeCat !== 'all') {
+    bhSetCat(window._homeCat, document.querySelector('#bhCatsRow .bh-cat.active'));
+  }
+  renderHomeFarmers(rows);
+  hydrateCart(rows);
+  document.getElementById('homeFeatured').innerHTML = '';
   updateBuyerCartBadge();
 }
 
-// ═══════════════════════════════════════════════════════════════
-// BUYER INTERFACE v2 — Product cards, detail, cart, orders, profile
-// ═══════════════════════════════════════════════════════════════
+/** Aggregate the farmer strip from real listings + farmer_ratings only. */
+function renderHomeFarmers(rows) {
+  const strip = document.getElementById('homeFarmerStrip');
+  const head = document.getElementById('homeFarmersHead');
+  if (!strip || !head) return;
+  const byId = {};
+  (rows || []).forEach(l => {
+    if (!l.farmer_id) return;
+    const rt = window.farmerRatings && window.farmerRatings[l.farmer_id];
+    const avg = rt ? Number(rt.avg_rating) : 0;
+    if (!isFinite(avg) || avg <= 0) return;
+    const key = String(l.farmer_id);
+    if (!byId[key]) {
+      byId[key] = {
+        name: (l.farmers && l.farmers.full_name) || l.farmer_name || 'Local Farmer',
+        district: l.district || '',
+        avg: avg,
+        count: Number(rt.review_count) || 0
+      };
+    }
+  });
+  const list = Object.keys(byId).map(k => byId[k]).sort((a, b) => b.avg - a.avg).slice(0, 8);
+  if (!list.length) { strip.style.display = 'none'; head.style.display = 'none'; return; }
+  strip.style.display = 'flex';
+  head.style.display = '';
+  strip.innerHTML = list.map(f => {
+    const initials = f.name.split(' ').map(w => w[0] || '').join('').slice(0, 2).toUpperCase();
+    const encoded = encodeURIComponent(f.name);
+    return '<button class="farmer-chip" onclick="openFarmerProducts(decodeURIComponent(\'' + encoded + '\'))">'
+      + '<div class="farmer-chip-av">' + escHtml(initials) + '</div>'
+      + '<div class="farmer-chip-name">' + escHtml(f.name) + '</div>'
+      + (f.district ? '<div class="farmer-chip-meta">📍 ' + escHtml(f.district) + '</div>' : '')
+      + '<div class="farmer-chip-rate">★ ' + f.avg.toFixed(1) + ' · ' + f.count + ' review' + (f.count === 1 ? '' : 's') + '</div>'
+      + '</button>';
+  }).join('');
+}
+
+function openFarmerProducts(name) {
+  showPage('market');
+  setTimeout(function() {
+    const input = document.querySelector('#page-market .market-search');
+    if (input) { input.value = name; renderListings(); }
+  }, 120);
+}
+
+/** Refresh cached cart rows from live listings so prices/stock match the server. */
+function hydrateCart(rows) {
+  if (!Array.isArray(rows) || !rows.length || !basketItems.length) return;
+  const byId = {};
+  rows.forEach(l => { byId[String(l.id)] = l; });
+  let changed = false;
+  basketItems.forEach(item => {
+    const l = byId[String(item.id)];
+    if (!l) return;
+    const available = listingAvailable(l);
+    const min = listingMinQty(l);
+    const price = listingPrice(l);
+    const farmer = (l.farmers && l.farmers.full_name) || l.farmer_name || '';
+    if (Number(item.price) !== price) { item.price = price; changed = true; }
+    if (item.unit !== listingUnit(l)) { item.unit = listingUnit(l); changed = true; }
+    if (l.crop_name && item.name !== l.crop_name) { item.name = l.crop_name; changed = true; }
+    if (farmer && item.farmer !== farmer) { item.farmer = farmer; changed = true; }
+    if (l.district && item.district !== l.district) { item.district = l.district; changed = true; }
+    item.image = listingImage(l) || item.image || '';
+    item.minQty = min;
+    item.maxQty = available >= min ? available : min;
+    if (available >= min) {
+      if (item.outOfStock) { item.outOfStock = false; changed = true; }
+      if (!Number.isFinite(Number(item.qty)) || item.qty < min) { item.qty = min; changed = true; }
+      if (item.qty > available) { item.qty = Math.floor(available); changed = true; }
+    } else if (!item.outOfStock) {
+      item.outOfStock = true; changed = true;
+    }
+  });
+  if (!changed) return;
+  saveBasket();
+  updateBasketBadge();
+  if (typeof updateBuyerCartBadge === 'function') updateBuyerCartBadge();
+  renderBasket();
+  if (document.getElementById('page-cart')?.classList.contains('active')) renderCartPage();
+}
 
 const EMOJI_MAP = { vegetables:'🥦',fruits:'🍌',staples:'🌽',grains:'🌾',cash:'☕',livestock:'🐄',dairy:'🥛',organic:'🌱',other:'🌿' };
 function listingEmoji(l) {
@@ -3209,113 +3463,355 @@ function fmtUgx(n) {
   return 'UGX ' + Number(n).toLocaleString();
 }
 
+// Photographs are a fallback only when a listing has no uploaded image. The
+// card always prefers the real image_url from the database.
+const CROP_PHOTOS = { maize:'1551754655-cd27e38d2076', rice:'1586201375761-83865001e31c', wheat:'1574323347407-f5e1ad6d020b', potato:'1518977676601-b53f82aba655', tomatoes:'1546094096-0df4bcaaa337', matooke:'1603833665858-e61d17a86224', coffee:'1447933601403-0c6688de566e', avocado:'1601039641847-7857b994d704', pineapple:'1490474418585-ba9bad8fd0ea', onion:'1618512496248-a07fe83aa8cb', cassava:'1612257999756-2d43c78397ee', vanilla:'1617634975995-b2fa8bcf2f20', banana:'1571771894821-ce9b6c11b08e', beans:'1628771065518-0d82f1938462', mango:'1553279768-865429fa0078', orange:'1611080626919-7cf5a9dbab5b', groundnut:'1567892737950-30c4db37cd89', carrot:'1447175008436-054170c2e979', watermelon:'1587049352846-4a222e784d38' };
+function cropPhotoUrl(name, w, h) {
+  const lc = String(name || '').toLowerCase();
+  const key = Object.keys(CROP_PHOTOS).find(k => lc.includes(k));
+  if (!key) return '';
+  return 'https://images.unsplash.com/photo-' + CROP_PHOTOS[key] + '?auto=format&fit=crop&w=' + (w || 400) + '&h=' + (h || 400) + '&q=70';
+}
+function listingImage(l) {
+  if (l && l.image_url && String(l.image_url).startsWith('http')) return l.image_url;
+  return cropPhotoUrl(l && (l.crop_name || l.title), 400, 400);
+}
+function listingAvailable(l) {
+  if (!l || l.is_available === false) return 0;
+  const qty = Number(l.quantity_kg);
+  if (!Number.isFinite(qty)) return 0;
+  return Math.max(0, qty - Number(l.reserved_qty || 0));
+}
+function listingMinQty(l) {
+  return Math.max(1, Math.floor(Number(l && l.min_order_kg) || 1));
+}
+function listingUnit(l) {
+  return (l && (l.unit || l.sale_unit)) || 'kg';
+}
+function listingPrice(l) {
+  const raw = Number(l && l.price_per_kg) || 0;
+  const pct = Number(l && l.discount_pct) || 0;
+  return pct > 0 ? Math.round(raw * (1 - pct / 100)) : raw;
+}
+function listingRating(l) {
+  const rt = (window.farmerRatings && l && l.farmer_id) ? window.farmerRatings[l.farmer_id] : null;
+  if (!rt) return null;
+  const avg = Number(rt.avg_rating);
+  if (!Number.isFinite(avg) || avg <= 0) return null;
+  return { avg: avg, count: Number(rt.review_count) || 0 };
+}
+function favIds() {
+  try { return new Set((JSON.parse(localStorage.getItem('ab_favs') || '[]') || []).map(String)); }
+  catch (e) { return new Set(); }
+}
+function isFav(id) { return favIds().has(String(id)); }
+function toggleFav(id) {
+  const set = favIds(), key = String(id);
+  if (set.has(key)) { set.delete(key); showToast('Removed from saved'); }
+  else { set.add(key); showToast('Saved to favourites ♥'); }
+  try { localStorage.setItem('ab_favs', JSON.stringify([...set])); } catch (e) {}
+  document.querySelectorAll('.prod-card-fav[data-fav-id]').forEach(btn => {
+    if (btn.getAttribute('data-fav-id') !== key) return;
+    const liked = set.has(key);
+    btn.classList.toggle('liked', liked);
+    btn.textContent = liked ? '♥' : '♡';
+    btn.setAttribute('aria-pressed', liked ? 'true' : 'false');
+  });
+  const pdBtn = document.getElementById('pdFavBtn');
+  if (pdBtn && window._pdListing && String(window._pdListing.id) === key) {
+    pdBtn.classList.toggle('liked', set.has(key));
+    pdBtn.textContent = set.has(key) ? '♥' : '♡';
+    pdBtn.setAttribute('aria-pressed', set.has(key) ? 'true' : 'false');
+  }
+}
+
 /** Render a buyer-style product card (grid layout) */
 function prodCardHtml(l) {
   const em = listingEmoji(l);
-  const hasImg = l.image_url && l.image_url.startsWith('http');
-  const badge = l.is_organic ? '<span class="prod-card-badge organic">Organic</span>' : l.is_verified ? '<span class="prod-card-badge">✓ Verified</span>' : '';
-  const price = fmtUgx(l.price_per_kg);
-  const unit = l.unit || l.sale_unit || 'kg';
-  const farmer = (l.farmers && l.farmers.full_name) || l.farmer_name || 'Local Farmer';
-  return `<div class="prod-card" onclick="openProductDetail('${l.id}')">
-    <div class="prod-card-img" style="position:relative">
-      ${hasImg ? `<img src="${l.image_url}" alt="${l.crop_name||''}" loading="lazy" onerror="this.style.display='none';this.nextSibling.style.display='flex'"><span style="display:none;position:absolute;inset:0;align-items:center;justify-content:center;font-size:2.8rem">${em}</span>` : `<span style="font-size:2.8rem">${em}</span>`}
-      ${badge}
-      <button class="prod-card-fav" onclick="event.stopPropagation();toggleFav('${l.id}')" title="Save" aria-label="Save">♡</button>
-    </div>
-    <div class="prod-card-body">
-      <div class="prod-card-name">${l.crop_name||'Produce'}</div>
-      <div class="prod-card-farmer">${farmer}</div>
-      <div class="prod-card-price">${price}<small>/${unit}</small></div>
-      <div class="prod-card-stars">★★★★★</div>
-    </div>
-    <div class="prod-card-footer">
-      <button class="prod-card-cart" onclick="event.stopPropagation();quickAddToCart('${l.id}')">
-        + Add
-      </button>
-    </div>
-  </div>`;
+  const img = listingImage(l);
+  const name = escHtml(l.crop_name || 'Produce');
+  const unit = escHtml(listingUnit(l));
+  const farmer = escHtml((l.farmers && l.farmers.full_name) || l.farmer_name || 'Local Farmer');
+  const district = l.district ? escHtml(l.district) : '';
+  const price = listingPrice(l);
+  const pct = Number(l.discount_pct) || 0;
+  const available = listingAvailable(l);
+  const minQty = listingMinQty(l);
+  const out = available < minQty;
+  const low = !out && available <= Math.max(10, minQty * 2);
+  const rating = listingRating(l);
+  const saved = isFav(l.id);
+  const idJs = String(l.id).replace(/[^a-zA-Z0-9-]/g, '');
+  const imgHtml = img
+    ? '<img src="' + escHtml(img) + '" alt="' + name + '" loading="lazy" onerror="this.style.display=\'none\';this.nextElementSibling.style.display=\'flex\'"><span style="display:none;position:absolute;inset:0;align-items:center;justify-content:center;font-size:2.8rem">' + em + '</span>'
+    : '<span style="font-size:2.8rem">' + em + '</span>';
+  const badges = (pct > 0 ? '<span class="prod-card-discount">-' + pct + '%</span>' : '')
+    + (l.is_organic ? '<span class="prod-card-badge organic">Organic</span>' : '')
+    + (l.is_verified ? '<span class="prod-card-badge">✓ Verified</span>' : '');
+  const stock = out ? '<span class="prod-card-stock out">Out of stock</span>'
+    : low ? '<span class="prod-card-stock low">Only ' + available + ' ' + unit + ' left</span>'
+    : '<span class="prod-card-stock ok">In stock</span>';
+  const ratingHtml = rating
+    ? '<span class="prod-card-rating">★ ' + rating.avg.toFixed(1) + ' <span>(' + rating.count + ')</span></span>'
+    : '';
+  const metaHtml = (district ? '<span>📍 ' + district + '</span>' : '') + ratingHtml;
+  const priceHtml = pct > 0
+    ? '<span class="prod-card-price">' + fmtUgx(price) + '<small>/' + unit + '</small></span> <s class="prod-card-was">' + fmtUgx(l.price_per_kg) + '</s>'
+    : '<span class="prod-card-price">' + fmtUgx(price) + '<small>/' + unit + '</small></span>';
+  const minNote = minQty > 1 ? '<span class="prod-card-min">Min ' + minQty + ' ' + unit + '</span>' : '';
+  return '<div class="prod-card" role="link" tabindex="0" aria-label="View ' + name + ' from ' + farmer + '"'
+    + ' onclick="openProductDetail(\'' + idJs + '\')"'
+    + ' onkeydown="if(event.key===\'Enter\'||event.key===\' \'){event.preventDefault();openProductDetail(\'' + idJs + '\');}">'
+    + '<div class="prod-card-img" style="position:relative">' + imgHtml + badges
+    + '<button class="prod-card-fav' + (saved ? ' liked' : '') + '" data-fav-id="' + escHtml(idJs) + '" onclick="event.stopPropagation();toggleFav(\'' + idJs + '\')" aria-label="Save ' + name + '" aria-pressed="' + (saved ? 'true' : 'false') + '">' + (saved ? '♥' : '♡') + '</button>'
+    + '</div>'
+    + '<div class="prod-card-body">'
+    + '<div class="prod-card-name">' + name + '</div>'
+    + '<div class="prod-card-farmer">' + farmer + '</div>'
+    + '<div class="prod-card-meta">' + metaHtml + '</div>'
+    + '<div class="prod-card-price-row">' + priceHtml + '</div>'
+    + '<div class="prod-card-stock-row">' + stock + minNote + '</div>'
+    + '</div>'
+    + '<div class="prod-card-footer">'
+    + '<button class="prod-card-cart" onclick="event.stopPropagation();quickAddToCart(\'' + idJs + '\')"' + (out ? ' disabled aria-disabled="true"' : '') + '>' + (out ? 'Out of stock' : '+ Add') + '</button>'
+    + '</div></div>';
 }
 
 /** Category filter for home buyer grid */
 function bhSetCat(cat, el) {
+  window._homeCat = cat;
   document.querySelectorAll('#bhCatsRow .bh-cat').forEach(c => c.classList.remove('active'));
   if (el) el.classList.add('active');
-  const filtered = cat === 'all' ? allListings : allListings.filter(l => {
-    const c = (l.category||'').toLowerCase();
-    return c.includes(cat) || (cat==='vegetables' && (c.includes('veg')||c.includes('tomato')||c.includes('cabbage'))) || (cat==='grains' && (c.includes('maize')||c.includes('grain')||c.includes('millet')));
-  });
   const grid = document.getElementById('homeProdGrid');
-  if (grid) grid.innerHTML = (filtered.length ? filtered.slice(0,6).map(prodCardHtml).join('') : '<div style="padding:24px;color:var(--text2);text-align:center;grid-column:1/-1">No listings in this category</div>');
+  const title = document.getElementById('homeFeaturedTitle');
+  const moreHead = document.getElementById('homeMoreHead');
+  const moreGrid = document.getElementById('homePopularGrid');
+  const recentHead = document.getElementById('homeRecentHead');
+  const recentGrid = document.getElementById('homeRecentGrid');
+  const farmersHead = document.getElementById('homeFarmersHead');
+  const farmerStrip = document.getElementById('homeFarmerStrip');
+  const showSecondary = cat === 'all';
+  [moreHead, moreGrid, recentHead, recentGrid, farmersHead, farmerStrip].forEach(s => {
+    if (s) s.style.display = showSecondary ? '' : 'none';
+  });
+  if (showSecondary) {
+    if (moreHead && (!moreGrid || !moreGrid.children.length)) moreHead.style.display = 'none';
+    if (farmersHead && (!farmerStrip || !farmerStrip.children.length)) farmersHead.style.display = 'none';
+  }
+  if (showSecondary) {
+    if (title) title.textContent = 'Featured Products';
+    if (grid) grid.innerHTML = (window._homeFeatured || []).slice(0, 6).map(prodCardHtml).join('');
+    return;
+  }
+  const labels = { vegetables:'Vegetables', fruits:'Fruits', staples:'Staples', grains:'Grains', organic:'Organic' };
+  if (title) title.textContent = labels[cat] || 'Produce';
+  const source = window._listingsFull ? allListings : (window._homeRows || allListings);
+  const filtered = (source || []).filter(l => {
+    if (cat === 'organic') return !!l.is_organic;
+    const c = String(l.category || '').toLowerCase();
+    if (c.includes(cat)) return true;
+    if (cat === 'vegetables') return c.includes('veg') || c.includes('tomato') || c.includes('cabbage') || c.includes('onion');
+    if (cat === 'fruits') return c.includes('fruit') || c.includes('banana') || c.includes('mango');
+    if (cat === 'staples') return c.includes('staple') || c.includes('maize') || c.includes('cassava') || c.includes('matooke');
+    if (cat === 'grains') return c.includes('grain') || c.includes('rice') || c.includes('millet') || c.includes('bean');
+    return false;
+  });
+  if (!grid) return;
+  grid.innerHTML = filtered.length
+    ? filtered.slice(0, 12).map(prodCardHtml).join('')
+    : '<div class="home-feed-state"><div class="ic">🌾</div><div>No ' + escHtml((labels[cat] || cat).toLowerCase()) + ' are listed right now.</div><button class="btn-sm outline" onclick="bhSetCat(\'all\',document.querySelector(\'#bhCatsRow .bh-cat\'))">Show all produce</button></div>';
 }
 
 /** Open product detail page */
 function openProductDetail(id) {
-  const l = allListings.find(x => x.id == id || x.id === id);
-  if (!l) { showToast('Product not found'); return; }
+  const l = allListings.find(x => String(x.id) === String(id));
+  if (!l) { showToast('Product not found — refresh the marketplace'); return; }
+  const unit = listingUnit(l);
+  const available = listingAvailable(l);
+  const minQty = listingMinQty(l);
+  const out = available < minQty;
+  const low = !out && available <= Math.max(10, minQty * 2);
+  const price = listingPrice(l);
+  const pct = Number(l.discount_pct) || 0;
+  const farmer = (l.farmers && l.farmers.full_name) || l.farmer_name || 'Local Farmer';
+  const rating = listingRating(l);
   window._pdListing = l;
-  window._pdQty = 1;
-  // Populate
+  window._pdQty = minQty;
+  window._pdOut = out;
+
+  // Gallery: one real uploaded photo when it exists; emoji otherwise.
   const em = listingEmoji(l);
   const pdImg = document.getElementById('pdImgMain');
   const pdEmoji = document.getElementById('pdImgEmoji');
-  if (l.image_url && l.image_url.startsWith('http')) {
-    pdImg.src = l.image_url; pdImg.alt = l.crop_name||''; pdImg.style.display='block'; pdEmoji.style.display='none';
-  } else { pdImg.style.display='none'; pdEmoji.textContent=em; pdEmoji.style.display='block'; }
+  const thumbRow = document.getElementById('pdThumbRow');
+  if (l.image_url && String(l.image_url).startsWith('http')) {
+    pdImg.src = l.image_url; pdImg.alt = l.crop_name || ''; pdImg.style.display = 'block'; pdEmoji.style.display = 'none';
+    if (thumbRow) thumbRow.innerHTML = '<div class="pd-thumb"><img src="' + escHtml(l.image_url) + '" alt="' + escHtml(l.crop_name || '') + '"></div>';
+  } else {
+    pdImg.style.display = 'none'; pdEmoji.textContent = em; pdEmoji.style.display = 'block';
+    if (thumbRow) thumbRow.innerHTML = '';
+  }
+
   document.getElementById('pdName').textContent = l.crop_name || 'Produce';
-  document.getElementById('pdFarmerName').textContent = (l.farmers&&l.farmers.full_name)||l.farmer_name||'Local Farmer';
-  document.getElementById('pdFarmerLoc').textContent = (l.district||'Uganda') + ' District';
-  document.getElementById('pdPrice').textContent = fmtUgx(l.price_per_kg);
-  document.getElementById('pdUnit').textContent = '/' + (l.unit||l.sale_unit||'kg');
-  document.getElementById('pdDesc').textContent = l.description || 'Fresh, locally grown produce directly from the farm.';
-  document.getElementById('pdStock').textContent = (l.quantity_kg||0) + ' ' + (l.unit||'kg') + ' available';
-  document.getElementById('pdMin').textContent = (l.min_order_kg||1) + ' ' + (l.unit||'kg');
-  document.getElementById('pdQtyVal').textContent = '1';
+  document.getElementById('pdFarmerName').textContent = farmer;
+  document.getElementById('pdFarmerLoc').textContent = l.district ? l.district + ' District' : 'Uganda';
+  document.getElementById('pdFarmerAv').textContent = em;
+  var descTxt = String(l.description == null ? '' : l.description).trim();
+  if (!descTxt || /^(none|null|undefined|n\/a)$/i.test(descTxt)) descTxt = 'No description provided by the farmer yet.';
+  document.getElementById('pdDesc').textContent = descTxt;
+
+  if (pct > 0) {
+    document.getElementById('pdPrice').innerHTML = fmtUgx(price)
+      + ' <s style="font-size:.8rem;color:var(--text2);font-weight:600">' + fmtUgx(l.price_per_kg) + '</s>';
+  } else {
+    document.getElementById('pdPrice').textContent = fmtUgx(price);
+  }
+  document.getElementById('pdUnit').textContent = '/' + unit;
+
   const badges = document.getElementById('pdBadges');
-  badges.innerHTML = (l.is_verified?'<span class="pd-badge">✓ Verified</span>':'') + (l.is_organic?'<span class="pd-badge organic">Organic</span>':'') + (l.delivery_available!==false?'<span class="pd-badge">🚚 Delivery</span>':'');
+  const verified = !!(l.is_verified || (l.farmers && l.farmers.is_verified));
+  badges.innerHTML = (pct > 0 ? '<span class="pd-badge">-' + pct + '%</span>' : '')
+    + (verified ? '<span class="pd-badge">✓ Verified</span>' : '')
+    + (l.is_organic ? '<span class="pd-badge organic">Organic</span>' : '');
+  const trustVerified = document.getElementById('pdTrustVerified');
+  if (trustVerified) trustVerified.textContent = verified ? 'Verified Farmer' : 'Direct from Farmer';
+
+  const stockEl = document.getElementById('pdStock');
+  stockEl.textContent = out ? 'Out of stock' : available + ' ' + unit + ' available';
+  stockEl.className = 'pd-row-val ' + (out ? 'pd-stock-out' : low ? 'pd-stock-low' : 'pd-stock-ok');
+  document.getElementById('pdMin').textContent = minQty + ' ' + unit;
+  document.getElementById('pdDeliveryInfo').textContent = l.delivery_available === false
+    ? 'Pickup — confirm with farmer'
+    : 'Arranged after the order is confirmed';
+  document.getElementById('pdPayInfo').textContent = 'Chosen at checkout';
+
+  const stars = document.getElementById('pdStars');
+  if (rating) {
+    const filled = Math.max(1, Math.min(5, Math.round(rating.avg)));
+    stars.textContent = '★'.repeat(filled) + '☆'.repeat(5 - filled);
+    document.getElementById('pdRatingVal').textContent = rating.avg.toFixed(1);
+    document.getElementById('pdRatingCt').textContent = '(' + rating.count + (rating.count === 1 ? ' review)' : ' reviews)');
+  } else {
+    stars.textContent = '';
+    document.getElementById('pdRatingVal').textContent = '—';
+    document.getElementById('pdRatingCt').textContent = 'No ratings yet';
+  }
+
+  const outNote = document.getElementById('pdOutNote');
+  outNote.style.display = out ? 'block' : 'none';
+  outNote.textContent = out ? 'This listing is out of stock right now. Save it and check back soon.' : '';
+  const addBtn = document.getElementById('pdAddBtn');
+  const buyBtn = document.getElementById('pdBuyBtn');
+  [addBtn, buyBtn].forEach(b => {
+    if (!b) return;
+    b.disabled = out;
+    b.setAttribute('aria-disabled', out ? 'true' : 'false');
+  });
+  if (addBtn) addBtn.textContent = out ? 'Out of stock' : 'Add to Cart 🛒';
+  if (buyBtn) buyBtn.textContent = out ? 'Out of stock' : 'Buy Now →';
+
+  const favBtn = document.getElementById('pdFavBtn');
+  if (favBtn) {
+    const saved = isFav(l.id);
+    favBtn.classList.toggle('liked', saved);
+    favBtn.textContent = saved ? '♥' : '♡';
+    favBtn.setAttribute('aria-pressed', saved ? 'true' : 'false');
+    favBtn.setAttribute('aria-label', saved ? 'Remove from saved' : 'Save product');
+  }
+
+  renderPdQty();
+
+  // Related products: same category first, then same farmer. Only real listings.
+  const related = allListings
+    .filter(x => String(x.id) !== String(l.id))
+    .map(x => ({ x, score: (l.category && x.category === l.category ? 2 : 0) + (l.farmer_id && x.farmer_id === l.farmer_id ? 1 : 0) }))
+    .filter(r => r.score > 0)
+    .sort((a, b) => b.score - a.score)
+    .slice(0, 4)
+    .map(r => r.x);
+  const relWrap = document.getElementById('pdRelatedWrap');
+  const relGrid = document.getElementById('pdRelatedGrid');
+  if (relWrap && relGrid) {
+    relGrid.innerHTML = related.map(prodCardHtml).join('');
+    relWrap.style.display = related.length ? 'block' : 'none';
+  }
+
   showPage('product-detail');
+}
+
+function renderPdQty() {
+  const l = window._pdListing;
+  const el = document.getElementById('pdQtyVal');
+  if (el) el.textContent = window._pdQty || 1;
+  if (!l) return;
+  const available = listingAvailable(l);
+  const minQty = listingMinQty(l);
+  const out = available < minQty;
+  const minus = document.getElementById('pdQtyMinus');
+  const plus = document.getElementById('pdQtyPlus');
+  if (minus) minus.disabled = out || (window._pdQty || minQty) <= minQty;
+  if (plus) plus.disabled = out || (window._pdQty || 0) >= available;
 }
 
 function pdAdjQty(delta) {
   const l = window._pdListing;
-  let q = (window._pdQty||1) + delta;
-  const min = l ? (l.min_order_kg||1) : 1;
-  const max = l ? (l.quantity_kg||999) : 999;
-  q = Math.max(min, Math.min(max, q));
+  if (!l) return;
+  const available = listingAvailable(l);
+  const minQty = listingMinQty(l);
+  let q = (window._pdQty || minQty) + delta;
+  q = Math.max(minQty, Math.min(available, q));
   window._pdQty = q;
-  document.getElementById('pdQtyVal').textContent = q;
+  renderPdQty();
 }
 
-function pdAddToCart() {
+function pdAddToCart(opts) {
   const l = window._pdListing;
   if (!l) return;
-  const qty = window._pdQty||1;
-  addToBasket(l.id, l.crop_name||'Produce', l.price_per_kg, l.unit||'kg', listingEmoji(l), l.category||'', l.farmer_id||'');
-  // If qty > 1, add additional times
-  for (let i=1; i<qty; i++) addToBasket(l.id, l.crop_name||'Produce', l.price_per_kg, l.unit||'kg', listingEmoji(l), l.category||'', l.farmer_id||'');
-  showToast('Added to cart 🛒');
+  const available = listingAvailable(l);
+  const minQty = listingMinQty(l);
+  if (available < minQty) { showToast('This listing is out of stock'); return; }
+  const qty = Math.max(minQty, Math.min(available, Math.floor(window._pdQty || minQty)));
+  const meta = {
+    image: listingImage(l) || '',
+    farmer: (l.farmers && l.farmers.full_name) || l.farmer_name || '',
+    district: l.district || '',
+    minQty: minQty,
+    maxQty: available
+  };
+  addToBasket(l.id, l.crop_name || 'Produce', listingPrice(l), listingUnit(l), listingEmoji(l), l.category || '', l.farmer_id || '', qty, meta, opts);
   updateBuyerCartBadge();
 }
 
 function pdBuyNow() {
-  pdAddToCart();
+  const l = window._pdListing;
+  if (!l) return;
+  if (listingAvailable(l) < listingMinQty(l)) { showToast('This listing is out of stock'); return; }
+  pdAddToCart({ openDrawer: false });
+  closeBasket();
   showPage('cart');
 }
 
 function pdToggleFav() {
-  const btn = document.getElementById('pdFavBtn');
-  if (btn) { btn.classList.toggle('liked'); btn.textContent = btn.classList.contains('liked') ? '♥' : '♡'; }
-  showToast(document.getElementById('pdFavBtn')?.classList.contains('liked') ? 'Saved ♥' : 'Removed from saved');
+  const l = window._pdListing;
+  if (!l) return;
+  toggleFav(l.id);
 }
-
-function toggleFav(id) { showToast('Saved to favourites ♥'); }
 
 /** Quick add from grid without opening detail */
 function quickAddToCart(id) {
-  const l = allListings.find(x => x.id == id);
-  if (!l) return;
-  addToBasket(l.id, l.crop_name||'Produce', l.price_per_kg, l.unit||'kg', listingEmoji(l), l.category||'', l.farmer_id||'');
-  showToast('Added to cart 🛒');
+  const l = allListings.find(x => String(x.id) === String(id));
+  if (!l) { showToast('Product not found — refresh the marketplace'); return; }
+  const available = listingAvailable(l);
+  const minQty = listingMinQty(l);
+  if (available < minQty) { showToast('This listing is out of stock'); return; }
+  const meta = {
+    image: listingImage(l) || '',
+    farmer: (l.farmers && l.farmers.full_name) || l.farmer_name || '',
+    district: l.district || '',
+    minQty: minQty,
+    maxQty: available
+  };
+  addToBasket(l.id, l.crop_name || 'Produce', listingPrice(l), listingUnit(l), listingEmoji(l), l.category || '', l.farmer_id || '', minQty, meta);
   updateBuyerCartBadge();
 }
 
@@ -3339,53 +3835,109 @@ function renderCartPage() {
   const list = document.getElementById('cartPageList');
   const summary = document.getElementById('cartPageSummary');
   const countEl = document.getElementById('cartPageCount');
+  const actions = document.getElementById('cartActionsRow');
+  const notices = document.getElementById('cartNotices');
   if (!list) return;
   if (!basketItems || !basketItems.length) {
-    list.innerHTML = `<div class="cart-empty"><div class="cart-empty-icon">🛒</div><h3>Your cart is empty</h3><p>Browse fresh produce from Uganda's farmers</p><button class="btn-sm" onclick="showPage('market')" style="margin-top:4px">Shop Now →</button></div>`;
-    if (summary) summary.style.display='none';
-    if (countEl) countEl.textContent='0 items';
+    list.innerHTML = '<div class="cart-empty"><div class="cart-empty-icon">🛒</div><h3>Your cart is empty</h3><p>Browse fresh produce from Uganda\'s farmers</p><button class="btn-sm" onclick="showPage(\'market\')" style="margin-top:4px">Shop Now →</button></div>';
+    if (summary) summary.style.display = 'none';
+    if (actions) actions.style.display = 'none';
+    if (notices) notices.innerHTML = '';
+    if (countEl) countEl.textContent = '0 items';
     return;
   }
-  if (countEl) countEl.textContent = basketItems.length + (basketItems.length===1?' item':' items');
-  list.innerHTML = basketItems.map((item,i) => `
-    <div class="cart-item">
-      <div class="cart-item-img">${item.emoji||'🌾'}</div>
-      <div class="cart-item-body">
-        <div class="cart-item-name">${item.name}</div>
-        <div class="cart-item-farmer">Per ${item.unit||'kg'}</div>
-        <div class="cart-item-price">${fmtUgx(item.price * item.qty)}</div>
-        <div class="cart-item-ctrl">
-          <button onclick="cartPageAdjust(${i},-1)">−</button>
-          <span>${item.qty}</span>
-          <button onclick="cartPageAdjust(${i},1)">+</button>
-          <span style="font-size:.76rem;color:var(--text2);margin-left:4px">× ${fmtUgx(item.price)}</span>
-          <button class="cart-item-del" onclick="cartPageRemove(${i})" title="Remove">✕</button>
-        </div>
-      </div>
-    </div>`).join('');
+  if (actions) actions.style.display = 'flex';
+  const totalQty = basketItems.reduce((s, i) => s + i.qty, 0);
+  if (countEl) countEl.textContent = totalQty + (totalQty === 1 ? ' item' : ' items');
+  list.innerHTML = basketItems.map(function(item, i) {
+    const b = basketQtyBounds(item);
+    const unit = escHtml(item.unit || 'kg');
+    const name = escHtml(item.name);
+    const farmer = escHtml(item.farmer || 'Local Farmer');
+    const district = item.district ? ' · ' + escHtml(item.district) : '';
+    const img = item.image
+      ? '<img src="' + escHtml(item.image) + '" alt="" loading="lazy" style="width:100%;height:100%;object-fit:cover;border-radius:inherit" onerror="this.style.display=\'none\';this.nextElementSibling.style.display=\'flex\'"><span style="display:none">' + (item.emoji || '🌾') + '</span>'
+      : (item.emoji || '🌾');
+    const lowStock = b.max < 9999 && b.max <= Math.max(10, b.min * 2)
+      ? '<div class="cart-item-stock" style="color:#ffc107">Only ' + b.max + ' ' + unit + ' available</div>' : '';
+    const oosNote = item.outOfStock
+      ? '<div class="cart-item-stock" style="color:#f44336">Out of stock — remove to continue</div>' : '';
+    const minNote = b.min > 1 ? '<div class="cart-item-line">Minimum order ' + b.min + ' ' + unit + '</div>' : '';
+    return '<div class="cart-item">'
+      + '<div class="cart-item-img">' + img + '</div>'
+      + '<div class="cart-item-body">'
+      + '<div class="cart-item-name">' + name + '</div>'
+      + '<div class="cart-item-farmer">' + farmer + district + '</div>'
+      + '<div class="cart-item-unit">' + fmtUgx(item.price) + ' / ' + unit + '</div>'
+      + '<div class="cart-item-price">' + fmtUgx(item.price * item.qty) + '</div>'
+      + lowStock + oosNote + minNote
+      + '<div class="cart-item-ctrl">'
+      + '<button onclick="cartPageAdjust(' + i + ',-1)" aria-label="Decrease quantity"' + (item.qty <= b.min ? ' disabled' : '') + '>−</button>'
+      + '<span aria-live="polite">' + item.qty + '</span>'
+      + '<button onclick="cartPageAdjust(' + i + ',1)" aria-label="Increase quantity"' + (item.qty >= b.max ? ' disabled' : '') + '>+</button>'
+      + '<button class="cart-item-del" onclick="cartPageRemove(' + i + ')" title="Remove" aria-label="Remove ' + name + ' from cart">✕</button>'
+      + '</div>'
+      + '</div>'
+      + '</div>';
+  }).join('');
+  if (notices) {
+    notices.innerHTML = '<div class="cart-note"><span>ⓘ</span><span>Prices and availability are checked again on the server when you place the order.</span></div>';
+  }
   if (summary) {
-    summary.style.display='block';
-    const subtotal = basketItems.reduce((s,i) => s+(i.price*i.qty),0);
-    const delivery = 3000;
-    const total = subtotal + delivery;
-    const sub = document.getElementById('cartSubtotal'); if(sub) sub.textContent=fmtUgx(subtotal);
-    const del = document.getElementById('cartDelivery'); if(del) del.textContent=fmtUgx(delivery);
-    const tot = document.getElementById('cartTotal'); if(tot) tot.textContent=fmtUgx(total);
+    summary.style.display = 'block';
+    const totals = getBasketTotals();
+    const sub = document.getElementById('cartSubtotal'); if (sub) sub.textContent = fmtUgx(totals.subtotal);
+    const del = document.getElementById('cartDelivery'); if (del) del.textContent = 'Arranged after confirmation';
+    const tot = document.getElementById('cartTotal'); if (tot) tot.textContent = fmtUgx(totals.total);
+    const anyOos = basketItems.some(i => i.outOfStock);
+    const checkoutBtn = document.getElementById('cartCheckoutBtn');
+    if (checkoutBtn) {
+      checkoutBtn.disabled = anyOos;
+      checkoutBtn.textContent = anyOos ? 'Remove out-of-stock items to continue' : 'Proceed to Checkout →';
+    }
   }
 }
 
 function cartPageAdjust(idx, delta) {
-  if (!basketItems[idx]) return;
-  basketItems[idx].qty = Math.max(1, basketItems[idx].qty + delta);
+  const item = basketItems[idx];
+  if (!item) return;
+  const b = basketQtyBounds(item);
+  const next = Math.max(b.min, Math.min(item.qty + delta, b.max));
+  if (next === item.qty) {
+    showToast(delta > 0 ? 'Only ' + b.max + ' ' + (item.unit || '') + ' available' : 'Minimum order is ' + b.min);
+    return;
+  }
+  item.qty = next;
+  saveBasket();
+  if (typeof syncBasketToCloud === 'function') syncBasketToCloud();
   updateBasketBadge();
+  renderBasket();
   renderCartPage();
 }
 
 function cartPageRemove(idx) {
-  basketItems.splice(idx,1);
+  const item = basketItems[idx];
+  if (!item) return;
+  if (!confirm('Remove ' + item.name + ' from your cart?')) return;
+  basketItems.splice(idx, 1);
+  saveBasket();
+  if (typeof syncBasketToCloud === 'function') syncBasketToCloud();
   updateBasketBadge();
+  renderBasket();
   renderCartPage();
-  updateBuyerCartBadge();
+  showToast(item.name + ' removed from cart');
+}
+
+function clearCartPage() {
+  if (!basketItems.length) return;
+  if (!confirm('Remove all items from your cart?')) return;
+  basketItems = [];
+  saveBasket();
+  if (typeof syncBasketToCloud === 'function') syncBasketToCloud();
+  updateBasketBadge();
+  renderBasket();
+  renderCartPage();
+  showToast('Cart cleared');
 }
 
 /** Load buyer orders */
@@ -3492,33 +4044,129 @@ function applyBuyerNav() {
   }
 }
 
-function promptLocationChange() {
-  const city = prompt('Enter your delivery location (e.g. Kampala, Jinja):', document.getElementById('bhLocCity')?.textContent||'Kampala');
-  if (city && city.trim()) {
-    const el = document.getElementById('bhLocCity');
-    if (el) el.textContent = city.trim();
-    showToast('Delivery location updated 📍');
+var UG_DISTRICTS = ['Kampala','Wakiso','Mukono','Jinja','Mbale','Gulu','Lira','Mbarara','Fort Portal','Arua','Soroti','Masaka'];
+function promptLocationChange() { openLocSheet(); }
+
+function openLocSheet() {
+  const saved = localStorage.getItem('ab_location') || 'Kampala';
+  const grid = document.getElementById('locGrid');
+  if (grid) {
+    grid.innerHTML = UG_DISTRICTS.map(function(d) {
+      return '<button class="loc-opt' + (d === saved ? ' sel' : '') + '" onclick="chooseLocation(\'' + d + '\')">' + escHtml(d) + '</button>';
+    }).join('');
   }
+  const overlay = document.getElementById('locOverlay');
+  const sheet = document.getElementById('locSheet');
+  if (overlay) overlay.classList.add('open');
+  if (sheet) sheet.classList.add('open');
+  document.body.style.overflow = 'hidden';
 }
 
-// ─────────────────────────────────────────────────────────────────
-// MARKETPLACE
-// ─────────────────────────────────────────────────────────────────
+function closeLocSheet() {
+  const overlay = document.getElementById('locOverlay');
+  const sheet = document.getElementById('locSheet');
+  if (overlay) overlay.classList.remove('open');
+  if (sheet) sheet.classList.remove('open');
+  document.body.style.overflow = '';
+}
+
+function chooseLocation(name) {
+  localStorage.setItem('ab_location', name);
+  const el = document.getElementById('bhLocCity');
+  if (el) el.textContent = name + ', Uganda';
+  closeLocSheet();
+  showToast('Delivery location set to ' + name);
+}
+
+document.addEventListener('DOMContentLoaded', function() {
+  const saved = localStorage.getItem('ab_location');
+  const el = document.getElementById('bhLocCity');
+  if (saved && el) el.textContent = saved + ', Uganda';
+});
+
+var _bhSearchTimer = null;
+function bhSearch(q) {
+  clearTimeout(_bhSearchTimer);
+  _bhSearchTimer = setTimeout(function() { bhSearchRun(q); }, 120);
+}
+
+function bhSearchRun(q) {
+  const input = document.getElementById('bhSearchInput');
+  const box = document.getElementById('bhSearchResults');
+  if (!input || !box) return;
+  const raw = String(q || '').trim();
+  const term = raw.toLowerCase();
+  if (term.length < 2) {
+    box.innerHTML = '';
+    box.classList.remove('open');
+    input.setAttribute('aria-expanded', 'false');
+    return;
+  }
+  const source = (window._listingsFull ? allListings : (window._homeRows || allListings)) || [];
+  const hits = source.filter(function(l) {
+    const name = String(l.crop_name || '').toLowerCase();
+    const farmer = String((l.farmers && l.farmers.full_name) || l.farmer_name || '').toLowerCase();
+    const district = String(l.district || '').toLowerCase();
+    return name.indexOf(term) !== -1 || farmer.indexOf(term) !== -1 || district.indexOf(term) !== -1;
+  }).slice(0, 6);
+  if (!hits.length) {
+    box.innerHTML = '<div class="bh-sr-empty">No matches for “' + escHtml(raw) + '”</div>';
+  } else {
+    box.innerHTML = hits.map(function(l) {
+      const name = escHtml(l.crop_name || 'Produce');
+      const farmer = escHtml((l.farmers && l.farmers.full_name) || l.farmer_name || 'Farmer');
+      const id = String(l.id).replace(/[^a-zA-Z0-9-]/g, '');
+      const img = listingImage(l);
+      return '<button class="bh-sr-row" role="option" onclick="bhClearSearch();openProductDetail(\'' + id + '\')">'
+        + '<span class="bh-sr-thumb">' + (img ? '<img src="' + escHtml(img) + '" alt="" loading="lazy">' : listingEmoji(l)) + '</span>'
+        + '<span><span class="bh-sr-name">' + name + '</span><span class="bh-sr-meta" style="display:block">' + farmer + ' · ' + escHtml(listingUnit(l)) + '</span></span>'
+        + '<span class="bh-sr-price">' + fmtUgx(listingPrice(l)) + '</span>'
+        + '</button>';
+    }).join('') + '<button class="bh-sr-all" onclick="bhSearchSeeAll()">See all results for “' + escHtml(raw) + '”</button>';
+  }
+  box.classList.add('open');
+  input.setAttribute('aria-expanded', 'true');
+}
+
+function bhSearchSeeAll() {
+  const q = document.getElementById('bhSearchInput')?.value?.trim() || '';
+  if (!q) { showPage('market'); return; }
+  bhHideSearch();
+  openFarmerProducts(q);
+}
+
+function bhHideSearch() {
+  const box = document.getElementById('bhSearchResults');
+  const input = document.getElementById('bhSearchInput');
+  if (box) box.classList.remove('open');
+  if (input) input.setAttribute('aria-expanded', 'false');
+}
+
+function bhClearSearch() {
+  const input = document.getElementById('bhSearchInput');
+  if (input) input.value = '';
+  bhHideSearch();
+}
 async function loadListings() {
   // Only skip the fetch once the FULL marketplace list has loaded. (The home page
-  // preloads just 6 featured items into allListings, so we must not treat that as
-  // "already loaded" or the marketplace would show only those 6.)
+  // preloads a subset into allListings, so we must not treat that as done.)
   if (window._listingsFull) { renderListings(); return; }
-  document.getElementById('marketListings').innerHTML = '<div class="loader"><div class="spinner"></div>Loading…</div>';
+  const container = document.getElementById('marketListings');
+  container.innerHTML = '<div class="loader"><div class="spinner"></div>Loading…</div>';
   const data = await sb('listings', {
-    select:'id,farmer_id,crop_name,category,quantity_kg,price_per_kg,unit,district,is_organic,is_verified,description,discount_pct,sale_unit,min_order_kg,delivery_available,payment_terms,image_url,video_url,created_at,farmers(full_name,is_verified)',
+    select:'id,farmer_id,crop_name,category,quantity_kg,reserved_qty,price_per_kg,unit,district,is_organic,is_verified,description,discount_pct,sale_unit,min_order_kg,delivery_available,payment_terms,image_url,video_url,created_at,farmers(full_name,is_verified)',
     filters:[['is_available','eq.true']]
   });
-  allListings = (data && data.length) ? data.map(normalise) : sampleListings();
+  if (data === null) {
+    container.innerHTML = '<div class="empty-state"><div class="e-icon">⚠️</div><p>We could not load the marketplace. Check your connection and try again.</p><button class="btn-sm outline" onclick="loadListings()" style="margin-top:10px">Retry</button></div>';
+    return;
+  }
+  allListings = data.map(normalise);
   window._listingsFull = true;
+  hydrateCart(allListings);
   renderListings();
   loadFarmerRatings();
-  if(!allPrices.length && navigator.onLine){ loadPrices(true).then(renderListings); }
+  if (!allPrices.length && navigator.onLine) { loadPrices(true).then(renderListings); }
 }
 
 // Public seller reputation (avg rating + count), shown on marketplace cards.
@@ -3541,7 +4189,16 @@ function renderListings() {
   if (activeDistrict) list = list.filter(l => (l.district||'').toLowerCase().includes(activeDistrict.toLowerCase()));
   const sv = document.querySelector('.market-search')?.value?.toLowerCase() || '';
   if (sv) list = list.filter(l => (l.crop_name||'').toLowerCase().includes(sv) || (l.district||'').toLowerCase().includes(sv) || (l.farmer_name||'').toLowerCase().includes(sv));
-  if (!list.length) { document.getElementById('marketListings').innerHTML = '<div class="empty-state"><div class="e-icon">🌾</div><p>No listings match your filter.</p></div>'; return; }
+  if (!list.length) {
+    const el = document.getElementById('marketListings');
+    if (!el) return;
+    if (!allListings.length) {
+      el.innerHTML = '<div class="empty-state"><div class="e-icon">🌾</div><p>No produce is listed right now. New harvests appear here as soon as farmers publish them.</p><button class="btn-sm outline" onclick="window._listingsFull=false;loadListings()" style="margin-top:10px">Refresh</button></div>';
+    } else {
+      el.innerHTML = '<div class="empty-state"><div class="e-icon">🔍</div><p>No listings match your filters.</p><button class="btn-sm outline" onclick="resetMarketFilters()" style="margin-top:10px">Reset filters</button></div>';
+    }
+    return;
+  }
   document.getElementById('marketListings').innerHTML = list.map(listingCard).join('');
 }
 
@@ -3549,48 +4206,60 @@ function listingCard(l) {
   const name    = l.crop_name || l.title || 'Produce';
   const farmer  = l.farmer_name || 'Farmer';
   const district= l.district || 'Uganda';
-  const qty     = l.quantity_kg || 0;
+  const unit    = listingUnit(l);
+  const available = listingAvailable(l);
   const price   = Number(l.price_per_kg || 0);
+  const salePrice = listingPrice(l);
   const emoji   = getCropEmoji(name);
-  const initials= (farmer||'F').split(' ').map(w=>w[0]||'').join('').slice(0,2).toUpperCase();
-  const verified= l.is_verified ? ' ✅' : '';
   const _rt     = (window.farmerRatings && l.farmer_id) ? window.farmerRatings[l.farmer_id] : null;
-  const ratingHtml = _rt ? `<span style="font-size:0.72rem;color:#f0a020;margin-left:auto;white-space:nowrap">⭐ ${_rt.avg_rating} <span style="color:var(--text2)">(${_rt.review_count})</span></span>` : '';
-  const flash   = (l.discount_pct||0) > 0;
-  const terms   = [ (l.min_order_kg>0)?('Min '+l.min_order_kg+'kg'):'', l.delivery_available?'🚚 Delivers':'', l.payment_terms?('💳 '+escHtml(l.payment_terms)):'' ].filter(Boolean).join(' · ');
+  const rt2     = _rt ? '<span class="mk-star">★ ' + _rt.avg_rating + (_rt.review_count ? ' (' + _rt.review_count + ')' : '') + '</span>' : '';
+  const flash   = (l.discount_pct || 0) > 0;
+  const terms   = [ (l.min_order_kg > 0) ? ('Min ' + l.min_order_kg + ' ' + unit) : '', l.delivery_available ? '🚚 Delivers' : '', l.payment_terms ? ('💳 ' + escHtml(l.payment_terms)) : '' ].filter(Boolean).join(' · ');
   const mktPrice= marketPriceFor(name);
-  const cmpPct  = (mktPrice && price>0) ? Math.round((price-mktPrice)/mktPrice*100) : null;
-  const cmpHtml = (cmpPct!==null && cmpPct!==0) ? `<div style="font-size:0.68rem;font-weight:700;margin-top:2px;color:${cmpPct<0?'var(--green)':'#f0a020'}">${cmpPct<0?Math.abs(cmpPct)+'% below market ✓':cmpPct+'% above market'}</div>` : '';
-  const salePrice = flash ? Math.round(price*(1-l.discount_pct/100)) : price;
-  const waMsg   = encodeURIComponent(`Hi! I saw your ${name} on AgriBridge. Is it available?`);
-  const cropPhotos = { maize:'1551754655-cd27e38d2076', rice:'1586201375761-83865001e31c', wheat:'1574323347407-f5e1ad6d020b', potato:'1518977676601-b53f82aba655', tomatoes:'1546094096-0df4bcaaa337', matooke:'1603833665858-e61d17a86224', coffee:'1447933601403-0c6688de566e', avocado:'1601039641847-7857b994d704', pineapple:'1490474418585-ba9bad8fd0ea', onion:'1618512496248-a07fe83aa8cb', cassava:'1612257999756-2d43c78397ee', vanilla:'1617634975995-b2fa8bcf2f20', banana:'1571771894821-ce9b6c11b08e', beans:'1628771065518-0d82f1938462', mango:'1553279768-865429fa0078', orange:'1611080626919-7cf5a9dbab5b', groundnut:'1567892737950-30c4db37cd89', carrot:'1447175008436-054170c2e979', watermelon:'1587049352846-4a222e784d38' };
-  const pk = Object.keys(cropPhotos).find(k => name.toLowerCase().includes(k));
-  const imgUrl = l.image_url ? l.image_url : (pk ? `https://images.unsplash.com/photo-${cropPhotos[pk]}?auto=format&fit=crop&w=400&h=220&q=70` : '');
+  const cmpPct  = (mktPrice && price > 0) ? Math.round((price - mktPrice) / mktPrice * 100) : null;
+  const cmpHtml = (cmpPct !== null && cmpPct !== 0) ? '<div style="font-size:0.68rem;font-weight:700;margin-top:2px;color:' + (cmpPct < 0 ? 'var(--green)' : '#f0a020') + '">' + (cmpPct < 0 ? Math.abs(cmpPct) + '% below market ✓' : cmpPct + '% above market') + '</div>' : '';
+  const imgUrl  = listingImage(l);
   const priceHtml = flash
-    ? `<div class="card-price" style="color:#f44336">UGX ${salePrice.toLocaleString()}</div><div class="card-unit" style="text-decoration:line-through;color:var(--text2)">UGX ${price.toLocaleString()} · 🔻${l.discount_pct}% OFF</div>`
-    : `<div class="card-price">UGX ${price.toLocaleString()}</div><div class="card-unit">per kg</div>`;
-  const rt2 = _rt ? `<span class="mk-star">★ ${_rt.avg_rating}${_rt.review_count?` (${_rt.review_count})`:''}</span>` : '';
-  return `<div class="mk-row" onclick="openOrderModal('${l.id||0}','${escHtml(name)}','${escHtml(farmer)}',${price})">
-    <div class="mk-thumb">
-      ${imgUrl ? `<img src="${imgUrl}" alt="${escHtml(name)}" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'">` : ''}
-      <div class="mk-emoji" style="display:${imgUrl?'none':'flex'}">${emoji}</div>
-      ${l.is_organic ? `<span class="mk-org" title="Organic">🌱</span>` : ''}
-    </div>
-    <div class="mk-info">
-      <div class="mk-name">${escHtml(name)}${l.is_verified ? `<span class="mk-verif">✔ Verified</span>` : ''}</div>
-      <div class="mk-price">UGX ${salePrice.toLocaleString()}<small> /kg</small>${flash ? `<span class="mk-off">−${l.discount_pct}%</span>` : ''}</div>
-      <div class="mk-seller">${escHtml(farmer)}</div>
-      <div class="mk-meta">📍 ${escHtml(district)} · ${Number(qty).toLocaleString()}kg ${rt2}</div>
-      ${cmpHtml}
-      ${l.video_url ? `<a href="${escHtml(l.video_url)}" target="_blank" rel="noopener" onclick="event.stopPropagation()" class="mk-vid">🎥 Watch video</a>` : ''}
-    </div>
-    <button class="mk-cart" aria-label="Add ${escHtml(name)} to basket" onclick="event.stopPropagation();addToBasket('${l.id||Date.now()}','${escHtml(name)}',${salePrice},'kg','${emoji}','produce')">＋</button>
-  </div>`;
+    ? '<div class="card-price" style="color:#f44336">UGX ' + salePrice.toLocaleString() + '</div><div class="card-unit" style="text-decoration:line-through;color:var(--text2)">UGX ' + price.toLocaleString() + ' · 🔻' + l.discount_pct + '% OFF</div>'
+    : '<div class="card-price">UGX ' + price.toLocaleString() + '</div><div class="card-unit">per ' + escHtml(unit) + '</div>';
+  const id = String(l.id || '').replace(/[^a-zA-Z0-9-]/g, '');
+  const stock = available > 0 ? Number(available).toLocaleString() + ' ' + escHtml(unit) : 'Out of stock';
+  return '<div class="mk-row" role="link" tabindex="0" aria-label="View ' + escHtml(name) + ' from ' + escHtml(farmer) + '"'
+    + ' onclick="openProductDetail(\'' + id + '\')"'
+    + ' onkeydown="if(event.key===\'Enter\'||event.key===\' \'){event.preventDefault();openProductDetail(\'' + id + '\');}">'
+    + '<div class="mk-thumb">'
+    + (imgUrl ? '<img src="' + escHtml(imgUrl) + '" alt="' + escHtml(name) + '" loading="lazy" onerror="this.style.display=\'none\';this.nextElementSibling.style.display=\'flex\'">' : '')
+    + '<div class="mk-emoji" style="display:' + (imgUrl ? 'none' : 'flex') + '">' + emoji + '</div>'
+    + (l.is_organic ? '<span class="mk-org" title="Organic">🌱</span>' : '')
+    + '</div>'
+    + '<div class="mk-info">'
+    + '<div class="mk-name">' + escHtml(name) + (l.is_verified ? '<span class="mk-verif">✔ Verified</span>' : '') + '</div>'
+    + '<div class="mk-price">UGX ' + salePrice.toLocaleString() + '<small> /' + escHtml(unit) + '</small>' + (flash ? '<span class="mk-off">−' + l.discount_pct + '%</span>' : '') + '</div>'
+    + '<div class="mk-seller">' + escHtml(farmer) + '</div>'
+    + '<div class="mk-meta">📍 ' + escHtml(district) + ' · ' + stock + (rt2 ? ' ' + rt2 : '') + '</div>'
+    + cmpHtml
+    + (terms ? '<div class="mk-meta" style="margin-top:2px">' + terms + '</div>' : '')
+    + (l.video_url ? '<a href="' + escHtml(l.video_url) + '" target="_blank" rel="noopener" onclick="event.stopPropagation()" class="mk-vid">🎥 Watch video</a>' : '')
+    + '</div>'
+    + '<button class="mk-cart" aria-label="Add ' + escHtml(name) + ' to basket" onclick="event.stopPropagation();quickAddToCart(\'' + id + '\')"' + (available <= 0 ? ' disabled' : '') + '>＋</button>'
+    + '</div>';
 }
 
 function setMarketFilter(f,btn){ marketFilter=f; document.querySelectorAll('#marketFilters .filter-btn').forEach(b=>b.classList.remove('active')); if(btn&&btn.classList) btn.classList.add('active'); renderListings(); }
 function filterListings(){ renderListings(); }
 function filterByDistrict(v){ activeDistrict=v; renderListings(); }
+function resetMarketFilters() {
+  marketFilter = 'all';
+  activeDistrict = '';
+  document.querySelectorAll('#marketFilters .filter-btn').forEach(b => b.classList.remove('active'));
+  const first = document.querySelector('#marketFilters .filter-btn');
+  if (first) first.classList.add('active');
+  const input = document.querySelector('#page-market .market-search');
+  if (input) input.value = '';
+  const district = document.getElementById('districtFilter');
+  if (district) district.value = '';
+  renderListings();
+}
 function sortListings(v){ if(v==='price_asc') allListings.sort((a,b)=>a.price_per_kg-b.price_per_kg); if(v==='price_desc') allListings.sort((a,b)=>b.price_per_kg-a.price_per_kg); if(v==='newest') allListings.sort((a,b)=>new Date(b.created_at||0)-new Date(a.created_at||0)); renderListings(); }
 function refreshListings(){ allListings=[]; window._listingsFull=false; loadListings(); showToast('Refreshing listings…'); }
 
@@ -3790,7 +4459,6 @@ async function bookVetService(service) {
 // ─────────────────────────────────────────────────────────────────
 function saveBasket() {
   localStorage.setItem('ab_basket', JSON.stringify(basketItems));
-  localStorage.setItem('ab_promo',  JSON.stringify(appliedPromo));
 }
 
 function toggleBasket() { basketOpen ? closeBasket() : openBasket(); }
@@ -3814,25 +4482,59 @@ function closeBasket() {
   document.body.style.overflow = '';
 }
 
-// Main add-to-basket: works for both produce AND animals, fully automatic
-function addToBasket(id, name, price, unit, emoji, category, sellerId) {
+// Quantity bounds come from the listing the item was added from. The server
+// re-checks stock when the order is created; these bounds stop the buyer from
+// building a cart the server is guaranteed to reject.
+function basketQtyBounds(item) {
+  const min = Math.max(1, Math.floor(Number(item && item.minQty) || 1));
+  const rawMax = Number(item && item.maxQty);
+  const max = Number.isFinite(rawMax) && rawMax > 0 ? Math.floor(rawMax) : 9999;
+  return { min, max: Math.max(min, max) };
+}
+
+// Main add-to-basket: works for both produce AND animals, fully automatic.
+// qty/meta are optional so every existing caller keeps working.
+function addToBasket(id, name, price, unit, emoji, category, sellerId, qty, meta, opts) {
   unit     = unit     || 'kg';
   emoji    = emoji    || '🌾';
   category = category || 'produce';
-  const cleanName = String(name).replace(/'/g,"'");
+  meta     = meta     || {};
+  opts     = opts     || {};
+  const cleanName = String(name);
+  const addQty = Math.max(1, Math.floor(Number(qty) || 1));
   const existing = basketItems.find(i => String(i.id) === String(id));
   if (existing) {
-    existing.qty = Math.min(existing.qty + 1, 9999);
-    showToast(`➕ ${cleanName} qty updated`);
+    const bounds = basketQtyBounds({ ...existing, ...meta });
+    existing.qty = Math.min(existing.qty + addQty, bounds.max);
+    existing.price = Number(price);
+    existing.unit = unit;
+    if (meta.image)    existing.image = meta.image;
+    if (meta.farmer)   existing.farmer = meta.farmer;
+    if (meta.district) existing.district = meta.district;
+    if (meta.minQty)   existing.minQty = meta.minQty;
+    if (meta.maxQty)   existing.maxQty = meta.maxQty;
+    showToast(existing.qty >= bounds.max
+      ? `Only ${bounds.max} ${unit} available — cart updated`
+      : `➕ ${cleanName} qty updated`);
   } else {
-    basketItems.push({ id:String(id), name:cleanName, price:Number(price), unit, emoji, qty:1, category, sellerId: sellerId||null });
+    const bounds = basketQtyBounds({ minQty: meta.minQty, maxQty: meta.maxQty });
+    const firstQty = Math.min(Math.max(addQty, bounds.min), bounds.max);
+    basketItems.push({
+      id:String(id), name:cleanName, price:Number(price), unit, emoji,
+      qty:firstQty, category, sellerId: sellerId||null,
+      image: meta.image || '', farmer: meta.farmer || '', district: meta.district || '',
+      minQty: bounds.min, maxQty: bounds.max
+    });
     showToast(`🛒 ${cleanName} added to basket!`);
     trackInterest(name);
   }
   saveBasket();
   updateBasketBadge();
+  if (typeof updateBuyerCartBadge === 'function') updateBuyerCartBadge();
   // Auto-open drawer after short delay so user sees the animation
-  if (!basketOpen) {
+  if (opts.openDrawer === false) {
+    if (basketOpen) renderBasket();
+  } else if (!basketOpen) {
     setTimeout(openBasket, 350);
   } else {
     renderBasket();
@@ -3870,16 +4572,21 @@ function removeFromBasket(id) {
 function updateBasketQty(id, delta) {
   const item = basketItems.find(i => i.id === String(id));
   if (!item) return;
-  item.qty = Math.max(1, Math.min(item.qty + delta, 9999));
+  const b = basketQtyBounds(item);
+  item.qty = Math.max(b.min, Math.min(item.qty + delta, b.max));
+  if (delta > 0 && item.qty >= b.max) showToast(`Only ${b.max} ${item.unit||''} available`);
   saveBasket(); renderBasket(); syncBasketToCloud();
+  if (typeof renderCartPage === 'function') renderCartPage();
 }
 
 function setBasketQty(id, val) {
   const item = basketItems.find(i => i.id === String(id));
   if (!item) return;
+  const b = basketQtyBounds(item);
   const n = parseInt(val, 10);
-  if (!isNaN(n) && n > 0) item.qty = Math.min(n, 9999);
-  saveBasket(); syncBasketToCloud();
+  if (!isNaN(n) && n > 0) item.qty = Math.max(b.min, Math.min(n, b.max));
+  saveBasket(); renderBasket(); syncBasketToCloud();
+  if (typeof renderCartPage === 'function') renderCartPage();
 }
 
 function updateBasketBadge() {
@@ -3894,11 +4601,10 @@ function updateBasketBadge() {
 
 function getBasketTotals() {
   const subtotal = basketItems.reduce((s,i) => s + i.price*i.qty, 0);
-  let discount=0, promoLabel='';
-  if (appliedPromo) { discount=Math.round(subtotal*appliedPromo.pct/100); promoLabel=appliedPromo.code+' (−'+appliedPromo.pct+'%)'; }
-  const delivery = basketItems.length > 0 ? DELIVERY_FEE : 0;
-  const total = Math.max(0, subtotal - discount + delivery);
-  return { subtotal, discount, delivery, total, promoLabel };
+  // The order API stores only product value: there is no delivery-fee column
+  // and no promo table. Keep the payable total equal to what the server will
+  // record and what the payment provider will be asked to charge.
+  return { subtotal, discount:0, delivery:0, total: subtotal, promoLabel:'' };
 }
 
 function renderBasket() {
@@ -3914,66 +4620,51 @@ function renderBasket() {
   body.innerHTML = basketItems.map(item => {
     const isAnimal = item.category === 'animal';
     const priceColor = isAnimal ? 'var(--amber)' : 'var(--green)';
+    const b = basketQtyBounds(item);
     return `<div class="basket-item" id="bi-${item.id}">
-      <div class="bi-emoji">${item.emoji}</div>
+      <div class="bi-emoji">${item.image ? `<img src="${escHtml(item.image)}" alt="" style="width:100%;height:100%;object-fit:cover;border-radius:inherit" onerror="this.replaceWith(document.createTextNode('${(item.emoji||'🌾').replace(/'/g,'')}'))">` : (item.emoji||'🌾')}</div>
       <div class="bi-info">
         <div class="bi-name">${escHtml(item.name)}</div>
         <div class="bi-price" style="color:${priceColor}">UGX ${Number(item.price).toLocaleString()}/${escHtml(item.unit)}</div>
+        ${item.farmer ? `<div style="font-size:.7rem;color:var(--text2)">${escHtml(item.farmer)}${item.district?' · '+escHtml(item.district):''}</div>` : ''}
+        ${item.outOfStock ? '<div style="font-size:.68rem;color:#f44336;font-weight:700">Out of stock — remove to continue</div>' : ''}
         <div class="bi-qty">
-          <button onclick="updateBasketQty('${item.id}',-1)">−</button>
-          <input type="number" value="${item.qty}" min="1" max="9999"
-            onchange="setBasketQty('${item.id}',this.value)"
-            oninput="setBasketQty('${item.id}',this.value)">
-          <button onclick="updateBasketQty('${item.id}',1)">+</button>
+          <button onclick="updateBasketQty('${item.id}',-1)" aria-label="Decrease quantity"${item.qty <= b.min ? ' disabled' : ''}>−</button>
+          <input type="number" value="${item.qty}" min="${b.min}" max="${b.max}"
+            aria-label="Quantity for ${escHtml(item.name)}"
+            onchange="setBasketQty('${item.id}',this.value)">
+          <button onclick="updateBasketQty('${item.id}',1)" aria-label="Increase quantity"${item.qty >= b.max ? ' disabled' : ''}>+</button>
           <span style="font-size:0.75rem;color:var(--text2);margin-left:4px">= UGX ${Number(item.price*item.qty).toLocaleString()}</span>
         </div>
       </div>
-      <button class="bi-remove" onclick="removeFromBasket('${item.id}')" title="Remove">✕</button>
+      <button class="bi-remove" onclick="removeFromBasket('${item.id}')" title="Remove" aria-label="Remove ${escHtml(item.name)}">✕</button>
     </div>`;
   }).join('');
-  const { subtotal, discount, delivery, total, promoLabel } = getBasketTotals();
+  const { subtotal, total } = getBasketTotals();
   const fmt = n => 'UGX ' + Number(n).toLocaleString();
   const totEl = document.getElementById('basketTotals');
   if (totEl) totEl.innerHTML = `
     <div class="basket-total-row"><span>Subtotal</span><span>${fmt(subtotal)}</span></div>
-    ${discount>0?`<div class="basket-total-row discount"><span>${escHtml(promoLabel)}</span><span>−${fmt(discount)}</span></div>`:''}
-    <div class="basket-total-row"><span>Delivery</span><span>${fmt(delivery)}</span></div>
+    <div class="basket-total-row"><span>Delivery</span><span style="font-size:.72rem;color:var(--text2)">Arranged after confirmation</span></div>
     <div class="basket-total-row grand"><span>TOTAL</span><span>${fmt(total)}</span></div>`;
-  renderPromoTag();
 }
 
+// Discount codes have no server-side table or validation endpoint. Applying one
+// in the browser would only change the number on this screen, so it is refused
+// rather than shown as a discount the order will not receive.
 function applyPromo() {
-  const inp = document.getElementById('promoInput');
-  const code = (inp?.value||'').trim().toUpperCase();
-  if (!code) { showToast('Enter a promo code'); return; }
-  const p = PROMO_CODES[code];
-  if (!p) { showToast('❌ Invalid promo code. Try: FRESH10, ANIMAL10, AGRI15'); inp.value=''; return; }
-  appliedPromo = { code, pct:p.pct, label:p.label };
-  saveBasket();
-  if (inp) inp.value = '';
-  showToast(`✅ Promo ${code} applied — ${p.label}`);
-  renderBasket();
-}
-
-function removePromo() { appliedPromo=null; saveBasket(); renderBasket(); }
-
-function renderPromoTag() {
-  const area = document.getElementById('promoTagArea');
-  if (!area) return;
-  area.innerHTML = appliedPromo
-    ? `<div class="promo-tag">🏷️ ${appliedPromo.code} (−${appliedPromo.pct}%) <button onclick="removePromo()">✕</button></div>`
-    : '';
+  showToast('Promo codes are not available yet — no discount was applied');
 }
 
 function openCheckout() {
   if (!basketItems.length) { showToast('Your basket is empty'); return; }
+  if (basketItems.some(i => i.outOfStock)) { showToast('Remove out-of-stock items before checkout'); return; }
   closeBasket();
-  const { subtotal, discount, delivery, total } = getBasketTotals();
+  const { subtotal, total } = getBasketTotals();
   const fmt = n => 'UGX ' + Number(n).toLocaleString();
   let lines = basketItems.map(i=>`<div class="checkout-line"><span>${i.emoji} ${escHtml(i.name)} ×${i.qty}</span><span>${fmt(i.price*i.qty)}</span></div>`).join('');
   lines += `<div class="checkout-line"><span>Subtotal</span><span>${fmt(subtotal)}</span></div>`;
-  if (discount>0) lines += `<div class="checkout-line" style="color:var(--green)"><span>Discount (${appliedPromo?.code})</span><span>−${fmt(discount)}</span></div>`;
-  lines += `<div class="checkout-line"><span>Delivery</span><span>${fmt(delivery)}</span></div>`;
+  lines += `<div class="checkout-line"><span>Delivery</span><span style="font-size:.78rem;color:var(--text2)">Arranged after confirmation</span></div>`;
   lines += `<div class="checkout-line total"><span>TOTAL</span><span>${fmt(total)}</span></div>`;
   const s = document.getElementById('checkoutSummaryText');
   if (s) s.innerHTML = lines;
@@ -4029,15 +4720,7 @@ document.getElementById('checkoutModal')?.addEventListener('click', function(e){
   if (e.target === this) closeCheckout();
 });
 function applyCheckoutPromo() {
-  const inp = document.getElementById('checkoutPromoInput');
-  if (!inp) return;
-  const code = inp.value.trim().toUpperCase();
-  if (!code) { showToast('Enter a promo code first'); return; }
-  // Reuse the existing promo logic (applyPromo lives in basket section)
-  if (typeof applyPromo === 'function') {
-    applyPromo(code);
-    openCheckout(); // refresh summary with discount
-  } else { showToast('Promo: ' + code + ' — applied!'); }
+  applyPromo();
 }
 
 // ── Location helpers (SafeBoda/Uber style) ───────────────────────────────
@@ -4219,9 +4902,9 @@ function selectPayMethod(method) {
 }
 // Card is always visible (uses our own modal). Pesapal appears when its gateway is live.
 async function syncPayMethods() {
+  const prov = await getEnabledProviders();
   const c = document.getElementById('pm-card');
   const p = document.getElementById('pm-pesapal');
-  const prov = window._payProviders || {};
   const hasPesapal = !!prov.pesapal;
   if (c) c.style.display = ''; // card always visible — uses our own modal
   if (p) p.style.display = hasPesapal ? '' : 'none';
@@ -4760,14 +5443,14 @@ function localAIResponse(prompt) {
   if (/my basket|show basket|view basket|open basket|what.*in.*basket|basket items/i.test(p)) {
     if (!basket.length) return "Your basket is empty 🛒. Browse the Marketplace or Animals section to add items! [NAVIGATE:market]";
     const { total } = getBasketTotals();
-    return `You have ${basket.length} item(s) in your basket:\n${basket.map(i=>`• ${i.emoji} ${i.name} ×${i.qty} = UGX ${(i.price*i.qty).toLocaleString()}`).join('\n')}\n\nTotal: UGX ${total.toLocaleString()} (incl. delivery)\n\nReady to checkout? [OPEN_BASKET]`;
+    return `You have ${basket.length} item(s) in your basket:\n${basket.map(i=>`• ${i.emoji} ${i.name} ×${i.qty} = UGX ${(i.price*i.qty).toLocaleString()}`).join('\n')}\n\nProduce total: UGX ${total.toLocaleString()}. Delivery is quoted after the farmer confirms your order.\n\nReady to checkout? [OPEN_BASKET]`;
   }
   if (/checkout|place order|pay now|complete.*order/i.test(p))
     return basket.length ? `Taking you to checkout! ${basket.length} item(s) ready. Total: UGX ${getBasketTotals().total.toLocaleString()} [CHECKOUT]` : "Your basket is empty. Add items from the Marketplace first. [NAVIGATE:market]";
   if (/clear basket|empty basket|remove all.*basket/i.test(p))
     return "Clearing your basket now. [CLEAR_BASKET] Browse fresh produce or animals to start again!";
   if (/promo.*code|discount code|coupon|voucher/i.test(p))
-    return `Available promo codes:\n• FRESH10 — 10% off fresh produce\n• ANIMAL10 — 10% off livestock orders\n• FARM20 — 20% off for registered farmers\n• AGRI15 — 15% AgriBridge launch promo\n• ZEAL50 — 50% founder discount\n• AB2026 — 12% launch offer 2026\n\nEnter a code in your basket before checkout! [OPEN_BASKET]`;
+    return "AgriBridge does not have active promo codes yet, so no discount can be applied. The checkout total is the produce total confirmed by the server; delivery is quoted after the farmer confirms your order.";
 
   // ── ANIMAL DISEASE (must come before general animal browse check) ────────
   if (/sick|fever|symptom|disease|diagnos|ill|weak|dying|dead|cough|diarrhea|diarrhoea|sore|wound|lump|swollen|bleed|limp|not.*eating|off.*feed|loss.*appetite/i.test(p) &&
@@ -4826,7 +5509,7 @@ function localAIResponse(prompt) {
 
   // ── PAYMENT ─────────────────────────────────────────────
   if (/mtn|mobile money|momo|payment|pay|airtel money/i.test(p)) return "AgriBridge supports:\n💳 MTN Mobile Money (*165#)\n📲 Airtel Money (*185#)\n💵 Cash on Delivery\n💳 Card (Visa/Mastercard)\n\nAll payments are secure. Farmers receive funds within 24 hours of confirmed delivery.";
-  if (/delivery|transport|deliver|shipping|delivery fee/i.test(p)) return "AgriBridge delivery: farm pickup → your door. Fee: UGX 5,000 within Kampala. Upcountry rates vary by district. Estimated 1–3 days. GPS tracking on every order. [TRACK_ORDERS]";
+  if (/delivery|transport|deliver|shipping|delivery fee/i.test(p)) return "AgriBridge delivery is arranged after the farmer confirms your order. The delivery fee depends on distance and is not included in the online produce total. You can follow recorded status updates on your order page. [TRACK_ORDERS]";
 
   // ── WEATHER/SEASON ──────────────────────────────────────
   if (/weather|rain|planting.*season|when to plant|best.*time.*plant/i.test(p)) return "Uganda has 2 main rain seasons:\n🌱 Season A: March–May — plant maize, beans, tomatoes\n🌱 Season B: Oct–Dec — plant quick-maturing varieties\n\nRight now (April/May 2026) is excellent planting season! See the planting calendar: [NAVIGATE:crops]";
@@ -6574,6 +7257,10 @@ function splashLogin() {
   try { localStorage.setItem('ab_seen_splash', '1'); } catch(e) {}
   setTimeout(function(){ openModal('loginModal'); }, 450);
 }
+function splashBrowseGuest() {
+  hideSplash();
+  try { localStorage.setItem('ab_seen_splash', '1'); } catch(e) {}
+}
 
 // ─────────────────────────────────────────────────────────────────
 // CARD PAYMENT MODAL
@@ -6799,7 +7486,7 @@ document.addEventListener('DOMContentLoaded', () => {
   // Init basket badge
   updateBasketBadge();
   renderBasket();
-  renderPromoTag();
+  updateBuyerCartBadge();
   // Load home data
   loadHomeStats();
   renderCrops();
@@ -7555,17 +8242,20 @@ function applyRoleUI() {
     showPage('home');
     renderFarmerQuickLinks();
   }
-  // 7. If vendor/buyer, default to marketplace
+  // 7. If vendor/buyer, default to the buyer home
   else if (role === 'vendor') {
-    showPage('market');
+    showPage('home');
   }
 }
 
 function showGuestLanding() {
-  var pages = document.querySelectorAll('.page');
-  pages.forEach(function(p){ p.classList.remove('active'); });
+  // Only force the landing page when nothing is open. applyRoleUI() re-runs
+  // after auth/nav refreshes and must not eject a guest from a product page.
   var home = document.getElementById('page-home');
-  if (home) home.classList.add('active');
+  if (!document.querySelector('.page.active')) {
+    document.querySelectorAll('.page').forEach(function(p){ p.classList.remove('active'); });
+    if (home) home.classList.add('active');
+  }
   var existing = document.getElementById('guestCta');
   if (!existing && home) {
     var cta = document.createElement('div');
@@ -7601,25 +8291,33 @@ function renderFarmerQuickLinks() {
   var el = document.getElementById('farmerQuickLinks'); if (el) el.remove();
 }
 
-// Logged-in users see their DASHBOARD on Home, not the guest marketing pages.
-// Hide the hero + marketing sections when authed (keep the role panel + quick
-// links); restore them for guests. This also removes the "Register as Farmer/
-// Buyer" cards and the empty gap the guest banner left behind.
+// The shopping homepage is the buyer experience for guests, vendors and hotels.
+// Sellers (farmers/suppliers) keep their dashboard panel at the top, but the
+// storefront below it must stay visible: previously every authenticated user had
+// the buyer home hidden, so nobody who signed in could shop.
 function applyHomeMode() {
   var home = document.getElementById('page-home');
   if (!home) return;
-  var authed = !!currentUser;
-  var keep = { roleHomePanel: 1, farmerQuickLinks: 1, guestCta: 1 };
+  var role = '';
+  if (currentUser) role = String(currentUser.role || currentUser.user_role || '').toLowerCase();
+  var isSeller = !!currentUser && (role === 'farmer' || role === 'supplier');
+  var panel = document.getElementById('roleHomePanel');
   Array.prototype.forEach.call(home.children, function(ch) {
-    if (keep[ch.id]) return;
-    ch.style.display = authed ? 'none' : '';
+    if (ch.id === 'roleHomePanel' || ch.id === 'farmerQuickLinks') return;
+    if (ch.id === 'guestCta') { ch.style.display = isSeller ? 'none' : ''; return; }
+    ch.style.display = '';
   });
-  // #howItWorks (the "How it works" steps + "Register as Farmer/Buyer" cards)
-  // sits OUTSIDE #page-home as a sibling, so the loop above never reaches it.
-  // Hide it for logged-in users too — they already have an account.
   var hiw = document.getElementById('howItWorks');
-  if (hiw) hiw.style.display = authed ? 'none' : '';
-  if (authed) hideGuestCta();
+  if (hiw) hiw.style.display = currentUser ? 'none' : '';
+  if (panel) {
+    if (isSeller) {
+      panel.style.display = 'block';
+      if (home.firstElementChild !== panel) home.insertBefore(panel, home.firstElementChild);
+    } else {
+      panel.style.display = 'none';
+    }
+  }
+  if (currentUser) hideGuestCta();
 }
 
 // Override showPage to enforce role gating

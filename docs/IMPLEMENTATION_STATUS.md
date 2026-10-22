@@ -26,15 +26,126 @@
 > admin confirms via `POST /api/admin/orders/<id>/verify-bank-transfer`) and
 > fixes duplicate Discord `#signups` alerts (fires once per account). The API on
 > Render serves this (live `providers.bank = true`). The Cloudflare auto-deploy
-> **silently skipped** (green run, deploy step skipped — `CLOUDFLARE_API_TOKEN`
-> not in GitHub secrets), so the SPA was published manually with `wrangler
-> deploy` (version `15ff5212`). Verified live 2026-10-22: `agribrige.com/` shows
-> the `pm-bank` checkout card and `agribrige.com/admin` shows the `Bank paid`
-> button. **Add `CLOUDFLARE_API_TOKEN` to GitHub secrets so future `static/`
-> pushes publish automatically** (see `docs/OPERATIONS_SETUP.md` §11). Pesapal
-> and Google remain unconfigured and unverified live.
-> Current verified suite: 431 Python tests (including 22 Playwright browser
-> tests) and 129 SQL assertions; see `docs/TEST_RESULTS.md`.
+> had **silently skipped** (green run, deploy step skipped), so the SPA has since
+> been published from an authenticated workstation each time.
+>
+> **Deploy automation, now honest and working (2026-10-23):** `Deploy public web
+> app` can no longer pass while publishing nothing — it exits 1 when a secret is
+> missing, and on any wrangler failure it captures the output and republishes the
+> reason as a check annotation plus the run summary. Both
+> `CLOUDFLARE_API_TOKEN` and `CLOUDFLARE_ACCOUNT_ID` exist in GitHub. After an
+> invalid-token phase (`Authentication error [10000]` / `Invalid access token
+> [9109]`), the owner replaced the token with one scoped to **Specified Workers →
+> agribridge → Individual Workers Editor**; manual run `39859133726` succeeded
+> and published Worker version `a6a1d85b-f203-4e90-8dd3-b405455c32c4`. CI
+> publishing is restored; Cloudflare *Workers Builds* still fails and should be
+> disabled so only one publisher targets the Worker
+> (`docs/OPERATIONS_SETUP.md` §11, `docs/LIVE_BASELINE_AUDIT.md` §20).
+>
+> **Buyer-UI redesign (`74879f8`/`20f45f2`) merged red and was repaired in
+> `db9d92f`:** the redesign had reintroduced the retired `support@agribridge.ug`
+> contact, broken the pinned ruff gate, made 21 tests fail, and — most
+> importantly — rewrote `syncPayMethods()` to read a provider cache it never
+> fetched, so server-enabled payment options (Pesapal) and configured bank
+> accounts could stay hidden on a fresh page load. Fixed and confirmed in
+> **production** (the live page now populates `window._payProviders` on first
+> checkout render; Bank tile visible, Pesapal correctly hidden while unconfigured).
+> Live SPA = wrangler version `a6a1d85b-f203-4e90-8dd3-b405455c32c4`, published
+> by CI run `39859133726` from commit `bb2cd7a`; live HTML is the Git blob of
+> `static/index.html` (sha256 `439306a7…a19a13`; content-identical to the
+> workstation file after CRLF normalisation).
+> Current verified suite: **447 Python tests** (including 28 Playwright browser
+> tests) and 129 SQL assertions; CI green on `db9d92f`, `30f8784` and `bb2cd7a`;
+> the Stage 1 bundle is **published by the restored CI workflow and verified
+> live** (see `docs/LIVE_BASELINE_AUDIT.md` §20); see `docs/TEST_RESULTS.md`.
+>
+> **Pesapal is now configured live (2026-10-22).** The owner added consumer
+> credentials and `PESAPAL_ENV=live` in Render; `/api/pay/providers` returns
+> `"pesapal": true`, `/health/live` is 200, and both Pesapal routes answer
+> (`/api/pay/webhook/pesapal` 200, `/api/pay/pesapal/callback` 302). While
+> tracing that config we found a **latent defect**: a truncated
+> `PESAPAL_CALLBACK_BASE_URL` passed `_safe_ipn_url` (any https host is accepted,
+> even `agribridge-1-`) and would have registered a dead IPN endpoint — money
+> taken, order never marked paid, no ledger journal. `app.py` now resolves the
+> base URL through `_resolve_pesapal_base_url()`, which requires a dotted
+> hostname (localhost exempt), logs `pesapal.callback_base_url_rejected` with the
+> fallback used, and otherwise uses `PESAPAL_BASE_URL_DEFAULT`. 5 regression
+> tests cover it. Owner must still confirm the Render value is deleted or
+> complete. **No real Pesapal payment has been made**, so the notify → verify →
+> mark-paid → ledger chain stays unverified in production (Rule 11). Card and
+> Flutterwave MTN remain unconfigured; `bank_accounts: []` until
+> `BANK_TRANSFER_ACCOUNTS` is set. Note the Render build log installs `cp314`
+> wheels while `render.yaml` pins `3.12.7` (CI uses 3.12.7) — see
+> `docs/LIVE_BASELINE_AUDIT.md` §18.
+> **Live-baseline audit:** `docs/LIVE_BASELINE_AUDIT.md` (2026-10-22) records the
+> evidence-based production state, the first verified blocker (deploy automation
+> reporting green while publishing nothing) and its fix (§13–§17).
+
+## Stage 1 — Buyer storefront (2026-10-22) — DEPLOYED AND VERIFIED LIVE
+
+The first slice of the buyer-interface work, in the owner's stated order:
+**homepage → product cards → product details → shopping cart**. Checkout,
+payment integration and delivery tracking are the next stages; this stage only
+guards the existing checkout against out-of-stock lines. The admin panel,
+financial ledger, API, database and dependencies are untouched.
+
+**Changed files:** `static/index.html` (+987/−289) and the new
+`tests/e2e/test_buyer_ui.py`. The Capacitor shell wraps the same HTML, so it
+picks the change up when a new bundle is built.
+
+- **Home** — real listings and stats, honest empty/error states, real rated
+  farmers only, working search overlay and category/location filters (12
+  districts persisted in `localStorage`), and a **Browse as guest** path out of
+  the first-visit splash, which previously forced sign-up.
+- **Cards** — real image/emoji fallback, discount and struck original price,
+  stock/minimum/farmer/district, stars only from `farmer_ratings`, keyboard
+  activation, and Add disabled when the listing cannot be bought.
+- **Details** — real fields and gallery, data-backed ratings, conditional
+  verification and delivery claims, out-of-stock actions disabled, normalised
+  descriptions, related products.
+- **Cart** — `localStorage` persistence, re-hydrated price/stock on every
+  render, quantity bounded by stock and minimum, unavailable lines flagged,
+  totals equal the item subtotal, delivery shown as "Arranged after
+  confirmation" (orders store no delivery fee — `services/finance.py:25`), and
+  checkout blocked while an unavailable line remains.
+- **Signed-in buyers** — `applyRoleUI()` now lands a `vendor` on the buyer home
+  instead of the market page.
+
+Repeated browser runs also exposed two real navigation races, both fixed and
+pinned: a late `loadHomeStats()` reset a category the buyer had just chosen
+(`window._homeCat` is now re-applied), and a delayed guest role refresh at 300 ms
+closed a product detail page (`showGuestLanding()` no longer steals navigation
+when a page is already open).
+
+**Verification:** 6 new Playwright tests (deterministic fixtures, real HTML;
+5 consecutive green runs, 12.1–15.4 s; all 28 browser tests green twice);
+447 Python tests pass (441 baseline + 6, 66.09 s); ruff clean under local 0.16.10
+and CI-pinned 0.8.4; `node --check` passes all four inline script blocks; a
+51/51 ad-hoc browser harness ran at mobile/desktop widths against the live
+Supabase project **read-only** (no order placed, no row written).
+
+**Production status: PUBLISHED BY CI AND VERIFIED.** The work is commit
+`30f8784` on `main`; CI (`Backend lint + type + tests`, `Migration 0007`) is
+green. The `Deploy public web app` workflow is working again: after the owner
+replaced `CLOUDFLARE_API_TOKEN` with a token scoped to **Specified Workers →
+agribridge → Editor**, manual run `39859133726` succeeded and published Worker
+version `a6a1d85b-f203-4e90-8dd3-b405455c32c4`. Both
+`https://agribrige.com/` and the workers.dev host serve the Git blob of
+`static/index.html` at `bb2cd7a`: 752,146 bytes, sha256
+`439306a7…a19a13`, content-identical to the workstation file after CRLF
+normalisation, with all Stage 1 markers. A production browser smoke test went
+landing → Launch app → splash → Browse as guest → home cards → category filter →
+detail → add to cart → cart, with honest totals and **zero page errors** (no
+order placed). Previous version `bb9e65fb-974d-4381-8bf0-c78191a2e6d0` is the
+rollback target. Workers Builds still fails and must be disabled so only one
+publisher targets the Worker; see `docs/LIVE_BASELINE_AUDIT.md` §20.
+
+**Residual / out of scope:** cart is device-local (no server cart); promo codes
+remain deliberately absent; the legacy B2B invoice generator still hardcodes a
+UGX 25,000 delivery and 6% commission and submits nothing — flagged, not
+endorsed; checkout/payment/delivery-tracking behaviour is Stage 2/3 work.
+
+---
 
 **Phase 1 COMPLETE — Baseline Audit**
 **Completed:** 2026-10-10

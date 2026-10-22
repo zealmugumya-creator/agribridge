@@ -2,7 +2,7 @@
 
 > **2026-10-22 note:** This is the 2026-10-09 baseline report. Its “85 tests”
 > and migration-status statements are historical. Current verified evidence is
-> in [`docs/TEST_RESULTS.md`](TEST_RESULTS.md) (431 Python tests including 22
+> in [`docs/TEST_RESULTS.md`](TEST_RESULTS.md) (434 Python tests including 22
 > Playwright tests, 129 SQL assertions) and
 > [`docs/IMPLEMENTATION_STATUS.md`](IMPLEMENTATION_STATUS.md). Live probes show
 > 0013, 0014, 0002, 0015, 0016 and 0017 applied (`orders.source_ref` returns

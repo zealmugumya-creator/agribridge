@@ -173,7 +173,14 @@ def env(browser, site, monkeypatch):
     page.goto(site + "/index.html", wait_until="domcontentloaded")
     page.set_default_timeout(5000)
     page.wait_for_function("typeof sbAuth !== 'undefined' && sbAuth", timeout=10000)
+    # First visit shows the onboarding splash, which overlays the app shell.
+    # Mark it seen before entering, exactly as a returning user's browser has
+    # already done, so the consent screens under test are reachable.
+    page.evaluate("try{localStorage.setItem('ab_seen_splash','1')}catch(e){}")
     page.evaluate("enterApp()")      # leave the marketing landing overlay
+    page.evaluate("hideSplash()")
+    page.wait_for_function(
+        "document.getElementById('page-splash').style.display === 'none'", timeout=5000)
     yield page, db, errors
     ctx.close()
 
