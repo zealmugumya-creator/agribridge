@@ -30,7 +30,7 @@ def _db(monkeypatch, orders=(), deliveries=(), farmers=()):
             if ok:
                 out.append(r)
         return out
-    monkeypatch.setattr(app_mod, "supa_get", fake)
+    monkeypatch.setattr(app_mod, "supa_get_admin", fake)
 
 
 ORDER = {"id": "o1", "tracking_code": "TRK-ABC1234567", "order_ref": "AB-20260101-AAAA1111",

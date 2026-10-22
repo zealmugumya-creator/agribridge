@@ -96,9 +96,10 @@ AT_USERNAME    = os.environ.get('AT_USERNAME',    'sandbox')
 AT_API_KEY     = os.environ.get('AT_API_KEY',     'atsk_REPLACE_ME')
 AT_SHORTCODE   = os.environ.get('AT_SHORTCODE',   '*789#')
 AT_SMS_SENDER  = os.environ.get('AT_SMS_SENDER',  'AgriBridge')
-SUPABASE_URL   = SETTINGS.supabase_url
-SUPABASE_KEY   = SETTINGS.supabase_key
-GEMINI_KEY     = os.environ.get('GEMINI_API_KEY', '')
+SUPABASE_URL         = SETTINGS.supabase_url
+SUPABASE_KEY         = SETTINGS.supabase_key
+SUPABASE_SERVICE_KEY = os.environ.get('SUPABASE_SERVICE_KEY', '')  # service-role key for server-side reads that bypass RLS
+GEMINI_KEY           = os.environ.get('GEMINI_API_KEY', '')
 
 # ── Service wiring (constructed once; used by routes and the worker) ──────────
 monitoring.init(SETTINGS.sentry_dsn, os.environ.get('SENTRY_ENVIRONMENT', SETTINGS.env),
@@ -277,6 +278,31 @@ def supa_get(table, filters=None, limit=100):
         return res.json() if res.ok else []
     except Exception as e:
         print(f"Supabase GET error: {e}")
+        return []
+
+def supa_get_admin(table, filters=None, limit=100):
+    """Like supa_get but uses the service-role key to bypass RLS.
+
+    Only use server-side where the caller has already validated the request.
+    Falls back to anon key if SUPABASE_SERVICE_KEY is not set.
+    """
+    key = SUPABASE_SERVICE_KEY or SUPABASE_KEY
+    if not key:
+        return []
+    url = f"{SUPABASE_URL}/rest/v1/{table}"
+    params = {'limit': limit}
+    if filters:
+        params.update(filters)
+    headers = {
+        'apikey': key,
+        'Authorization': f'Bearer {key}',
+        'Content-Type': 'application/json',
+    }
+    try:
+        res = requests.get(url, params=params, headers=headers, timeout=8)
+        return res.json() if res.ok else []
+    except Exception as e:
+        print(f"Supabase admin GET error: {e}")
         return []
 
 def supa_get_checked(table, filters=None, limit=100):
@@ -3951,16 +3977,16 @@ def track_shipment(code):
         return jsonify({'ok': False, 'error': 'invalid code'}), 400
     order = None
     for col in ('tracking_code', 'order_ref', 'payment_ref'):
-        rows = supa_get('orders', {col: f'ilike.{code_u}'}, limit=1) or []
+        rows = supa_get_admin('orders', {col: f'ilike.{code_u}'}, limit=1) or []
         if rows:
             order = rows[0]
             break
     delivery = None
     if order and order.get('id'):
-        d = supa_get('deliveries', {'order_id': f"eq.{order['id']}"}, limit=1) or []
+        d = supa_get_admin('deliveries', {'order_id': f"eq.{order['id']}"}, limit=1) or []
         delivery = d[0] if d else None
     if not order:
-        d = supa_get('deliveries', {'tracking_code': f'ilike.{code_u}'}, limit=1) or []
+        d = supa_get_admin('deliveries', {'tracking_code': f'ilike.{code_u}'}, limit=1) or []
         delivery = d[0] if d else None
         if not delivery:
             return jsonify({'ok': False, 'error': 'not found'}), 404
@@ -3968,7 +3994,7 @@ def track_shipment(code):
     delivery = delivery or {}
     pickup = delivery.get('pickup_location') or ''
     if not pickup and order.get('farmer_id'):
-        fr = supa_get('farmers', {'id': f"eq.{order['farmer_id']}", 'select': 'district'}, limit=1) or []
+        fr = supa_get_admin('farmers', {'id': f"eq.{order['farmer_id']}", 'select': 'district'}, limit=1) or []
         pickup = (fr[0].get('district') if fr else '') or ''
     ostatus = str(order.get('status') or '').lower()
     status = (delivery.get('status') or _ORDER_TO_DELIVERY_STATUS.get(ostatus) or 'pending').lower()

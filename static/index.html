@@ -8371,7 +8371,15 @@ function initSupabase() {
       else hydrateUserProfile();
       // Flush any profile that couldn't be saved at registration time
       if (event === 'SIGNED_IN') setTimeout(flushPendingProfiles, 1000);
-      if (event !== 'PASSWORD_RECOVERY' && event !== 'TOKEN_REFRESHED' && event !== 'USER_UPDATED') {
+      if (event === 'PASSWORD_RECOVERY') {
+        // User clicked the reset link in their email — show the set-new-password modal.
+        setTimeout(function() {
+          var m = document.getElementById('setNewPasswordModal');
+          if (m) m.style.display = 'flex';
+          var i = document.getElementById('newPwdInput');
+          if (i) i.focus();
+        }, 200);
+      } else if (event !== 'TOKEN_REFRESHED' && event !== 'USER_UPDATED') {
         setTimeout(function(){ if (!_oauthOnboardingOpen) postAuthLegalCheck(); }, 0);
       }
       // Poll notification unread count every 60s while logged in
@@ -8893,6 +8901,25 @@ async function deleteMyAccount(){
 function openForgotPassword(){
   closeModal('loginModal'); openModal('forgotPwdModal');
   var s1=document.getElementById('forgotStep1'),s2=document.getElementById('forgotStep2'),em=document.getElementById('forgotErrMsg');
+// Called when user fills in and submits the "set new password" form (after clicking a reset link).
+async function submitNewPassword(){
+  var pwd=document.getElementById('newPwdInput')?.value||'';
+  var con=document.getElementById('newPwdConfirm')?.value||'';
+  var errEl=document.getElementById('setNewPwdErr');
+  var btn=document.getElementById('setNewPwdBtn');
+  function showErr(msg){if(errEl){errEl.textContent=msg;errEl.style.display='block';}}
+  if(errEl) errEl.style.display='none';
+  if(pwd.length<8){showErr('Password must be at least 8 characters.');return;}
+  if(pwd!==con){showErr('Passwords do not match.');return;}
+  if(btn){btn.disabled=true;btn.textContent='Saving…';}
+  try{
+    var res=await sbAuth.auth.updateUser({password:pwd});
+    if(res.error){showErr(res.error.message||'Failed to update password. Try requesting a new reset link.');if(btn){btn.disabled=false;btn.textContent='Save New Password ✓';}return;}
+    var m=document.getElementById('setNewPasswordModal');
+    if(m) m.style.display='none';
+    showToast('✅ Password updated! You are now logged in.');
+  }catch(e){showErr('Something went wrong. Please try again.');if(btn){btn.disabled=false;btn.textContent='Save New Password ✓';}}
+}
   if(s1)s1.style.display='block'; if(s2)s2.style.display='none'; if(em)em.style.display='none';
 }
 async function sendPasswordReset(){
@@ -9819,6 +9846,25 @@ document.addEventListener('DOMContentLoaded', function() {
       <p style="font-size:0.85rem;color:var(--text2);margin-bottom:20px">Check your email. Click the link to create a new password. The link expires in 1 hour.</p>
       <button class="btn-submit" onclick="closeModal('forgotPwdModal');openModal('loginModal')">Back to Login</button>
     </div>
+  </div>
+</div>
+
+<!-- ══ SET NEW PASSWORD MODAL (shown after clicking reset link in email) ══ -->
+<div class="modal-overlay" id="setNewPasswordModal" role="dialog" aria-label="Set new password">
+  <div class="modal-box" style="max-width:400px">
+    <div style="text-align:center;margin-bottom:16px"><div style="font-size:2.5rem">🔒</div></div>
+    <h3 style="text-align:center;margin-bottom:8px">Create New Password</h3>
+    <p style="font-size:0.85rem;color:var(--text2);text-align:center;margin-bottom:20px">Choose a strong password for your account.</p>
+    <div id="setNewPwdErr" style="display:none;background:#b71c1c22;border:1px solid #b71c1c;border-radius:8px;padding:10px;margin-bottom:14px;font-size:0.83rem;color:#ff5252"></div>
+    <div class="form-group">
+      <label>New Password</label>
+      <input type="password" id="newPwdInput" placeholder="At least 8 characters" onkeydown="if(event.key==='Enter')document.getElementById('newPwdConfirm').focus()">
+    </div>
+    <div class="form-group">
+      <label>Confirm Password</label>
+      <input type="password" id="newPwdConfirm" placeholder="Repeat your password" onkeydown="if(event.key==='Enter')submitNewPassword()">
+    </div>
+    <button class="btn-submit" id="setNewPwdBtn" onclick="submitNewPassword()">Save New Password ✓</button>
   </div>
 </div>
 
