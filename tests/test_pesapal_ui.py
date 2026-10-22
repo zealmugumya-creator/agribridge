@@ -106,7 +106,9 @@ def test_pesapal_checkout_is_hidden_until_the_api_enables_it(index_html):
     ids = _ids(INDEX)
     assert "pm-pesapal" in ids and "pesapalInfoPanel" in ids
     assert "selectPayMethod('pesapal')" in index_html
-    assert "['card','momo','airtel','pesapal','cash','bank']" in index_html
+    assert "['card','momo','airtel','pesapal','cash','bank']" in index_html or \
+        set(re.findall(r"'([a-z]+)'", re.search(r"\[([^\]]*)\]\.forEach\(m =>", index_html).group(1))) == {
+            'momo', 'airtel', 'card', 'pesapal', 'cash', 'bank'}
     assert "const p = document.getElementById('pm-pesapal');" in index_html
     assert "const hasPesapal = !!prov.pesapal;" in index_html
     assert "if (!hasPesapal && selectedPayMethod === 'pesapal') selectPayMethod('momo');" in index_html

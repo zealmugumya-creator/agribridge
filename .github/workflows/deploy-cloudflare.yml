@@ -46,4 +46,21 @@ jobs:
             } >> "$GITHUB_STEP_SUMMARY"
             exit 1
           fi
-          npx --yes wrangler@4 deploy
+          status=0
+          npx --yes wrangler@4 deploy >/tmp/wrangler.log 2>&1 || status=$?
+          cat /tmp/wrangler.log
+          if [ "$status" -ne 0 ]; then
+            # Job logs are only readable by the repo owner, so also publish the
+            # reason as an annotation and in the run summary. Actions masks
+            # secret values in log output automatically.
+            reason="$(tr '\r\n' '  ' < /tmp/wrangler.log | tail -c 700)"
+            echo "::error::wrangler deploy failed (exit $status): $reason"
+            {
+              echo "## Cloudflare SPA deploy failed (wrangler exit $status)"
+              echo ""
+              echo '```'
+              tail -n 30 /tmp/wrangler.log
+              echo '```'
+            } >> "$GITHUB_STEP_SUMMARY"
+            exit "$status"
+          fi

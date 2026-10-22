@@ -4270,7 +4270,7 @@ def _send_web_push(user_id: str, title: str, body: str, url: str = '/'):
     """Fire-and-forget Web Push to all subscriptions for a user."""
     VAPID_PRIVATE_KEY = os.environ.get('VAPID_PRIVATE_KEY', '')
     VAPID_PUBLIC_KEY  = os.environ.get('VAPID_PUBLIC_KEY', '')
-    VAPID_CONTACT     = os.environ.get('VAPID_CONTACT', 'mailto:support@agribridge.ug')
+    VAPID_CONTACT     = os.environ.get('VAPID_CONTACT', f'mailto:{business.SUPPORT_EMAIL}')
     if not VAPID_PRIVATE_KEY or not VAPID_PUBLIC_KEY:
         return  # Not configured — silently skip
 
@@ -4279,7 +4279,7 @@ def _send_web_push(user_id: str, title: str, body: str, url: str = '/'):
         return
 
     try:
-        from pywebpush import webpush, WebPushException
+        from pywebpush import WebPushException, webpush
     except ImportError:
         log.warning('webpush.pywebpush_missing', note='install pywebpush to enable browser push')
         return
@@ -4304,8 +4304,10 @@ def _send_web_push(user_id: str, title: str, body: str, url: str = '/'):
         except Exception as e:
             log.warning('webpush.send_error', user=user_id, error=str(e))
     for did in dead_ids:
-        try: SUPA.delete('push_subscriptions', 'id', did)
-        except Exception: pass
+        try:
+            SUPA.delete('push_subscriptions', 'id', did)
+        except Exception:
+            pass
 
 
 # ══════════════════════════════════════════════════════════════════════════════

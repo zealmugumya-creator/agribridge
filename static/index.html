@@ -4219,9 +4219,9 @@ function selectPayMethod(method) {
 }
 // Card is always visible (uses our own modal). Pesapal appears when its gateway is live.
 async function syncPayMethods() {
+  const prov = await getEnabledProviders();
   const c = document.getElementById('pm-card');
   const p = document.getElementById('pm-pesapal');
-  const prov = window._payProviders || {};
   const hasPesapal = !!prov.pesapal;
   if (c) c.style.display = ''; // card always visible — uses our own modal
   if (p) p.style.display = hasPesapal ? '' : 'none';

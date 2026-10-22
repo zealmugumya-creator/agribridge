@@ -77,7 +77,7 @@ Applied to live Supabase `lvloaweijidgcuezdnmu`, verified by probing columns/tab
 
 ## 10. Automated test status — WORKING (CODE)
 
-- Python: **431 passed** (incl. 22 Playwright) on Python 3.14 with `.test-deps`. → PASS
+- Python: **436 passed** (incl. 22 Playwright) on Python 3.14 with `.test-deps`. → PASS (as of §15; the redesigned `origin/main` HEAD `20f45f2` was **21 failed / 413 passed** before the repairs recorded there)
 - SQL (PGlite): **129 assertions passed** across 6 suites. → PASS
 - Lint: ruff clean on both local 0.17 and CI-pinned 0.8.4. → PASS
 - CI: green on `319bae9`/`8e954ac`. **Note:** CI **failed** on `6077883` at "Lint (ruff)" (a `UP017` in the new test), fixed in the follow-up commit — an example of a real check correctly failing. → PASS (after fix)
@@ -87,7 +87,7 @@ Applied to live Supabase `lvloaweijidgcuezdnmu`, verified by probing columns/tab
 
 Required settings present/absent (names only; values never inspected or logged):
 
-- **CONFIGURATION GAP:** `CLOUDFLARE_API_TOKEN` / `CLOUDFLARE_ACCOUNT_ID` — **absent** from GitHub Actions secrets (this is the root cause of §2's blocker: SPA deploys silently skip).
+- **CONFIGURATION GAP (resolved 2026-10-22):** `CLOUDFLARE_API_TOKEN` / `CLOUDFLARE_ACCOUNT_ID` — the owner has now added both as GitHub repository Actions secrets (owner screenshot; the secrets page shows `CLOUDFLARE_ACCOUNT_ID` and `CLOUDFLARE_API_TOKEN`). This is what unblocked §2's silent-skip, but it also means `static/` pushes now *attempt* a real deploy — see §14 for the deploy run that fails for a reason we cannot yet read.
 - **CONFIGURATION GAP:** `BANK_TRANSFER_ACCOUNTS` — empty in Render, so checkout shows support contact instead of a real account (intended safe behavior, but the operator must supply the real details).
 - **CONFIGURATION GAP (owner credentials):** Flutterwave `FLW_*`, Pesapal `PESAPAL_*`, Firebase `FCM_*`, `SENTRY_DSN`, Supabase service-role `SUPABASE_KEY` (Render-only), GitHub backup secrets.
 - **ASSUMPTION / blocked access:** no service-role or authenticated user session was available, so real order placement, real payment/webhook, admin login, and live dashboard/RLS internals beyond anonymous probes could not be exercised.
@@ -127,3 +127,53 @@ Per the selection order (security → financial integrity → outage → buyer j
 **Production status:** nothing pushed or deployed for this fix. The live SPA remains on the manually-published `6077883` bundle (`pm-bank` verified live). When the owner later adds the two secrets, this workflow will actually publish and the green run will be trustworthy.
 
 **Remaining risk / operator action:** the underlying `CLOUDFLARE_API_TOKEN`/`CLOUDFLARE_ACCOUNT_ID` are still absent (§11) — the fix makes the missing-credential state *visible and safe*, not *working*. Adding the secrets is the owner action that turns SPA auto-deploy on.
+
+---
+
+## 14. Second fix record — blocker #1 extension: a red deploy run must say why
+
+**Status:** implemented locally on `main` (commit `5321418` rebased onto the redesigned `origin/main`, plus the changes below); pushed and observed live — see §15.
+
+**New evidence gathered after the owner added the Cloudflare secrets**
+
+| Check | Source | Result |
+|---|---|---|
+| Owner added `CLOUDFLARE_ACCOUNT_ID` + `CLOUDFLARE_API_TOKEN` as repository secrets | owner screenshots (2026-10-22) | CONFIGURATION GAP closed |
+| Cloudflare token "AgriBridge GitHub Deploy" = `Account.Workers Scripts`, 1 account, Active | owner screenshot | INFORMATIONAL |
+| `origin/main` HEAD `20f45f2` (buyer-UI redesign merge) CI | GitHub Actions API | **failure** — job `Backend lint + type + tests` failed at the pytest step (annotation `.github:42`) |
+| `origin/main` HEAD `20f45f2` deploy workflow | GitHub Actions API | **failure** — job `deploy` "Process completed with exit code 1" (annotation `.github:22`) → **VERIFIED DEFECT: SPA auto-deploy now runs and fails, so nothing ships** |
+| `Workers Builds: agribridge` check at `20f45f2` | GitHub check-runs API | failure (Cloudflare GitHub App path; separate from the Actions deploy) |
+| Wrangler error text behind that failure | `GET /actions/runs/39741657828/logs` | **UNVERIFIED — 403.** Job logs need an authenticated collaborator; the API gives only the annotation above |
+
+**Diagnosis of the *visibility* blocker.** The deploy job fails with a message that contains no cause. Without log access the failure cannot be triaged from outside the owner's account, so every subsequent `static/` release stays unexplained and unshipped. Root cause of the *visibility* problem: the workflow lets `npx wrangler deploy` write only to the job log, which is not readable through the public API.
+
+**Fix (smallest safe change, keeps the honest-status behavior):** the deploy step captures wrangler output to a file, echoes it into the job log, and on failure publishes a **single-line `::error::` annotation** with the last 700 characters plus a fenced tail in `$GITHUB_STEP_SUMMARY`, then exits with wrangler's own status. Secret values stay masked by Actions; nothing is printed on the success path beyond wrangler's normal output. `status=0` / `|| status=$?` is required because the runner shell is `bash -e` and would otherwise abort before reporting.
+
+**Regression tests added** (`tests/test_deploy_workflow.py`, now 5 tests):
+- `test_wrangler_failure_reason_is_visible_without_dashboard_access` — asserts output capture, the `::error::wrangler deploy failed` annotation and `exit "$status"`.
+- `test_deploy_step_preserves_wrangler_exit_status` — asserts the `-e`-safe status capture.
+- Both **FAILED against the pre-fix workflow** and pass after it (verified by re-running the file at HEAD's version, then restoring).
+
+## 15. Release-gate findings from the buyer-UI redesign (`74879f8` / `20f45f2`) — VERIFIED DEFECTs, all fixed
+
+The redesign was merged onto `main` while CI was green, and arrived with a red suite. Each failure was reproduced locally and traced to the redesign, not to §13's work (`git diff 8e954ac 20f45f2` touches only `app.py`, `requirements.txt`, `static/index.html`, `static/sw.js`; `ci.yml` and `requirements-dev.txt` are unchanged).
+
+| # | Finding | Evidence | Root cause | Fix |
+|---|---|---|---|---|
+| 1 | Banned support contact reintroduced | `pytest tests/test_business_config.py` → 2 failed: `unofficial email addresses found: {'app.py': {'support@agribridge.ug'}}` | `app.py` `_send_web_push` defaulted `VAPID_CONTACT` to `mailto:support@agribridge.ug`, a domain the project no longer owns | default is now `f'mailto:{business.SUPPORT_EMAIL}'`, matching the single-source convention already used at `app.py:723`, `:1250`, `:5073` |
+| 2 | **Server-gated payment options could never appear** | `tests/e2e/test_consent_ui.py::test_pesapal_is_offered_only_when_the_server_enables_it` failed: `assert page.is_visible('#pm-pesapal')` → False | the redesign rewrote `syncPayMethods()` to read the in-memory cache `window._payProviders` instead of awaiting `getEnabledProviders()`. On a fresh page load the cache is empty, so the Pesapal tile stayed hidden **even when `/api/pay/providers` reported it enabled**, and `renderBankOptions()` got a stale/empty account list | `syncPayMethods()` again `await`s `getEnabledProviders()` first; the redesign's deliberate "card is always visible (own modal)" behavior is preserved → **VERIFIED DEFECT** with production impact, fixed |
+| 3 | 15 browser tests blocked by the new onboarding splash | Playwright timeout: `<button class="splash-btn-primary" …> … from <div id="page-splash"> subtree intercepts pointer events` | the redesign gates the app shell behind a marketing landing **plus** a first-visit splash overlay (`enterApp()` → `showSplash()`). Real visitors dismiss it by tapping; the shared e2e fixture never did | the fixture now marks `ab_seen_splash` and dismisses the splash before the flows, i.e. the state of a returning user, then waits for the overlay to be gone. No assertion was weakened and no gate was disabled |
+| 4 | Brittle order-sensitive UI assertion | `tests/test_pesapal_ui.py:109` failed on the tile list literal | test hard-coded one tile ordering; the redesign legitimately reordered them to match the DOM | assertion accepts the literal **or** compares the toggle list as a set, so tile order can change without hiding a real regression |
+| 5 | CI lint gate broken | `/tmp/ruff084/bin/ruff.exe check app.py services/ scripts/ tests/` → 3 errors (I001, E701 ×2) at the new `_send_web_push` block; the same command on a `8e954ac` worktree → "All checks passed" | new code in the redesign: `from pywebpush import webpush, WebPushException` and `try: … / except Exception: pass` one-liners | import sorted; the two compound statements split across lines — formatting only, no behavior change |
+
+**Verification after the fixes (all commands run from the repo root):**
+- `PYTHONPATH=.test-deps python -m pytest -q` → **436 passed** (434 baseline + the 2 new workflow tests; includes the 22 Playwright browser tests).
+- `pytest tests/e2e/test_consent_ui.py -q` → **22 passed** (was 18 failed / 4 passed).
+- `pytest tests/test_business_config.py -q` → **13 passed**; `pytest tests/test_pesapal_ui.py -q` → **12 passed**; `pytest tests/test_deploy_workflow.py -q` → **5 passed**.
+- `ruff check app.py services/ scripts/ tests/` → **All checks passed** with both CI-pinned 0.8.4 and local 0.16/0.17.
+- `python scripts/build_legal.py --check` → "legal outputs up to date" (the other CI gate).
+- `cd tests/sql && npm test` → all suites pass (129 assertions; unchanged, no SQL touched this session).
+- `.github/workflows/deploy-cloudflare.yml` parses with `js-yaml`.
+
+**Deliberately not changed:** the splash/landing UX itself, the new card modal, `static/sw.js`, and the redesign's `+1425` lines of buyer UI. Rule 2/4/15 — this run repairs what the redesign broke, and does not rewrite what it deliberately redesigned.
+

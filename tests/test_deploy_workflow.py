@@ -51,3 +51,26 @@ def test_no_warning_only_skip_step_remains():
     if "Report missing deployment credential" in text:
         # If that step name is kept for messaging, the run block must still fail.
         assert "exit 1" in text
+
+
+def test_wrangler_failure_reason_is_visible_without_dashboard_access():
+    """A red deploy run must say WHY it is red in the run's annotations.
+
+    Job logs are only readable by an authenticated collaborator, so the push at
+    `20f45f2` failed with nothing but "Process completed with exit code 1" and
+    the cause could not be established from outside the account. The workflow
+    must therefore capture wrangler's output, re-publish the tail as an
+    annotation and in the run summary, and still exit non-zero.
+    """
+    text = _text()
+    assert re.search(r"wrangler@4 deploy\s*>\S+ 2>&1 \|\| status=\$\?", text), (
+        "wrangler output is not captured, so its error text cannot be reported")
+    assert '"::error::wrangler deploy failed' in text, (
+        "the deploy failure reason is not published as an annotation")
+    assert 'exit "$status"' in text, "wrangler failures must still fail the job"
+
+
+def test_deploy_step_preserves_wrangler_exit_status():
+    # `bash -e` would abort the step before anything is reported.
+    text = _text()
+    assert "status=0" in text and "|| status=$?" in text
