@@ -1,17 +1,40 @@
 # AgriBridge — Implementation Status
 
-> **2026-10-21 update:** The baseline below is the original Phase 1 audit. Since
+> **2026-10-22 update:** The baseline below is the original Phase 1 audit. Since
 > then: `/api/pay/initiate` and the SMS/admin/order update paths are session- and
 > ownership-checked; migration 0013 (ledger) and 0014 (internal-table lockdown)
-> are applied; migration 0015 now makes `create_order_atomic` category-aware
+> are applied; migration 0015 (APPLIED live — `orders.source_ref` returns 200,
+> verified 2026-10-22) makes
+> `create_order_atomic` category-aware
 > (livestock/supplier pricing and attribution), and the SPA no longer inserts or
 > updates orders directly. Migration 0016 adds farmer settlements in code:
 > delivered+paid orders create one pending payout, and
 > `POST /api/admin/payouts/<id>/settle` posts `settlement:<payout_id>` only with
-> an operator-supplied provider reference and a posted receipt. 0016 is **not
-> applied live** yet. Migration 0002 remains the last unapplied security
-> migration — apply 0015 and deploy this bundle first, then apply 0002 (see
-> `docs/OPERATIONS_SETUP.md` §2).
+> an operator-supplied provider reference and a posted receipt. Migration 0017
+> adds Pesapal API 3.0 hosted checkout and recurring-charge recording; recurring
+> money posts to `SUSPENSE_OVERPAYMENT`, never to a farmer. The SPA also offers
+> Google sign-in through Supabase OAuth, with a locked onboarding modal for
+> phone/role/district/terms. **Live schema and deployment status (verified
+> 2026-10-22 by read-only PostgREST probes and public endpoint probes):** 0002,
+> 0016 and 0017 are applied; `payment_gateway_state`, `payment_subscriptions` and
+> `subscription_charges` exist and reject `anon` with `42501`. Push `9123b38`
+> deployed the API on Render and the SPA via the `Deploy public web app`
+> workflow. **0015 is now applied** — `orders.source_ref` returns HTTP 200 — so
+> livestock/supplier checkout runs against the category-aware function.
+> Push `6077883` restores a safe Bank Transfer method (always offered, real
+> account details only from `BANK_TRANSFER_ACCOUNTS`, orders unpaid until an
+> admin confirms via `POST /api/admin/orders/<id>/verify-bank-transfer`) and
+> fixes duplicate Discord `#signups` alerts (fires once per account). The API on
+> Render serves this (live `providers.bank = true`). The Cloudflare auto-deploy
+> **silently skipped** (green run, deploy step skipped — `CLOUDFLARE_API_TOKEN`
+> not in GitHub secrets), so the SPA was published manually with `wrangler
+> deploy` (version `15ff5212`). Verified live 2026-10-22: `agribrige.com/` shows
+> the `pm-bank` checkout card and `agribrige.com/admin` shows the `Bank paid`
+> button. **Add `CLOUDFLARE_API_TOKEN` to GitHub secrets so future `static/`
+> pushes publish automatically** (see `docs/OPERATIONS_SETUP.md` §11). Pesapal
+> and Google remain unconfigured and unverified live.
+> Current verified suite: 431 Python tests (including 22 Playwright browser
+> tests) and 129 SQL assertions; see `docs/TEST_RESULTS.md`.
 
 **Phase 1 COMPLETE — Baseline Audit**
 **Completed:** 2026-10-10
@@ -64,7 +87,7 @@
 - Admin login rate-limited: DONE
 - Flutterwave webhook re-verification: DONE
 - Legal consent framework built: DONE (not enforced)
-- **Migration 0002 (blocking direct order inserts) NOT applied** — livestock/supplier orders bypass server-side price guard
+- **Migration 0002 (blocking direct order inserts) and migration 0015 are both applied and the new SPA is live.** `create_order_atomic` is now category-aware (`orders.source_ref` returns 200, verified 2026-10-22). Livestock/supplier pricing resolves server-side from each item's own crop listing.
 - **Admin panel uses shared-password JWT**, not Supabase identity
 - **In-memory rate limiting and USSD sessions** — not safe with 2 workers
 
@@ -89,7 +112,7 @@
 | # | Issue | Action |
 |---|-------|--------|
 | 1 | Default admin password `agribridge2026` may still be set | Set strong `ADMIN_PASSWORD` in Render immediately |
-| 2 | Migration 0002 not applied — livestock/supplier orders bypass price validation | Extend server-side order path to all categories, then apply migration |
+| 2 | ~~Migration 0015 not applied~~ — RESOLVED 2026-10-22: 0015 is applied and `orders.source_ref` returns 200, so `create_order_atomic` is category-aware | Confirm a livestock and a supplier order price correctly in the live checkout |
 | 3 | USSD sessions in-process dict — breaks with 2 workers and on restart | Switch to `ussd_sessions` table in Supabase |
 | 4 | `farmer_ratings` table referenced in matching function does not exist | Create table in a migration |
 

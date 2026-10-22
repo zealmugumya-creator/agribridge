@@ -145,6 +145,96 @@ a posted customer receipt and an operator-supplied provider reference.
 Evidence: `tests/test_settlements.py` (23 tests) and
 `tests/sql/settlements.test.mjs` (11 assertions).
 
+### 7. Pesapal gateway surface (migration 0017)
+
+Pesapal adds a hosted checkout, an IPN endpoint and recurring-charge recording.
+The security boundary is the same as Flutterwave's: callback data is untrusted.
+
+* Consumer key/secret exist only in the API environment. The browser learns
+  only a boolean from `GET /api/pay/providers`; tokens and secrets are never
+  logged or returned (`services/pesapal.py`).
+* Every callback and IPN calls `GetTransactionStatus` server-side. Completion,
+  amount, currency and merchant reference come from that response, not from the
+  request. A forged callback cannot mark an order paid.
+* The echoed reference must match the base checkout reference; currency must be
+  explicitly UGX; the verified amount must be at least the server-computed order
+  total. Duplicate notifications are idempotent through `payment:<ref>`.
+* The gateway redirect URL is accepted only over HTTPS on `pesapal.com` or a
+  subdomain; tracking ids are length/charset checked; registered IPN URLs must
+  be HTTPS (or localhost in development).
+* `payment_gateway_state`, `payment_subscriptions` and `subscription_charges`
+  have RLS enabled, `service_role` policies, and no privileges for `anon` or
+  `authenticated`. `tests/sql/pesapal.test.mjs` asserts the denial after
+  applying the migration twice.
+* A recurring notification never creates an order, a farmer payable or a
+  payout. It posts provider cash to `SUSPENSE_OVERPAYMENT` and is unique on
+  `(provider, provider_tracking_id)` and `recurring:<tracking_id>`.
+* `POST /api/pay/initiate` remains session- and ownership-checked and keeps the
+  server-side amount floor; the callback route is rate-limited.
+* `GET /api/admin/finance/recurring` requires an admin token; without 0017 it
+  returns a 503 that names the migration rather than exposing database detail
+  broadly.
+
+**Live schema verified 2026-10-22:** 0017 is applied. Read-only PostgREST
+probes with the publishable key return `401` / `42501` for
+`payment_gateway_state`, `payment_subscriptions` and `subscription_charges`,
+so the service-role-only posture is effective. The payment flow itself is still
+unverified because no live Pesapal credentials exist; see
+`docs/PAYMENTS_PESAPAL.md` §8.
+
+### 8. Google sign-in and onboarding (no migration)
+
+* Provider availability is read from Supabase `/auth/v1/settings`; the buttons
+  stay hidden when Google is not configured, so the UI cannot imply a working
+  provider.
+* `signInWithOAuth` is called with `provider: "google"` and the current origin
+  as `redirectTo`. No access token, client secret or user identity is
+  constructed client-side beyond what Supabase returns.
+* A first-time Google user must complete a locked onboarding modal (no close
+  button, no overlay dismissal, Escape excluded). It validates a Ugandan phone,
+  account type, district and explicit terms acceptance before the app is usable.
+* The onboarding role list is limited to farmer/vendor/hotel/supplier. Admin
+  authority still comes only from `user_roles` / `ADMIN_ALLOWED_UUIDS`; choosing
+  a role in metadata does not grant admin.
+* Profile and legal writes go through the verified-session endpoints
+  (`/api/user/profile`, `/api/legal/sync-signup`); the backend derives the user
+  id from the token.
+* `tests/test_pesapal_ui.py` scans the browser assets for `service_role`,
+  `sb_secret_`, the Supabase service key, Pesapal/Flutterwave secrets and
+  `client_secret`; the Playwright suite asserts the locked-modal and OAuth
+  argument behaviour.
+
+**Not yet verified live:** the real Google consent screen was not exercised;
+the browser tests stub Supabase OAuth. Owner setup and acceptance checks are in
+`docs/GOOGLE_SIGNIN.md` §3.
+
+### 9. Bank transfer — offline, admin-verified (no migration)
+
+* Bank Transfer was removed earlier because the UI displayed a **fabricated**
+  Stanbic account number. It is restored without any hardcoded account: real
+  details render only from the `BANK_TRANSFER_ACCOUNTS` env var served through
+  `/api/pay/providers`. With the variable empty the SPA shows official support
+  contact, never an invented number. `tests/test_bank_transfer.py` scans source
+  for the old fabricated digits to prevent regression.
+* Selecting bank does **not** mark the order paid and does not start an online
+  charge; the order persists `payment_method='bank'`, `payment_status='unpaid'`.
+* The only path that records bank money is
+  `POST /api/admin/orders/<id>/verify-bank-transfer`. It requires an admin JWT
+  (`verify_token(required_role='admin')`); role and identity are taken from the
+  token, never the request.
+* Defense-in-depth on that endpoint: rejects a short/blank reference (400), an
+  order whose stored `payment_method` is not `bank` (409), and a cancelled order
+  (409). The **amount** is re-read from the stored order rows sharing the
+  `payment_ref` (split orders verified whole), never from the client body.
+* Settlement reuses `_mark_checkout_paid`, which posts the idempotent
+  `payment:<ref>` ledger journal, so a double-click or replay cannot double-post
+  and cannot inflate revenue. A failed ledger post returns 503 and logs
+  `bank_verify_failed` without marking paid; success writes an `admin_audit_log`
+  row and an `order_bank_transfer_verified` system event.
+
+**Not yet verified live:** no real bank order has been placed and settled against
+production; behavior is proven by faked transport in the 14 tests.
+
 ## Verified as not exploitable
 
 The following tables returned zero rows to `anon` and their policies are
@@ -203,7 +293,15 @@ transporter.
 
 - 17 security assertions pass (vulnerability reproduced before the fix, denied
   after; owner isolation; idempotent re-apply; down migration keeps the revokes).
-- Existing legal-consent and ledger SQL suites continue to pass.
-- `tests/test_identity_and_admin.py`: 10 checks pass covering SMS auth/scoping
-  and the admin status boundary; full pytest suite is 338 passed / 1 skipped
-  (Playwright not installed).
+- 24 Pesapal assertions pass in `tests/sql/pesapal.test.mjs`, including anon and
+  authenticated denial on all three new tables and denial after a second
+  migration apply.
+- Existing legal-consent, ledger, category-order and settlement SQL suites
+  continue to pass.
+- `tests/test_identity_and_admin.py`: SMS auth/scoping and the admin status
+  boundary still pass.
+- Full pytest suite is **417 passed** with Playwright installed, including 22
+  browser tests (Google sign-in gating/onboarding and Pesapal checkout gating).
+  Without Playwright the E2E module skips; the rest still runs.
+- Both ruff versions (local 0.17.1 and CI-pinned 0.8.4) report
+  `All checks passed!`.

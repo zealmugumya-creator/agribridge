@@ -441,3 +441,37 @@ def test_unpaid_online_delivery_is_not_marked_paid(client, monkeypatch):
     assert r.get_json()['payment_status'] == 'unpaid'
     assert [c for c in calls['update'] if c[0] == 'orders'] == []
     assert calls['ledger'] == []
+
+
+# ── Recurring (Pesapal) finance view ───────────────────────────────────────
+def test_recurring_view_explains_an_unapplied_migration(client, monkeypatch):
+    monkeypatch.setattr(app_mod, 'supa_get_checked', _fake_reads(
+        {}, {'payment_subscriptions': 'PGRST205: relation "payment_subscriptions" does not exist'}))
+    r = client.get('/api/admin/finance/recurring', headers=_admin_headers())
+    assert r.status_code == 503
+    j = r.get_json()
+    assert j['code'] == 'recurring_not_initialized'
+    assert '0017_pesapal_payments' in j['fix']
+
+
+def test_recurring_view_counts_only_paid_charges_and_flags_missing_ledger(client, monkeypatch):
+    monkeypatch.setattr(app_mod, 'supa_get_checked', _fake_reads({
+        'payment_subscriptions': [{'status': 'active'}, {'status': 'cancelled'}],
+        'subscription_charges': [
+            {'status': 'paid', 'amount': 25000, 'ledger_reference': 'recurring:t1'},
+            {'status': 'paid', 'amount': 15000, 'ledger_reference': None},
+            {'status': 'failed', 'amount': -1, 'ledger_reference': None},
+            {'status': 'pending', 'amount': 30000, 'ledger_reference': None},
+        ],
+    }))
+    r = client.get('/api/admin/finance/recurring', headers=_admin_headers())
+    assert r.status_code == 200
+    s = r.get_json()['summary']
+    assert s == {
+        'subscriptions': 2,
+        'active_subscriptions': 1,
+        'charges': 4,
+        'paid_charges': 2,
+        'total_charged': 40000.0,
+        'paid_amount_without_ledger': 15000.0,
+    }

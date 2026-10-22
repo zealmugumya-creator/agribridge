@@ -23,7 +23,8 @@ Confirm these exist. See `.env.example` for the full list and semantics.
 - `ADMIN_PASSWORD` — legacy shared-password console only. Rotate off the documented default (`agribridge2026`) and migrate to Supabase-Auth admin login (§3).
 
 **Integrations (each stays a safe no-op until set):**
-- `DISCORD_WEBHOOK_URL` (§4) · `SENTRY_DSN` (§6) · `FCM_CREDENTIALS_JSON`/`FCM_SERVICE_ACCOUNT_PATH`/`FCM_PROJECT_ID` (§7) · `FLW_SECRET_KEY`/`FLW_WEBHOOK_HASH` (§8) · Africa's Talking `AT_*` · `GROQ_API_KEY`/`GEMINI_API_KEY`.
+- `DISCORD_WEBHOOK_URL` (§4) · `SENTRY_DSN` (§6) · `FCM_CREDENTIALS_JSON`/`FCM_SERVICE_ACCOUNT_PATH`/`FCM_PROJECT_ID` (§7) · `FLW_SECRET_KEY`/`FLW_WEBHOOK_HASH` (§8) · Pesapal `PESAPAL_CONSUMER_KEY`/`PESAPAL_CONSUMER_SECRET`/`PESAPAL_ENV`/`PESAPAL_CALLBACK_BASE_URL` (§8b) · Bank Transfer `BANK_TRANSFER_ACCOUNTS` (§8d) · Africa's Talking `AT_*` · `GROQ_API_KEY`/`GEMINI_API_KEY`.
+- Google sign-in needs **no API environment variable**; it is configured in Supabase and Google Cloud (§8c).
 
 **Policy:**
 - `STOCK_FRESHNESS_MINUTES` (default 4320), `OFFER_RESPONSE_SECONDS` (900), `OFFER_BATCH_SIZE` (1), `ACCOUNT_HARD_DELETE_ENABLED` (false — §9).
@@ -41,23 +42,44 @@ supabase db push            # if the project is linked with the Supabase CLI
 # or paste each 000N_*.up.sql into Supabase → SQL Editor, in numeric order.
 ```
 
-> **APPLY ORDER — 0015 BEFORE 0002.** The web client now sends produce,
-> livestock and supplier checkout through `POST /api/orders`, so the direct-insert
-> path that 0002 closes is unused. Apply **0015** first: it makes
-> `create_order_atomic` price livestock from `animal_listings` and supplier inputs
-> from `supplier_products` (0015 is also required for those checkouts to work at
-> all). Deploy this client bundle, verify a test livestock and supply order, then
-> apply **0002**. Applying 0002 before 0015/this bundle would break those
-> checkouts and the shared `payment_ref` reconciliation used by the payment
-> webhook. See the header of `0002_admin_identity_rls.up.sql`.
+> **LIVE STATUS (verified 2026-10-22 after pushes `9123b38` and `6077883`):**
+> 0013, 0014, 0002, 0015, 0016 and 0017 are applied. The new API and SPA bundle
+> deploy automatically by Render and the `Deploy public web app` workflow
+> immediately after each push. **0015 is now applied** — `orders.source_ref`
+> returns HTTP 200 (read-only probe, 2026-10-22) — so livestock and supplier
+> checkout price from each item's own listing via the category-aware
+> `create_order_atomic`. 0002 has closed direct browser inserts; all checkout
+> goes through `POST /api/orders`.
 >
-> **0016 (settlements)** can be applied after 0015, before or after 0002. It
-> creates `admin_audit_log` if 0002 has not run yet; 0002 later treats it as an
-> existing table. Applying 0016 backfills a **pending payout** for every order
-> already delivered and paid. It does not pay anyone. Settling a payout requires
-> the customer receipt to be posted in the ledger; historical paid orders from
-> before 0013 will be refused until their receipts are backfilled from verified
-> provider records.
+> **What `6077883` adds (no migration required):** Bank Transfer is offered in
+> checkout again, safely. Account numbers are never hardcoded — they render only
+> from the `BANK_TRANSFER_ACCOUNTS` env var (`bank|account name|account
+> number[|branch]`, semicolon-separated); with no accounts configured the buyer
+> sees official support contact instead. A bank order stays **unpaid** until an
+> admin calls `POST /api/admin/orders/<id>/verify-bank-transfer`, which takes the
+> amount from stored rows (never the request) and posts the idempotent
+> `payment:<ref>` ledger journal via `_mark_checkout_paid`. The same push fixes
+> Discord `#signups` spam: the new-user alert now fires once per account, gated
+> by a durable `signup_alerted` system_event marker and an account-age window.
+>
+> **APPLY ORDER (historical).** 0015 was meant to run before 0002 and before the
+> SPA cutover; both are now live and 0015 has caught up. It makes
+> `create_order_atomic` price livestock from `animal_listings` and supplier
+> inputs from `supplier_products`. The shared `payment_ref` reconciliation used
+> by the payment webhook is unaffected. See the header of
+> `0002_admin_identity_rls.up.sql`.
+>
+> **0016 (settlements)** is applied live. It creates `admin_audit_log` if 0002
+> has not run yet; 0002 later treats it as an existing table. Applying 0016
+> backfilled a **pending payout** for every order already delivered and paid. It
+> does not pay anyone. Settling a payout requires the customer receipt to be
+> posted in the ledger; historical paid orders from before 0013 will be refused
+> until their receipts are backfilled from verified provider records.
+>
+> **0017 (Pesapal)** is applied live. It adds service-role-only
+> gateway/subscription tables and widens the payment-method constraint. The
+> tables reject `anon` with `42501`; no Pesapal credentials are configured yet.
+> It does not create orders or payouts.
 
 | Migration | Adds | Fixes |
 |---|---|---|
@@ -76,6 +98,7 @@ supabase db push            # if the project is linked with the Supabase CLI
 | 0014 | locks down `system_events` and transporter rows to service role / owner | Internal-data leak |
 | 0015 | category-aware `create_order_atomic`: livestock and supplier prices/owners resolved server-side, stock decremented | Checkout regression after the SPA cutover |
 | 0016 | pending farmer payouts on delivered+paid, `mark_payout_paid` guarded by a posted settlement journal, `admin_audit_log` dependency | Financial settlement correctness |
+| 0017 | Pesapal gateway state, subscriptions, recurring charges, wider `orders.payment_method` constraint | Recurring payments / hosted checkout |
 
 > **Listing-photo fix:** deploy the API and web app together, then apply
 > `0012_uploads_bucket.up.sql`. It creates the `uploads` bucket and removes any
@@ -147,6 +170,69 @@ The existing verified webhook (`/api/pay/webhook/flutterwave`) is preserved: it 
 4. Test in **sandbox** first. With keys empty, online payment stays OFF and checkout uses cash-on-delivery.
 - Order totals are recomputed **server-side** by `create_order_atomic`; a client-supplied price is ignored (fixes C1/C4).
 
+### 8b. Payments — Pesapal API 3.0
+
+The hosted-checkout provider is off until both consumer credentials are set.
+See [`docs/PAYMENTS_PESAPAL.md`](PAYMENTS_PESAPAL.md) for the full flow, amount
+rules, recurring accounting and verification queries.
+
+1. `0017_pesapal_payments.up.sql` is applied live. Verify the three tables
+   still reject `anon`, and re-run the migration only if needed (it is safe to
+   re-run).
+2. Pesapal dashboard → API credentials → copy the consumer key and secret into
+   Render as `PESAPAL_CONSUMER_KEY` and `PESAPAL_CONSUMER_SECRET`.
+3. Set `PESAPAL_ENV=sandbox` for testing, then `PESAPAL_ENV=live` with live
+   credentials. Sandbox and live credentials are different; clear or replace
+   `PESAPAL_IPN_ID` when switching.
+4. Set `PESAPAL_CALLBACK_BASE_URL` to the public **API** origin
+   (`https://agribridge-1-og7a.onrender.com`). The static site does not proxy
+   `/api`, so it cannot be the callback base.
+5. Leave `PESAPAL_IPN_ID` empty to auto-register
+   `<base>/api/pay/webhook/pesapal`; the id is stored in
+   `payment_gateway_state`. Pin the variable only if the endpoint was registered
+   in the Pesapal dashboard first.
+6. Deploy. `GET /api/pay/providers` must report `"pesapal": true`; the SPA
+   reveals the option. Buy a low-value sandbox order and confirm the order,
+   `payment:<ref>` journal and browser return before going live.
+
+The callback/IPN body is never trusted: every notification is verified with
+`GetTransactionStatus` before state changes. Recurring charges post to
+`SUSPENSE_OVERPAYMENT`, not to a farmer.
+
+### 8c. Google sign-in
+
+No backend environment variable is needed. The provider is configured in
+Supabase and Google Cloud; the SPA hides the buttons until Supabase reports the
+provider enabled. Full steps, redirect URLs and troubleshooting are in
+[`docs/GOOGLE_SIGNIN.md`](GOOGLE_SIGNIN.md).
+
+**Do not** put the Google client secret or the Supabase service-role key in the
+Worker, `static/`, or any browser configuration.
+
+### 8d. Bank transfer (offline, admin-verified)
+
+Bank Transfer is **always offered** in checkout and needs no gateway. Orders
+placed with it stay **unpaid** until an operator confirms the money.
+
+- **Account details (optional):** to show real account numbers to buyers, set
+  `BANK_TRANSFER_ACCOUNTS` in Render. Format is `bank|account name|account
+  number[|branch]`, semicolon-separated for multiple accounts, e.g.
+  `Stanbic|AgriBridge Ltd|9030xxxx|Kampala;DFCU|AgriBridge Ltd|1234xxxx`.
+  With the variable **empty**, buyers see only the official support contact and
+  are told to confirm the transfer with the team — the app never invents an
+  account number (a fabricated Stanbic number was removed on purpose earlier).
+- **Never** hardcode an account number in `static/` or commit a real one; the
+  value is only ever served to the SPA from this env var via `/api/pay/providers`.
+- **Receiving the money:** an admin opens the order in the panel and clicks
+  **Bank paid**, entering the bank/transfer reference. This calls
+  `POST /api/admin/orders/<id>/verify-bank-transfer` (admin token required). The
+  amount is taken from the stored order rows, **not** the request, and the
+  idempotent `payment:<ref>` ledger journal is posted through
+  `_mark_checkout_paid`, so a replay cannot double-post.
+- The action writes an `admin_audit_log` row (`order.bank_transfer_verified`)
+  and an `order_bank_transfer_verified` system event. A ledger failure returns
+  `503` and logs `bank_verify_failed` — the order is **not** marked paid.
+
 ---
 
 ## 9. Account deletion (Phase 10 / H6)
@@ -175,10 +261,18 @@ repository secrets in GitHub Settings > Secrets and variables > Actions:
   Worker. Keep it out of Render and out of source code.
 - `CLOUDFLARE_ACCOUNT_ID` - the Cloudflare account that owns the Worker.
 
-The `Deploy public web app` workflow skips safely until the API token exists.
-For the current listing-upload repair, run that workflow manually after adding
-the secrets, or deploy from a correctly authenticated workstation with
-`npx wrangler@4 deploy`.
+The `Deploy public web app` workflow skips safely until the API token exists —
+**it still reports a green run, but the "Deploy Worker static assets" step is
+`skipped`, so nothing new is published.** Do not read a green deploy run as
+proof the live site updated; confirm by checking the served HTML for the new
+marker (e.g. `curl -s https://agribrige.com/ | grep pm-bank`). As of 2026-10-22
+the token is **still not configured**; the Bank Transfer checkout card from push
+`6077883` was published **manually** with `npx wrangler@4 deploy` (version
+`15ff5212`), so it is live, but every future `static/` change will keep needing a
+manual publish until the secrets are added. To enable automatic deploys: add the
+two secrets above, then re-run the workflow (Actions → Deploy public web app →
+Run workflow, or `gh workflow run deploy-cloudflare.yml`), or keep deploying from
+an authenticated workstation with `npx wrangler@4 deploy`.
 
 ---
 
@@ -186,6 +280,11 @@ the secrets, or deploy from a correctly authenticated workstation with
 ```bash
 pip install -r requirements-dev.txt
 ruff check app.py services/ tests/     # lint gate (must be clean)
-pytest tests/ -q                       # 85 tests
+pytest tests/ -q                       # 431 passed with Playwright installed
+cd tests/sql && npm install && npm test # PGlite migration suites
 ```
-CI (`.github/workflows/ci.yml`) runs lint + (non-blocking) mypy + pytest on push/PR. **SQL-migration integration tests and Android builds are not part of CI yet** — they need a live DB / Android SDK and are not faked.
+Playwright lives outside `requirements-dev.txt` in this environment; the E2E
+module skips cleanly when it is absent. CI (`.github/workflows/ci.yml`) runs
+lint + (non-blocking) mypy + pytest on push/PR. **SQL-migration integration
+tests and Android builds are not part of CI yet** — they need a live DB /
+Android SDK and are not faked.

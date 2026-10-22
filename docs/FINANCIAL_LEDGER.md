@@ -1,17 +1,20 @@
 # AgriBridge — Financial Ledger
 
-**Last updated:** 2026-10-21
+**Last updated:** 2026-10-22
 **Migrations:** `0013_ledger_core` (applied live and verified), `0016_farmer_settlements`
-(**not applied live yet**)
+(applied live on 2026-10-22; endpoint not yet exercised live),
+`0017_pesapal_payments` (applied live on 2026-10-22; no Pesapal credentials)
 **Backend:** `services/ledger.py`, wired into `_flw_verify_and_mark`,
-`/api/admin/orders/<id>/confirm-delivery` and
-`/api/admin/payouts/<id>/settle` in `app.py`
+`/api/admin/orders/<id>/confirm-delivery`, `/api/admin/payouts/<id>/settle` and
+Pesapal recurring notifications in `app.py`
 
 This document describes what the ledger records today, the accounting rules it
 enforces, how a failed posting is detected, and what is deliberately not yet
 implemented. It does not claim that refunds are live. Farmer settlements are
-implemented in code but depend on migration 0016, which has not been applied to
-production.
+implemented in code and migration 0016 is applied, but the settle endpoint has
+not been exercised against live money. Pesapal recurring charges are implemented
+and migration 0017 is applied; the Pesapal gateway itself has no live
+credentials in this environment, so no live charge exists.
 
 ---
 
@@ -19,10 +22,12 @@ production.
 
 | Event | Trigger | Ledger effect | Status |
 |---|---|---|---|
-| Customer payment received | Flutterwave server-side verification (webhook, direct card, OTP completion) | Debit `PROVIDER_CLEARING`; credit `FARMER_PAYABLE`, `CUSTOMER_REFUND_PAYABLE` and/or `SUSPENSE_OVERPAYMENT` | **Implemented** |
+| Customer payment received | Flutterwave or Pesapal server-side verification (webhook/callback, direct card, OTP completion) | Debit `PROVIDER_CLEARING`; credit `FARMER_PAYABLE`, `CUSTOMER_REFUND_PAYABLE` and/or `SUSPENSE_OVERPAYMENT` | **Implemented** |
 | Admin reads journals / balances | `GET /api/admin/finance/*` | Read-only | **Implemented** |
 | Journal reversal | `reverse_journal()` SQL function | Mirror entry + audit row | **Database only** — no admin route yet |
-| Farmer settlement | Delivered + paid order creates a pending payout; admin settle route with a provider reference | Debit `FARMER_PAYABLE`; credit `COMMISSION_REVENUE` and `PROVIDER_CLEARING`/`COD_CASH_HELD` | **Implemented in code — migration 0016 not applied live** |
+| Farmer settlement | Delivered + paid order creates a pending payout; admin settle route with a provider reference | Debit `FARMER_PAYABLE`; credit `COMMISSION_REVENUE` and `PROVIDER_CLEARING`/`COD_CASH_HELD` | **Implemented — 0016 applied live; not exercised live** |
+| Pesapal recurring charge | Verified RECURRING IPN carrying `subscription_transaction_info` | Debit `PROVIDER_CLEARING`; credit `SUSPENSE_OVERPAYMENT` | **Implemented — 0017 applied live; no live credentials** |
+| Admin reads recurring charges | `GET /api/admin/finance/recurring` | Read-only | **Implemented — requires 0017** |
 | Transporter settlement | — | Not posted | **Not implemented** |
 | Cash-on-delivery collected | Admin delivery confirmation, order method `cash` | Debit `COD_CASH_HELD`; same credits as a provider receipt | **Implemented** |
 | Customer refund execution | — | Refund liability is recognised; money movement is manual | **Not implemented** |
@@ -131,13 +136,45 @@ is invented.
 Cash held on delivery is an asset until it is banked; a banking transfer is not
 implemented yet.
 
+### Pesapal recurring charges
+
+A recurring charge is money received for a new subscription cycle. No goods have
+been priced or dispatched for that cycle, so there is no order to credit and no
+farmer payable to create. `ledger.post_recurring_charge` therefore posts:
+
+```
+reference:   recurring:<pesapal_tracking_id>
+kind:        recurring_payment
+payment_ref: null
+actor:       null
+
+debit:       PROVIDER_CLEARING   amount
+credit:      SUSPENSE_OVERPAYMENT  amount
+```
+
+Rules:
+
+* Only a **completed** transaction with a positive UGX amount is posted.
+* The charge row in `subscription_charges` is written first; a ledger failure
+  leaves the money recorded and raises `pesapal.recurring_ledger_failed`.
+* `recurring:<tracking_id>` is unique, so a retried IPN never double-posts.
+* `payment_ref` is null on purpose: reconciliation groups receipts by that
+  column, and a recurring charge is not a checkout receipt.
+* The money stays a liability until an operator allocates it to an order. No
+  allocation workflow exists yet; do not create a fake order to clear it.
+* A recurring IPN never re-marks the original checkout paid.
+
+The admin Finance → Recurring view reports paid charges and the total with no
+ledger reference (`paid_amount_without_ledger`). See
+[`docs/PAYMENTS_PESAPAL.md`](PAYMENTS_PESAPAL.md) §7.
+
 ---
 
 ## 4. Farmer settlements (migration 0016)
 
-> **Deployment status:** implemented and covered by tests, but migration 0016
-> has **not** been applied to the live project yet. Until it is, no payouts are
-> created automatically and the settle endpoint cannot mark one paid.
+> **Deployment status:** migration 0016 was applied to the live project on
+> 2026-10-22. The settle endpoint has not yet been exercised against a live
+> payout, because no live receipt exists to settle in this environment.
 
 ### Payout creation
 
@@ -211,9 +248,9 @@ reference, and refuses to record it without one.
 ## 5. Idempotency and concurrency
 
 * The journal reference is derived only from the checkout reference:
-  `payment:<tx_ref>`. Flutterwave attempt suffixes (`~abc123`) are stripped by
-  `_base_ref` before use. COD uses `cod:<ref>` so the two events can never
-  collide.
+  `payment:<tx_ref>`. Flutterwave and Pesapal attempt suffixes (`~abc123`) are
+  stripped by `_base_ref` before use. COD uses `cod:<ref>` and recurring charges
+  use `recurring:<tracking_id>`, so the events can never collide.
 * `ledger_journals.reference` is `UNIQUE`. `post_journal` returns the existing
   journal id and posts nothing when the reference already exists, including
   when two webhook deliveries race.
@@ -233,6 +270,12 @@ Order of operations in `_flw_verify_and_mark`:
    the function returns failure and posts nothing.
 4. Post the journal.
 5. Send Discord, in-app notification and receipt (best effort).
+
+Pesapal follows the same path: `_pesapal_verify_and_mark` calls
+`GetTransactionStatus`, requires a completed status and a matching echoed
+reference, then delegates to `_mark_checkout_paid` for the amount, currency,
+order-marking and ledger steps. Callback/IPN fields are never evidence on their
+own.
 
 If step 4 fails:
 
@@ -266,6 +309,12 @@ journals sharing the same `payment_ref` and reports:
 | `refund_without_reversal` | warning | Order marked refunded, no reversal journal |
 
 A journal is "active" when `status = 'posted'` and `kind <> 'reversal'`.
+
+Recurring journals have `payment_ref = NULL` and therefore never participate in
+this receipt reconciliation. Their missing-posting check is the admin Recurring
+view's `paid_amount_without_ledger` (`docs/PAYMENTS_PESAPAL.md` §7). Settlement
+journals also have `payment_ref = NULL` for the same reason and are checked by
+payout state instead.
 
 ---
 
@@ -302,6 +351,18 @@ where o.payment_status = 'paid'
   )
 group by o.payment_ref
 order by order_total desc;
+
+-- Recurring charges and whether each has a ledger journal
+select c.provider_tracking_id, c.account_ref, c.amount, c.currency,
+       c.status, c.ledger_reference, c.created_at
+from public.subscription_charges c
+order by c.created_at desc
+limit 50;
+
+-- Paid recurring charges with no ledger reference
+select count(*) as paid_without_ledger, coalesce(sum(amount), 0) as amount
+from public.subscription_charges
+where status = 'paid' and coalesce(ledger_reference, '') = '';
 ```
 
 Expected result for a UGX 50,000 checkout with no commission:
@@ -309,6 +370,13 @@ Expected result for a UGX 50,000 checkout with no commission:
 ```
 PROVIDER_CLEARING  debit  50000.00
 FARMER_PAYABLE     credit 50000.00
+```
+
+Expected result for a UGX 20,000 Pesapal recurring charge:
+
+```
+PROVIDER_CLEARING      debit  20000.00
+SUSPENSE_OVERPAYMENT   credit 20000.00
 ```
 
 RLS allows admins to read the ledger through an authenticated admin session;
@@ -327,6 +395,10 @@ the SQL Editor runs with the service role.
 * A workflow for payouts marked `failed` or `disputed`; only `pending` payouts
   can be settled.
 * Partial settlement or netting several orders into one payout.
+* Allocating `SUSPENSE_OVERPAYMENT` from a Pesapal recurring charge to a real
+  order, and a cancellation path for a Pesapal subscription mandate. The charge
+  is recorded and visible in the admin Recurring view, but reconciliation of the
+  liability is manual until this workflow exists.
 
 No dashboard figure is fabricated while these are missing: the Finance API
 returns `available: false` with a reason for transporter payables and delivery

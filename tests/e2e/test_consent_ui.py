@@ -12,10 +12,11 @@ from __future__ import annotations
 
 import functools
 import http.server
+import mimetypes
 import sys
 import threading
 from pathlib import Path
-from urllib.parse import urlparse
+from urllib.parse import unquote, urlparse
 
 import pytest
 
@@ -33,8 +34,10 @@ API_HOST = "agribridge-1-og7a.onrender.com"
 SUPABASE_STUB = r"""
 (function(){
   var listeners = [];
-  var state = window.__sb = { session: null, signups: [], nextSignupSession: false, loginMeta: null };
+  var state = window.__sb = { session: null, signups: [], nextSignupSession: false, loginMeta: null,
+                              oauth: null, profileUpdate: null };
   function chain(){ var p = new Proxy(function(){}, { get(_, k){ if(k==='then') return function(res){ res({data:[],error:null}); }; return chain(); }, apply(){ return chain(); } }); return p; }
+  state.emit = function(event, session){ state.session = session; listeners.forEach(function(cb){ cb(event, session); }); };
   window.supabase = { createClient: function(){
     return { from: chain, storage: { from: chain }, channel: chain, removeChannel: function(){},
       auth: {
@@ -54,7 +57,8 @@ SUPABASE_STUB = r"""
           listeners.forEach(function(cb){ cb('SIGNED_IN', state.session); });
           return { data: { user: user, session: state.session }, error: null }; },
         signOut: async function(){ state.session = null; listeners.forEach(function(cb){ cb('SIGNED_OUT', null); }); return { error: null }; },
-        updateUser: async function(a){ if(state.session) Object.assign(state.session.user.user_metadata, a.data); return { data: {}, error: null }; },
+        updateUser: async function(a){ state.profileUpdate = a.data; if(state.session) Object.assign(state.session.user.user_metadata, a.data); return { data: {}, error: null }; },
+        signInWithOAuth: async function(args){ state.oauth = args; return { data: { provider: args.provider, url: 'https://accounts.google.com/o/oauth2/v2/auth' }, error: null }; },
         resend: async function(){ return { error: null }; }, resetPasswordForEmail: async function(){ return { error: null }; }
       } };
   } };
@@ -96,6 +100,13 @@ def browser():
 def env(browser, site, monkeypatch):
     db = LegalDb()
     monkeypatch.setattr(app_mod, "LEGAL_SERVICE", LegalService(db))
+    # The browser fake covers the Supabase SDK; the Flask app's own REST reads
+    # must not reach the internet either, or a slow background request stalls
+    # navigation. These endpoints are not what this suite is asserting.
+    monkeypatch.setattr(app_mod, "supa_get", lambda *a, **k: [])
+    monkeypatch.setattr(app_mod, "supa_get_checked", lambda *a, **k: ([], None))
+    monkeypatch.setattr(app_mod, "supa_insert", lambda *a, **k: True)
+    monkeypatch.setattr(app_mod, "supa_update", lambda *a, **k: True)
     app_mod.app.config["TESTING"] = True
     flask = app_mod.app.test_client()
     ctx = browser.new_context(viewport={"width": 390, "height": 800}, service_workers="block", bypass_csp=True)
@@ -127,18 +138,39 @@ def env(browser, site, monkeypatch):
     ctx.route(f"https://{API_HOST}/**", api)
     ctx.route("**/npm/@supabase/**", lambda r, q: r.fulfill(status=200, content_type="application/javascript", body=SUPABASE_STUB))
     ctx.route("**/supabase-js*", lambda r, q: r.fulfill(status=200, content_type="application/javascript", body=SUPABASE_STUB))
-    ctx.route("https://*.supabase.co/**", lambda r, q: r.fulfill(status=200, headers=cors, content_type="application/json", body="[]"))
+    def supabase_rest(route, request):
+        # PostgREST reads return empty lists; Auth settings advertise Google so
+        # the OAuth buttons can be exercised. Nothing else is faked.
+        if urlparse(request.url).path.endswith("/auth/v1/settings"):
+            return route.fulfill(status=200, headers=cors, content_type="application/json",
+                                 body='{"external":{"google":true,"email":true}}')
+        return route.fulfill(status=200, headers=cors, content_type="application/json", body="[]")
+
+    ctx.route("https://*.supabase.co/**", supabase_rest)
 
     def other(route, request):
         host = urlparse(request.url).netloc
-        if host.startswith("127.0.0.1") or host == API_HOST or host.endswith("supabase.co"):
+        if host.startswith("127.0.0.1"):
+            # Serve static files through the route instead of the socket. Some
+            # Windows antivirus web shields reset large localhost responses
+            # (index.html is ~650 KB), which makes a real socket non-deterministic.
+            rel = unquote(urlparse(request.url).path).lstrip("/") or "index.html"
+            target = (ROOT / "static" / rel).resolve()
+            if not str(target).startswith(str((ROOT / "static").resolve())):
+                return route.fulfill(status=404, body="not found")
+            if target.is_file():
+                return route.fulfill(status=200, path=str(target),
+                                     content_type=mimetypes.guess_type(target.name)[0]
+                                     or "application/octet-stream")
+            return route.fulfill(status=404, body="not found")
+        if host == API_HOST or host.endswith("supabase.co"):
             return route.fallback()
         if "jsdelivr" in host and "supabase" in request.url:
             return route.fulfill(status=200, content_type="application/javascript", body=SUPABASE_STUB)
         route.abort()
     ctx.route("**/*", other)
 
-    page.goto(site + "/index.html")
+    page.goto(site + "/index.html", wait_until="domcontentloaded")
     page.set_default_timeout(5000)
     page.wait_for_function("typeof sbAuth !== 'undefined' && sbAuth", timeout=10000)
     page.evaluate("enterApp()")      # leave the marketing landing overlay
@@ -451,3 +483,114 @@ def test_no_javascript_errors_during_the_flows(env):
     _login(page)
     page.wait_for_timeout(500)
     assert errors == [], errors
+
+# ── Google sign-in and OAuth onboarding ─────────────────────────────────────
+def _google_user(page, meta=None):
+    page.evaluate(
+        """meta => {
+          const user = { id: 'user-1', email: 'grace@gmail.com',
+            app_metadata: { provider: 'google', providers: ['google'] },
+            user_metadata: meta || {}, created_at: new Date().toISOString() };
+          window.__sb.emit('SIGNED_IN', { access_token: 'tok', user: user });
+        }""",
+        meta or {},
+    )
+
+
+def test_google_option_is_offered_on_login_and_registration(env):
+    page, _, errors = env
+    before = len(errors)
+    settings = page.evaluate(
+        "fetch(SUPA_URL + '/auth/v1/settings', {headers:{apikey:SUPA_KEY}}).then(function(r){return r.json();})")
+    assert settings["external"]["google"] is True, settings
+    page.wait_for_function("getComputedStyle(document.getElementById('googleLoginWrap')).display !== 'none'")
+    page.evaluate("openModal('loginModal')")
+    assert page.is_visible("#googleLoginBtn")
+    page.click("#googleLoginBtn")
+    page.wait_for_function("window.__sb.oauth && window.__sb.oauth.provider === 'google'")
+    oauth = page.evaluate("window.__sb.oauth")
+    assert oauth["provider"] == "google"
+    assert oauth["options"]["redirectTo"].endswith("/")
+    assert oauth["options"]["queryParams"]["prompt"] == "select_account"
+
+    page.evaluate("closeModal('loginModal'); openModal('registerModal')")
+    assert page.is_visible("#googleRegisterBtn")
+    page.click("#googleRegisterBtn")
+    page.wait_for_function("window.__sb.oauth && window.__sb.oauth.provider === 'google'")
+    assert len(errors) == before, errors[before:]
+
+
+def test_google_onboarding_blocks_until_terms_and_saves_the_profile(env, monkeypatch):
+    page, db, errors = env
+    before = len(errors)
+    monkeypatch.setattr(app_mod, "supa_get", lambda *a, **k: [])
+
+    class Resp:
+        status_code = 201
+
+    monkeypatch.setattr(app_mod.requests, "post", lambda *a, **k: Resp())
+
+    _google_user(page)
+    page.wait_for_selector("#oauthProfileModal.open")
+    assert page.is_hidden("#legalReviewModal")
+
+    # Escape must not let a Google user skip role, phone and legal acceptance.
+    page.keyboard.press("Escape")
+    assert page.is_visible("#oauthProfileModal")
+
+    page.click("#oauthSaveBtn")
+    # The name is prefilled from the Google account/email, so the first missing
+    # requirement is the phone number.
+    assert "phone" in page.inner_text("#oauthProfileErr").lower()
+    page.fill("#oauthPhone", "12")
+    page.click("#oauthSaveBtn")
+    assert "phone" in page.inner_text("#oauthProfileErr").lower()
+    page.fill("#oauthName", "Grace Nakato")
+    page.fill("#oauthPhone", "0771 234567")
+    page.select_option("#oauthRole", "supplier")
+    page.select_option("#oauthDistrict", "Kampala")
+    page.click("#oauthSaveBtn")
+    assert "terms" in page.inner_text("#oauthProfileErr").lower()
+
+    page.check("#oauthAcceptTerms")
+    page.click("#oauthSaveBtn")
+    page.wait_for_selector("#oauthProfileModal:not(.open)", state="attached")
+    saved = page.evaluate("window.__sb.profileUpdate")
+    assert saved["role"] == "supplier"
+    assert saved["phone"] == "+256771234567"
+    assert saved["legal_signup"]["versions"]["supplier-terms"] == "1.0.0"
+    for _ in range(50):
+        if len(db.acceptances) == 3:
+            break
+        page.wait_for_timeout(100)
+    assert {a["doc_type"] for a in db.acceptances} == {
+        "terms-of-use", "privacy-policy", "supplier-terms"}
+    assert page.is_hidden("#legalReviewModal")
+    assert len(errors) == before, errors[before:]
+
+
+# ── Pesapal checkout option ────────────────────────────────────────────────
+def test_pesapal_is_offered_only_when_the_server_enables_it(env, monkeypatch):
+    page, _, errors = env
+    before = len(errors)
+    page.evaluate("openModal('checkoutModal')")
+    page.evaluate("syncPayMethods()")
+    assert page.is_hidden("#pm-pesapal")
+
+    monkeypatch.setattr(app_mod, "PESAPAL_KEY", "test-key")
+    monkeypatch.setattr(app_mod, "PESAPAL_SECRET", "test-secret")
+    providers = page.evaluate(
+        "fetch(USSD_API + '/api/pay/providers', {cache:'no-store'}).then(function(r){return r.json();})")
+    assert providers["providers"]["pesapal"] is True, providers
+    page.evaluate("window._payProviders = null; window._payProvidersAt = 0; syncPayMethods()")
+    assert page.is_visible("#pm-pesapal")
+
+    page.evaluate("selectPayMethod('pesapal')")
+    assert page.is_visible("#pesapalInfoPanel")
+    assert page.is_hidden("#cardInfoPanel")
+    text = page.inner_text("#pesapalInfoPanel")
+    assert "Visa" in text and "recurring" in text.lower()
+
+    page.evaluate("selectPayMethod('cash')")
+    assert page.is_hidden("#pesapalInfoPanel")
+    assert len(errors) == before, errors[before:]
