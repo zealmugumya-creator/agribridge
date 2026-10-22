@@ -38,8 +38,8 @@
 > [9109]`), the owner replaced the token with one scoped to **Specified Workers →
 > agribridge → Individual Workers Editor**; manual run `39859133726` succeeded
 > and published Worker version `a6a1d85b-f203-4e90-8dd3-b405455c32c4`. CI
-> publishing is restored; Cloudflare *Workers Builds* still fails and should be
-> disabled so only one publisher targets the Worker
+> publishing is restored. Cloudflare *Workers Builds* was disconnected on
+> 2026-10-23 so the Actions workflow is the only publisher
 > (`docs/OPERATIONS_SETUP.md` §11, `docs/LIVE_BASELINE_AUDIT.md` §20).
 >
 > **Buyer-UI redesign (`74879f8`/`20f45f2`) merged red and was repaired in
@@ -137,8 +137,8 @@ normalisation, with all Stage 1 markers. A production browser smoke test went
 landing → Launch app → splash → Browse as guest → home cards → category filter →
 detail → add to cart → cart, with honest totals and **zero page errors** (no
 order placed). Previous version `bb9e65fb-974d-4381-8bf0-c78191a2e6d0` is the
-rollback target. Workers Builds still fails and must be disabled so only one
-publisher targets the Worker; see `docs/LIVE_BASELINE_AUDIT.md` §20.
+rollback target. Workers Builds was disconnected on 2026-10-23 so only the
+GitHub Actions workflow publishes the Worker; see `docs/LIVE_BASELINE_AUDIT.md` §20.
 
 **Residual / out of scope:** cart is device-local (no server cart); promo codes
 remain deliberately absent; the legacy B2B invoice generator still hardcodes a

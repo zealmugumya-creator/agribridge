@@ -314,7 +314,7 @@ published Worker version **`bb9e65fb-974d-4381-8bf0-c78191a2e6d0`** (`Uploaded a
 
 **Live bytes after the CI deploy:** both `https://agribrige.com/` and `https://agribridge.zealmugumya.workers.dev/` serve **752,146 bytes**, sha256 `439306a73a36780cb54f9851524c4d61d28b8b1adbe380c84469c7f785a19a13`, exactly the Git blob `bb2cd7a:static/index.html`. That differs from the workstation file (`8d73dd5a…`, 762,544 bytes) only by line endings: this checkout has `core.autocrlf=true` (CRLF), CI checks out LF. After `tr -d '\r'`, both hash to `439306a7…`. **Future verification must compare normalized content on this repo, not raw bytes.**
 
-**Remaining — Workers Builds is still a failing second publisher.** Its check-run on `bb2cd7a` is **failure** while the Actions workflow now publishes successfully. Disable Workers Builds for `agribridge` so exactly one publisher targets the Worker.
+**Resolved — Workers Builds disconnected (2026-10-23).** Its check-run on `bb2cd7a` was **failure** while the Actions workflow published successfully. The owner used Worker `agribridge` → Settings → Builds → **Disconnect Git**; the Actions workflow is now the only publisher.
 
 **Rollback:** Worker version `bb9e65fb-974d-4381-8bf0-c78191a2e6d0` (or re-publish any commit's `static/` with `wrangler deploy`). No database migration is involved.
 

@@ -322,10 +322,12 @@ restored; a production browser smoke test passed with zero page errors.
 Never run `wrangler deploy` without the account override while logged in to
 `0b66…`: it targets the wrong account and leaves the public site untouched.
 
-Note that Cloudflare's **Workers Builds** Git integration targets the *same*
-`agribridge` Worker and is currently failing too. Pick one publisher — disable
-Workers Builds, or drop the two GitHub secrets — otherwise whichever integration
-last succeeded decides what the public site serves.
+Cloudflare's **Workers Builds** Git integration targeted the *same* `agribridge`
+Worker and failed on every push. On 2026-10-23 the owner disconnected it
+(Worker `agribridge` → Settings → Builds → Disconnect Git), leaving the GitHub
+Actions workflow as the only publisher. Do not reconnect it while the Actions
+workflow deploys — two publishers means whichever integration last succeeded
+decides what the public site serves.
 
 ---
 

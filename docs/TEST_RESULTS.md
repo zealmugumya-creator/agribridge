@@ -1,10 +1,11 @@
 # AgriBridge — Test Results
 
-**Date:** 2026-10-22
+**Date:** 2026-10-23
 **Stage:** Bank Transfer (admin-verified), duplicate-signup-alert fix, Pesapal API 3.0 payments, recurring charges, Google sign-in, and Stage 1 of the buyer storefront (home / cards / details / cart)
 **Environment:** Windows, repository `C:\Users\HP\Documents\agribridge`
 
-Every result below was produced by a command run in this session. No live
+Unless a row names an external log, every result below was produced by a
+command run in this session. No live
 payment transaction was made and no real Google OAuth consent screen was
 exercised. Migration 0017, 0016, 0002 and **0015** are applied live (verified by
 read-only PostgREST probes on 2026-10-22; `orders.source_ref` returns HTTP 200).
@@ -19,8 +20,13 @@ Both `agribrige.com` and the workers.dev host now serve the Git blob of
 content-identical to the workstation file after CRLF normalisation). The
 `pm-bank` checkout card and the Stage 1 buyer surface are live, and
 `agribrige.com/admin` serves the `Bank paid` / `verifyBankTransfer` button.
-**Workers Builds still fails** and should be disabled so only one publisher
-targets the Worker.
+**Workers Builds was disconnected on 2026-10-23** (Cloudflare dashboard →
+Worker `agribridge` → Settings → Builds → Disconnect Git), so the GitHub
+`Deploy public web app` workflow is the only publisher; `npx wrangler@4 deploy`
+remains the manual fallback. A Render request log from 2026-10-22T22:15Z also
+shows the live SPA fetching the VAPID key (200), registering a push subscription
+(200, `{"ok":true}`) and polling notifications (200); push *delivery* remains
+unverified.
 See §6 for exact evidence. Livestock/supplier checkout runs on the category-aware
 `create_order_atomic`.
 
@@ -319,7 +325,8 @@ production: the live bundle does not contain it (see §6).
 | CI auto-deploy restored (2026-10-22T21:40Z) | Token scoped to **Specified Workers → agribridge → Individual Workers Editor** (no expiration, all IPs), `CLOUDFLARE_ACCOUNT_ID` `7a675255…`; manual `workflow_dispatch` run `39859133726` on `bb2cd7a` **success** (27 s). `wrangler deployments list` shows new deployment at `21:40:43Z`, author `undefined` (CI token), version `a6a1d85b-f203-4e90-8dd3-b405455c32c4` | **DEPLOYED BY CI and verified live** on both domains |
 | Stage 1 live browser verification | Production headless Chrome at 390×844: landing → Launch app → splash → Browse as guest → 6 real home cards (Groundnuts / Zeal / Gulu / UGX 1,500/kg) → Vegetables filter (10 cards; survives a forced late `loadHomeStats()`) → Groundnuts detail (real fallback description) → add to cart → cart subtotal/total `UGX 1,500`, delivery "Arranged after confirmation", checkout enabled | **Verified in production, zero page errors**; checkout not clicked, no order placed |
 | Stage 1 live HTML probe (post-CI) | `curl https://agribrige.com/` → 752,146 bytes, sha256 `439306a7…a19a13`, exactly `git show bb2cd7a:static/index.html`; after `tr -d '\r'` it matches the workstation file (`8d73dd5a…` raw, CRLF). Markers `splashBrowseGuest` ×2, `pdTrustVerified` ×2, `homeMoreHead` ×3, `_homeCat` ×3, "Arranged after confirmation" ×4; workers.dev host identical | **In production** on both domains; raw-byte hash differs only by line endings |
-| Workers Builds on `bb2cd7a` | Check-run **failure** while the Actions deploy succeeds | **Still a second, failing publisher**; disable it so one publisher wins |
+| Workers Builds on `bb2cd7a` | Check-run **failure** while the Actions deploy succeeds | **Resolved** — Git integration disconnected on 2026-10-23; the Actions workflow is the sole publisher |
+| Web Push registration (production) | Render log 2026-10-22T22:15Z from `https://agribrige.com/`: `GET /api/push/vapid-public-key` 200, five `POST /api/user/push-subscriptions` 200 (`{"ok":true}`, upsert on `endpoint`), `GET /api/user/notifications` 200 every ~60 s | **Registration and polling verified in production**; delivery of a push is not tested |
 
 A live payment can only be claimed after a real verified transaction produces a
 `payment:<tx_ref>` journal. Pesapal additionally requires live credentials and
