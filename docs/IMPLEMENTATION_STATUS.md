@@ -24,8 +24,15 @@
 > Push `6077883` restores a safe Bank Transfer method (always offered, real
 > account details only from `BANK_TRANSFER_ACCOUNTS`, orders unpaid until an
 > admin confirms via `POST /api/admin/orders/<id>/verify-bank-transfer`) and
-> fixes duplicate Discord `#signups` alerts (fires once per account). Pesapal and
-> Google remain unconfigured and unverified live.
+> fixes duplicate Discord `#signups` alerts (fires once per account). The API on
+> Render serves this (live `providers.bank = true`). The Cloudflare auto-deploy
+> **silently skipped** (green run, deploy step skipped — `CLOUDFLARE_API_TOKEN`
+> not in GitHub secrets), so the SPA was published manually with `wrangler
+> deploy` (version `15ff5212`). Verified live 2026-10-22: `agribrige.com/` shows
+> the `pm-bank` checkout card and `agribrige.com/admin` shows the `Bank paid`
+> button. **Add `CLOUDFLARE_API_TOKEN` to GitHub secrets so future `static/`
+> pushes publish automatically** (see `docs/OPERATIONS_SETUP.md` §11). Pesapal
+> and Google remain unconfigured and unverified live.
 > Current verified suite: 431 Python tests (including 22 Playwright browser
 > tests) and 129 SQL assertions; see `docs/TEST_RESULTS.md`.
 

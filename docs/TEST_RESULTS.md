@@ -8,10 +8,18 @@ Every result below was produced by a command run in this session. No live
 payment transaction was made and no real Google OAuth consent screen was
 exercised. Migration 0017, 0016, 0002 and **0015** are applied live (verified by
 read-only PostgREST probes on 2026-10-22; `orders.source_ref` returns HTTP 200).
-Push `9123b38` deployed Pesapal + Google sign-in and push `6077883` deployed the
-Bank Transfer and signup-alert fixes, both automatically by Render and the
-Cloudflare workflow. Livestock/supplier checkout now runs on the category-aware
-`create_order_atomic`. See §6.
+Push `9123b38` (Pesapal + Google) and push `6077883` (Bank Transfer + signup
+fix) both deployed the **API on Render** — live `/api/pay/providers` now returns
+`bank:true`. The **Cloudflare SPA auto-deploy silently skipped** (the `Deploy
+public web app` run for `6077883` was green but its "Deploy Worker static
+assets" step was skipped because `CLOUDFLARE_API_TOKEN` is not in GitHub Actions
+secrets), so the SPA was published manually with `wrangler deploy`. Verified
+live 2026-10-22: `agribrige.com/` serves the `pm-bank` checkout card and
+`agribrige.com/admin` serves the `Bank paid` / `verifyBankTransfer` button. The
+bank option is therefore now visible to users. Adding the Cloudflare token to
+GitHub secrets is still required so future `static/` pushes publish on their own.
+See §6 for exact evidence. Livestock/supplier checkout runs on the category-aware
+`create_order_atomic`.
 
 ---
 
@@ -222,9 +230,9 @@ order flows and checkout UI).
 | Pesapal UI / Google UI in a real browser against live services | Served locally with stubs | **Not yet exercised live** |
 | API deployment of this stage | Push `9123b38`; live `/health` returns `200` with `supabase_connected:true`; `/api/pay/providers` includes `pesapal`; Pesapal callback route returns `302`; admin recurring route returns `401` | **Deployed and reachable**; business flows unverified |
 | Public SPA bundle (Pesapal/Google) | Cloudflare run `39710797408` succeeded; live HTML contains `pm-pesapal` and `googleLoginBtn` | **Deployed**; live flows unverified |
-| Bank Transfer method (API) | Push `6077883`; `/api/pay/providers` should include `bank:true` and a `bank_accounts` array; verify endpoint returns `401` without an admin token | **Deployed pending re-probe**; live verify not exercised |
-| Bank Transfer (UI) + admin button | `pm-bank` card and `verifyBankTransfer()` in the deployed bundle | **Deployed**; live checkout not exercised |
-| Duplicate signup alert fix | Once-per-account gate on `signup_alerted` system_event + account-age window | Faked in tests; **live #signups behavior not yet observed** |
+| Bank Transfer method (API — Render) | Push `6077883`; live `GET /api/pay/providers` returns `bank:true` and `bank_accounts:[]` (empty until `BANK_TRANSFER_ACCOUNTS` is set in Render); `/health` `200 supabase_connected:true` | **DEPLOYED and verified live** |
+| Bank Transfer checkout card + admin button (Cloudflare SPA) | Auto-deploy workflow for `6077883` **skipped** (missing `CLOUDFLARE_API_TOKEN`), so the SPA was published manually with `wrangler deploy` (version `15ff5212-5542-41f5-9682-01cf94903f8b`, account `Zealmugumya@gmail.com`). Live `GET https://agribrige.com/` now contains `pm-bank`/`renderBankOptions`/`bankInfoPanel`; `GET https://agribrige.com/admin` contains `verifyBankTransfer`/`Bank paid` | **DEPLOYED and verified live** on both the custom domain and `agribridge.zealmugumya.workers.dev`; checkout not exercised with a real bank order |
+| Duplicate signup alert fix (API) | Once-per-account gate on the `signup_alerted` system_event + account-age window, carried by the deployed `6077883` API | **Deployed on Render**; live `#signups` behavior not yet observed over subsequent logins |
 
 A live payment can only be claimed after a real verified transaction produces a
 `payment:<tx_ref>` journal. Pesapal additionally requires live credentials and
