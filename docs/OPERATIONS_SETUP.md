@@ -23,7 +23,8 @@ Confirm these exist. See `.env.example` for the full list and semantics.
 - `ADMIN_PASSWORD` — legacy shared-password console only. Rotate off the documented default (`agribridge2026`) and migrate to Supabase-Auth admin login (§3).
 
 **Integrations (each stays a safe no-op until set):**
-- `DISCORD_WEBHOOK_URL` (§4) · `SENTRY_DSN` (§6) · `FCM_CREDENTIALS_JSON`/`FCM_SERVICE_ACCOUNT_PATH`/`FCM_PROJECT_ID` (§7) · `FLW_SECRET_KEY`/`FLW_WEBHOOK_HASH` (§8) · Africa's Talking `AT_*` · `GROQ_API_KEY`/`GEMINI_API_KEY`.
+- `DISCORD_WEBHOOK_URL` (§4) · `SENTRY_DSN` (§6) · `FCM_CREDENTIALS_JSON`/`FCM_SERVICE_ACCOUNT_PATH`/`FCM_PROJECT_ID` (§7) · `FLW_SECRET_KEY`/`FLW_WEBHOOK_HASH` (§8) · Pesapal `PESAPAL_CONSUMER_KEY`/`PESAPAL_CONSUMER_SECRET`/`PESAPAL_ENV`/`PESAPAL_CALLBACK_BASE_URL` (§8b) · Africa's Talking `AT_*` · `GROQ_API_KEY`/`GEMINI_API_KEY`.
+- Google sign-in needs **no API environment variable**; it is configured in Supabase and Google Cloud (§8c).
 
 **Policy:**
 - `STOCK_FRESHNESS_MINUTES` (default 4320), `OFFER_RESPONSE_SECONDS` (900), `OFFER_BATCH_SIZE` (1), `ACCOUNT_HARD_DELETE_ENABLED` (false — §9).
@@ -41,6 +42,13 @@ supabase db push            # if the project is linked with the Supabase CLI
 # or paste each 000N_*.up.sql into Supabase → SQL Editor, in numeric order.
 ```
 
+> **LIVE STATUS (verified 2026-10-22):** 0013, 0014, 0002, 0016 and 0017 are
+> applied. **0015 is still missing** (`orders.source_ref` does not exist).
+> Because 0002 is already live, direct browser order inserts are closed; do not
+> deploy this SPA bundle until **0015** has been applied, or livestock/supplier
+> checkout will run against the legacy non-category pricing function. Apply
+> 0015 now (it is additive and safe to re-run), then deploy and verify.
+>
 > **APPLY ORDER — 0015 BEFORE 0002.** The web client now sends produce,
 > livestock and supplier checkout through `POST /api/orders`, so the direct-insert
 > path that 0002 closes is unused. Apply **0015** first: it makes
@@ -51,13 +59,17 @@ supabase db push            # if the project is linked with the Supabase CLI
 > checkouts and the shared `payment_ref` reconciliation used by the payment
 > webhook. See the header of `0002_admin_identity_rls.up.sql`.
 >
-> **0016 (settlements)** can be applied after 0015, before or after 0002. It
-> creates `admin_audit_log` if 0002 has not run yet; 0002 later treats it as an
-> existing table. Applying 0016 backfills a **pending payout** for every order
-> already delivered and paid. It does not pay anyone. Settling a payout requires
-> the customer receipt to be posted in the ledger; historical paid orders from
-> before 0013 will be refused until their receipts are backfilled from verified
-> provider records.
+> **0016 (settlements)** is applied live. It creates `admin_audit_log` if 0002
+> has not run yet; 0002 later treats it as an existing table. Applying 0016
+> backfilled a **pending payout** for every order already delivered and paid. It
+> does not pay anyone. Settling a payout requires the customer receipt to be
+> posted in the ledger; historical paid orders from before 0013 will be refused
+> until their receipts are backfilled from verified provider records.
+>
+> **0017 (Pesapal)** is applied live. It adds service-role-only
+> gateway/subscription tables and widens the payment-method constraint. The
+> tables reject `anon` with `42501`; no Pesapal credentials are configured yet.
+> It does not create orders or payouts.
 
 | Migration | Adds | Fixes |
 |---|---|---|
@@ -76,6 +88,7 @@ supabase db push            # if the project is linked with the Supabase CLI
 | 0014 | locks down `system_events` and transporter rows to service role / owner | Internal-data leak |
 | 0015 | category-aware `create_order_atomic`: livestock and supplier prices/owners resolved server-side, stock decremented | Checkout regression after the SPA cutover |
 | 0016 | pending farmer payouts on delivered+paid, `mark_payout_paid` guarded by a posted settlement journal, `admin_audit_log` dependency | Financial settlement correctness |
+| 0017 | Pesapal gateway state, subscriptions, recurring charges, wider `orders.payment_method` constraint | Recurring payments / hosted checkout |
 
 > **Listing-photo fix:** deploy the API and web app together, then apply
 > `0012_uploads_bucket.up.sql`. It creates the `uploads` bucket and removes any
@@ -147,6 +160,45 @@ The existing verified webhook (`/api/pay/webhook/flutterwave`) is preserved: it 
 4. Test in **sandbox** first. With keys empty, online payment stays OFF and checkout uses cash-on-delivery.
 - Order totals are recomputed **server-side** by `create_order_atomic`; a client-supplied price is ignored (fixes C1/C4).
 
+### 8b. Payments — Pesapal API 3.0
+
+The hosted-checkout provider is off until both consumer credentials are set.
+See [`docs/PAYMENTS_PESAPAL.md`](PAYMENTS_PESAPAL.md) for the full flow, amount
+rules, recurring accounting and verification queries.
+
+1. `0017_pesapal_payments.up.sql` is applied live. Verify the three tables
+   still reject `anon`, and re-run the migration only if needed (it is safe to
+   re-run).
+2. Pesapal dashboard → API credentials → copy the consumer key and secret into
+   Render as `PESAPAL_CONSUMER_KEY` and `PESAPAL_CONSUMER_SECRET`.
+3. Set `PESAPAL_ENV=sandbox` for testing, then `PESAPAL_ENV=live` with live
+   credentials. Sandbox and live credentials are different; clear or replace
+   `PESAPAL_IPN_ID` when switching.
+4. Set `PESAPAL_CALLBACK_BASE_URL` to the public **API** origin
+   (`https://agribridge-1-og7a.onrender.com`). The static site does not proxy
+   `/api`, so it cannot be the callback base.
+5. Leave `PESAPAL_IPN_ID` empty to auto-register
+   `<base>/api/pay/webhook/pesapal`; the id is stored in
+   `payment_gateway_state`. Pin the variable only if the endpoint was registered
+   in the Pesapal dashboard first.
+6. Deploy. `GET /api/pay/providers` must report `"pesapal": true`; the SPA
+   reveals the option. Buy a low-value sandbox order and confirm the order,
+   `payment:<ref>` journal and browser return before going live.
+
+The callback/IPN body is never trusted: every notification is verified with
+`GetTransactionStatus` before state changes. Recurring charges post to
+`SUSPENSE_OVERPAYMENT`, not to a farmer.
+
+### 8c. Google sign-in
+
+No backend environment variable is needed. The provider is configured in
+Supabase and Google Cloud; the SPA hides the buttons until Supabase reports the
+provider enabled. Full steps, redirect URLs and troubleshooting are in
+[`docs/GOOGLE_SIGNIN.md`](GOOGLE_SIGNIN.md).
+
+**Do not** put the Google client secret or the Supabase service-role key in the
+Worker, `static/`, or any browser configuration.
+
 ---
 
 ## 9. Account deletion (Phase 10 / H6)
@@ -186,6 +238,11 @@ the secrets, or deploy from a correctly authenticated workstation with
 ```bash
 pip install -r requirements-dev.txt
 ruff check app.py services/ tests/     # lint gate (must be clean)
-pytest tests/ -q                       # 85 tests
+pytest tests/ -q                       # 417 passed with Playwright installed
+cd tests/sql && npm install && npm test # PGlite migration suites
 ```
-CI (`.github/workflows/ci.yml`) runs lint + (non-blocking) mypy + pytest on push/PR. **SQL-migration integration tests and Android builds are not part of CI yet** — they need a live DB / Android SDK and are not faked.
+Playwright lives outside `requirements-dev.txt` in this environment; the E2E
+module skips cleanly when it is absent. CI (`.github/workflows/ci.yml`) runs
+lint + (non-blocking) mypy + pytest on push/PR. **SQL-migration integration
+tests and Android builds are not part of CI yet** — they need a live DB /
+Android SDK and are not faked.

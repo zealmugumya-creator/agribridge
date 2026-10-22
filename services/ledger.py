@@ -418,3 +418,100 @@ def post_settlement(db, *, payout: dict, channel_account: str, provider: str,
              net=_fmt(summary["net"]))
     return SettlementPosting(ok=True, reference=reference, journal_id=journal_id,
                              lines=lines, summary=summary)
+
+
+RECURRING_KIND = "recurring_payment"
+
+
+def recurring_reference(tracking_id) -> str:
+    return f"recurring:{str(tracking_id or '').strip()}"
+
+
+def post_recurring_charge(db, *, tracking_id: str, amount, currency: str = UGX,
+                          provider: str = "", account_ref: str = "",
+                          correlation_id: str = "",
+                          confirmation_code: str = "") -> PaymentPosting:
+    """Post a gateway recurring charge that has no new order attached yet.
+
+    The customer authorised Pesapal to charge the same amount on a schedule,
+    but goods for this cycle have not been priced or dispatched. Crediting
+    FARMER_PAYABLE would pay a farmer for an order that does not exist, so the
+    receipt is held in SUSPENSE_OVERPAYMENT until operations allocate it.
+
+    Reference `recurring:<tracking_id>` makes retried IPNs idempotent. The
+    journal deliberately has no `payment_ref`: reconciliation groups active
+    journals by that column and this money belongs to no checkout receipt.
+    """
+    tracking_id = str(tracking_id or "").strip()
+    reference = recurring_reference(tracking_id)
+    if not tracking_id or len(tracking_id) > 80:
+        return PaymentPosting(ok=False, reference=reference,
+                              error="a valid tracking id is required")
+    cur = str(currency or "").strip().upper()
+    if cur != UGX:
+        return PaymentPosting(ok=False, reference=reference,
+                              error=f"unsupported ledger currency: {currency!r}")
+    try:
+        received = money(amount)
+    except LedgerError as exc:
+        return PaymentPosting(ok=False, reference=reference, error=str(exc))
+    if received <= ZERO:
+        return PaymentPosting(ok=False, reference=reference,
+                              error="recurring amount must be positive")
+
+    lines = [
+        _line(ACCOUNT_PROVIDER_CLEARING, "debit", received,
+              "recurring customer payment received"),
+        _line(ACCOUNT_SUSPENSE_OVERPAYMENT, "credit", received,
+              "recurring payment awaiting order allocation"),
+    ]
+    summary = {"currency": cur, "received": received}
+    metadata = {
+        "provider": str(provider or "")[:80],
+        "tracking_id": tracking_id,
+        "account_ref": str(account_ref or "")[:160],
+        "correlation_id": str(correlation_id or "")[:120],
+        "confirmation_code": str(confirmation_code or "")[:80],
+        "received": _fmt(received),
+        "currency": cur,
+        "allocation_policy": "suspense_until_order_allocated",
+    }
+    args = {
+        "p_reference": reference,
+        "p_kind": RECURRING_KIND,
+        "p_description": (f"Recurring payment {tracking_id} for account "
+                          f"{metadata['account_ref'] or '-'}"),
+        "p_lines": lines,
+        "p_payment_ref": None,
+        "p_actor": None,
+        "p_metadata": metadata,
+        "p_currency": cur,
+    }
+
+    try:
+        result = db.rpc("post_journal", args)
+    except Exception as exc:
+        log.error("ledger.recurring_exception", reference=reference,
+                  error=type(exc).__name__)
+        return PaymentPosting(ok=False, reference=reference, lines=lines,
+                              summary=summary, error=type(exc).__name__)
+
+    if not getattr(result, "ok", False):
+        error = str(getattr(result, "error", "") or "ledger post failed")[:300]
+        log.error("ledger.recurring_failed", reference=reference, error=error)
+        return PaymentPosting(ok=False, reference=reference, lines=lines,
+                              summary=summary, error=error)
+
+    data = getattr(result, "data", None)
+    if isinstance(data, list) and data:
+        data = data[0]
+    journal_id = str(data) if isinstance(data, str) and data else None
+    if not journal_id:
+        log.error("ledger.recurring_without_id", reference=reference)
+        return PaymentPosting(ok=False, reference=reference, lines=lines,
+                              summary=summary, error="post_journal returned no journal id")
+
+    log.info("ledger.recurring_posted", reference=reference, journal_id=journal_id,
+             amount=_fmt(received))
+    return PaymentPosting(ok=True, reference=reference, journal_id=journal_id,
+                          lines=lines, summary=summary)

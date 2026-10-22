@@ -177,7 +177,7 @@
   var SVC_STATUSES = ['pending','confirmed','completed','rejected','cancelled'];
   var editState = null; // {table, id, isNew}
   var FIN = { view:'overview', cache:{}, errors:{}, loading:false, report:{ from:'', to:'' } };
-  var FIN_VIEWS = [['overview','Overview'],['ledger','Ledger'],['farmers','Farmer settlements'],['transporters','Transporter settlements'],['reconciliation','Reconciliation'],['reports','Reports']];
+  var FIN_VIEWS = [['overview','Overview'],['ledger','Ledger'],['farmers','Farmer settlements'],['transporters','Transporter settlements'],['reconciliation','Reconciliation'],['recurring','Recurring'],['reports','Reports']];
 
   function h(s){return String(s==null?'':s).replace(/[<>&"]/g,function(c){return {'<':'&lt;','>':'&gt;','&':'&amp;','"':'&quot;'}[c];});}
   function fmt(n){return 'UGX '+(Number(n)||0).toLocaleString('en-UG');}
@@ -309,7 +309,7 @@
     if(!FIN_VIEWS.some(function(v){return v[0]===view;})) view='overview';
     FIN.view=view; FIN.loading=true; FIN.errors[view]=null;
     renderFinance();
-    var paths={overview:'/api/admin/finance/overview',ledger:'/api/admin/finance/journals?limit=100',farmers:'/api/admin/finance/farmer-settlements',transporters:'/api/admin/finance/transporter-settlements',reconciliation:'/api/admin/finance/reconciliation',reports:'/api/admin/finance/reports'};
+    var paths={overview:'/api/admin/finance/overview',ledger:'/api/admin/finance/journals?limit=100',farmers:'/api/admin/finance/farmer-settlements',transporters:'/api/admin/finance/transporter-settlements',reconciliation:'/api/admin/finance/reconciliation',recurring:'/api/admin/finance/recurring',reports:'/api/admin/finance/reports'};
     var path=paths[view];
     if(view==='reports'){
       var q=[];
@@ -344,6 +344,7 @@
     else if(v==='farmers') html+=finFarmers(d);
     else if(v==='transporters') html+=finTransporters(d);
     else if(v==='reconciliation') html+=finReconciliation(d);
+    else if(v==='recurring') html+=finRecurring(d);
     else if(v==='reports') html+=finReports(d);
     if(d.warnings&&d.warnings.length){
       html+='<div class="fin-note">'+d.warnings.map(h).join('<br>')+'</div>';
@@ -495,6 +496,38 @@
         '<td style="max-width:320px">'+h(i.detail)+(i.order_ids&&i.order_ids.length?'<div class="muted" style="font-size:.72rem">Orders: '+h(i.order_ids.map(finShortId).join(', '))+'</div>':'')+'</td></tr>';
     }).join('');
     return html+'<div class="tblwrap"><table class="fin-table"><thead><tr><th>Severity</th><th>Type</th><th>Payment ref</th><th class="num">Amount</th><th>Detail</th></tr></thead><tbody>'+body+'</tbody></table></div>';
+  }
+
+  function finRecurring(d){
+    var s=d.summary||{};
+    var html='<div class="fin-kpis">'+
+      finKpi('Subscriptions', s.subscriptions||0, (s.active_subscriptions||0)+' active')+
+      finKpi('Charges', s.charges||0, (s.paid_charges||0)+' paid')+
+      finKpi('Total charged', finMoney(s.total_charged), 'Recurring cycles')+
+      '</div>';
+    html+='<div class="fin-note">Recurring money is held in <code>SUSPENSE_OVERPAYMENT</code> until operations allocate it to a real order. It is never credited to a farmer automatically.</div>';
+    if(s.paid_amount_without_ledger>0){
+      html+='<div class="fin-note"><strong class="fin-bad">'+finMoney(s.paid_amount_without_ledger)+'</strong> of paid recurring charges have no ledger reference. Investigate the ledger and re-deliver the IPN.</div>';
+    }
+    if(!d.subscriptions||!d.subscriptions.length){
+      html+='<div class="fin-note ok">No recurring subscriptions have been created yet.</div>';
+    }else{
+      var subs=d.subscriptions.map(function(r){
+        return '<tr><td>'+h(r.account_ref||'—')+'</td><td><code>'+h(r.provider_correlation_id||'—')+'</code></td>'+
+          '<td class="num">'+finMoney(r.amount)+'</td><td>'+finBadge(r.status)+'</td>'+
+          '<td>'+finDate(r.last_charged_at)+'</td><td>'+finDate(r.created_at)+'</td></tr>';
+      }).join('');
+      html+='<div class="fin-section">Subscriptions</div><div class="tblwrap"><table class="fin-table"><thead><tr><th>Account / order</th><th>Pesapal correlation</th><th class="num">Amount</th><th>Status</th><th>Last charged</th><th>Created</th></tr></thead><tbody>'+subs+'</tbody></table></div>';
+    }
+    if(d.charges&&d.charges.length){
+      var body=d.charges.map(function(r){
+        return '<tr><td>'+finDate(r.created_at)+'</td><td><code>'+h(r.provider_tracking_id||'—')+'</code></td>'+
+          '<td>'+h(r.account_ref||'—')+'</td><td class="num">'+finMoney(r.amount)+'</td>'+
+          '<td>'+finBadge(r.status)+'</td><td>'+h(r.ledger_reference||'not posted')+'</td></tr>';
+      }).join('');
+      html+='<div class="fin-section">Charges</div><div class="tblwrap"><table class="fin-table"><thead><tr><th>Received</th><th>Pesapal tracking</th><th>Account / order</th><th class="num">Amount</th><th>Status</th><th>Ledger</th></tr></thead><tbody>'+body+'</tbody></table></div>';
+    }
+    return html;
   }
 
   function finReports(d){

@@ -14,15 +14,17 @@ import json as _json
 import os
 import re
 import secrets
+import threading
 import time as _time
 import uuid
+from urllib.parse import urlencode
 
 import jwt
 import requests
 from cryptography.hazmat.primitives import padding as _sym_padding
 from cryptography.hazmat.primitives.ciphers import Cipher as _SymCipher
 from cryptography.hazmat.primitives.ciphers import modes as _SymModes
-from flask import Flask, Response, g, jsonify, request
+from flask import Flask, Response, g, jsonify, redirect, request
 from flask_cors import CORS
 from werkzeug.exceptions import RequestEntityTooLarge
 
@@ -47,6 +49,16 @@ from services.logging import (
 from services.matching import MatchingService
 from services.notifications import NotificationDispatcher
 from services.orders import OrderService
+from services.pesapal import (
+    PesapalClient,
+    PesapalError,
+)
+from services.pesapal import (
+    is_completed as pesapal_completed,
+)
+from services.pesapal import (
+    is_failed as pesapal_failed,
+)
 from services.push import build_push
 from services.supabase_client import _UPLOADS_BUCKET, SupabaseClient
 from services.webpush import WebPushService
@@ -118,8 +130,16 @@ FLW_ENCRYPTION_KEY = os.environ.get('FLW_ENCRYPTION_KEY', '')
 FLW_DIRECT_CARD  = os.environ.get('FLW_DIRECT_CARD', '').strip().lower() in ('1', 'true', 'yes')
 PESAPAL_KEY      = os.environ.get('PESAPAL_CONSUMER_KEY',    '')
 PESAPAL_SECRET   = os.environ.get('PESAPAL_CONSUMER_SECRET', '')
+PESAPAL_ENV      = os.environ.get('PESAPAL_ENV', 'sandbox').strip().lower()
+PESAPAL_IPN_ID   = os.environ.get('PESAPAL_IPN_ID', '').strip()
 MTN_MOMO_KEY     = os.environ.get('MTN_MOMO_SUBSCRIPTION_KEY', '')
 PUBLIC_BASE_URL  = SETTINGS.public_base_url
+# Pesapal must reach the Flask API directly. The marketing site is a static
+# Worker that does not proxy /api, so the default is the Render service.
+PESAPAL_CALLBACK_BASE_URL = (
+    os.environ.get('PESAPAL_CALLBACK_BASE_URL', '').strip()
+    or 'https://agribridge-1-og7a.onrender.com'
+).rstrip('/')
 
 at_sms = None
 if AT_AVAILABLE and AT_API_KEY and AT_API_KEY != 'atsk_REPLACE_ME':
@@ -1687,6 +1707,59 @@ def admin_finance_reconciliation():
         ['More than 5,000 orders or journals exist; reconciliation only checked the first 5,000.']
         if len(orders or []) >= 5000 or len(journals or []) >= 5000 else [])
     return jsonify(result)
+
+
+@app.route('/api/admin/finance/recurring', methods=['GET'])
+def admin_finance_recurring():
+    """Pesapal recurring subscriptions and charges.
+
+    Recurring money is a suspense liability until operations allocate it to an
+    order; this view reports what the gateway charged, not a fabricated order.
+    """
+    _payload, err = verify_token(required_role='admin')
+    if err:
+        return err
+    subscriptions, subs_err = _fin_read(
+        'payment_subscriptions', '*', {'order': 'created_at.desc'}, limit=2000)
+    if subs_err:
+        missing = any(token in str(subs_err)
+                      for token in ('PGRST205', '42P01', 'does not exist'))
+        return jsonify({
+            'error': 'Recurring payments are not initialized' if missing
+                     else 'Could not read recurring subscriptions',
+            'code': 'recurring_not_initialized' if missing else 'recurring_read_failed',
+            'detail': subs_err,
+            'fix': ('Run supabase/migrations/0017_pesapal_payments.up.sql in the '
+                    'Supabase SQL Editor, then reload this page.') if missing else None,
+        }), 503
+    charges, charges_err = _fin_read(
+        'subscription_charges', '*', {'order': 'created_at.desc'}, limit=5000)
+    if charges_err:
+        return jsonify({'error': 'Could not read recurring charges',
+                        'code': 'recurring_read_failed',
+                        'detail': charges_err}), 503
+
+    paid_without_ledger = sum(
+        float(c.get('amount') or 0) for c in charges or []
+        if str(c.get('status') or '') == 'paid' and not c.get('ledger_reference'))
+    return jsonify({
+        'currency': 'UGX',
+        'subscriptions': subscriptions or [],
+        'charges': charges or [],
+        'summary': {
+            'subscriptions': len(subscriptions or []),
+            'active_subscriptions': sum(
+                1 for s in subscriptions or [] if s.get('status') == 'active'),
+            'charges': len(charges or []),
+            'paid_charges': sum(
+                1 for c in charges or [] if c.get('status') == 'paid'),
+            'total_charged': sum(float(c.get('amount') or 0)
+                                 for c in charges or [] if c.get('status') == 'paid'),
+            'paid_amount_without_ledger': paid_without_ledger,
+        },
+        'warnings': (['More than 2,000 subscriptions exist; only the first 2,000 are shown.']
+                     if len(subscriptions or []) >= 2000 else []),
+    })
 
 
 @app.route('/api/admin/finance/reports', methods=['GET'])
@@ -4532,7 +4605,11 @@ def _enabled_providers():
 def pay_providers():
     """The client asks which online-payment methods are live so it only shows
     those; when none are configured it falls back to COD / direct MoMo."""
-    return jsonify({'providers': _enabled_providers()}), 200
+    resp = jsonify({'providers': _enabled_providers()})
+    # Availability changes when operator keys are added; never let a browser
+    # cache a stale answer and hide a gateway that is now live.
+    resp.headers['Cache-Control'] = 'no-store'
+    return resp, 200
 
 
 @app.route('/api/pay/initiate', methods=['POST'])
@@ -4570,7 +4647,7 @@ def pay_initiate():
         # Africa's Talking mobile money collection (USSD push to buyer's phone)
         return _at_momo_initiate(order_ref, amount, phone, provider)
     if provider == 'pesapal':
-        return jsonify({'ok': False, 'enabled': False, 'error': 'pesapal not configured yet'}), 200
+        return _pesapal_initiate(order_ref, amount, email, phone)
     return jsonify({'ok': False, 'error': 'unknown provider'}), 400
 
 
@@ -4593,6 +4670,156 @@ def _checkout_amount(uid, order_ref, client_amount):
         log.error('payment.invalid_order_total', order_ref=order_ref)
         return 0, (jsonify({'ok': False, 'error': 'order total is unavailable'}), 422)
     return max(int(client_amount), floor), None
+
+
+# ── Pesapal API 3.0 ───────────────────────────────────────────────────────────
+_pesapal_client_singleton = None
+_pesapal_client_lock = threading.Lock()
+_pesapal_ipn_cache = {'url': '', 'id': ''}
+_pesapal_ipn_lock = threading.Lock()
+
+
+def _pesapal_client():
+    """Return the shared client, or None when the provider has no credentials."""
+    global _pesapal_client_singleton
+    if not (PESAPAL_KEY and PESAPAL_SECRET):
+        return None
+    if _pesapal_client_singleton is None:
+        with _pesapal_client_lock:
+            if _pesapal_client_singleton is None:
+                _pesapal_client_singleton = PesapalClient(
+                    PESAPAL_KEY, PESAPAL_SECRET, env=PESAPAL_ENV)
+    return _pesapal_client_singleton
+
+
+def _ensure_pesapal_ipn(client):
+    """Register the IPN endpoint once and reuse the stored id on every order."""
+    if PESAPAL_IPN_ID:
+        return PESAPAL_IPN_ID
+    url = PESAPAL_CALLBACK_BASE_URL + '/api/pay/webhook/pesapal'
+    cached = _pesapal_ipn_cache
+    if cached.get('id') and cached.get('url') == url:
+        return cached['id']
+    with _pesapal_ipn_lock:
+        if cached.get('id') and cached.get('url') == url:
+            return cached['id']
+        try:
+            rows = supa_get('payment_gateway_state', {
+                'provider': 'eq.pesapal', 'select': 'config'}, limit=1) or []
+            config = (rows[0] or {}).get('config') if rows else {}
+            if isinstance(config, dict) and config.get('ipn_id') \
+                    and config.get('ipn_url') == url:
+                cached.update(url=url, id=str(config['ipn_id']))
+                return cached['id']
+        except Exception as exc:
+            log.warning('pesapal.state_read_failed', error=type(exc).__name__)
+
+        ipn_id = client.register_ipn(url, 'POST')
+        saved = SUPA.upsert('payment_gateway_state', {
+            'provider': 'pesapal',
+            'config': {'ipn_id': ipn_id, 'ipn_url': url},
+            'updated_at': datetime.datetime.now(datetime.timezone.utc).isoformat(),
+        }, on_conflict='provider')
+        if not saved.ok:
+            # The id still works for this process; operators can pin it with
+            # PESAPAL_IPN_ID if the state table is not available.
+            log.warning('pesapal.ipn_state_save_failed', status=saved.status)
+        cached.update(url=url, id=ipn_id)
+        return ipn_id
+
+
+def _pesapal_phone(phone):
+    digits = ''.join(ch for ch in str(phone or '') if ch.isdigit())
+    if digits.startswith('256'):
+        digits = '0' + digits[3:]
+    elif len(digits) == 9 and digits[:1] in ('3', '7'):
+        digits = '0' + digits
+    return digits[:20]
+
+
+def _pesapal_billing_address(email, phone):
+    auth_user = getattr(g, 'auth_user', {}) or {}
+    meta = auth_user.get('user_metadata') or {}
+    email = str(email or auth_user.get('email') or '').strip()[:120]
+    phone = _pesapal_phone(phone or meta.get('phone'))
+    name = str(meta.get('full_name') or meta.get('name') or '').strip()
+    parts = name.split(' ', 1)
+    return {
+        'email_address': email,
+        'phone_number': phone,
+        'country_code': 'UG',
+        'first_name': (parts[0] if parts and parts[0] else 'Customer')[:60],
+        'middle_name': '',
+        'last_name': (parts[1] if len(parts) > 1 else '')[:60],
+        'line_1': 'AgriBridge marketplace',
+        'line_2': '',
+        'city': 'Kampala',
+        'state': 'Kampala',
+        'postal_code': '',
+        'zip_code': '',
+    }
+
+
+def _pesapal_initiate(order_ref, amount, email, phone):
+    client = _pesapal_client()
+    if not client:
+        return jsonify({'ok': False, 'enabled': False,
+                        'error': 'Pesapal is not configured'}), 200
+    try:
+        ipn_id = _ensure_pesapal_ipn(client)
+    except PesapalError as exc:
+        log.error('pesapal.ipn_setup_failed', error=str(exc)[:120])
+        return jsonify({'ok': False, 'enabled': True,
+                        'error': 'Pesapal is temporarily unavailable. '
+                                 'Please choose another payment method.'}), 200
+
+    try:
+        data = client.submit_order({
+            'id': _pay_attempt_ref(order_ref),
+            'currency': 'UGX',
+            'amount': int(amount),
+            'description': f'AgriBridge order {order_ref}'[:100],
+            'callback_url': PESAPAL_CALLBACK_BASE_URL + '/api/pay/pesapal/callback',
+            'notification_id': ipn_id,
+            'billing_address': _pesapal_billing_address(email, phone),
+            # Stable reference: Pesapal uses it for recurring charges too.
+            'account_number': order_ref,
+        })
+    except PesapalError as exc:
+        log.warning('pesapal.submit_failed', order_ref=order_ref,
+                    error=str(exc)[:120])
+        _log_system_event('pesapal_initiate_failed',
+                          {'order_ref': order_ref, 'error': str(exc)[:200]},
+                          severity='warning')
+        return jsonify({'ok': False, 'enabled': True,
+                        'error': 'Pesapal could not start this payment. '
+                                 'Please try again or choose another method.'}), 200
+
+    return jsonify({
+        'ok': True, 'provider': 'pesapal',
+        'link': data['redirect_url'],
+        'tracking_id': str(data.get('order_tracking_id') or '')[:80],
+    }), 200
+
+
+def _pesapal_site_redirect(status, order_ref):
+    site = (PUBLIC_BASE_URL or 'https://agribrige.com').rstrip('/')
+    query = urlencode({
+        'pay': 'done',
+        'provider': 'pesapal',
+        'status': status,
+        'tx_ref': _base_ref(order_ref),
+    })
+    return redirect(f'{site}/?{query}')
+
+
+def _pesapal_ack(ok, tracking_id, order_ref, notification_type):
+    return jsonify({
+        'orderNotificationType': notification_type or 'IPNCHANGE',
+        'orderTrackingId': tracking_id,
+        'orderMerchantReference': order_ref,
+        'status': 200 if ok else 500,
+    }), 200
 
 
 def _pay_attempt_ref(order_ref):
@@ -4835,46 +5062,41 @@ def _flw_card_result(j, fallback_ref):
     return {'ok': False, 'error': msg}
 
 
-def _flw_verify_and_mark(attempt_ref, flw_id, provider='Flutterwave'):
-    """Verify a Flutterwave transaction server-side, then mark its checkout paid.
+def _mark_checkout_paid(tx_ref, *, received, currency, provider, provider_ref):
+    """Mark a verified checkout paid and post its ledger receipt.
 
-    The webhook body is never trusted on its own; this is also used after a
-    direct card charge or OTP validation. A confirmed receipt is posted to the
-    ledger under `payment:<tx_ref>`, so retries cannot post twice."""
+    Callers must have verified the payment with the provider first. Amount and
+    currency are re-checked against the stored order rows so a verified but
+    underpaid transaction can never close an order. The ledger reference is
+    `payment:<tx_ref>`, so repeated notifications cannot double-post; buyer
+    notifications and receipts are sent only on the first successful mark."""
     try:
-        v = requests.get(
-            'https://api.flutterwave.com/v3/transactions/' + str(flw_id) + '/verify',
-            headers={'Authorization': 'Bearer ' + FLW_SECRET_KEY}, timeout=20)
-        vj = v.json() if v.ok else {}
-        vdata = vj.get('data') or {}
-        tx_ref = _base_ref(attempt_ref)
         rows = supa_get('orders', {
             'payment_ref': f'eq.{tx_ref}',
-            'select': 'id,total_amount,total_price,quantity_kg,price_per_kg,status',
+            'select': 'id,total_amount,total_price,quantity_kg,price_per_kg,status,payment_status',
         }, limit=50) or []
         try:
             owed = sum((ledger.money(finance.order_total(o)) for o in rows), ledger.ZERO)
-            received = ledger.money(vdata.get('amount'))
+            amount = ledger.money(received)
         except ledger.LedgerError:
             return False
-        cur = str(vdata.get('currency') or '').strip().upper()
-        if not ((vdata.get('status') or '').lower() == 'successful'
-                and _base_ref(vdata.get('tx_ref')) == tx_ref
-                and cur == 'UGX'
-                and owed > 0 and received >= owed):
+        if not (currency == 'UGX' and owed > 0 and amount >= owed):
+            log.warning('payment.amount_mismatch', payment_ref=tx_ref,
+                        provider=provider, owed=str(owed))
             return False
 
-        # Mark every order row of this checkout paid (they share payment_ref).
-        # Idempotent: re-running just re-sets 'paid'; the match key is stable.
-        if not supa_update('orders', {'payment_status': 'paid'}, 'payment_ref', tx_ref):
-            log.error('payment.mark_paid_failed', payment_ref=tx_ref, provider=provider)
-            _log_system_event('payment_mark_paid_failed',
-                              {'payment_ref': tx_ref, 'provider': provider})
-            return False
+        was_paid = bool(rows) and all(
+            str(o.get('payment_status') or '').lower() == 'paid' for o in rows)
+        if not was_paid:
+            if not supa_update('orders', {'payment_status': 'paid'}, 'payment_ref', tx_ref):
+                log.error('payment.mark_paid_failed', payment_ref=tx_ref, provider=provider)
+                _log_system_event('payment_mark_paid_failed',
+                                  {'payment_ref': tx_ref, 'provider': provider})
+                return False
 
         posting = ledger.post_verified_payment(
-            SUPA, tx_ref=tx_ref, orders=rows, received=received, currency=cur,
-            provider=provider, flw_id=flw_id)
+            SUPA, tx_ref=tx_ref, orders=rows, received=amount, currency=currency,
+            provider=provider, flw_id=provider_ref)
         if not posting.ok:
             # Money is confirmed and the order is paid; a ledger gap is an
             # operator alert (reconciliation also reports it), not a failed
@@ -4892,16 +5114,19 @@ def _flw_verify_and_mark(attempt_ref, flw_id, provider='Flutterwave'):
                 severity='error',
             )
 
+        if was_paid:
+            return True
+
         try:
-            amt = float(received)
+            amt = float(amount)
             _discord_notify(
                 event_type='payment.confirmed',
                 title='💰 Payment Confirmed',
                 description=(
                     f"**Ref:** `{tx_ref}`\n"
-                    f"**Amount:** {cur} {amt:,.0f}\n"
+                    f"**Amount:** {currency} {amt:,.0f}\n"
                     f"**Provider:** {provider}\n"
-                    f"**FLW ID:** {flw_id}\n"
+                    f"**Provider ref:** {provider_ref}\n"
                     f"**Ledger:** `{posting.journal_id or 'not posted'}`"
                 ),
                 severity='payment',
@@ -4923,10 +5148,10 @@ def _flw_verify_and_mark(attempt_ref, flw_id, provider='Flutterwave'):
                         severity='info',
                         title='💰 Payment Confirmed!',
                         body=(
-                            f'Your payment of {cur} {int(amt):,} for order {o_ref} has been received. '
+                            f'Your payment of {currency} {int(amt):,} for order {o_ref} has been received. '
                             f'Your order will be dispatched shortly.'
                         ),
-                        payload={'order_ref': o_ref, 'amount': amt, 'currency': cur},
+                        payload={'order_ref': o_ref, 'amount': amt, 'currency': currency},
                         dedupe_key=f'payment_confirmed:{tx_ref}',
                     )
         except Exception as _pne:
@@ -4934,7 +5159,60 @@ def _flw_verify_and_mark(attempt_ref, flw_id, provider='Flutterwave'):
         _send_payment_receipt(tx_ref)
         return True
     except Exception as e:
+        log.error('payment.mark_exception', error=type(e).__name__)
+        return False
+
+
+def _flw_verify_and_mark(attempt_ref, flw_id, provider='Flutterwave'):
+    """Verify a Flutterwave transaction server-side, then mark its checkout paid.
+
+    The webhook body is never trusted on its own; this is also used after a
+    direct card charge or OTP validation."""
+    try:
+        v = requests.get(
+            'https://api.flutterwave.com/v3/transactions/' + str(flw_id) + '/verify',
+            headers={'Authorization': 'Bearer ' + FLW_SECRET_KEY}, timeout=20)
+        vj = v.json() if v.ok else {}
+        vdata = vj.get('data') or {}
+        tx_ref = _base_ref(attempt_ref)
+        if not ((vdata.get('status') or '').lower() == 'successful'
+                and _base_ref(vdata.get('tx_ref')) == tx_ref):
+            return False
+        return _mark_checkout_paid(
+            tx_ref, received=vdata.get('amount'), provider=provider,
+            currency=str(vdata.get('currency') or '').strip().upper(),
+            provider_ref=flw_id)
+    except Exception as e:
         log.error('payment.verify_exception', error=type(e).__name__)
+        return False
+
+
+def _pesapal_verify_and_mark(order_ref, status, tracking_id):
+    """Verify a Pesapal transaction server-side, then mark its checkout paid.
+
+    The callback/IPN parameters are only a hint about which transaction to
+    fetch; the authoritative amount, currency, and completion state come from
+    GetTransactionStatus. Recurring charges carry no order and are recorded by
+    `_record_pesapal_recurring` instead."""
+    try:
+        order_ref = _base_ref(order_ref)
+        status = status if isinstance(status, dict) else {}
+        # Pesapal echoes the submitted reference in merchant_reference on most
+        # responses; accept account_number too so a version difference cannot
+        # turn a genuinely paid order into an unverified one.
+        echoed = {_base_ref(status.get(key)) for key in
+                  ('merchant_reference', 'account_number', 'id')}
+        if not (pesapal_completed(status) and order_ref in echoed):
+            log.warning('pesapal.unverified_callback', payment_ref=order_ref,
+                        tracking_id=str(tracking_id)[:80],
+                        status_code=status.get('status_code'))
+            return False
+        return _mark_checkout_paid(
+            order_ref, received=status.get('amount'), provider='Pesapal',
+            currency=str(status.get('currency') or '').strip().upper(),
+            provider_ref=tracking_id)
+    except Exception as e:
+        log.error('pesapal.verify_exception', error=type(e).__name__)
         return False
 
 
@@ -5042,6 +5320,285 @@ def pay_webhook_flw():
     if (ev.get('status') or '').lower() == 'successful' and attempt_ref and flw_id:
         _flw_verify_and_mark(attempt_ref, flw_id)
     return jsonify({'status': 'ok'}), 200
+
+
+def _pesapal_request_values():
+    """Merge query, form, and JSON fields from a Pesapal callback or IPN."""
+    values = {key: value for key, value in request.args.items()}
+    if request.method == 'POST':
+        payload = request.get_json(force=True, silent=True)
+        if isinstance(payload, dict):
+            values.update(payload)
+        values.update(request.form.to_dict())
+    return values
+
+
+def _record_pesapal_recurring(status, tracking_id):
+    """Record one recurring charge and post it to the ledger suspense account.
+
+    A recurring charge has no new order. It is a liability until operations
+    allocate it, so it is never credited to a farmer. Idempotent on
+    (provider, provider_tracking_id); a retried IPN only retries a missing
+    ledger posting."""
+    info = status.get('subscription_transaction_info') \
+        if isinstance(status, dict) else None
+    if not isinstance(info, dict) or not info:
+        return None
+    if not pesapal_completed(status):
+        return True
+
+    tracking_id = str(tracking_id or '').strip()[:80]
+    if not tracking_id:
+        return False
+    currency = str(status.get('currency') or 'UGX').strip().upper()
+    try:
+        amount = ledger.money(info.get('amount') or status.get('amount'))
+    except ledger.LedgerError:
+        log.error('pesapal.recurring_invalid_amount', tracking_id=tracking_id)
+        _log_system_event('pesapal_recurring_invalid_amount',
+                          {'tracking_id': tracking_id}, severity='warning')
+        return False
+    if amount <= 0 or currency != 'UGX':
+        log.error('pesapal.recurring_invalid_money', tracking_id=tracking_id,
+                  currency=currency)
+        return False
+
+    account_ref = _base_ref(str(
+        info.get('account_reference') or status.get('merchant_reference')
+        or status.get('account_number') or '').strip())[:60]
+    correlation = str(info.get('correlation_id') or '').strip()[:120]
+    confirmation = str(status.get('confirmation_code') or '').strip()[:120]
+    now = datetime.datetime.now(datetime.timezone.utc).isoformat()
+
+    existing = supa_get('subscription_charges', {
+        'provider': 'eq.pesapal',
+        'provider_tracking_id': f'eq.{tracking_id}',
+        'select': 'id,ledger_reference',
+    }, limit=1) or []
+    charge = existing[0] if existing else None
+
+    if charge and charge.get('ledger_reference'):
+        return True
+
+    subscription_id = None
+    if correlation:
+        buyer_id = None
+        if account_ref:
+            order_rows = supa_get('orders', {
+                'payment_ref': f'eq.{account_ref}', 'select': 'buyer_id'}, limit=1) or []
+            if order_rows:
+                buyer_id = order_rows[0].get('buyer_id')
+        saved = SUPA.upsert('payment_subscriptions', {
+            'provider': 'pesapal',
+            'provider_correlation_id': correlation,
+            'account_ref': account_ref,
+            'buyer_id': buyer_id,
+            'amount': float(amount),
+            'currency': currency,
+            'status': 'active',
+            'last_charged_at': now,
+            'updated_at': now,
+        }, on_conflict='provider,provider_correlation_id')
+        if saved.ok:
+            row = saved.data[0] if isinstance(saved.data, list) and saved.data \
+                else saved.data if isinstance(saved.data, dict) else {}
+            subscription_id = str((row or {}).get('id') or '') or None
+        if not subscription_id:
+            read_back = supa_get('payment_subscriptions', {
+                'provider': 'eq.pesapal',
+                'provider_correlation_id': f'eq.{correlation}',
+                'select': 'id'}, limit=1) or []
+            if read_back:
+                subscription_id = str(read_back[0].get('id') or '') or None
+        if not subscription_id:
+            log.error('pesapal.recurring_subscription_failed', tracking_id=tracking_id,
+                      status=saved.status, error=str(saved.error)[:120])
+            _log_system_event('pesapal_recurring_subscription_failed',
+                              {'tracking_id': tracking_id,
+                               'error': str(saved.error)[:200]})
+            return False
+
+    if not charge:
+        inserted = SUPA.insert('subscription_charges', {
+            'subscription_id': subscription_id,
+            'provider': 'pesapal',
+            'provider_tracking_id': tracking_id,
+            'confirmation_code': confirmation or None,
+            'account_ref': account_ref or None,
+            'amount': float(amount),
+            'currency': currency,
+            'status': 'paid',
+        })
+        if not inserted.ok:
+            # A concurrent delivery may have won the unique key; treat that as
+            # already recorded and continue with any missing ledger posting.
+            existing = supa_get('subscription_charges', {
+                'provider': 'eq.pesapal',
+                'provider_tracking_id': f'eq.{tracking_id}',
+                'select': 'id,ledger_reference',
+            }, limit=1) or []
+            if not existing:
+                log.error('pesapal.recurring_charge_insert_failed',
+                          tracking_id=tracking_id, status=inserted.status,
+                          error=str(inserted.error)[:120])
+                _log_system_event('pesapal_recurring_charge_insert_failed',
+                                  {'tracking_id': tracking_id,
+                                   'error': str(inserted.error)[:200]})
+                return False
+            charge = existing[0]
+            if charge.get('ledger_reference'):
+                return True
+        else:
+            rows = inserted.data if isinstance(inserted.data, list) else [inserted.data]
+            charge = (rows[0] if rows and isinstance(rows[0], dict) else {}) or None
+
+    posting = ledger.post_recurring_charge(
+        SUPA, tracking_id=tracking_id, amount=amount, currency=currency,
+        provider='Pesapal', account_ref=account_ref, correlation_id=correlation,
+        confirmation_code=confirmation)
+    if not posting.ok:
+        # The charge is durably recorded; the ledger gap is an operator alert
+        # and the admin recurring view surfaces it. Do not drop the charge.
+        log.error('pesapal.recurring_ledger_failed', tracking_id=tracking_id,
+                  error=posting.error)
+        _log_system_event('pesapal_recurring_ledger_failed',
+                          {'tracking_id': tracking_id, 'error': posting.error})
+        _discord_notify(
+            event_type='payment.recurring_ledger_failed',
+            title='⚠️ Recurring payment received but not posted to ledger',
+            description=(f"**Tracking:** `{tracking_id}`\n"
+                         f"**Account:** `{account_ref or '-'}`\n"
+                         f"**Amount:** {currency} {float(amount):,.0f}\n"
+                         f"**Error:** {posting.error[:200]}"),
+            severity='error',
+        )
+        return True
+
+    if charge and charge.get('id'):
+        if not supa_update('subscription_charges',
+                           {'ledger_reference': posting.reference},
+                           'id', charge['id']):
+            log.warning('pesapal.recurring_charge_update_failed',
+                        tracking_id=tracking_id)
+
+    try:
+        _discord_notify(
+            event_type='payment.recurring_confirmed',
+            title='🔁 Recurring payment received',
+            description=(f"**Tracking:** `{tracking_id}`\n"
+                         f"**Account:** `{account_ref or '-'}`\n"
+                         f"**Amount:** {currency} {float(amount):,.0f}\n"
+                         f"**Correlation:** `{correlation or '-'}`\n"
+                         f"**Ledger:** `{posting.journal_id or 'not posted'}`"),
+            severity='payment',
+        )
+        if account_ref:
+            order_rows = supa_get('orders', {
+                'payment_ref': f'eq.{account_ref}',
+                'select': 'buyer_id,tracking_code'}, limit=1) or []
+            buyer_id = order_rows[0].get('buyer_id') if order_rows else None
+            tracking_code = order_rows[0].get('tracking_code') if order_rows else ''
+            if buyer_id:
+                NOTIFY.enqueue(
+                    channel='in_app',
+                    audience='user',
+                    recipient=buyer_id,
+                    event_type='payment.recurring',
+                    severity='info',
+                    title='🔁 Recurring payment received',
+                    body=(f'We received a recurring payment of {currency} '
+                          f'{int(float(amount)):,} for order {account_ref}. '
+                          f'Our team will allocate it to your order.'),
+                    payload={'order_ref': account_ref, 'amount': float(amount),
+                             'currency': currency, 'tracking': tracking_code},
+                    dedupe_key=f'recurring_confirmed:{tracking_id}',
+                )
+    except Exception as exc:
+        log.warning('pesapal.recurring_notify_failed', error=type(exc).__name__)
+    return True
+
+
+def _handle_pesapal_notification(values):
+    """Verify one callback/IPN against Pesapal and apply its effect.
+
+    Callback fields are hints only: the transaction status fetched here is the
+    source of truth for completion, amount, currency, and merchant reference."""
+    values = values if isinstance(values, dict) else {}
+    tracking_id = str(values.get('OrderTrackingId')
+                      or values.get('orderTrackingId') or '').strip()[:80]
+    notification_type = str(values.get('OrderNotificationType')
+                            or values.get('orderNotificationType')
+                            or 'IPNCHANGE').strip().upper()[:20]
+    result = {'ok': False, 'paid': False, 'recurring': False, 'failed': False,
+              'order_ref': '', 'notification_type': notification_type}
+    client = _pesapal_client()
+    if not client or not tracking_id:
+        return result
+    try:
+        status = client.get_transaction_status(tracking_id)
+    except PesapalError as exc:
+        log.warning('pesapal.status_unavailable', tracking_id=tracking_id,
+                    error=str(exc)[:120])
+        return result
+
+    order_ref = _base_ref(str(status.get('merchant_reference')
+                              or status.get('account_number') or '').strip())[:60]
+    result['order_ref'] = order_ref
+    if not pesapal_completed(status):
+        # A pending or failed callback changes nothing; acknowledge it so the
+        # gateway stops retrying, and let the browser show the outcome.
+        result['ok'] = True
+        result['failed'] = pesapal_failed(status)
+        return result
+
+    info = status.get('subscription_transaction_info')
+    if isinstance(info, dict) and info:
+        recorded = _record_pesapal_recurring(status, tracking_id)
+        result['recurring'] = True
+        result['ok'] = recorded is not False
+        # A renewal is not the original checkout: never mark that order paid
+        # again from a recurring IPN.
+        return result
+
+    if not order_ref:
+        return result
+    result['paid'] = _pesapal_verify_and_mark(order_ref, status, tracking_id)
+    result['ok'] = result['paid']
+    return result
+
+
+@app.route('/api/pay/pesapal/callback', methods=['GET', 'POST'])
+@rate_limit(max_req=90, window=300)
+def pay_pesapal_callback():
+    """Browser return from the Pesapal iframe; always redirects to the app."""
+    result = _handle_pesapal_notification(_pesapal_request_values())
+    if result.get('paid'):
+        outcome = 'paid'
+    elif result.get('recurring'):
+        outcome = 'recurring'
+    elif result.get('failed'):
+        outcome = 'failed'
+    else:
+        outcome = 'pending'
+    return _pesapal_site_redirect(outcome, result.get('order_ref') or '')
+
+
+@app.route('/api/pay/webhook/pesapal', methods=['GET', 'POST'])
+def pay_webhook_pesapal():
+    """Pesapal IPN endpoint; acknowledges with the JSON shape Pesapal expects.
+
+    The body is untrusted. Every notification is verified with
+    GetTransactionStatus before any order or ledger change."""
+    values = _pesapal_request_values()
+    result = _handle_pesapal_notification(values)
+    tracking_id = str(values.get('OrderTrackingId')
+                      or values.get('orderTrackingId') or '')[:80]
+    merchant_ref = str(result.get('order_ref')
+                       or values.get('OrderMerchantReference') or '')[:80]
+    resp, code = _pesapal_ack(bool(result.get('ok')), tracking_id, merchant_ref,
+                              result.get('notification_type'))
+    resp.headers['Cache-Control'] = 'no-store'
+    return resp, code
 
 
 def _send_payment_receipt(payment_ref):

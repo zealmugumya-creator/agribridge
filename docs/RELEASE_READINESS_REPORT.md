@@ -1,5 +1,14 @@
 # AgriBridge 2.0 — Release-Readiness Report
 
+> **2026-10-22 note:** This is the 2026-10-09 baseline report. Its “85 tests”
+> and migration-status statements are historical. Current verified evidence is
+> in [`docs/TEST_RESULTS.md`](TEST_RESULTS.md) (417 Python tests including 22
+> Playwright tests, 129 SQL assertions) and
+> [`docs/IMPLEMENTATION_STATUS.md`](IMPLEMENTATION_STATUS.md). Live probes show
+> 0013, 0014, 0002, 0016 and 0017 applied; **0015 is still missing** and must
+> be applied before the new SPA checkout bundle is deployed. Pesapal and Google
+> sign-in are implemented but unconfigured and unverified live.
+
 Date: 2026-10-09 · Track executed first: **Backend integrity & security** · Scope selection: **all** (frontend + order-routing/async included in plan; backend delivered this pass)
 
 This is the mandate's final-report deliverable. It states plainly what was **built and verified**, what is **built but not yet verifiable here**, and what **remains** before AgriBridge can be called production- and Play-ready. Per Rule 12, the application is **not** declared production-ready: the acceptance tests that require live infrastructure have not been run.

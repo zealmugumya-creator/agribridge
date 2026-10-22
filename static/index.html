@@ -320,7 +320,7 @@ img{max-width:100%}
 .checkout-line.total{font-weight:800;border-top:1px solid var(--border);padding-top:8px;margin-top:4px;font-size:1rem}
 .checkout-section-label{font-size:0.78rem;font-weight:700;text-transform:uppercase;letter-spacing:0.07em;color:var(--text2);margin:14px 0 8px}
 .pay-methods{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:6px}
-@media(min-width:480px){.pay-methods{grid-template-columns:repeat(4,1fr)}}
+@media(min-width:480px){.pay-methods{grid-template-columns:repeat(auto-fit,minmax(100px,1fr))}}
 .pay-method{border:2px solid var(--border);border-radius:12px;padding:14px 8px;text-align:center;cursor:pointer;font-size:0.82rem;transition:all 0.18s;background:var(--bg3)}
 .pay-method:hover{border-color:rgba(23,224,107,.4);background:rgba(23,224,107,.06)}
 .pay-method.selected{border-color:var(--green);background:var(--green-dim);box-shadow:0 0 0 1px var(--green)}
@@ -440,6 +440,12 @@ img{max-width:100%}
 .form-group textarea{resize:vertical;min-height:80px}
 .form-row{display:grid;grid-template-columns:1fr 1fr;gap:12px}
 .btn-submit{width:100%;padding:13px;background:var(--green);color:#000;border:none;border-radius:10px;font-size:1rem;font-weight:700;cursor:pointer;font-family:inherit;transition:opacity 0.2s}
+.btn-google{width:100%;display:flex;align-items:center;justify-content:center;gap:10px;padding:11px 14px;background:#fff;color:#1f1f1f;border:1px solid #dadce0;border-radius:10px;font-size:0.92rem;font-weight:600;cursor:pointer;font-family:inherit}
+.btn-google:hover{background:#f7f7f7}
+.btn-google:disabled{opacity:.6;cursor:wait}
+.btn-google svg{width:18px;height:18px;flex:0 0 18px}
+.auth-or{display:flex;align-items:center;gap:10px;color:var(--text2);font-size:0.75rem;margin:14px 0}
+.auth-or::before,.auth-or::after{content:'';flex:1;height:1px;background:var(--border)}
 .btn-submit:hover{opacity:0.9}
 .btn-submit:disabled{opacity:0.5;cursor:not-allowed}
 
@@ -1904,6 +1910,7 @@ AgriBridge service</div>
         <div class="pay-method" id="pm-card" onclick="selectPayMethod('card')" style="display:none"><div class="pm-icon">💳</div><div class="pm-label">Card</div><div class="pm-sub">Visa · Mastercard</div></div>
         <div class="pay-method selected" id="pm-momo" onclick="selectPayMethod('momo')"><div class="pm-icon">📱</div><div class="pm-label">MTN MoMo</div><div class="pm-sub">Pay from your phone</div></div>
         <div class="pay-method" id="pm-airtel" onclick="selectPayMethod('airtel')"><div class="pm-icon">📲</div><div class="pm-label">Airtel Money</div><div class="pm-sub">Pay from your phone</div></div>
+        <div class="pay-method" id="pm-pesapal" onclick="selectPayMethod('pesapal')" style="display:none"><div class="pm-icon">🔐</div><div class="pm-label">Pesapal</div><div class="pm-sub">Card · Mobile money</div></div>
         <div class="pay-method" id="pm-cash" onclick="selectPayMethod('cash')"><div class="pm-icon">💵</div><div class="pm-label">Cash on Delivery</div><div class="pm-sub">Pay on arrival</div></div>
       </div>
 
@@ -1940,6 +1947,12 @@ AgriBridge service</div>
         <div style="font-size:0.78rem;font-weight:700;color:var(--green);margin-bottom:8px;text-transform:uppercase;letter-spacing:.04em">Mobile money number</div>
         <input id="payPhone" type="tel" inputmode="tel" placeholder="e.g. 0771 234 567" style="width:100%;padding:9px 12px;background:var(--bg2);border:1px solid var(--border);border-radius:8px;color:var(--text);font-family:inherit;font-size:0.9rem;box-sizing:border-box">
         <div style="font-size:0.72rem;color:var(--text2);margin-top:6px">You'll get a prompt on this phone to approve the payment with your PIN.</div>
+      </div>
+      <!-- Pesapal secure page (Visa/Mastercard and mobile money) -->
+      <div id="pesapalInfoPanel" style="display:none;background:var(--bg3);border:1.5px solid var(--green);border-radius:12px;padding:14px;margin-top:10px">
+        <div style="font-weight:700;color:var(--green);margin-bottom:6px">🔐 Pay with Pesapal</div>
+        <div style="font-size:0.82rem;line-height:1.5">You'll pay on <strong>Pesapal's secure page</strong> with a Visa or Mastercard, or with mobile money. AgriBridge never sees or stores your card details.</div>
+        <div style="font-size:0.74rem;color:var(--text2);margin-top:8px">You may also choose to set up a recurring payment for future orders on Pesapal's page. Recurring payments are optional and can be cancelled at any time from the Pesapal dashboard.</div>
       </div>
 
       <!-- Address & delivery -->
@@ -2195,11 +2208,10 @@ async function sbUpdate(t, d, col, val) { return sb(t, { method:'PATCH', body:d,
 // Save a signup profile. sb() returns null on failure rather than throwing, so
 // the result must be checked. PostgREST on the current tier intermittently times
 // out, so retry with backoff and queue locally as a last resort — a registration
-// must never be silently discarded.
-// Profile rows are now created server-side by the handle_new_user() trigger on
-// auth.users (runs even before email confirmation, with the real user id). The
-// client no longer inserts into farmers — that INSERT is locked by RLS. Kept as
-// a no-op for backward compatibility and to clear any stale offline queue.
+// must never be silently discarded. There is no database trigger creating the
+// profile row; the browser calls /api/user/profile, which upserts `farmers`
+// with the verified session id. The client never inserts into farmers directly
+// (that INSERT is locked by RLS).
 async function saveProfileWithRetry(profile, attempts) {
   // Write the user's name/phone/district to the farmers table via the
   // update_my_profile RPC (validates name length, phone format, uniqueness).
@@ -2902,11 +2914,17 @@ document.addEventListener('click', function (e) {
 document.addEventListener('DOMContentLoaded', function () {
   try {
     const q = new URLSearchParams(location.search);
+    if (q.get('error') || q.get('error_description')) {
+      history.replaceState(null, '', location.pathname);
+      setTimeout(function(){ showToast('Sign-in was cancelled. You can try again.'); }, 900);
+      return;
+    }
     if (q.get('pay') !== 'done') return;
     const st = (q.get('status') || '').toLowerCase();
     const ref = (q.get('tx_ref') || '').split('~')[0];
     history.replaceState(null, '', location.pathname);
-    if (st === 'cancelled' || st === 'failed') { setTimeout(function(){ showToast('Payment was not completed. Your order is saved — you can pay on delivery.'); }, 1200); return; }
+    if (st === 'cancelled' || st === 'failed') { setTimeout(function(){ showToast('Payment was not completed. Your order is saved — you can pay on delivery or try again.'); }, 1200); return; }
+    if (st === 'recurring') { setTimeout(function(){ showToast('🔁 Recurring payment received — our team will allocate it to your order.'); }, 1200); return; }
     setTimeout(function(){ showToast('Confirming your payment…'); }, 1200);
     if (ref) pollPayment(ref, function(){ showToast('✅ Payment received. Thank you!'); }, function(){ showToast('Payment still pending — we will notify you once it clears.'); });
   } catch (e) {}
@@ -3092,12 +3110,13 @@ document.addEventListener('input', function(e){
 
 function selectPayMethod(method) {
   selectedPayMethod = method;
-  ['card','momo','airtel','cash'].forEach(m => {
+  ['card','momo','airtel','pesapal','cash'].forEach(m => {
     const el = document.getElementById('pm-' + m);
     if (el) el.classList.toggle('selected', m === method);
   });
   const card = document.getElementById('cardInfoPanel');
   const phone = document.getElementById('momoPhonePanel');
+  const pesapal = document.getElementById('pesapalInfoPanel');
   const direct = !!(window._payProviders && window._payProviders.card);
   if (card) card.style.display = method === 'card' ? 'block' : 'none';
   const fields = document.getElementById('cardDirectFields');
@@ -3105,16 +3124,21 @@ function selectPayMethod(method) {
   if (fields) fields.style.display = (method === 'card' && direct) ? 'block' : 'none';
   if (hosted) hosted.style.display = (method === 'card' && !direct) ? 'block' : 'none';
   if (phone) phone.style.display = (method === 'momo' || method === 'airtel') ? 'block' : 'none';
+  if (pesapal) pesapal.style.display = method === 'pesapal' ? 'block' : 'none';
   const pp = document.getElementById('payPhone');
   if (pp && !pp.value && currentUser && currentUser.phone) pp.value = currentUser.phone;
 }
-// Card options appear once a card gateway is live (never show a dead button).
+// Online options appear once their gateway is live (never show a dead button).
 async function syncPayMethods() {
   const prov = await getEnabledProviders();
   const c = document.getElementById('pm-card');
+  const p = document.getElementById('pm-pesapal');
   const hasCard = !!(prov.flutterwave || prov.card);
+  const hasPesapal = !!prov.pesapal;
   if (c) c.style.display = hasCard ? '' : 'none';
+  if (p) p.style.display = hasPesapal ? '' : 'none';
   if (!hasCard && selectedPayMethod === 'card') selectPayMethod('momo');
+  else if (!hasPesapal && selectedPayMethod === 'pesapal') selectPayMethod('momo');
   else selectPayMethod(selectedPayMethod);
 }
 
@@ -3132,11 +3156,13 @@ async function pollPayment(ref, onDone, onTimeout) {
   onTimeout();
 }
 
-// Which online payment gateways are live (cached). Empty/unknown => none, so
-// checkout falls back to cash / pay-farmer-direct.
+// Which online payment gateways are live. Cached briefly so opening checkout
+// twice does not refetch, but a gateway enabled by the operator appears without
+// a full page reload.
 async function getEnabledProviders(){
-  if(window._payProviders) return window._payProviders;
-  try{ const r=await fetch(USSD_API+'/api/pay/providers'); const j=await r.json(); window._payProviders=(j&&j.providers)||{}; return window._payProviders; }catch(e){ return {}; }
+  var now = Date.now();
+  if(window._payProviders && now - (window._payProvidersAt||0) < 120000) return window._payProviders;
+  try{ const r=await fetch(USSD_API+'/api/pay/providers', {cache:'no-store'}); const j=await r.json(); window._payProviders=(j&&j.providers)||{}; window._payProvidersAt=Date.now(); return window._payProviders; }catch(e){ return {}; }
 }
 // Best-effort order SMS to the buyer. The server reads the phone number and
 // total from the order, so the client only identifies the order.
@@ -3192,6 +3218,12 @@ async function startOnlinePayment(ref, amount, payMethod, phone){
       }
       if(j&&j.fallback==='manual') return null;
       return { error:(j&&j.error)||'Could not start mobile money payment' };
+    }
+    if(payMethod==='pesapal'){
+      if(!prov.pesapal) return { error:'Pesapal is unavailable right now. Please choose another payment method.' };
+      const j=await call({ provider:'pesapal' });
+      if(j&&j.ok&&j.link) return { redirect:j.link };
+      return { error:(j&&j.error)||'Could not start Pesapal payment' };
     }
     return null;
   }catch(e){ return null; }
@@ -3442,6 +3474,13 @@ async function placeOrder() {
                  <li>Enter your Airtel PIN to confirm</li>
                </ol>
                <div class="pay-ref-note">Use <strong>${ref}</strong> as your payment reference</div>
+             </div>`,
+      pesapal: `<div class="pay-instructions">
+               <div class="pay-instr-icon">🔐</div>
+               <div class="pay-instr-title">Pay via Pesapal</div>
+               <div class="pay-instr-amount">${fmtTotal}</div>
+               <p style="margin:8px 0 4px">Your order is saved. Choose <strong>Try again</strong> below to open Pesapal's secure page, where you can pay by card or mobile money.</p>
+               <p style="color:var(--text2);font-size:0.85rem">Recurring payments are optional and can be cancelled at any time from the Pesapal dashboard.</p>
              </div>`,
       cash: `<div class="pay-instructions">
                <div class="pay-instr-icon">💵</div>
@@ -6436,17 +6475,21 @@ function initSupabase() {
   if (typeof supabase === 'undefined') { setTimeout(initSupabase, 500); return; }
   if (sbAuth) return;
   sbAuth = supabase.createClient(SUPABASE_URL, SUPABASE_ANON);
+  refreshOAuthButtons();
   sbAuth.auth.onAuthStateChange(function(event, session) {
     _authToken = (session && session.access_token) ? session.access_token : null;
     if (session && session.user) {
       var u = session.user;
-      currentUser = { name: (u.user_metadata&&u.user_metadata.name)||u.email.split('@')[0], role: (u.user_metadata&&u.user_metadata.role)||'vendor', phone: (u.user_metadata&&u.user_metadata.phone)||'', email: u.email, supaId: u.id };
+      currentUser = { name: (u.user_metadata&&u.user_metadata.name)||(u.user_metadata&&u.user_metadata.full_name)||u.email.split('@')[0], role: (u.user_metadata&&u.user_metadata.role)||'vendor', phone: (u.user_metadata&&u.user_metadata.phone)||'', district: (u.user_metadata&&u.user_metadata.district)||'', email: u.email, supaId: u.id };
       localStorage.setItem('ab_user', JSON.stringify(currentUser));
       updateNavUser(currentUser.name, currentUser.role);
-      hydrateUserProfile();
+      if (_oauthNeedsProfile(u)) _openOAuthProfile(u);
+      else hydrateUserProfile();
       // Flush any profile that couldn't be saved at registration time
       if (event === 'SIGNED_IN') setTimeout(flushPendingProfiles, 1000);
-      if (event !== 'PASSWORD_RECOVERY' && event !== 'TOKEN_REFRESHED' && event !== 'USER_UPDATED') setTimeout(postAuthLegalCheck, 0);
+      if (event !== 'PASSWORD_RECOVERY' && event !== 'TOKEN_REFRESHED' && event !== 'USER_UPDATED') {
+        setTimeout(function(){ if (!_oauthOnboardingOpen) postAuthLegalCheck(); }, 0);
+      }
       // Poll notification unread count every 60s while logged in
       _startNotifPolling();
       if (event === 'SIGNED_IN') setTimeout(resyncPushIfGranted, 1500);
@@ -6464,12 +6507,13 @@ function initSupabase() {
     _authToken = (s && s.access_token) ? s.access_token : null;
     if (s && s.user) {
       var u = s.user;
-      currentUser = { name: (u.user_metadata&&u.user_metadata.name)||u.email.split('@')[0], role: (u.user_metadata&&u.user_metadata.role)||'vendor', phone: (u.user_metadata&&u.user_metadata.phone)||'', email: u.email, supaId: u.id };
+      currentUser = { name: (u.user_metadata&&u.user_metadata.name)||(u.user_metadata&&u.user_metadata.full_name)||u.email.split('@')[0], role: (u.user_metadata&&u.user_metadata.role)||'vendor', phone: (u.user_metadata&&u.user_metadata.phone)||'', district: (u.user_metadata&&u.user_metadata.district)||'', email: u.email, supaId: u.id };
       localStorage.setItem('ab_user', JSON.stringify(currentUser));
       updateNavUser(currentUser.name, currentUser.role);
-      hydrateUserProfile();
+      if (_oauthNeedsProfile(u)) _openOAuthProfile(u);
+      else hydrateUserProfile();
       if (typeof syncCloudBasket === 'function') syncCloudBasket();
-      setTimeout(postAuthLegalCheck, 0);
+      setTimeout(function(){ if (!_oauthOnboardingOpen) postAuthLegalCheck(); }, 0);
       _startNotifPolling();
       setTimeout(resyncPushIfGranted, 1500);
       setTimeout(maybeShowPushPrompt, 3000);
@@ -6505,7 +6549,7 @@ function _recordFail() {
   }
 }
 function _showLockoutUI() {
-  var lm=document.getElementById('loginLockMsg'), lb=document.getElementById('loginBtn');
+  var lm=document.getElementById('loginLockMsg'), lb=document.getElementById('loginSubmitBtn');
   if(lm) lm.style.display='block'; if(lb) lb.disabled=true;
   _startCountdown();
 }
@@ -6516,7 +6560,7 @@ function _startCountdown() {
     var cd=document.getElementById('lockCountdown');
     if(rem<=0){
       clearInterval(_lockTimer); _clearAttempts();
-      var lm=document.getElementById('loginLockMsg'),lb=document.getElementById('loginBtn');
+      var lm=document.getElementById('loginLockMsg'),lb=document.getElementById('loginSubmitBtn');
       if(lm)lm.style.display='none'; if(lb){lb.disabled=false;lb.textContent='Log In';}
     } else if(cd) {
       cd.textContent=Math.floor(rem/60000)+':'+String(Math.floor((rem%60000)/1000)).padStart(2,'0');
@@ -6581,6 +6625,7 @@ async function hydrateUserProfile() {
   // If DB has no name saved, nudge the user to complete their profile
   if (!row.full_name || !row.full_name.trim()) {
     setTimeout(function(){
+      if (_oauthOnboardingOpen) return;
       showToast('👋 Please complete your profile — add your real name and phone number in Settings.');
     }, 2000);
   }
@@ -6763,6 +6808,165 @@ async function doRegister() {
   } finally {
     if (btn) { btn.disabled=false; btn.textContent='Create Account'; }
   }
+}
+
+// ── Google sign-in (Supabase OAuth, PKCE) ─────────────
+// The Supabase project must have the Google provider enabled and the site's
+// origin listed as a redirect URL. Buttons stay hidden until /auth/v1/settings
+// reports the provider, so an unconfigured project never shows a dead button.
+var _oauthOnboardingOpen = false;
+
+async function refreshOAuthButtons() {
+  try {
+    var r = await fetch(SUPA_URL + '/auth/v1/settings', { headers: { apikey: SUPA_KEY } });
+    var j = await r.json().catch(function(){ return {}; });
+    var enabled = !!(j && j.external && j.external.google);
+    ['googleLoginWrap', 'googleRegisterWrap'].forEach(function(id) {
+      var el = document.getElementById(id);
+      if (el) el.style.display = enabled ? 'block' : 'none';
+    });
+  } catch (e) { /* leave the buttons hidden */ }
+}
+
+async function doGoogleLogin(source) {
+  if (!sbAuth) {
+    if (source === 'register') _showRegErr('Not connected. Please refresh the page.');
+    else _showLoginErr('Not connected. Please refresh the page.');
+    return;
+  }
+  var btn = document.getElementById(source === 'register' ? 'googleRegisterBtn' : 'googleLoginBtn');
+  if (btn) btn.disabled = true;
+  try {
+    var res = await sbAuth.auth.signInWithOAuth({
+      provider: 'google',
+      options: {
+        redirectTo: window.location.origin + '/',
+        queryParams: { prompt: 'select_account' }
+      }
+    });
+    if (res && res.error) throw res.error;
+    // Success navigates away to Google; nothing else to do here.
+  } catch (e) {
+    if (btn) btn.disabled = false;
+    showToast('Google sign-in could not start. Please use email/password or try again.');
+  }
+}
+
+function _isGoogleUser(u) {
+  var a = (u && u.app_metadata) || {};
+  if (a.provider === 'google') return true;
+  return Array.isArray(a.providers) && a.providers.indexOf('google') > -1;
+}
+
+function _oauthNeedsProfile(u) {
+  if (!u || !_isGoogleUser(u)) return false;
+  var m = u.user_metadata || {};
+  return !(m.phone && m.role && (m.name || m.full_name) && m.district);
+}
+
+function _openOAuthProfile(u) {
+  var modal = document.getElementById('oauthProfileModal');
+  if (!modal || modal.classList.contains('open')) { _oauthOnboardingOpen = true; return; }
+  var m = (u && u.user_metadata) || {};
+  _oauthOnboardingOpen = true;
+  var em = document.getElementById('oauthEmail');
+  if (em) em.textContent = (u && u.email) || '';
+  var n = document.getElementById('oauthName');
+  if (n) n.value = m.full_name || m.name || ((currentUser && currentUser.name) || '');
+  var ph = document.getElementById('oauthPhone');
+  if (ph) ph.value = m.phone || ((currentUser && currentUser.phone) || '');
+  var role = document.getElementById('oauthRole');
+  var roles = ['farmer', 'vendor', 'hotel', 'supplier'];
+  if (role) role.value = roles.indexOf(m.role) > -1 ? m.role : 'vendor';
+  var d = document.getElementById('oauthDistrict');
+  if (d && m.district) {
+    var found = Array.prototype.some.call(d.options, function(o){ return o.value === m.district || o.text === m.district; });
+    d.value = found ? (Array.prototype.filter.call(d.options, function(o){ return o.value === m.district || o.text === m.district; })[0].value) : 'Other';
+  }
+  var err = document.getElementById('oauthProfileErr');
+  if (err) err.style.display = 'none';
+  var chk = document.getElementById('oauthAcceptTerms');
+  if (chk) chk.checked = false;
+  updateOAuthRoleTerms();
+  modal.classList.add('open');
+  document.body.style.overflow = 'hidden';
+}
+
+function updateOAuthRoleTerms() {
+  ensureLegalManifest().then(function(m) {
+    if (!m) return;
+    var sel = document.getElementById('oauthRole');
+    var d = legalRoleDocs(sel ? sel.value : 'farmer').filter(function(x) {
+      return x.applies_to_roles.indexOf('all') < 0;
+    })[0];
+    var a = document.getElementById('oauthRoleTermsLink'), v = document.getElementById('oauthRoleTermsVer');
+    if (!a || !d) return;
+    a.href = d.versioned_url; a.textContent = d.title;
+    if (v) v.textContent = '(version ' + d.version + ')';
+  });
+}
+
+async function saveOAuthProfile() {
+  var errEl = document.getElementById('oauthProfileErr');
+  function fail(msg) {
+    if (errEl) { errEl.textContent = msg; errEl.style.display = 'block'; }
+    return false;
+  }
+  if (!sbAuth) return fail('Not connected. Please refresh the page.');
+  var name = ((document.getElementById('oauthName') || {}).value || '').trim();
+  var phone = ((document.getElementById('oauthPhone') || {}).value || '').trim();
+  var role = (document.getElementById('oauthRole') || {}).value || 'vendor';
+  var district = (document.getElementById('oauthDistrict') || {}).value || '';
+  var terms = !!(document.getElementById('oauthAcceptTerms') || {}).checked;
+  if (name.length < 2 || name.length > 80) return fail('Please enter your full name.');
+  if (!phone) return fail('Please enter your phone number.');
+  var digits = phone.replace(/\D/g, '');
+  if (digits.indexOf('256') === 0) digits = digits.slice(3);
+  else if (digits.charAt(0) === '0') digits = digits.slice(1);
+  if (!/^7\d{8}$/.test(digits)) return fail('Enter a valid Ugandan phone, e.g. 0771 234567.');
+  phone = '+256' + digits;
+  if (['farmer', 'vendor', 'hotel', 'supplier'].indexOf(role) < 0) return fail('Please choose your account type.');
+  if (!district) return fail('Please choose your district.');
+  if (!terms) return fail('Please tick the box to agree to the Terms of Use and confirm you have read the Privacy Policy.');
+  var versions = await legalVersionsForRole(role);
+  if (!versions) return fail('We could not load the latest terms. Check your connection and try again.');
+  var btn = document.getElementById('oauthSaveBtn');
+  if (btn) { btn.disabled = true; btn.textContent = 'Saving…'; }
+  try {
+    var res = await sbAuth.auth.updateUser({
+      data: {
+        name: name, full_name: name, phone: phone, role: role, district: district,
+        legal_signup: { accepted_at: new Date().toISOString(), versions: versions }
+      }
+    });
+    if (res.error) throw new Error(res.error.message || 'Could not save your profile.');
+    var saved = await saveProfileWithRetry({
+      full_name: name, phone: phone, role: role, district: district,
+      email: (currentUser && currentUser.email) || ''
+    });
+    currentUser = Object.assign({}, currentUser || {}, {
+      name: name, phone: phone, role: role, district: district,
+      email: (currentUser && currentUser.email) || ''
+    });
+    try { localStorage.setItem('ab_user', JSON.stringify(currentUser)); } catch (e) {}
+    updateNavUser(currentUser);
+    _oauthOnboardingOpen = false;
+    closeModal('oauthProfileModal');
+    if (saved) showToast('Welcome to AgriBridge, ' + name.split(' ')[0] + '!');
+    else showToast('Account ready, ' + name.split(' ')[0] + '. We will save your delivery details when the connection returns.');
+    postAuthLegalCheck('oauth_onboarding');
+  } catch (e) {
+    fail((e && e.message) ? e.message.slice(0, 140) : 'Could not save your profile. Please try again.');
+  } finally {
+    if (btn) { btn.disabled = false; btn.textContent = 'Finish setup ✓'; }
+  }
+}
+
+async function oauthSignOut() {
+  _oauthOnboardingOpen = false;
+  closeModal('oauthProfileModal');
+  await logOut();
+  setTimeout(function(){ openModal('loginModal'); }, 200);
 }
 
 // ── logOut — replaces original ────────────────────────
@@ -7564,7 +7768,14 @@ document.addEventListener('DOMContentLoaded', function() {
         <a href="#" onclick="openForgotPassword();return false" style="font-size:0.78rem;color:var(--green)">Forgot password?</a>
       </div>
     </div>
-    <button class="btn-submit" id="loginBtn" id="loginSubmitBtn" onclick="doLogin()">Log In</button>
+    <button class="btn-submit" id="loginSubmitBtn" onclick="doLogin()">Log In</button>
+    <div id="googleLoginWrap" style="display:none">
+      <div class="auth-or">or</div>
+      <button type="button" class="btn-google" id="googleLoginBtn" onclick="doGoogleLogin('login')">
+        <svg viewBox="0 0 48 48" aria-hidden="true" focusable="false"><path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/><path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/><path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"/><path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/></svg>
+        Continue with Google
+      </button>
+    </div>
     <p style="text-align:center;margin-top:14px;font-size:0.85rem;color:var(--text2)">No account? <a href="#" onclick="closeModal('loginModal');openModal('registerModal')">Join Free</a></p>
   </div>
 </div>
@@ -7577,6 +7788,14 @@ document.addEventListener('DOMContentLoaded', function() {
     <p style="font-size:0.83rem;color:var(--text2);margin-bottom:18px">Create your account in 2 minutes — free forever</p>
     <div id="regErrMsg" style="display:none;background:#b71c1c22;border:1px solid #b71c1c;border-radius:8px;padding:10px 14px;margin-bottom:14px;font-size:0.83rem;color:#ff5252"></div>
     <div id="regStep1">
+      <div id="googleRegisterWrap" style="display:none;margin-bottom:6px">
+        <button type="button" class="btn-google" id="googleRegisterBtn" onclick="doGoogleLogin('register')">
+          <svg viewBox="0 0 48 48" aria-hidden="true" focusable="false"><path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/><path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/><path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"/><path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/></svg>
+          Continue with Google
+        </button>
+        <div style="font-size:0.72rem;color:var(--text2);text-align:center;margin-top:6px">You'll choose your role, phone number and accept the terms after signing in.</div>
+        <div class="auth-or">or sign up with email</div>
+      </div>
       <div class="form-group"><label>Full Name</label><input type="text" id="regName" placeholder="e.g. Grace Nakato" autocomplete="name"></div>
       <div class="form-group"><label>Phone (MTN or Airtel)</label><input type="tel" id="regPhone" placeholder="+256 7xx xxx xxx" autocomplete="tel"></div>
       <div class="form-group"><label>Email Address</label><input type="email" id="regEmail" placeholder="your@email.com" autocomplete="email"></div>
@@ -7632,6 +7851,36 @@ document.addEventListener('DOMContentLoaded', function() {
       <button class="btn-submit" style="margin-top:14px" onclick="closeModal('registerModal');openModal('loginModal')">Go to Login</button>
       <p style="text-align:center;margin-top:10px;font-size:0.8rem;color:var(--text2)">Didn't get it? <a href="#" onclick="resendConfirmEmail()">Resend email</a></p>
     </div>
+  </div>
+</div>
+
+<!-- ══ OAUTH PROFILE ONBOARDING (Google) ═════════════════════ -->
+<div class="modal-overlay modal-locked" id="oauthProfileModal" role="dialog" aria-modal="true" aria-label="Finish setting up your account">
+  <div class="modal-box">
+    <h3>One last step 🌾</h3>
+    <p style="font-size:0.83rem;color:var(--text2);margin-bottom:14px">
+      Signed in with Google as <strong id="oauthEmail" style="color:var(--text)"></strong>. Add the details we need to deliver orders and pay you.
+    </p>
+    <div id="oauthProfileErr" role="alert" style="display:none;background:#b71c1c22;border:1px solid #b71c1c;border-radius:8px;padding:10px 14px;margin-bottom:14px;font-size:0.83rem;color:#ff5252"></div>
+    <div class="form-group"><label for="oauthName">Full name</label><input type="text" id="oauthName" autocomplete="name" maxlength="80" placeholder="e.g. Grace Nakato"></div>
+    <div class="form-group"><label for="oauthPhone">Phone (MTN or Airtel)</label><input type="tel" id="oauthPhone" autocomplete="tel" placeholder="+256 7xx xxx xxx"></div>
+    <div class="form-row">
+      <div class="form-group"><label for="oauthRole">I am a…</label>
+        <select id="oauthRole" onchange="updateOAuthRoleTerms()"><option value="farmer">Farmer 🌾</option><option value="vendor">Vendor / Buyer 🛒</option><option value="hotel">Hotel / Restaurant 🏨</option><option value="supplier">Supplier / Input Seller 🏪</option></select>
+      </div>
+      <div class="form-group"><label for="oauthDistrict">District</label>
+        <select id="oauthDistrict"><option>Kampala</option><option>Wakiso</option><option>Mukono</option><option>Jinja</option><option>Mbarara</option><option>Bushenyi</option><option>Kabale</option><option>Gulu</option><option>Lira</option><option>Mbale</option><option>Kasese</option><option>Masaka</option><option>Hoima</option><option>Arua</option><option>Other</option></select>
+      </div>
+    </div>
+    <div class="legal-box">
+      <label class="chk-row" for="oauthAcceptTerms">
+        <input type="checkbox" id="oauthAcceptTerms" required aria-required="true">
+        <span>I agree to the AgriBridge <a href="legal/terms-of-use.html" target="_blank" rel="noopener">Terms of Use</a>, including any terms applicable to my selected account role, and acknowledge that I have read the AgriBridge <a href="legal/privacy-policy.html" target="_blank" rel="noopener">Privacy Policy</a>.</span>
+      </label>
+      <div class="legal-role-line" id="oauthRoleTermsLine">Terms for your account type: <a href="legal/farmer-terms.html" target="_blank" rel="noopener" id="oauthRoleTermsLink">Farmer and Producer Terms</a> <span id="oauthRoleTermsVer"></span></div>
+    </div>
+    <button class="btn-submit" id="oauthSaveBtn" onclick="saveOAuthProfile()">Finish setup ✓</button>
+    <p style="text-align:center;margin-top:12px;font-size:0.8rem;color:var(--text2)"><a href="#" onclick="oauthSignOut();return false">Use a different account</a></p>
   </div>
 </div>
 
