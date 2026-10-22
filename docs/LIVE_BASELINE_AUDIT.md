@@ -48,7 +48,7 @@ Applied to live Supabase `lvloaweijidgcuezdnmu`, verified by probing columns/tab
 
 ## 5. Checkout and payment status
 
-- Live `/api/pay/providers`: `airtel,momo,cod,direct,bank = true`; `card,flutterwave,mtn_momo,pesapal = false`; `bank_accounts: []` (**LIVE**).
+- Live `/api/pay/providers`: `airtel,momo,cod,direct,bank,pesapal = true`; `card,flutterwave,mtn_momo = false`; `bank_accounts: []` (**LIVE**, re-probed 2026-10-22 after the owner added the Pesapal keys — see §18).
 - Bank Transfer is offered and orders stay unpaid until admin verification; the verification endpoint marks paid using the **stored** order amount and posts the idempotent `payment:<ref>` journal (**CODE** + tests). UI + API are live (**LIVE**). → **WORKING** (code path) / **UNVERIFIED** (no real bank order placed and settled live).
 - Pesapal / Card / Flutterwave MTN: implemented but **disabled** because credentials are absent (`providers.*=false`) (**LIVE**). → **CONFIGURATION GAP** (owner credentials required; see §11).
 - Google sign-in: code deployed; buttons render only when Supabase reports the provider enabled. Provider not yet configured (**CODE**; not probed live). → **CONFIGURATION GAP**.
@@ -216,5 +216,25 @@ The published bundle was verified against the repository, not assumed:
 - **INFORMATIONAL:** the redesign made the Card tile always visible. With no card gateway configured, `startOnlinePayment('card')` returns `null` and the existing code falls back to manual instructions — a graceful degradation, so no change was made here (Rule 15).
 
 **Rollback path:** `npx --yes wrangler@4 deployments list` then roll back to version `15ff5212…` (the previous known-good publish), or re-publish any commit's `static/` with `wrangler deploy`. Nothing in this change set touched the database, so no migration rollback is involved.
+
+## 18. Pesapal credentials added to Render — verified live, plus a latent config defect
+
+The owner supplied `PESAPAL_CONSUMER_KEY` / `PESAPAL_CONSUMER_SECRET` and set `PESAPAL_ENV=live` in Render, then rebuilt. Verification from outside the dashboard (**LIVE**):
+
+- `/api/pay/providers` → `"pesapal": true` (was `false`), while `card`, `flutterwave` and `mtn_momo` correctly remain `false` — the gate reflects the credentials actually present, not a hardcoded flag.
+- `/health/live` → 200; `/health` → `status:ok`, `version:3.3.0`, `supabase_connected:true`, `discord_configured:true`, `sentry_enabled:false`.
+- `/api/pay/webhook/pesapal` → GET 200 and POST 200. The empty POST was a **no-op**: `_handle_pesapal_notification` returns early on `if not client or not tracking_id`, so no order or ledger row was touched (Rule 11 respected — nothing was paid).
+- `/api/pay/pesapal/callback` (`app.py:5790`) → 302. **Correction to my own earlier probe:** I first requested `/api/pay/callback/pesapal`, got 404, and wrongly concluded the browser-return route did not exist. The path segment order is `…/pesapal/callback`; the route is present and answering. No defect existed.
+
+**VERIFIED DEFECT (found while tracing, not from the probe): a truncated `PESAPAL_CALLBACK_BASE_URL` silently disables payment confirmation.** The owner's screenshot showed `PESAPAL_CALLBACK_BASE_URL=https://agribridge-1-`. That variable feeds both `IPN url = base + '/api/pay/webhook/pesapal'` (`app.py:4919`) and `callback_url = base + '/api/pay/pesapal/callback'` (`app.py:5002`). `PesapalClient._safe_ipn_url` (`services/pesapal.py:80`) only requires `https` plus a non-empty `hostname`, and `urlparse("https://agribridge-1-/…").hostname` is the truthy string `"agribridge-1-"` — so the guard **passes**. Consequences if left as typed: `register_ipn` succeeds against the real Pesapal account, then every notification is delivered to a nonexistent domain. The buyer's browser is redirected to the same bad host. The money moves, Pesapal reports the payment as complete, but the order never becomes `paid` and no `payment:<ref>` journal is ever posted — the exact "feature exists but does not work in production" failure the mandate targets, and it would surface only as angry buyers.
+
+**Fix (`app.py:137-155`):** `_resolve_pesapal_base_url()` now requires a dotted hostname (localhost/127.0.0.1 still allowed for local testing), logs `pesapal.callback_base_url_rejected` with the rejected host and the fallback used, and otherwise returns `PESAPAL_BASE_URL_DEFAULT`. A malformed value can no longer reach Pesapal. 5 regression tests added in `tests/test_pesapal.py`, including the exact string from the owner's screenshot and the assertion that the resulting IPN URL is the live webhook route. Suite: **441 passed**; ruff clean under local 0.16.10 and CI-pinned 0.8.4.
+
+**Owner action:** confirm `PESAPAL_CALLBACK_BASE_URL` in Render is either **deleted** (the built-in default is already the correct Render origin) or set to the full `https://agribridge-1-og7a.onrender.com`. Leave `PESAPAL_IPN_ID` empty — the app registers the IPN once and persists the id in `payment_gateway_state` (migration 0017, applied).
+
+**Still UNVERIFIED:** no real Pesapal payment has been completed, so the notify → verify → mark-paid → ledger-post chain is proven only by fakes in `tests/test_pesapal.py`. Closing that gap requires one small real payment, which needs the owner's explicit authorization (Rule 11).
+
+**INFORMATIONAL — production runtime ≠ CI runtime:** the owner's Render build log installs into `.venv/lib/python3.14/site-packages` with `cp314` wheels even though `render.yaml:5` pins `pythonVersion: "3.12.7"` and CI runs 3.12.7. The suite passes on both here (local harness is 3.14, CI is 3.12), so nothing is currently broken, but a dependency that only builds on one of the two would fail in production while CI stayed green. Worth pinning deliberately rather than leaving to Render's default.
+
 
 

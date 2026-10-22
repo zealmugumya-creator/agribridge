@@ -30,12 +30,16 @@ PYTHONPATH=.test-deps /c/Users/HP/OneDrive/Python314/python.exe -m pytest -q
 ```
 
 ```
-436 passed, 103 warnings in 39.64s
+441 passed, 103 warnings in 90.09s
 ```
 
-This includes the 22 Playwright browser tests, the 14 Bank Transfer /
-signup-alert tests (`tests/test_bank_transfer.py`) and the 5 deploy-workflow
-contract tests (`tests/test_deploy_workflow.py`). Run with the system `python`
+This includes the 22 Playwright browser tests, the 24 Pesapal tests
+(`tests/test_pesapal.py`, now covering the callback base-URL resolver), the 14
+Bank Transfer / signup-alert tests (`tests/test_bank_transfer.py`) and the 5
+deploy-workflow contract tests (`tests/test_deploy_workflow.py`). One Playwright
+consent case failed on the first full run of this change set and passed in
+isolation and on a clean re-run — treated as a load-related flake, not a
+regression; see LIVE_BASELINE_AUDIT §18. Run with the system `python`
 (3.12) the Playwright E2E module skips because `.test-deps` is built for Python
 3.14 and its native `greenlet` extension cannot load there. The skip is a local
 interpreter mismatch, not a product failure; the 3.14 run is the full result.
@@ -243,7 +247,10 @@ pass unchanged (no SQL touched); `python scripts/build_legal.py --check` →
 | Payment → ledger posting | Unit/API tests with faked providers only | **Not yet exercised live** |
 | COD → ledger posting | Unit/API tests with faked RPC only | **Not yet exercised live** |
 | Payout → settlement journal | Unit/API tests and PGlite only | **Not yet exercised live** |
-| Pesapal checkout / callback / IPN | Faked transport only; no credentials | **Not yet exercised live** |
+| Pesapal credentials recognised | `GET /api/pay/providers` → `"pesapal": true` after the owner added the keys with `PESAPAL_ENV=live` (2026-10-22); `card`/`flutterwave`/`mtn_momo` still `false` | **Verified live** |
+| Pesapal endpoints reachable | `/api/pay/webhook/pesapal` → GET 200, POST 200 (empty POST is a guarded no-op: `_handle_pesapal_notification` returns early without a tracking id, so nothing was written); `/api/pay/pesapal/callback` → 302 | **Verified live** |
+| Pesapal base-URL guard | `pytest tests/test_pesapal.py` → 24 passed, incl. 5 resolver tests covering the truncated `https://agribridge-1-` value the owner had typed | Verified locally; **owner must confirm the Render value** |
+| Pesapal checkout / callback / IPN | Faked transport only; no real payment attempted (Rule 11) | **Not yet exercised live** |
 | Pesapal recurring charge | Faked transport + PGlite | **Not yet exercised live** |
 | Google sign-in | Stubbed OAuth in Playwright | **Not yet exercised live** |
 | Browser E2E / Playwright | 22 passed locally (Chromium) | Verified in test harness |

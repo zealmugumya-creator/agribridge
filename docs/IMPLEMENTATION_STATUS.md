@@ -54,9 +54,27 @@
 > checkout render; Bank tile visible, Pesapal correctly hidden while unconfigured).
 > Live SPA = wrangler version `ffecfbb1-7937-4d90-8f97-2d610004a934`, sha256
 > identical to `static/index.html` at `db9d92f`.
-> Current verified suite: **436 Python tests** (including 22 Playwright browser
+> Current verified suite: **441 Python tests** (including 22 Playwright browser
 > tests) and 129 SQL assertions; CI green on `db9d92f`; see `docs/TEST_RESULTS.md`.
-> Pesapal and Google remain unconfigured and unverified live.
+>
+> **Pesapal is now configured live (2026-10-22).** The owner added consumer
+> credentials and `PESAPAL_ENV=live` in Render; `/api/pay/providers` returns
+> `"pesapal": true`, `/health/live` is 200, and both Pesapal routes answer
+> (`/api/pay/webhook/pesapal` 200, `/api/pay/pesapal/callback` 302). While
+> tracing that config we found a **latent defect**: a truncated
+> `PESAPAL_CALLBACK_BASE_URL` passed `_safe_ipn_url` (any https host is accepted,
+> even `agribridge-1-`) and would have registered a dead IPN endpoint — money
+> taken, order never marked paid, no ledger journal. `app.py` now resolves the
+> base URL through `_resolve_pesapal_base_url()`, which requires a dotted
+> hostname (localhost exempt), logs `pesapal.callback_base_url_rejected` with the
+> fallback used, and otherwise uses `PESAPAL_BASE_URL_DEFAULT`. 5 regression
+> tests cover it. Owner must still confirm the Render value is deleted or
+> complete. **No real Pesapal payment has been made**, so the notify → verify →
+> mark-paid → ledger chain stays unverified in production (Rule 11). Card and
+> Flutterwave MTN remain unconfigured; `bank_accounts: []` until
+> `BANK_TRANSFER_ACCOUNTS` is set. Note the Render build log installs `cp314`
+> wheels while `render.yaml` pins `3.12.7` (CI uses 3.12.7) — see
+> `docs/LIVE_BASELINE_AUDIT.md` §18.
 > **Live-baseline audit:** `docs/LIVE_BASELINE_AUDIT.md` (2026-10-22) records the
 > evidence-based production state, the first verified blocker (deploy automation
 > reporting green while publishing nothing) and its fix (§13–§17).

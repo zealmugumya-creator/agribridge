@@ -186,7 +186,14 @@ rules, recurring accounting and verification queries.
    `PESAPAL_IPN_ID` when switching.
 4. Set `PESAPAL_CALLBACK_BASE_URL` to the public **API** origin
    (`https://agribridge-1-og7a.onrender.com`). The static site does not proxy
-   `/api`, so it cannot be the callback base.
+   `/api`, so it cannot be the callback base. **Deleting the variable is also
+   correct** — that origin is the built-in default. A host-less value (a pasted
+   URL truncated at a hyphen, for example) used to be sent to Pesapal as-is, so
+   it registered a notification endpoint that could not be reached: the buyer
+   paid, Pesapal reported success, yet the order stayed unpaid. The app now
+   rejects any base URL whose host has no dot, logs
+   `pesapal.callback_base_url_rejected` with the fallback it used, and keeps the
+   known-good origin instead. Check that log line after changing this variable.
 5. Leave `PESAPAL_IPN_ID` empty to auto-register
    `<base>/api/pay/webhook/pesapal`; the id is stored in
    `payment_gateway_state`. Pin the variable only if the endpoint was registered
@@ -294,7 +301,7 @@ last succeeded decides what the public site serves.
 ```bash
 pip install -r requirements-dev.txt
 ruff check app.py services/ tests/     # lint gate (must be clean)
-pytest tests/ -q                       # 436 passed with Playwright installed
+pytest tests/ -q                       # 441 passed with Playwright installed
 cd tests/sql && npm install && npm test # PGlite migration suites
 ```
 Playwright lives outside `requirements-dev.txt` in this environment; the E2E

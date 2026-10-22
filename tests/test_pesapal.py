@@ -189,6 +189,36 @@ def test_register_ipn_rejects_plain_http_remote_url():
         pesapal.register_ipn("http://agribridge.example/ipn")
 
 
+# ── Callback base URL ───────────────────────────────────────────────────────
+def test_a_truncated_base_url_cannot_register_a_dead_ipn(monkeypatch):
+    """Pesapal accepts any https URL, so a host-less value would silently route
+    every payment notification to a domain that does not exist."""
+    monkeypatch.setenv("PESAPAL_CALLBACK_BASE_URL", "https://agribridge-1-")
+    assert app_mod._resolve_pesapal_base_url() == app_mod.PESAPAL_BASE_URL_DEFAULT
+
+
+def test_blank_base_url_falls_back_to_the_render_origin(monkeypatch):
+    monkeypatch.setenv("PESAPAL_CALLBACK_BASE_URL", "")
+    assert app_mod._resolve_pesapal_base_url() == app_mod.PESAPAL_BASE_URL_DEFAULT
+
+
+def test_a_complete_base_url_is_kept_and_trailing_slash_removed(monkeypatch):
+    monkeypatch.setenv("PESAPAL_CALLBACK_BASE_URL", "https://api.example.com/")
+    assert app_mod._resolve_pesapal_base_url() == "https://api.example.com"
+
+
+def test_localhost_still_works_for_local_pesapal_testing(monkeypatch):
+    monkeypatch.setenv("PESAPAL_CALLBACK_BASE_URL", "http://localhost:5000")
+    assert app_mod._resolve_pesapal_base_url() == "http://localhost:5000"
+
+
+def test_ipn_url_built_from_the_default_is_the_live_webhook_route(monkeypatch):
+    monkeypatch.setenv("PESAPAL_CALLBACK_BASE_URL", "https://agribridge-1-")
+    base = app_mod._resolve_pesapal_base_url()
+    assert base + "/api/pay/webhook/pesapal" == (
+        "https://agribridge-1-og7a.onrender.com/api/pay/webhook/pesapal")
+
+
 # ── Providers / initiate ────────────────────────────────────────────────────
 def test_provider_flag_requires_both_keys(client, monkeypatch):
     monkeypatch.setattr(app_mod, "PESAPAL_KEY", "")

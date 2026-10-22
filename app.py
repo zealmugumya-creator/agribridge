@@ -17,7 +17,7 @@ import secrets
 import threading
 import time as _time
 import uuid
-from urllib.parse import urlencode
+from urllib.parse import urlencode, urlparse
 
 import jwt
 import requests
@@ -136,10 +136,25 @@ MTN_MOMO_KEY     = os.environ.get('MTN_MOMO_SUBSCRIPTION_KEY', '')
 PUBLIC_BASE_URL  = SETTINGS.public_base_url
 # Pesapal must reach the Flask API directly. The marketing site is a static
 # Worker that does not proxy /api, so the default is the Render service.
-PESAPAL_CALLBACK_BASE_URL = (
-    os.environ.get('PESAPAL_CALLBACK_BASE_URL', '').strip()
-    or 'https://agribridge-1-og7a.onrender.com'
-).rstrip('/')
+PESAPAL_BASE_URL_DEFAULT = 'https://agribridge-1-og7a.onrender.com'
+
+
+def _resolve_pesapal_base_url():
+    """A truncated host here is not cosmetic: Pesapal would accept the IPN
+    registration, then notify a domain that does not exist, so a completed
+    payment would never mark its order paid. Fall back to the known origin."""
+    raw = os.environ.get('PESAPAL_CALLBACK_BASE_URL', '').strip().rstrip('/')
+    if not raw:
+        return PESAPAL_BASE_URL_DEFAULT
+    host = urlparse(raw).hostname or ''
+    if '.' not in host and host not in ('localhost', '127.0.0.1'):
+        log.error('pesapal.callback_base_url_rejected', host=host[:60],
+                  using=PESAPAL_BASE_URL_DEFAULT)
+        return PESAPAL_BASE_URL_DEFAULT
+    return raw
+
+
+PESAPAL_CALLBACK_BASE_URL = _resolve_pesapal_base_url()
 
 # Bank transfer is always offered as an offline method (like COD): the order is
 # placed unpaid and an admin verifies the transfer against a bank reference.
