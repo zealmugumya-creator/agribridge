@@ -236,5 +236,48 @@ The owner supplied `PESAPAL_CONSUMER_KEY` / `PESAPAL_CONSUMER_SECRET` and set `P
 
 **INFORMATIONAL — production runtime ≠ CI runtime:** the owner's Render build log installs into `.venv/lib/python3.14/site-packages` with `cp314` wheels even though `render.yaml:5` pins `pythonVersion: "3.12.7"` and CI runs 3.12.7. The suite passes on both here (local harness is 3.14, CI is 3.12), so nothing is currently broken, but a dependency that only builds on one of the two would fail in production while CI stayed green. Worth pinning deliberately rather than leaving to Render's default.
 
+## 19. Stage 1 — buyer storefront (implemented locally, NOT deployed)
+
+Scope, in the owner's stated order: **homepage → product cards → product details → shopping cart**. Checkout, payment integration and delivery tracking are the next stages and were deliberately not redesigned here; the only checkout change is a guard that refuses to open checkout when the cart contains an out-of-stock line. Admin and the financial ledger were not touched.
+
+### What changed (working tree: `M static/index.html`, new `tests/e2e/test_buyer_ui.py`)
+
+`static/index.html` grew by 987 lines and lost 289 (`git diff --stat`: 1 file changed); no other product file, endpoint, table, migration or dependency changed. The mobile Capacitor shell wraps the same file and needs no separate edit for this stage.
+
+- **Homepage** — real listings (24 for the home rows) replace decorative/sample content; honest error vs empty states; only rated farmers appear in the farmers row; featured/recent sections show real data and hide when empty; a real search overlay searches the same listing set; location sheet offers 12 real districts and persists the choice in `localStorage('ab_location')`. The guest onboarding splash now offers **Browse as guest →** (`splashBrowseGuest()`), which it previously lacked, so the shopping home is reachable without signing in.
+- **Product cards** — real image with emoji fallback, discount + struck original price from `discount_pct`, stock pill incl. out-of-stock, minimum-order note, farmer/district, rating only where `farmer_ratings` data exists, favourite button, keyboard activation (`role=link`, Enter/Space), and a disabled Add button when the listing cannot be bought.
+- **Product details** — built from real listing fields (real gallery, price/discount, stock, minimum, delivery note, accepted payment note, farmer rating/reviews hydrated from the live `farmer_ratings` view, related products), out-of-stock lines disable Add/Buy, and the static trust strip no longer claims "1–2 Day Delivery" or "Verified Farmer" unconditionally (`pdTrustVerified` says "Verified Farmer" only when `is_verified` is true, otherwise "Direct from Farmer"). A literal `"None"`/`"null"` description is normalised to "No description provided by the farmer yet."
+- **Cart** — still `localStorage`-backed (per-device, as before), but every render re-hydrates price/stock from the latest listing, bounds quantity to available stock and the listing minimum, flags lines that became unavailable, and computes totals from item prices only. The summary states **"Arranged after confirmation"** for delivery instead of inventing a fee — matching `services/finance.py:25`, which documents that orders store no separate delivery fee. Checkout is blocked while an out-of-stock line remains.
+- **Signed-in buyer routing** — `applyRoleUI()` previously sent a signed-in `vendor` to `page-market`; it now lands on the buyer home like a guest, so the storefront is the first screen for every buyer.
+
+### Runtime defects found while verifying (all fixed, all pinned)
+
+| Defect | Evidence | Fix |
+|---|---|---|
+| First-visit splash offered only Sign up / Sign in, so it trapped every new visitor | Headless clicks timed out; overlay intercepted pointer events | **Browse as guest** path + `splashBrowseGuest()` |
+| Signed-in buyer was routed to the market page, not the new home | `applyRoleUI()` called `showPage('market')` for `vendor` | `showPage('home')` |
+| Detail page printed the literal string `None` as a description | Fixture listing with `description: "None"` | Normalised in `openProductDetail` |
+| Trust strip asserted delivery time and verification that the data does not prove | Static copy compared with listing fields | "Delivery Arranged"; verification badge/label conditional on `is_verified` |
+| Cart could show stale prices/stock after a listing changed | Cart re-read only stored snapshots | `hydrateCart` refreshes each line against the current listing |
+| A late home fetch silently reset a category the buyer had just chosen | Repeated Playwright runs: the grid flipped from the filtered set back to all six featured cards | `window._homeCat` is tracked and re-applied after `loadHomeStats()`; the test now awaits a fresh load before asserting |
+| A delayed guest role refresh ejected the buyer from product details | Repeated runs: `Page.click: Timeout 30000ms exceeded` on `#pdQtyPlus` because `applyRoleUI()` → `showGuestLanding()` re-activated home 300 ms after load | `showGuestLanding()` only activates home when no page is active; the detail test calls `applyRoleUI()` while open |
+
+### Verification (local and harness; production NOT updated)
+
+- **New deterministic suite:** `tests/e2e/test_buyer_ui.py`, 6 Playwright tests — home data + real-ratings-only, signed-in buyer home, detail facts + disabled out-of-stock + guest role-refresh safety, honest cart totals/persistence across reload (Cocoa 10% discount: 2 × 8,100 = 16,200; delivery "Arranged after confirmation"), search/category over the same data incl. a late-load preservation check, zero JS errors. It serves the real `static/index.html` from disk, stubs only Supabase SDK/REST via routes, and reads no production data. The module passed **5 consecutive runs** (12.1–15.4 s) after the two navigation races above were fixed, and the full `tests/e2e/` set (28 tests) passed **twice consecutively** (73.4 s, 64.5 s).
+- **Ad-hoc browser harness:** 51/51 checks at mobile and desktop widths against the **live Supabase project, read-only** (`sb()` REST reads, auth stubbed): real cards, `Tomatoes` search → real result → detail, category filter, quantity min/max, add-to-cart badge, `localStorage` persistence, cart ±/remove/clear, totals equal item subtotal, signed-in buyer home, desktop layout/no overflow. No order was placed and no row was written.
+- **Full suite:** `PYTHONPATH=.test-deps … -m pytest -q` → **447 passed, 103 warnings in 66.09 s** (441 baseline + 6). `ruff check app.py services/ scripts/ tests/` clean under local **0.16.10** and CI-pinned **0.8.4**; `node --check` passes on all four inline script blocks.
+- **Production is still serving the pre-Stage-1 bundle.** `curl https://agribrige.com/` → 724,806 bytes, sha256 `b04f52a1…c813e`; local `static/index.html` → 762,544 bytes, sha256 `8d73dd5a…2b9107`. The live HTML contains **0** occurrences of `splashBrowseGuest`, `pdTrustVerified`, `homeMoreHead`, `_homeCat` or "Arranged after confirmation". Stage 1 exists only in the working tree. No commit, push or deploy was performed this session (Rule 9); the standing publish path remains a manual `wrangler deploy` until the owner replaces the rejected Cloudflare token (§16), and that publish must be explicitly requested.
+
+### Residual risks / deliberately not changed
+
+- Cart remains device-local; there is no server-side cart. Clearing browser storage empties it, and the same buyer on another device starts empty — unchanged behaviour, now honest in the UI.
+- Promo codes remain absent. The old hardcoded promo list was removed earlier; the apply action refuses rather than inventing a discount.
+- The B2B invoice generator still hardcodes `delivery = 25000` and a 6% commission and shows a "Bulk order submitted" toast without a backend call. It is outside Stage 1's four surfaces and is left untouched and flagged, not silently endorsed.
+- Pre-existing overlays (bottom nav, AI assistant, cookie consent) and two desktop search bars were observed during visual review and left as-is to keep this stage focused.
+- Checkout, payment integration and delivery tracking remain Stage 2/3 work. Stage 1 only guarantees that the four buyer surfaces present real data, honest totals, and safe hand-off into the existing checkout.
+
+**Rollback path:** revert the single `static/index.html` change (and delete the new test file); no database, migration, API or dependency is involved. Re-publishing the previous `static/` commit with `wrangler deploy` restores the live bundle if a deploy had been made.
+
 
 

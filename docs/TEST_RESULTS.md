@@ -1,7 +1,7 @@
 # AgriBridge — Test Results
 
 **Date:** 2026-10-22
-**Stage:** Bank Transfer (admin-verified), duplicate-signup-alert fix, Pesapal API 3.0 payments, recurring charges, and Google sign-in
+**Stage:** Bank Transfer (admin-verified), duplicate-signup-alert fix, Pesapal API 3.0 payments, recurring charges, Google sign-in, and Stage 1 of the buyer storefront (home / cards / details / cart)
 **Environment:** Windows, repository `C:\Users\HP\Documents\agribridge`
 
 Every result below was produced by a command run in this session. No live
@@ -30,13 +30,14 @@ PYTHONPATH=.test-deps /c/Users/HP/OneDrive/Python314/python.exe -m pytest -q
 ```
 
 ```
-441 passed, 103 warnings in 90.09s
+447 passed, 103 warnings in 66.09s
 ```
 
-This includes the 22 Playwright browser tests, the 24 Pesapal tests
-(`tests/test_pesapal.py`, now covering the callback base-URL resolver), the 14
-Bank Transfer / signup-alert tests (`tests/test_bank_transfer.py`) and the 5
-deploy-workflow contract tests (`tests/test_deploy_workflow.py`). One Playwright
+This includes the 28 Playwright browser tests (22 consent/checkout + 6 buyer
+storefront), the 24 Pesapal tests (`tests/test_pesapal.py`, now covering the
+callback base-URL resolver), the 14 Bank Transfer / signup-alert tests
+(`tests/test_bank_transfer.py`) and the 5 deploy-workflow contract tests
+(`tests/test_deploy_workflow.py`). One Playwright
 consent case failed on the first full run of this change set and passed in
 isolation and on a clean re-run — treated as a load-related flake, not a
 regression; see LIVE_BASELINE_AUDIT §18. Run with the system `python`
@@ -222,6 +223,47 @@ pass unchanged (no SQL touched); `python scripts/build_legal.py --check` →
 "legal outputs up to date". CI on the pushed commit: `Backend lint + type + tests`
 **success** and `Migration 0007 on real PostgreSQL` **success** (run `39785941491`).
 
+### Stage 1 — buyer storefront (`tests/e2e/test_buyer_ui.py`, 6 tests)
+
+New suite for the home → card → detail → cart slice. It serves the real
+`static/index.html` from disk (Playwright routes, no localhost dependency) and
+stubs only the Supabase SDK/REST and auth, so behaviour is deterministic and no
+production row is read or written. Fixtures include eight listings with a
+discount (10% on Cocoa at UGX 9,000), a minimum-order listing, an out-of-stock
+listing, and a literal `"None"` description; ratings exist for two farmers only.
+
+* `test_home_renders_listing_data_and_only_real_ratings` — cards show real
+  title/price/farmer/stock; a farmer without rating data shows no stars.
+* `test_signed_in_buyer_lands_on_the_shopping_home` — a signed-in `vendor`
+  reaches the buyer home, not the market page.
+* `test_detail_shows_real_listing_facts_and_disables_out_of_stock` — real facts,
+  normalised description, verification label conditional, out-of-stock Add/Buy
+  disabled, and a guest role refresh does not eject the buyer from the page.
+* `test_cart_totals_are_honest_and_survive_a_reload` — 2 × discounted Cocoa =
+  UGX 16,200, delivery "Arranged after confirmation", no invented fee, cart
+  persists across reload.
+* `test_search_and_category_filter_use_the_same_listing_data` — search and the
+  category chips filter the real listing set and open the matching detail; a
+  late `loadHomeStats()` must not reset the chosen category.
+* `test_no_javascript_errors_in_the_buyer_flows` — zero page errors across the
+  flows.
+
+After the two navigation races were fixed (a late home fetch resetting the
+chosen category; a delayed guest role refresh closing the detail page), the
+module passed **five consecutive runs** (12.1–15.4 s) and the full browser set
+(28 tests) passed **twice consecutively** (73.4 s / 64.5 s).
+
+An additional **ad-hoc browser harness** ran 51 assertions at mobile and desktop
+widths against the **live Supabase project in read-only mode** (real `sb()` REST
+reads, auth stubbed): real listings, `Tomatoes` search → result → detail,
+category filter, quantity min/max, add-to-cart badge, `localStorage`
+persistence, cart ±/remove/clear, totals equal the item subtotal, signed-in
+buyer home, and no desktop overflow. It placed no order and wrote nothing. This
+is runtime evidence for the implementation, not a repeatable CI test.
+
+Neither the 6-test suite nor the 51-check harness proves the stage in
+production: the live bundle does not contain it (see §6).
+
 ## 5. What these tests do not prove
 
 * Pesapal API calls are faked. Token caching, redirect validation, verification
@@ -232,6 +274,11 @@ pass unchanged (no SQL touched); `python scripts/build_legal.py --check` →
   a database with 0017 applied.
 * No money moved, no provider webhook arrived from the internet, and no
   production database row was written.
+* Stage 1's browser tests use fixture listings; the 51-check harness read real
+  Supabase listings but stubbed authentication. Neither places an order, so
+  cart → checkout hand-off with a real backend is not covered by this stage.
+* **The Stage 1 bundle is not deployed.** The checks above describe the working
+  tree only; `https://agribrige.com/` still serves the pre-Stage-1 HTML (see §6).
 
 ## 6. Live verification status
 
@@ -263,6 +310,8 @@ pass unchanged (no SQL touched); `python scripts/build_legal.py --check` →
 | `Deploy public web app` with the owner's new secrets | Run `39785941174` job `119849040101` **failure**, annotation: `Authentication error [code: 10000]` + `Invalid access token [code: 9109]` | **VERIFIED BLOCKER — stored token value rejected by Cloudflare**; nothing published by CI |
 | Redesigned SPA + checkout fix | Published from an authenticated workstation: version `ffecfbb1-7937-4d90-8f97-2d610004a934`. Live HTML is sha256-identical to `static/index.html` at `db9d92f`; production browser check shows `window._payProviders` empty on load, then populated by `syncPayMethods()` → Bank tile visible, Pesapal correctly hidden | **DEPLOYED and verified live**; provider-gated tile behavior confirmed in production |
 | Duplicate signup alert fix (API) | Once-per-account gate on the `signup_alerted` system_event + account-age window, carried by the deployed `6077883` API | **Deployed on Render**; live `#signups` behavior not yet observed over subsequent logins |
+| Stage 1 buyer storefront (home / cards / details / cart) | Working tree only: `static/index.html` sha256 `8d73dd5a…2b9107` (762,544 bytes), 6 new Playwright tests (5 consecutive green runs; all 28 browser tests green twice), 447-test suite green, 51/51 ad-hoc checks against live Supabase read-only | **Implemented and verified locally; NOT deployed.** Live HTML is `b04f52a1…c813e` (724,806 bytes) and contains none of the Stage 1 markers |
+| Stage 1 live verification | `curl https://agribrige.com/` → 0 occurrences of `splashBrowseGuest`, `pdTrustVerified`, `homeMoreHead`, `_homeCat`, "Arranged after confirmation" | **Not in production**; requires an explicitly requested `wrangler deploy` (owner token still rejected for CI) |
 
 A live payment can only be claimed after a real verified transaction produces a
 `payment:<tx_ref>` journal. Pesapal additionally requires live credentials and

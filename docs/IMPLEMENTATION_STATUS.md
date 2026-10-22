@@ -54,8 +54,9 @@
 > checkout render; Bank tile visible, Pesapal correctly hidden while unconfigured).
 > Live SPA = wrangler version `ffecfbb1-7937-4d90-8f97-2d610004a934`, sha256
 > identical to `static/index.html` at `db9d92f`.
-> Current verified suite: **441 Python tests** (including 22 Playwright browser
-> tests) and 129 SQL assertions; CI green on `db9d92f`; see `docs/TEST_RESULTS.md`.
+> Current verified suite: **447 Python tests** (including 28 Playwright browser
+> tests) and 129 SQL assertions; CI green on `db9d92f`; the 6 new Stage 1 tests
+> are local and not yet pushed; see `docs/TEST_RESULTS.md`.
 >
 > **Pesapal is now configured live (2026-10-22).** The owner added consumer
 > credentials and `PESAPAL_ENV=live` in Render; `/api/pay/providers` returns
@@ -78,6 +79,64 @@
 > **Live-baseline audit:** `docs/LIVE_BASELINE_AUDIT.md` (2026-10-22) records the
 > evidence-based production state, the first verified blocker (deploy automation
 > reporting green while publishing nothing) and its fix (§13–§17).
+
+## Stage 1 — Buyer storefront (2026-10-22) — IMPLEMENTED LOCALLY, NOT DEPLOYED
+
+The first slice of the buyer-interface work, in the owner's stated order:
+**homepage → product cards → product details → shopping cart**. Checkout,
+payment integration and delivery tracking are the next stages; this stage only
+guards the existing checkout against out-of-stock lines. The admin panel,
+financial ledger, API, database and dependencies are untouched.
+
+**Changed files:** `static/index.html` (+987/−289) and the new
+`tests/e2e/test_buyer_ui.py`. The Capacitor shell wraps the same HTML, so it
+picks the change up when a new bundle is built.
+
+- **Home** — real listings and stats, honest empty/error states, real rated
+  farmers only, working search overlay and category/location filters (12
+  districts persisted in `localStorage`), and a **Browse as guest** path out of
+  the first-visit splash, which previously forced sign-up.
+- **Cards** — real image/emoji fallback, discount and struck original price,
+  stock/minimum/farmer/district, stars only from `farmer_ratings`, keyboard
+  activation, and Add disabled when the listing cannot be bought.
+- **Details** — real fields and gallery, data-backed ratings, conditional
+  verification and delivery claims, out-of-stock actions disabled, normalised
+  descriptions, related products.
+- **Cart** — `localStorage` persistence, re-hydrated price/stock on every
+  render, quantity bounded by stock and minimum, unavailable lines flagged,
+  totals equal the item subtotal, delivery shown as "Arranged after
+  confirmation" (orders store no delivery fee — `services/finance.py:25`), and
+  checkout blocked while an unavailable line remains.
+- **Signed-in buyers** — `applyRoleUI()` now lands a `vendor` on the buyer home
+  instead of the market page.
+
+Repeated browser runs also exposed two real navigation races, both fixed and
+pinned: a late `loadHomeStats()` reset a category the buyer had just chosen
+(`window._homeCat` is now re-applied), and a delayed guest role refresh at 300 ms
+closed a product detail page (`showGuestLanding()` no longer steals navigation
+when a page is already open).
+
+**Verification:** 6 new Playwright tests (deterministic fixtures, real HTML;
+5 consecutive green runs, 12.1–15.4 s; all 28 browser tests green twice);
+447 Python tests pass (441 baseline + 6, 66.09 s); ruff clean under local 0.16.10
+and CI-pinned 0.8.4; `node --check` passes all four inline script blocks; a
+51/51 ad-hoc browser harness ran at mobile/desktop widths against the live
+Supabase project **read-only** (no order placed, no row written).
+
+**Production status: NOT DEPLOYED.** Live `https://agribrige.com/` is 724,806
+bytes, sha256 `b04f52a1…c813e`; the local file is 762,544 bytes, sha256
+`8d73dd5a…2b9107`, and the live HTML contains none of the Stage 1 markers. No
+commit, push or deploy was performed. Publishing remains a manual
+`wrangler deploy` until `CLOUDFLARE_API_TOKEN` is replaced (see above), and must
+be explicitly requested. Rollback is a single-file revert; no migration is
+involved.
+
+**Residual / out of scope:** cart is device-local (no server cart); promo codes
+remain deliberately absent; the legacy B2B invoice generator still hardcodes a
+UGX 25,000 delivery and 6% commission and submits nothing — flagged, not
+endorsed; checkout/payment/delivery-tracking behaviour is Stage 2/3 work.
+
+---
 
 **Phase 1 COMPLETE — Baseline Audit**
 **Completed:** 2026-10-10

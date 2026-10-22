@@ -300,12 +300,23 @@ last succeeded decides what the public site serves.
 ## 12. Running tests / lint locally
 ```bash
 pip install -r requirements-dev.txt
-ruff check app.py services/ tests/     # lint gate (must be clean)
-pytest tests/ -q                       # 441 passed with Playwright installed
-cd tests/sql && npm install && npm test # PGlite migration suites
+ruff check app.py services/ scripts/ tests/  # lint gate (must be clean)
+pytest tests/ -q                       # 447 passed with Playwright installed
+cd tests/sql && npm install && npm test # PGlite migration suites (129 assertions)
 ```
 Playwright lives outside `requirements-dev.txt` in this environment; the E2E
-module skips cleanly when it is absent. CI (`.github/workflows/ci.yml`) runs
-lint + (non-blocking) mypy + pytest on push/PR. **SQL-migration integration
-tests and Android builds are not part of CI yet** — they need a live DB /
-Android SDK and are not faked.
+modules skip cleanly when it is absent, and fall back to the system Chrome
+channel when Playwright's bundled Chromium is unavailable.
+
+The buyer storefront is covered by `tests/e2e/test_buyer_ui.py` (6 tests:
+home/cards, signed-in landing, detail, cart totals and reload persistence,
+search/filter, JS errors). It serves the real `static/index.html` from disk via
+Playwright routes and stubs only Supabase auth/REST, so it is deterministic and
+writes nothing. `tests/e2e/test_consent_ui.py` covers consent, Google sign-in
+and the server-gated payment tiles.
+
+CI (`.github/workflows/ci.yml`) runs lint + (non-blocking) mypy + pytest on
+push/PR. **SQL-migration integration tests and Android builds are not part of
+CI yet** — they need a live DB / Android SDK and are not faked. Static-site
+publishing is still manual until the rejected `CLOUDFLARE_API_TOKEN` is replaced
+(§11); a green local suite says nothing about what the Cloudflare Worker serves.
