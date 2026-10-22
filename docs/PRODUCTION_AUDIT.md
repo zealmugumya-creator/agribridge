@@ -5,13 +5,14 @@
 **Scope:** Full codebase at /home/claude/agribridge
 **Auditor note:** This audit is based entirely on reading the source code. No live environment access was available. Findings about whether database migrations are actually applied, whether env vars are set in Render, or whether services are reachable are inferred from the code and the GO-LIVE.md checklist — not from live system probing.
 
-> **2026-10-21 status update (read this before acting on F02):** The SPA now
-> sends produce, livestock and supplier checkout through `POST /api/orders`;
-> migration 0015 makes that RPC price livestock/supplier items from their own
-> catalogue tables. The client no longer inserts orders directly, so the
-> precondition for migration 0002 is satisfied in code. 0002 is still **not
-> applied** to production: apply 0015, deploy this bundle, verify a test
-> livestock/supply order, then apply 0002. See `docs/OPERATIONS_SETUP.md` §2.
+> **2026-10-22 status update (read this before acting on F02):** The SPA sends
+> produce, livestock and supplier checkout through `POST /api/orders`; migration
+> 0015 makes that RPC price livestock/supplier items from their own catalogue
+> tables. The client no longer inserts orders directly. **Both 0015 and 0002 are
+> now applied live** (probes 2026-10-22: `orders.source_ref` returns `200`,
+> `user_roles` exists and RLS closes public order/payout inserts). F02 is
+> resolved. A real livestock/supply checkout order has not yet been placed
+> against production. See `docs/OPERATIONS_SETUP.md` §2.
 
 ---
 
@@ -37,7 +38,7 @@ Overall the backend is more hardened than most side-project-stage apps. The fron
 | ID | Severity | Area | Finding | Evidence | Remediation |
 |----|----------|------|---------|----------|-------------|
 | F01 | HIGH | Auth | Admin dashboard uses shared-password JWT (`ADMIN_PASSWORD`), not Supabase-identity auth. GO-LIVE.md confirms default is `agribridge2026`. | `app.py:389-397`, `GO-LIVE.md §7` | Set a strong `ADMIN_PASSWORD` immediately. Fully migrate admin login to `require_admin_user()` (already built) and retire the password-based path. |
-| F02 | HIGH | DB/RLS | Migration 0002 is not applied yet. Code remediation is ready: the frontend no longer inserts orders directly and migration 0015 prices livestock/supplier items server-side. Apply 0015, deploy the client, then apply 0002. | `0002_admin_identity_rls.up.sql` (header), `0015_category_order_pricing.up.sql` | Apply 0015; deploy the SPA bundle; verify a livestock and a supply order; then apply 0002. |
+| F02 | HIGH | DB/RLS | **RESOLVED 2026-10-22.** Both migrations 0002 and 0015 are applied live (probes: `orders.source_ref` → `200`, `user_roles` exists; RLS closes public order/payout inserts). The frontend no longer inserts orders directly; `create_order_atomic` prices livestock/supplier server-side. | `0002_admin_identity_rls.up.sql` (header), `0015_category_order_pricing.up.sql` | Remaining: place one livestock and one supply order against production to confirm end-to-end pricing. |
 | F03 | HIGH | Infra | `USSD_SESSIONS` dict is in-process. State is lost on Render restart and is NOT shared across 2 gunicorn workers, causing broken USSD flows mid-session. | `app.py:413` comment: "In-memory store (use Redis for production)" | Replace with Supabase `ussd_sessions` table or Redis. The table already exists in the schema — it just is not used for in-flight state. |
 | F04 | MEDIUM | Security | CSP in `index.html` includes `'unsafe-inline'` in `script-src`. This permits inline script execution, which substantially weakens XSS protection for a financial application. | `index.html:5` | Move all inline JS to external files served from the same origin, then remove `unsafe-inline`. This is a significant refactor given the single-file architecture. |
 | F05 | MEDIUM | Infra | Rate limiter (`_rl_buckets`) is in-process memory. Not shared across gunicorn workers; resets on restart. A determined attacker can bypass it by hitting different workers. | `app.py:113` | Replace with Redis-backed rate limiting (e.g. `flask-limiter` with Redis storage), or use Cloudflare rate limiting at the edge. |
@@ -165,7 +166,7 @@ Overall the backend is more hardened than most side-project-stage apps. The fron
 | Category | Finding |
 |----------|---------|
 | Authentication | Dual auth systems (shared-password JWT for admin, GoTrue session for users) creates split surface. Admin panel should migrate fully to Supabase identity. |
-| Authorization | Migration 0002 still held back pending apply of 0015 + client deploy — direct PostgREST order writes are not closed at the DB until it lands. |
+| Authorization | Migrations 0002 and 0015 are both applied live (2026-10-22); direct PostgREST order writes are closed at the DB and livestock/supplier pricing runs server-side. |
 | CSP | `unsafe-inline` in `script-src` weakens XSS protection. Single-file frontend architecture makes this hard to fix. |
 | Rate limiting | In-process memory; not shared across workers; resets on restart. |
 | Input handling | Correlation ID from request header is logged without sanitization. |
@@ -216,7 +217,7 @@ Overall the backend is more hardened than most side-project-stage apps. The fron
 | Feature | Status |
 |---------|--------|
 | Crop marketplace (buy/list) | Built (frontend + backend) |
-| Animal/livestock marketplace | Built; server-priced via `create_order_atomic` (migration 0015; apply before enabling checkout) |
+| Animal/livestock marketplace | Built; server-priced via `create_order_atomic` (migration 0015 applied live 2026-10-22) |
 | USSD *789# | Built; in-memory session state (production risk) |
 | SMS notifications | Wired; sandbox mode |
 | AI Crop Doctor (Gemini) | Built; requires `GEMINI_API_KEY` |

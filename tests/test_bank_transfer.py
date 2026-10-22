@@ -187,7 +187,7 @@ def _sync(monkeypatch, *, marker_present, created_at):
 
 
 def test_signup_alerts_once_for_a_new_account(monkeypatch):
-    now = datetime.datetime.now(datetime.timezone.utc).isoformat()
+    now = datetime.datetime.now(datetime.UTC).isoformat()
     logged, notified = _sync(monkeypatch, marker_present=False, created_at=now)
     app_mod.app.config["TESTING"] = True
     with app_mod.app.test_client() as c:
@@ -196,7 +196,7 @@ def test_signup_alerts_once_for_a_new_account(monkeypatch):
 
 
 def test_signup_alert_suppressed_when_marker_exists(monkeypatch):
-    now = datetime.datetime.now(datetime.timezone.utc).isoformat()
+    now = datetime.datetime.now(datetime.UTC).isoformat()
     logged, notified = _sync(monkeypatch, marker_present=True, created_at=now)
     app_mod.app.config["TESTING"] = True
     with app_mod.app.test_client() as c:
@@ -205,7 +205,7 @@ def test_signup_alert_suppressed_when_marker_exists(monkeypatch):
 
 
 def test_signup_alert_suppressed_for_old_account(monkeypatch):
-    old = (datetime.datetime.now(datetime.timezone.utc)
+    old = (datetime.datetime.now(datetime.UTC)
            - datetime.timedelta(days=30)).isoformat()
     logged, notified = _sync(monkeypatch, marker_present=False, created_at=old)
     app_mod.app.config["TESTING"] = True

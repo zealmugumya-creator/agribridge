@@ -208,6 +208,33 @@ unverified because no live Pesapal credentials exist; see
 the browser tests stub Supabase OAuth. Owner setup and acceptance checks are in
 `docs/GOOGLE_SIGNIN.md` §3.
 
+### 9. Bank transfer — offline, admin-verified (no migration)
+
+* Bank Transfer was removed earlier because the UI displayed a **fabricated**
+  Stanbic account number. It is restored without any hardcoded account: real
+  details render only from the `BANK_TRANSFER_ACCOUNTS` env var served through
+  `/api/pay/providers`. With the variable empty the SPA shows official support
+  contact, never an invented number. `tests/test_bank_transfer.py` scans source
+  for the old fabricated digits to prevent regression.
+* Selecting bank does **not** mark the order paid and does not start an online
+  charge; the order persists `payment_method='bank'`, `payment_status='unpaid'`.
+* The only path that records bank money is
+  `POST /api/admin/orders/<id>/verify-bank-transfer`. It requires an admin JWT
+  (`verify_token(required_role='admin')`); role and identity are taken from the
+  token, never the request.
+* Defense-in-depth on that endpoint: rejects a short/blank reference (400), an
+  order whose stored `payment_method` is not `bank` (409), and a cancelled order
+  (409). The **amount** is re-read from the stored order rows sharing the
+  `payment_ref` (split orders verified whole), never from the client body.
+* Settlement reuses `_mark_checkout_paid`, which posts the idempotent
+  `payment:<ref>` ledger journal, so a double-click or replay cannot double-post
+  and cannot inflate revenue. A failed ledger post returns 503 and logs
+  `bank_verify_failed` without marking paid; success writes an `admin_audit_log`
+  row and an `order_bank_transfer_verified` system event.
+
+**Not yet verified live:** no real bank order has been placed and settled against
+production; behavior is proven by faked transport in the 14 tests.
+
 ## Verified as not exploitable
 
 The following tables returned zero rows to `anon` and their policies are

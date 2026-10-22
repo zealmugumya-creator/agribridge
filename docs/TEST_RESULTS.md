@@ -1,16 +1,17 @@
 # AgriBridge — Test Results
 
 **Date:** 2026-10-22
-**Stage:** Pesapal API 3.0 payments, recurring charges, and Google sign-in
+**Stage:** Bank Transfer (admin-verified), duplicate-signup-alert fix, Pesapal API 3.0 payments, recurring charges, and Google sign-in
 **Environment:** Windows, repository `C:\Users\HP\Documents\agribridge`
 
 Every result below was produced by a command run in this session. No live
-Pesapal transaction was made and no real Google OAuth consent screen was
-exercised. Migration 0017, 0016 and 0002 are applied live (verified by
-read-only PostgREST probes on 2026-10-22); **0015 is still missing**. Push
-`9123b38` was deployed automatically by Render and the Cloudflare workflow;
-because 0015 was not applied, livestock/supplier checkout is degraded live.
-See §6.
+payment transaction was made and no real Google OAuth consent screen was
+exercised. Migration 0017, 0016, 0002 and **0015** are applied live (verified by
+read-only PostgREST probes on 2026-10-22; `orders.source_ref` returns HTTP 200).
+Push `9123b38` deployed Pesapal + Google sign-in and push `6077883` deployed the
+Bank Transfer and signup-alert fixes, both automatically by Render and the
+Cloudflare workflow. Livestock/supplier checkout now runs on the category-aware
+`create_order_atomic`. See §6.
 
 ---
 
@@ -21,14 +22,14 @@ PYTHONPATH=.test-deps /c/Users/HP/OneDrive/Python314/python.exe -m pytest -q
 ```
 
 ```
-417 passed, 91 warnings in 61.24s (0:01:01)
+431 passed, 103 warnings in 53.80s
 ```
 
-This includes the 22 Playwright browser tests. Run with the system `python`
-(3.12) the result is `395 passed, 1 skipped`: `.test-deps` is built for Python
-3.14, so its native `greenlet` extension cannot load there and the E2E module
-skips. The skip is a local interpreter mismatch, not a product failure; the
-3.14 run is the full result.
+This includes the 22 Playwright browser tests and the 14 new Bank Transfer /
+signup-alert tests (`tests/test_bank_transfer.py`). Run with the system `python`
+(3.12) the Playwright E2E module skips because `.test-deps` is built for Python
+3.14 and its native `greenlet` extension cannot load there. The skip is a local
+interpreter mismatch, not a product failure; the 3.14 run is the full result.
 
 Targeted payment/Pesapal run:
 
@@ -54,6 +55,30 @@ PYTHONPATH=.test-deps /c/Users/HP/OneDrive/Python314/python.exe -m pytest \
 ```
 
 (22 browser tests + 19 Pesapal unit tests + 12 static UI tests.)
+
+Targeted Bank Transfer + signup-alert slice:
+
+```bash
+PYTHONPATH=.test-deps /c/Users/HP/OneDrive/Python314/python.exe -m pytest \
+  tests/test_bank_transfer.py -q
+```
+
+```
+14 passed, 12 warnings in 0.67s
+```
+
+Covered: bank is always offered offline; `/api/pay/providers` returns
+`bank_accounts` only from `BANK_TRANSFER_ACCOUNTS` and never a hardcoded number;
+a source scan asserts no fabricated account (e.g. `9030`/Stanbic) appears in
+`app.py`/`index.html`; `initiate` returns offline `mode:'bank'`; the verify
+endpoint requires an admin token (401 without one), rejects a short reference
+(400), a non-bank order (409), and a cancelled order (409); on success it marks
+paid using the stored order total (asserts `provider='bank'`, the reference, and
+that the posted `received` equals the DB amount, not a client value), reports
+`already_paid` on replay, and returns 503 + a `bank_verify_failed` system_event
+when the ledger post fails. The signup block asserts the `#signups` alert fires
+once for a genuinely new account, is suppressed when the `signup_alerted`
+system_event marker already exists, and is suppressed for an old account.
 
 ## 2. Lint
 
@@ -182,7 +207,7 @@ order flows and checkout UI).
 |---|---|---|
 | Migration 0013 (ledger core) | Supabase SQL Editor success; SQL suite passes | Applied by owner, verified |
 | Migration 0014 (internal-table lockdown) | Supabase SQL Editor success; anon `GET` on `system_events`/`transporters` returns `401` | Applied, verified |
-| Migration 0015 (category pricing) | Read-only probe after deploy: `orders.source_ref` returns `42703` | **Not applied live** — new API/SPA already live; apply immediately |
+| Migration 0015 (category pricing) | Read-only probe 2026-10-22: `orders.source_ref` select returns `200 []` (column exists) | **Applied live**; category checkout not exercised with a real order |
 | Migration 0002 (admin identity RLS) | Read-only probe: `user_roles` exists (anon gets `200 []` through RLS) | Applied live; policy behavior tested in PGlite |
 | Migration 0016 (settlements) | Read-only probe: `payouts.commission_amount`/`net_amount` select succeeds | Applied live; settle flow not exercised live |
 | Migration 0017 (Pesapal) | Live tables exist; anon reads return `401` / `42501` | Applied live, RLS verified by probe |
@@ -197,6 +222,9 @@ order flows and checkout UI).
 | Pesapal UI / Google UI in a real browser against live services | Served locally with stubs | **Not yet exercised live** |
 | API deployment of this stage | Push `9123b38`; live `/health` returns `200` with `supabase_connected:true`; `/api/pay/providers` includes `pesapal`; Pesapal callback route returns `302`; admin recurring route returns `401` | **Deployed and reachable**; business flows unverified |
 | Public SPA bundle (Pesapal/Google) | Cloudflare run `39710797408` succeeded; live HTML contains `pm-pesapal` and `googleLoginBtn` | **Deployed**; live flows unverified |
+| Bank Transfer method (API) | Push `6077883`; `/api/pay/providers` should include `bank:true` and a `bank_accounts` array; verify endpoint returns `401` without an admin token | **Deployed pending re-probe**; live verify not exercised |
+| Bank Transfer (UI) + admin button | `pm-bank` card and `verifyBankTransfer()` in the deployed bundle | **Deployed**; live checkout not exercised |
+| Duplicate signup alert fix | Once-per-account gate on `signup_alerted` system_event + account-age window | Faked in tests; **live #signups behavior not yet observed** |
 
 A live payment can only be claimed after a real verified transaction produces a
 `payment:<tx_ref>` journal. Pesapal additionally requires live credentials and

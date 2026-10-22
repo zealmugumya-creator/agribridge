@@ -2,12 +2,14 @@
 
 > **2026-10-22 note:** This is the 2026-10-09 baseline report. Its “85 tests”
 > and migration-status statements are historical. Current verified evidence is
-> in [`docs/TEST_RESULTS.md`](TEST_RESULTS.md) (417 Python tests including 22
+> in [`docs/TEST_RESULTS.md`](TEST_RESULTS.md) (431 Python tests including 22
 > Playwright tests, 129 SQL assertions) and
 > [`docs/IMPLEMENTATION_STATUS.md`](IMPLEMENTATION_STATUS.md). Live probes show
-> 0013, 0014, 0002, 0016 and 0017 applied; **0015 is still missing** and must
-> be applied before the new SPA checkout bundle is deployed. Pesapal and Google
-> sign-in are implemented but unconfigured and unverified live.
+> 0013, 0014, 0002, 0015, 0016 and 0017 applied (`orders.source_ref` returns
+> `200`). The new SPA checkout bundle is deployed. Push `6077883` adds a
+> safe admin-verified Bank Transfer method and fixes duplicate Discord signup
+> alerts. Pesapal and Google sign-in are implemented but unconfigured and
+> unverified live.
 
 Date: 2026-10-09 · Track executed first: **Backend integrity & security** · Scope selection: **all** (frontend + order-routing/async included in plan; backend delivered this pass)
 

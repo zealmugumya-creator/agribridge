@@ -3,7 +3,8 @@
 > **2026-10-22 update:** The baseline below is the original Phase 1 audit. Since
 > then: `/api/pay/initiate` and the SMS/admin/order update paths are session- and
 > ownership-checked; migration 0013 (ledger) and 0014 (internal-table lockdown)
-> are applied; migration 0015 (still unapplied live) makes
+> are applied; migration 0015 (APPLIED live — `orders.source_ref` returns 200,
+> verified 2026-10-22) makes
 > `create_order_atomic` category-aware
 > (livestock/supplier pricing and attribution), and the SPA no longer inserts or
 > updates orders directly. Migration 0016 adds farmer settlements in code:
@@ -18,11 +19,14 @@
 > 0016 and 0017 are applied; `payment_gateway_state`, `payment_subscriptions` and
 > `subscription_charges` exist and reject `anon` with `42501`. Push `9123b38`
 > deployed the API on Render and the SPA via the `Deploy public web app`
-> workflow. **0015 is still missing** — `orders.source_ref` does not exist — so
-> livestock/supplier checkout is running against the legacy non-category
-> function and will fail until `0015_category_order_pricing.up.sql` is applied.
-> Apply it immediately. Pesapal and Google are unconfigured and unverified live.
-> Current verified suite: 417 Python tests (including 22 Playwright browser
+> workflow. **0015 is now applied** — `orders.source_ref` returns HTTP 200 — so
+> livestock/supplier checkout runs against the category-aware function.
+> Push `6077883` restores a safe Bank Transfer method (always offered, real
+> account details only from `BANK_TRANSFER_ACCOUNTS`, orders unpaid until an
+> admin confirms via `POST /api/admin/orders/<id>/verify-bank-transfer`) and
+> fixes duplicate Discord `#signups` alerts (fires once per account). Pesapal and
+> Google remain unconfigured and unverified live.
+> Current verified suite: 431 Python tests (including 22 Playwright browser
 > tests) and 129 SQL assertions; see `docs/TEST_RESULTS.md`.
 
 **Phase 1 COMPLETE — Baseline Audit**
@@ -76,7 +80,7 @@
 - Admin login rate-limited: DONE
 - Flutterwave webhook re-verification: DONE
 - Legal consent framework built: DONE (not enforced)
-- **Migration 0002 (blocking direct order inserts) is applied and the new SPA is live. Migration 0015 remains missing**, so the live `create_order_atomic` is not category-aware. Apply 0015 immediately; livestock/supplier checkout fails until it runs.
+- **Migration 0002 (blocking direct order inserts) and migration 0015 are both applied and the new SPA is live.** `create_order_atomic` is now category-aware (`orders.source_ref` returns 200, verified 2026-10-22). Livestock/supplier pricing resolves server-side from each item's own crop listing.
 - **Admin panel uses shared-password JWT**, not Supabase identity
 - **In-memory rate limiting and USSD sessions** — not safe with 2 workers
 
@@ -101,7 +105,7 @@
 | # | Issue | Action |
 |---|-------|--------|
 | 1 | Default admin password `agribridge2026` may still be set | Set strong `ADMIN_PASSWORD` in Render immediately |
-| 2 | Migration 0015 not applied — live `create_order_atomic` lacks category-aware livestock/supplier pricing | Apply 0015 now; the new SPA and API are already deployed and 0002 has closed direct inserts |
+| 2 | ~~Migration 0015 not applied~~ — RESOLVED 2026-10-22: 0015 is applied and `orders.source_ref` returns 200, so `create_order_atomic` is category-aware | Confirm a livestock and a supplier order price correctly in the live checkout |
 | 3 | USSD sessions in-process dict — breaks with 2 workers and on restart | Switch to `ussd_sessions` table in Supabase |
 | 4 | `farmer_ratings` table referenced in matching function does not exist | Create table in a migration |
 

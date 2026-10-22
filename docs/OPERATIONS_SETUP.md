@@ -23,7 +23,7 @@ Confirm these exist. See `.env.example` for the full list and semantics.
 - `ADMIN_PASSWORD` — legacy shared-password console only. Rotate off the documented default (`agribridge2026`) and migrate to Supabase-Auth admin login (§3).
 
 **Integrations (each stays a safe no-op until set):**
-- `DISCORD_WEBHOOK_URL` (§4) · `SENTRY_DSN` (§6) · `FCM_CREDENTIALS_JSON`/`FCM_SERVICE_ACCOUNT_PATH`/`FCM_PROJECT_ID` (§7) · `FLW_SECRET_KEY`/`FLW_WEBHOOK_HASH` (§8) · Pesapal `PESAPAL_CONSUMER_KEY`/`PESAPAL_CONSUMER_SECRET`/`PESAPAL_ENV`/`PESAPAL_CALLBACK_BASE_URL` (§8b) · Africa's Talking `AT_*` · `GROQ_API_KEY`/`GEMINI_API_KEY`.
+- `DISCORD_WEBHOOK_URL` (§4) · `SENTRY_DSN` (§6) · `FCM_CREDENTIALS_JSON`/`FCM_SERVICE_ACCOUNT_PATH`/`FCM_PROJECT_ID` (§7) · `FLW_SECRET_KEY`/`FLW_WEBHOOK_HASH` (§8) · Pesapal `PESAPAL_CONSUMER_KEY`/`PESAPAL_CONSUMER_SECRET`/`PESAPAL_ENV`/`PESAPAL_CALLBACK_BASE_URL` (§8b) · Bank Transfer `BANK_TRANSFER_ACCOUNTS` (§8d) · Africa's Talking `AT_*` · `GROQ_API_KEY`/`GEMINI_API_KEY`.
 - Google sign-in needs **no API environment variable**; it is configured in Supabase and Google Cloud (§8c).
 
 **Policy:**
@@ -42,21 +42,32 @@ supabase db push            # if the project is linked with the Supabase CLI
 # or paste each 000N_*.up.sql into Supabase → SQL Editor, in numeric order.
 ```
 
-> **LIVE STATUS (verified 2026-10-22 after push `9123b38`):** 0013, 0014, 0002,
-> 0016 and 0017 are applied. The new API and SPA bundle were deployed
-> automatically by Render and the `Deploy public web app` workflow immediately
-> after the push. **0015 is still missing** (`orders.source_ref` does not exist),
-> so livestock and supplier checkout runs against the legacy non-category
-> pricing function and will fail. **Apply `0015_category_order_pricing.up.sql`
-> now** (additive and safe to re-run). Produce checkout through `POST /api/orders`
-> still works on the legacy path; 0002 has already closed direct browser inserts.
+> **LIVE STATUS (verified 2026-10-22 after pushes `9123b38` and `6077883`):**
+> 0013, 0014, 0002, 0015, 0016 and 0017 are applied. The new API and SPA bundle
+> deploy automatically by Render and the `Deploy public web app` workflow
+> immediately after each push. **0015 is now applied** — `orders.source_ref`
+> returns HTTP 200 (read-only probe, 2026-10-22) — so livestock and supplier
+> checkout price from each item's own listing via the category-aware
+> `create_order_atomic`. 0002 has closed direct browser inserts; all checkout
+> goes through `POST /api/orders`.
+>
+> **What `6077883` adds (no migration required):** Bank Transfer is offered in
+> checkout again, safely. Account numbers are never hardcoded — they render only
+> from the `BANK_TRANSFER_ACCOUNTS` env var (`bank|account name|account
+> number[|branch]`, semicolon-separated); with no accounts configured the buyer
+> sees official support contact instead. A bank order stays **unpaid** until an
+> admin calls `POST /api/admin/orders/<id>/verify-bank-transfer`, which takes the
+> amount from stored rows (never the request) and posts the idempotent
+> `payment:<ref>` ledger journal via `_mark_checkout_paid`. The same push fixes
+> Discord `#signups` spam: the new-user alert now fires once per account, gated
+> by a durable `signup_alerted` system_event marker and an account-age window.
 >
 > **APPLY ORDER (historical).** 0015 was meant to run before 0002 and before the
-> SPA cutover. Both 0002 and the cutover are now live, so apply 0015 immediately;
-> it is the remaining fix. It makes `create_order_atomic` price livestock from
-> `animal_listings` and supplier inputs from `supplier_products`. The shared
-> `payment_ref` reconciliation used by the payment webhook is unaffected.
-> See the header of `0002_admin_identity_rls.up.sql`.
+> SPA cutover; both are now live and 0015 has caught up. It makes
+> `create_order_atomic` price livestock from `animal_listings` and supplier
+> inputs from `supplier_products`. The shared `payment_ref` reconciliation used
+> by the payment webhook is unaffected. See the header of
+> `0002_admin_identity_rls.up.sql`.
 >
 > **0016 (settlements)** is applied live. It creates `admin_audit_log` if 0002
 > has not run yet; 0002 later treats it as an existing table. Applying 0016
@@ -197,6 +208,30 @@ provider enabled. Full steps, redirect URLs and troubleshooting are in
 
 **Do not** put the Google client secret or the Supabase service-role key in the
 Worker, `static/`, or any browser configuration.
+
+### 8d. Bank transfer (offline, admin-verified)
+
+Bank Transfer is **always offered** in checkout and needs no gateway. Orders
+placed with it stay **unpaid** until an operator confirms the money.
+
+- **Account details (optional):** to show real account numbers to buyers, set
+  `BANK_TRANSFER_ACCOUNTS` in Render. Format is `bank|account name|account
+  number[|branch]`, semicolon-separated for multiple accounts, e.g.
+  `Stanbic|AgriBridge Ltd|9030xxxx|Kampala;DFCU|AgriBridge Ltd|1234xxxx`.
+  With the variable **empty**, buyers see only the official support contact and
+  are told to confirm the transfer with the team — the app never invents an
+  account number (a fabricated Stanbic number was removed on purpose earlier).
+- **Never** hardcode an account number in `static/` or commit a real one; the
+  value is only ever served to the SPA from this env var via `/api/pay/providers`.
+- **Receiving the money:** an admin opens the order in the panel and clicks
+  **Bank paid**, entering the bank/transfer reference. This calls
+  `POST /api/admin/orders/<id>/verify-bank-transfer` (admin token required). The
+  amount is taken from the stored order rows, **not** the request, and the
+  idempotent `payment:<ref>` ledger journal is posted through
+  `_mark_checkout_paid`, so a replay cannot double-post.
+- The action writes an `admin_audit_log` row (`order.bank_transfer_verified`)
+  and an `order_bank_transfer_verified` system event. A ledger failure returns
+  `503` and logs `bank_verify_failed` — the order is **not** marked paid.
 
 ---
 

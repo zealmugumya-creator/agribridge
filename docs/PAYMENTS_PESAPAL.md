@@ -127,10 +127,10 @@ four-value constraint. Dropping the tables erases subscription/charge history;
 it is a development rollback, not a financial archive operation.
 
 **Apply order:** after 0015 and 0016 (see `docs/OPERATIONS_SETUP.md` §2). The
-migration is safe to re-run: all objects are guarded. On the live project, 0016
-and 0017 are applied and the API/SPA carrying this code were deployed on
-2026-10-22, but **0015 is still missing**. That does not affect Pesapal
-journaling, but livestock/supplier checkout fails until 0015 is applied.
+migration is safe to re-run: all objects are guarded. On the live project, 0015,
+0016 and 0017 are all applied and the API/SPA carrying this code were deployed
+on 2026-10-22 (`orders.source_ref` returns 200, confirming 0015). Livestock and
+supplier checkout now price via the category-aware `create_order_atomic`.
 
 Without 0017:
 
