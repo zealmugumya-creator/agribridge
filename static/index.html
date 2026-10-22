@@ -1912,6 +1912,7 @@ AgriBridge service</div>
         <div class="pay-method" id="pm-airtel" onclick="selectPayMethod('airtel')"><div class="pm-icon">📲</div><div class="pm-label">Airtel Money</div><div class="pm-sub">Pay from your phone</div></div>
         <div class="pay-method" id="pm-pesapal" onclick="selectPayMethod('pesapal')" style="display:none"><div class="pm-icon">🔐</div><div class="pm-label">Pesapal</div><div class="pm-sub">Card · Mobile money</div></div>
         <div class="pay-method" id="pm-cash" onclick="selectPayMethod('cash')"><div class="pm-icon">💵</div><div class="pm-label">Cash on Delivery</div><div class="pm-sub">Pay on arrival</div></div>
+        <div class="pay-method" id="pm-bank" onclick="selectPayMethod('bank')"><div class="pm-icon">🏦</div><div class="pm-label">Bank Transfer</div><div class="pm-sub">Pay at your bank</div></div>
       </div>
 
       <!-- Card: on-page fields when direct charging is enabled, otherwise Flutterwave's secure page -->
@@ -1953,6 +1954,13 @@ AgriBridge service</div>
         <div style="font-weight:700;color:var(--green);margin-bottom:6px">🔐 Pay with Pesapal</div>
         <div style="font-size:0.82rem;line-height:1.5">You'll pay on <strong>Pesapal's secure page</strong> with a Visa or Mastercard, or with mobile money. AgriBridge never sees or stores your card details.</div>
         <div style="font-size:0.74rem;color:var(--text2);margin-top:8px">You may also choose to set up a recurring payment for future orders on Pesapal's page. Recurring payments are optional and can be cancelled at any time from the Pesapal dashboard.</div>
+      </div>
+      <!-- Bank transfer: real account details only when the owner configured them -->
+      <div id="bankInfoPanel" style="display:none;background:var(--bg3);border:1.5px solid var(--green);border-radius:12px;padding:14px;margin-top:10px">
+        <div style="font-weight:700;color:var(--green);margin-bottom:6px">🏦 Bank Transfer</div>
+        <div id="bankAccountsList" style="font-size:0.82rem;line-height:1.5"></div>
+        <div id="bankContactNote" style="display:none;font-size:0.82rem;line-height:1.5">Your order is placed as <strong>unpaid</strong>. To receive our bank account details, contact support on <strong>+256 755 966 690</strong> or <strong>agribrige@gmail.com</strong> and quote your order reference. We mark the order paid once the transfer is confirmed.</div>
+        <div style="font-size:0.74rem;color:var(--text2);margin-top:8px">Always use your order reference as the payment reference. Never pay a number that was not shown here or sent by official AgriBridge support.</div>
       </div>
 
       <!-- Address & delivery -->
@@ -3110,13 +3118,14 @@ document.addEventListener('input', function(e){
 
 function selectPayMethod(method) {
   selectedPayMethod = method;
-  ['card','momo','airtel','pesapal','cash'].forEach(m => {
+  ['card','momo','airtel','pesapal','cash','bank'].forEach(m => {
     const el = document.getElementById('pm-' + m);
     if (el) el.classList.toggle('selected', m === method);
   });
   const card = document.getElementById('cardInfoPanel');
   const phone = document.getElementById('momoPhonePanel');
   const pesapal = document.getElementById('pesapalInfoPanel');
+  const bank = document.getElementById('bankInfoPanel');
   const direct = !!(window._payProviders && window._payProviders.card);
   if (card) card.style.display = method === 'card' ? 'block' : 'none';
   const fields = document.getElementById('cardDirectFields');
@@ -3125,6 +3134,7 @@ function selectPayMethod(method) {
   if (hosted) hosted.style.display = (method === 'card' && !direct) ? 'block' : 'none';
   if (phone) phone.style.display = (method === 'momo' || method === 'airtel') ? 'block' : 'none';
   if (pesapal) pesapal.style.display = method === 'pesapal' ? 'block' : 'none';
+  if (bank) bank.style.display = method === 'bank' ? 'block' : 'none';
   const pp = document.getElementById('payPhone');
   if (pp && !pp.value && currentUser && currentUser.phone) pp.value = currentUser.phone;
 }
@@ -3137,9 +3147,30 @@ async function syncPayMethods() {
   const hasPesapal = !!prov.pesapal;
   if (c) c.style.display = hasCard ? '' : 'none';
   if (p) p.style.display = hasPesapal ? '' : 'none';
+  renderBankOptions(window._payBankAccounts || []);
   if (!hasCard && selectedPayMethod === 'card') selectPayMethod('momo');
   else if (!hasPesapal && selectedPayMethod === 'pesapal') selectPayMethod('momo');
   else selectPayMethod(selectedPayMethod);
+}
+
+// Bank transfer is always offered, but a real receiving account is shown only
+// when the owner configured one. With no account configured the buyer is routed
+// to official support instead of a made-up number.
+function renderBankOptions(accounts) {
+  const list = document.getElementById('bankAccountsList');
+  const note = document.getElementById('bankContactNote');
+  const ok = Array.isArray(accounts) && accounts.length > 0;
+  if (list) {
+    list.innerHTML = ok ? accounts.map(function (a) {
+      return '<div class="bank-details" style="margin-bottom:6px">' +
+        '<div class="bank-row"><span>Bank</span><strong>' + escHtml(a.bank || '') + '</strong></div>' +
+        '<div class="bank-row"><span>Account name</span><strong>' + escHtml(a.account_name || '') + '</strong></div>' +
+        '<div class="bank-row"><span>Account no.</span><strong class="pay-number">' + escHtml(a.account_number || '') + '</strong></div>' +
+        (a.branch ? '<div class="bank-row"><span>Branch</span><strong>' + escHtml(a.branch) + '</strong></div>' : '') +
+        '</div>';
+    }).join('') : '';
+  }
+  if (note) note.style.display = ok ? 'none' : 'block';
 }
 
 // Ask the server whether a checkout is paid; poll for up to ~2 minutes.
@@ -3162,7 +3193,7 @@ async function pollPayment(ref, onDone, onTimeout) {
 async function getEnabledProviders(){
   var now = Date.now();
   if(window._payProviders && now - (window._payProvidersAt||0) < 120000) return window._payProviders;
-  try{ const r=await fetch(USSD_API+'/api/pay/providers', {cache:'no-store'}); const j=await r.json(); window._payProviders=(j&&j.providers)||{}; window._payProvidersAt=Date.now(); return window._payProviders; }catch(e){ return {}; }
+  try{ const r=await fetch(USSD_API+'/api/pay/providers', {cache:'no-store'}); const j=await r.json(); window._payProviders=(j&&j.providers)||{}; window._payBankAccounts=(j&&j.bank_accounts)||[]; window._payProvidersAt=Date.now(); return window._payProviders; }catch(e){ return {}; }
 }
 // Best-effort order SMS to the buyer. The server reads the phone number and
 // total from the order, so the client only identifies the order.
@@ -3399,7 +3430,7 @@ async function placeOrder() {
   // initiate payment. Falls back to manual instructions when no gateway is live.
   let payPush = null, payError = '', cardPaid = false;
   cardOtpPending = null;
-  if (selectedPayMethod && selectedPayMethod !== 'cash') {
+  if (selectedPayMethod && selectedPayMethod !== 'cash' && selectedPayMethod !== 'bank') {
     if (selectedPayMethod === 'card' && providers.card) {
       const cardRes = (await payWithCard(ref, total)) || {};
       if (cardRes.mode === 'paid') {
@@ -3489,6 +3520,25 @@ async function placeOrder() {
                <p style="margin:8px 0 4px">Pay the delivery rider when your order arrives.</p>
                <p style="color:var(--text2);font-size:0.85rem">Please have the exact amount ready: <strong>${fmtTotal}</strong></p>
              </div>`,
+      bank: (() => {
+        const accts = window._payBankAccounts || [];
+        const rows = accts.map(a => `<div class="bank-details" style="margin-bottom:6px">
+               <div class="bank-row"><span>Bank</span><strong>${escHtml(a.bank||'')}</strong></div>
+               <div class="bank-row"><span>Account name</span><strong>${escHtml(a.account_name||'')}</strong></div>
+               <div class="bank-row"><span>Account no.</span><strong class="pay-number">${escHtml(a.account_number||'')}</strong></div>
+               ${a.branch?`<div class="bank-row"><span>Branch</span><strong>${escHtml(a.branch)}</strong></div>`:''}
+             </div>`).join('');
+        const body = accts.length ? rows :
+          `<p style="margin:8px 0 4px">Your order is placed as <strong>unpaid</strong>. Contact official support to receive our bank account details, then transfer <strong>${fmtTotal}</strong>:</p>
+           <p style="font-size:0.85rem">📞 <strong>0755 966 690</strong> &nbsp;·&nbsp; ✉️ <strong>agribrige@gmail.com</strong></p>`;
+        return `<div class="pay-instructions">
+               <div class="pay-instr-icon">🏦</div>
+               <div class="pay-instr-title">Bank Transfer</div>
+               <div class="pay-instr-amount">${fmtTotal}</div>
+               ${body}
+               <div class="pay-ref-note">Use <strong>${ref}</strong> as your payment reference. We mark the order paid once the transfer is confirmed.</div>
+             </div>`;
+      })(),
     };
     payInstrEl.innerHTML = payHtml[selectedPayMethod] || '';
     payInstrEl.style.display = (payHtml[selectedPayMethod] && !payPush) ? 'block' : 'none';
@@ -4592,7 +4642,7 @@ async function submitOrder() {
     const total=qty*(listing?.price_per_kg||listing?.price_per_unit||0);
     sendReceiptEmail({ type:'booking', email:currentUser?.email, name:currentUser?.name, ref, total, tracking:track, items:[{name:listing?.crop_name||'Order', qty, price:listing?.price_per_kg||0}] });
     sendSmsReceipt(ref);
-    if(pay && pay!=='cash'){ const pr=await startOnlinePayment(ref, total, pay, currentUser&&currentUser.phone); if(pr&&pr.redirect){ closeModal('orderModal'); showToast('Opening secure payment…'); window.location.href=pr.redirect; return; } if(pr&&pr.error){ showToast('⚠️ '+pr.error+' — order saved, pay on delivery'); } }
+    if(pay && pay!=='cash' && pay!=='bank'){ const pr=await startOnlinePayment(ref, total, pay, currentUser&&currentUser.phone); if(pr&&pr.redirect){ closeModal('orderModal'); showToast('Opening secure payment…'); window.location.href=pr.redirect; return; } if(pr&&pr.error){ showToast('⚠️ '+pr.error+' — order saved, pay on delivery'); } }
     closeModal('orderModal'); showToast('Order placed! Track: '+track+' ✅ Farmer will confirm');
   } catch(e) {
     showToast((e.message)||'Order failed — please try again');

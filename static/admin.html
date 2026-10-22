@@ -813,9 +813,22 @@
   function renderOrders(rows){
     if(!rows.length){ panelMsg('No orders.'); return; }
     var body=rows.map(function(o){var st=o.status||'pending';var amt=o.total_price||o.total_amount||0;
-      return '<tr><td>'+h(o.payment_ref||(o.tracking_code||'')||(o.id||'').slice(0,8))+'</td><td>'+h(o.buyer_phone||'—')+'</td><td>'+(o.quantity_kg||0)+'</td><td>'+fmt(amt)+'</td><td><span class="badge '+st+'">'+st+'</span></td><td><span class="badge '+(o.payment_status==='paid'?'paid':'pending')+'">'+h(o.payment_status||'unpaid')+'</span></td><td>'+actionsCell('orders',o.id,st)+'</td></tr>';
+      var isBank=(String(o.payment_method||'').toLowerCase()==='bank' && (o.payment_status||'unpaid')!=='paid' && st!=='cancelled');
+      var bankBtn=isBank?'<button class="btn sm" style="margin-right:6px" onclick="verifyBankTransfer(\''+h(o.id)+'\')">Bank paid</button>':'';
+      return '<tr><td>'+h(o.payment_ref||(o.tracking_code||'')||(o.id||'').slice(0,8))+'</td><td>'+h(o.buyer_phone||'—')+'</td><td>'+(o.quantity_kg||0)+'</td><td>'+fmt(amt)+'</td><td><span class="badge '+st+'">'+st+'</span></td><td><span class="badge '+(o.payment_status==='paid'?'paid':'pending')+'">'+h(o.payment_status||'unpaid')+'</span></td><td>'+h(o.payment_method||'—')+'</td><td>'+bankBtn+actionsCell('orders',o.id,st)+'</td></tr>';
     }).join('');
-    setPanel('<table><thead><tr><th>Ref</th><th>Buyer</th><th>Qty</th><th>Amount</th><th>Status</th><th>Payment</th><th></th></tr></thead><tbody>'+body+'</tbody></table>');
+    setPanel('<table><thead><tr><th>Ref</th><th>Buyer</th><th>Qty</th><th>Amount</th><th>Status</th><th>Payment</th><th>Method</th><th></th></tr></thead><tbody>'+body+'</tbody></table>');
+  }
+  async function verifyBankTransfer(orderId){
+    var ref=prompt('Bank / transfer reference (proof the money arrived):');
+    if(!ref||!ref.trim()){ return; }
+    if(!confirm('Mark this bank-transfer order PAID?\nReference: '+ref.trim()+'\nThe amount is taken from the stored order, not typed here.')) return;
+    try{
+      var r=await api('/api/admin/orders/'+encodeURIComponent(orderId)+'/verify-bank-transfer',{method:'POST',body:JSON.stringify({bank_reference:ref.trim()})});
+      if(r&&r.ok){ alert(r.already_paid?'Already marked paid (no double entry).':'Bank transfer recorded and posted to the ledger.'); await load('orders'); }
+      else alert('Error: '+((r&&r.error)||'unknown'));
+    }catch(e){ alert('Request failed: '+e.message); }
+    renderCurrent();
   }
   function renderListings(rows){
     if(!rows.length){ panelMsg('No crop listings.'); return; }

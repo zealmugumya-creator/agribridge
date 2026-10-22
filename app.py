@@ -141,6 +141,24 @@ PESAPAL_CALLBACK_BASE_URL = (
     or 'https://agribridge-1-og7a.onrender.com'
 ).rstrip('/')
 
+# Bank transfer is always offered as an offline method (like COD): the order is
+# placed unpaid and an admin verifies the transfer against a bank reference.
+# The receiving account is only shown when the owner has actually configured it;
+# an unset account never falls back to a made-up number.
+BANK_TRANSFER_ACCOUNTS = []
+for _bt in os.environ.get('BANK_TRANSFER_ACCOUNTS', '').split(';'):
+    _bt = _bt.strip()
+    if not _bt:
+        continue
+    _parts = [p.strip() for p in _bt.split('|')]
+    if len(_parts) >= 3 and all(_parts[:3]):
+        BANK_TRANSFER_ACCOUNTS.append({
+            'bank': _parts[0][:80],
+            'account_name': _parts[1][:80],
+            'account_number': _parts[2][:40],
+            'branch': (_parts[3] if len(_parts) > 3 else '')[:80],
+        })
+
 at_sms = None
 if AT_AVAILABLE and AT_API_KEY and AT_API_KEY != 'atsk_REPLACE_ME':
     try:
@@ -2669,6 +2687,7 @@ def create_order():
             'airtel':  'Dial *185# on your Airtel line → Make Payments → AgriBridge',
             'card':    'You will be redirected to complete your card payment.',
             'cash':    'Pay on delivery.',
+            'bank':    'Transfer the total to the bank details on your confirmation screen, quoting your order reference. An operator confirms it before your order is marked paid.',
         }.get(pay_method, 'Follow the instructions on your confirmation screen.')
         NOTIFY.enqueue(
             channel='in_app',
@@ -3799,6 +3818,81 @@ def admin_confirm_delivery(order_id):
                     'ledger_journal_id': journal_id, 'warning': warning}), 200
 
 
+@app.route('/api/admin/orders/<order_id>/verify-bank-transfer', methods=['POST'])
+def admin_verify_bank_transfer(order_id):
+    """Mark a bank-transfer order paid after an operator confirms the money.
+
+    There is no bank API to call, so the admin supplies the bank/transfer
+    reference as evidence. The amount is taken from the stored order rows, never
+    from this request. `_mark_checkout_paid` posts the `payment:<ref>` journal
+    idempotently, so a double-click or replay cannot double-post.
+    """
+    payload, err = verify_token(required_role='admin')
+    if err:
+        return err
+    data = request.get_json(force=True, silent=True) or {}
+    bank_ref = str(data.get('bank_reference') or '').strip()[:80]
+    if len(bank_ref) < 4:
+        return jsonify({'error': 'Enter the bank/transfer reference (at least 4 characters)',
+                        'code': 'bank_reference_required'}), 400
+
+    rows = supa_get('orders', {
+        'id': f'eq.{order_id}',
+        'select': 'id,payment_ref,payment_method,payment_status,status',
+    }, limit=1) or []
+    if not rows:
+        return jsonify({'error': 'Order not found'}), 404
+    order = rows[0]
+    if str(order.get('payment_method') or '').lower() != 'bank':
+        return jsonify({'error': 'This order was not placed with bank transfer',
+                        'code': 'not_a_bank_order'}), 409
+    if str(order.get('status') or '').lower() == 'cancelled':
+        return jsonify({'error': 'The order is cancelled; a payment cannot be recorded',
+                        'code': 'order_cancelled'}), 409
+    pay_ref = str(order.get('payment_ref') or '').strip()
+    if not pay_ref:
+        return jsonify({'error': 'Order has no payment reference', 'code': 'reference_missing'}), 503
+
+    # Re-read every row sharing the reference so a split order is verified whole.
+    checkout_rows = supa_get('orders', {
+        'payment_ref': f'eq.{pay_ref}',
+        'select': 'id,total_amount,total_price,quantity_kg,price_per_kg,status,payment_status',
+    }, limit=50) or []
+    try:
+        owed = sum((ledger.money(finance.order_total(o)) for o in checkout_rows), ledger.ZERO)
+    except ledger.LedgerError:
+        owed = ledger.ZERO
+    if owed <= 0:
+        return jsonify({'error': 'Order total could not be computed', 'code': 'total_unavailable'}), 503
+
+    already_paid = bool(checkout_rows) and all(
+        str(o.get('payment_status') or '').lower() == 'paid' for o in checkout_rows)
+    marked = _mark_checkout_paid(pay_ref, received=owed, currency='UGX',
+                                 provider='bank', provider_ref=bank_ref)
+    if not marked:
+        _log_system_event('bank_verify_failed',
+                          {'order_id': order_id, 'payment_ref': pay_ref,
+                           'actor': payload.get('sub')}, severity='error')
+        return jsonify({'error': 'The payment could not be recorded. Retry or check the ledger.',
+                        'code': 'bank_verify_failed'}), 503
+
+    try:
+        supa_insert('admin_audit_log', {
+            'actor': str(payload.get('sub') or ''),
+            'action': 'order.bank_transfer_verified',
+            'target': order_id,
+            'metadata': {'payment_ref': pay_ref, 'bank_reference': bank_ref,
+                         'amount': f"{owed:.2f}"},
+        })
+    except Exception:
+        pass  # the payment is already recorded; the audit row is best-effort
+    _log_system_event('order_bank_transfer_verified',
+                      {'order_id': order_id, 'payment_ref': pay_ref,
+                       'bank_reference': bank_ref, 'already_paid': already_paid},
+                      severity='info')
+    return jsonify({'ok': True, 'already_paid': already_paid, 'payment_ref': pay_ref}), 200
+
+
 @app.route('/api/orders/<order_id>/receipt', methods=['GET'])
 def get_order_receipt(order_id):
     """Buyer retrieves their own order receipt/confirmation."""
@@ -4418,6 +4512,21 @@ def legal_accept():
     return _legal_response(LEGAL_SERVICE.status(uid, _auth_role()))
 
 
+def _account_is_new(created_at, within_days=2):
+    """True when the auth account was created within the window. Unknown age is
+    treated as not-new so an old account never triggers a fresh-signup alert."""
+    if not created_at:
+        return False
+    try:
+        ts = str(created_at).replace('Z', '+00:00')
+        dt = datetime.datetime.fromisoformat(ts)
+    except (ValueError, TypeError):
+        return False
+    if dt.tzinfo is None:
+        dt = dt.replace(tzinfo=datetime.timezone.utc)
+    return (datetime.datetime.now(datetime.timezone.utc) - dt) <= datetime.timedelta(days=within_days)
+
+
 @app.route('/api/legal/sync-signup', methods=['POST'])
 @rate_limit(max_req=10, window=60)
 def legal_sync_signup():
@@ -4431,17 +4540,29 @@ def legal_sync_signup():
     if not res.ok:
         return _legal_response(res)
     status = LEGAL_SERVICE.status(uid, _auth_role())
-    # Notify Discord on every new user registration
-    _discord_notify(
-        event_type='user.signup',
-        title='👤 New User Signed Up',
-        description=(
-            f"**Role:** {_auth_role() or 'unknown'}\n"
-            f"**User ID:** `{uid}`\n"
-            f"**Name:** {(au.get('user_metadata') or {}).get('full_name', '—')}"
-        ),
-        severity='info',
-    )
+    # Notify Discord once per genuinely new account. This endpoint runs on every
+    # login, so an unguarded alert spams #signups with the same user (seen live).
+    # The system_events marker makes it durable across restarts; the age window
+    # stops a long-existing account's first sync from reading as a new signup.
+    try:
+        seen = supa_get('system_events', {
+            'event_type': 'eq.signup_alerted', 'user_id': f'eq.{uid}', 'select': 'id',
+        }, limit=1)
+        if not seen and _account_is_new(au.get('created_at')):
+            _log_system_event('signup_alerted', {'role': _auth_role()},
+                              severity='info', user_id=uid)
+            _discord_notify(
+                event_type='user.signup',
+                title='👤 New User Signed Up',
+                description=(
+                    f"**Role:** {_auth_role() or 'unknown'}\n"
+                    f"**User ID:** `{uid}`\n"
+                    f"**Name:** {(au.get('user_metadata') or {}).get('full_name', '—')}"
+                ),
+                severity='info',
+            )
+    except Exception as _se:
+        log.warning('signup_alert.failed', error=type(_se).__name__)
     return jsonify({'ok': True, **res.data, 'status': status.data})
 
 
@@ -4595,6 +4716,7 @@ def _enabled_providers():
         'flutterwave': bool(FLW_SECRET_KEY),
         'card':        _direct_card_ready(),  # on-page card form (opt-in, PCI DSS scope)
         'pesapal':     bool(PESAPAL_KEY and PESAPAL_SECRET),
+        'bank':        True,   # offline bank transfer — verified by an admin, never auto-marked
         'mtn_momo':    bool(MTN_MOMO_KEY),
         'momo':        at_momo_live,   # AT mobile checkout push (MTN MoMo)
         'airtel':      at_momo_live,   # AT mobile checkout push (Airtel Money)
@@ -4605,7 +4727,10 @@ def _enabled_providers():
 def pay_providers():
     """The client asks which online-payment methods are live so it only shows
     those; when none are configured it falls back to COD / direct MoMo."""
-    resp = jsonify({'providers': _enabled_providers()})
+    resp = jsonify({
+        'providers': _enabled_providers(),
+        'bank_accounts': BANK_TRANSFER_ACCOUNTS,
+    })
     # Availability changes when operator keys are added; never let a browser
     # cache a stale answer and hide a gateway that is now live.
     resp.headers['Cache-Control'] = 'no-store'
@@ -4630,7 +4755,7 @@ def pay_initiate():
     if amount <= 0 or not order_ref:
         return jsonify({'ok': False, 'error': 'missing order_ref or amount'}), 400
 
-    if provider in ('cod', 'direct'):
+    if provider in ('cod', 'direct', 'bank'):
         return jsonify({'ok': True, 'mode': provider, 'message': 'No online payment needed.'}), 200
 
     # Online payment: the order must belong to the caller, and we never charge less
