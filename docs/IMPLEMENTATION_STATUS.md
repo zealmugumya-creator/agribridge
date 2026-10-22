@@ -55,8 +55,10 @@
 > Live SPA = wrangler version `ffecfbb1-7937-4d90-8f97-2d610004a934`, sha256
 > identical to `static/index.html` at `db9d92f`.
 > Current verified suite: **447 Python tests** (including 28 Playwright browser
-> tests) and 129 SQL assertions; CI green on `db9d92f`; the 6 new Stage 1 tests
-> are local and not yet pushed; see `docs/TEST_RESULTS.md`.
+> tests) and 129 SQL assertions; CI green on `db9d92f` and on `30f8784`; the
+> Stage 1 commit is pushed, but its static bundle is **not published** because
+> the Cloudflare credentials are scoped to the wrong account
+> (`docs/LIVE_BASELINE_AUDIT.md` §20); see `docs/TEST_RESULTS.md`.
 >
 > **Pesapal is now configured live (2026-10-22).** The owner added consumer
 > credentials and `PESAPAL_ENV=live` in Render; `/api/pay/providers` returns
@@ -123,13 +125,16 @@ and CI-pinned 0.8.4; `node --check` passes all four inline script blocks; a
 51/51 ad-hoc browser harness ran at mobile/desktop widths against the live
 Supabase project **read-only** (no order placed, no row written).
 
-**Production status: NOT DEPLOYED.** Live `https://agribrige.com/` is 724,806
-bytes, sha256 `b04f52a1…c813e`; the local file is 762,544 bytes, sha256
-`8d73dd5a…2b9107`, and the live HTML contains none of the Stage 1 markers. No
-commit, push or deploy was performed. Publishing remains a manual
-`wrangler deploy` until `CLOUDFLARE_API_TOKEN` is replaced (see above), and must
-be explicitly requested. Rollback is a single-file revert; no migration is
-involved.
+**Production status: PUSHED, NOT PUBLISHED.** The work is commit `30f8784` on
+`main`; CI (`Backend lint + type + tests`, `Migration 0007`) is green. Live
+`https://agribrige.com/` is still 724,806 bytes, sha256 `b04f52a1…c813e`; the
+local file is 762,544 bytes, sha256 `8d73dd5a…2b9107`, and the live HTML
+contains none of the Stage 1 markers. The publish attempt failed before any
+upload: the GitHub deploy secret is rejected (`9109`) and the local wrangler
+login belongs to `mugumyazeal@gmail.com` (account `0b66e23d…`), not the Worker's
+account `7a675255…`. Workers Builds also failed. See
+`docs/LIVE_BASELINE_AUDIT.md` §20 for the two owner unblock paths. Rollback is a
+single-file revert; no migration is involved.
 
 **Residual / out of scope:** cart is device-local (no server cart); promo codes
 remain deliberately absent; the legacy B2B invoice generator still hardcodes a

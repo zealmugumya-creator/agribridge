@@ -290,6 +290,24 @@ Until the secret is replaced with a valid token value, publish from a workstatio
 with `npx wrangler@4 deploy` (this is how version `ffecfbb1`, the redesigned buyer
 app + bank checkout, went live).
 
+**Workstation login check (2026-10-22):** do not assume the local wrangler login
+owns the Worker. `npx wrangler@4 whoami` currently reports
+`mugumyazeal@gmail.com` / account `0b66e23d65c1143a5b78311aec52df51`, while
+`agribridge` lives in `7a6752557859ee5998bdc81c0989743b`; forcing that account
+fails with `Authentication error [code: 10000]` before upload (attempt for
+`30f8784`, `docs/LIVE_BASELINE_AUDIT.md` §20). Sign in with the owning account
+first (`npx wrangler@4 login`, Cloudflare user `Zealmugumya@gmail.com`), then:
+
+```bash
+export PATH="/c/Program Files/nodejs:$PATH"
+export NODE_EXTRA_CA_CERTS="C:\\Users\\HP\\win-root-ca.pem"
+CLOUDFLARE_ACCOUNT_ID=7a6752557859ee5998bdc81c0989743b npx --yes wrangler@4 deploy
+curl -s https://agribrige.com/ | grep -c splashBrowseGuest   # must be > 0
+```
+
+Never run `wrangler deploy` without the account override while logged in to
+`0b66…`: it targets the wrong account and leaves the public site untouched.
+
 Note that Cloudflare's **Workers Builds** Git integration targets the *same*
 `agribridge` Worker and is currently failing too. Pick one publisher — disable
 Workers Builds, or drop the two GitHub secrets — otherwise whichever integration
