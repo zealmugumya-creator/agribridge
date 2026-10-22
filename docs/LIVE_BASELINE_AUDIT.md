@@ -96,7 +96,9 @@ Required settings present/absent (names only; values never inspected or logged):
 
 Per the selection order (security → financial integrity → outage → buyer journey → fulfillment → admin controls → deployment automation):
 
-1. **VERIFIED BLOCKER — Deployment automation reports success while deploying nothing** (§2). Highest item with concrete, reproducible evidence. Items ranked above it are either **WORKING** (RLS, readiness, schema) or **UNVERIFIED** (live buyer journey, live payments) — none rises to a *verified* blocker this run, so per the rules it would be wrong to label an unverified assumption as the blocker.
+1. **VERIFIED BLOCKER — Deployment automation reports success while deploying nothing** (§2). Highest item with concrete, reproducible evidence. Items ranked above it are either **WORKING** (RLS, readiness, schema) or **UNVERIFIED** (live buyer journey, live payments) — none rises to a *verified* blocker this run, so per the rules it would be wrong to label an unverified assumption as the blocker. **Fixed in behaviour** (§13/§14): the run now fails, and prints why.
+1b. **VERIFIED BLOCKER (credential) — the Cloudflare Actions token is rejected**, so SPA auto-deploy still cannot publish (§16). Root cause proven by the new annotation (`9109`/`10000`) and by the identical artifact deploying successfully from an authenticated workstation. Owner action required; no code change can fix a secret value.
+1c. **VERIFIED DEFECTS from the `20f45f2` redesign — all fixed in `db9d92f`** (§15): provider-gated payment options could stay hidden on a fresh load (checkout impact), a banned support contact returned, the pinned lint gate broke, and 21 tests failed. CI is green again on `db9d92f`.
 2. **VERIFIED DEFECT — duplicate signup alerts** (§7): real and reproduced via owner evidence; remediated in deployed code; confirmation pending observation of further logins.
 3. **CONFIGURATION GAPs** (§11): Cloudflare token, bank accounts, payment/notification providers — owner actions, not code defects.
 4. **UNVERIFIED** live flows (payments, order journey, tracking): require a real session/transaction or owner-authorized sandbox; deliberately not exercised to avoid production mutation (Rule 11).
@@ -132,7 +134,7 @@ Per the selection order (security → financial integrity → outage → buyer j
 
 ## 14. Second fix record — blocker #1 extension: a red deploy run must say why
 
-**Status:** implemented locally on `main` (commit `5321418` rebased onto the redesigned `origin/main`, plus the changes below); pushed and observed live — see §15.
+**Status:** implemented locally on `main` (commit `5321418` rebased onto the redesigned `origin/main`, plus §15's repairs in `db9d92f`); **pushed to `main` and observed live** — see §16.
 
 **New evidence gathered after the owner added the Cloudflare secrets**
 
@@ -176,4 +178,43 @@ The redesign was merged onto `main` while CI was green, and arrived with a red s
 - `.github/workflows/deploy-cloudflare.yml` parses with `js-yaml`.
 
 **Deliberately not changed:** the splash/landing UX itself, the new card modal, `static/sw.js`, and the redesign's `+1425` lines of buyer UI. Rule 2/4/15 — this run repairs what the redesign broke, and does not rewrite what it deliberately redesigned.
+
+---
+
+## 16. Push, CI and deploy verification for `db9d92f` — the owner's new secrets, tested
+
+Both commits (`5321418`, `db9d92f`) were fast-forward pushed to `main` (`20f45f2..db9d92f`, no force, no history rewrite). Results were read from the public GitHub checks API, not assumed:
+
+| Gate | Run | Result | Evidence |
+|---|---|---|---|
+| CI — Backend lint + type + tests | `39785941491` job `119849041617` | **success** | check-run conclusion, 2026-10-22 ~13:20Z |
+| CI — Migration 0007 on real PostgreSQL | `39785941491` job `119849041194` | **success** | check-run conclusion |
+| `Deploy public web app` | `39785941174` job `119849040101` | **failure — and now it says why** | check-run annotation (below) |
+| `Workers Builds: agribridge` (Cloudflare GitHub App) | build `3c56b2f2-8d3a-4418-a0dd-0d2468ecd5fa` | **failure** | check-run output |
+
+**The diagnostic worked.** The deploy job published this annotation, which is readable without dashboard access:
+
+> `wrangler deploy failed (exit 1): … API (/accounts/***/workers/services/agribridge) failed. Authentication error [code: 10000] … It looks like you are authenticating Wrangler via a custom API token set in an environment variable … Getting User settings... ✘ [ERROR] A request to the Cloudflare API (/accounts) failed. Invalid access token [code: 9109]`
+
+**VERIFIED BLOCKER (credential, not code): the `CLOUDFLARE_API_TOKEN` value stored in GitHub Actions is rejected by Cloudflare.**
+
+- The same repository state deploys successfully from an authenticated workstation: `npx --yes wrangler@4 deploy` published version `ffecfbb1-7937-4d90-8f97-2d610004a934` to the `agribridge` Worker in account `7a6752557859ee5998bdc81c0989743b` → so `wrangler.jsonc`, the asset set and the Worker itself are fine. **The failure is isolated to the secret value.**
+- Error `9109 Invalid access token` on `/accounts` and `10000 Authentication error` on the deploy call are *token validity* errors. A permissions/scope problem would instead report `10044 Not entitled to create or edit Workers Scripts`. So the likely causes are: the Cloudflare **Token ID / Client ID** pasted instead of the one-time **secret value**, a truncated value, trailing whitespace/newline, or a token since revoked. `CLOUDFLARE_ACCOUNT_ID` is present and matches the account that owns the Worker.
+- **UNVERIFIED:** the secret value itself — it cannot be read back through the API (GitHub never returns secret values), and job logs return `403` without owner authentication.
+
+**Owner action (one step):** in GitHub → Settings → Secrets and variables → Actions → *AgriBridge repository secrets*, replace `CLOUDFLARE_API_TOKEN` with the full secret string from Cloudflare (Dashboard → Manage Account → Account API Tokens → *AgriBridge GitHub Deploy* → create-and-copy a fresh value, since Cloudflare shows it only once), then re-run the `Deploy public web app` workflow. A green run is then trustworthy — it can no longer pass without publishing (§13), and it now prints wrangler's reason if it fails (§14).
+
+**Secondary finding — INFORMATIONAL / CONFIGURATION GAP: two publishers target the same Worker.** Cloudflare's *Workers Builds* Git integration (build `3c56b2f2`, failing) and the `Deploy public web app` workflow both try to deploy `agribridge`. Once the Actions token is fixed, pick one: either disable Workers Builds for this Worker, or delete the two GitHub secrets and let the Cloudflare App own deploys. Running both makes releases non-deterministic — whichever integration last touched the Worker decides what the public site serves.
+
+## 17. Production verification of the §15 checkout fix (LIVE)
+
+The published bundle was verified against the repository, not assumed:
+
+- `curl https://agribrige.com/` → HTTP 200, 690,689 bytes, **sha256 identical to `static/index.html` at `db9d92f`**; contains `page-splash`, `splash-btn-primary`, `pm-bank`, `pm-pesapal`. `https://agribridge.zealmugumya.workers.dev/` → 200. `/admin.html` → 307 → `/admin`.
+- Headless-browser check against **production** (read-only, no order placed): on a fresh load `window._payProviders` is `null` — exactly the condition §15 finding 2 mishandled — and after `await syncPayMethods()` it holds the live `/api/pay/providers` payload `{airtel:true, bank:true, cod:true, momo:true, pesapal:false, card:false, flutterwave:false}`. Tiles: MoMo/Airtel/Card/COD/**Bank visible**, Pesapal correctly hidden because the gateway is not configured. `window._payBankAccounts` is `[]` because `BANK_TRANSFER_ACCOUNTS` is unset, so checkout shows the official support note instead of an invented account. → **WORKING (LIVE)** for the tile/provider contract.
+- Backend after the push: `/health/live` → 200, `/health` → `status:ok`, `version:3.3.0`, `supabase_connected:true` (**LIVE**). Render's own deploy of `db9d92f` could not be confirmed from outside the Render dashboard → **UNVERIFIED** for the `app.py` VAPID default change; the site was already serving this `app.py` behaviour except the notification `sub:` contact string.
+- **INFORMATIONAL:** the redesign made the Card tile always visible. With no card gateway configured, `startOnlinePayment('card')` returns `null` and the existing code falls back to manual instructions — a graceful degradation, so no change was made here (Rule 15).
+
+**Rollback path:** `npx --yes wrangler@4 deployments list` then roll back to version `15ff5212…` (the previous known-good publish), or re-publish any commit's `static/` with `wrangler deploy`. Nothing in this change set touched the database, so no migration rollback is involved.
+
 

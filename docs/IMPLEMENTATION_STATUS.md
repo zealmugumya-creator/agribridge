@@ -26,19 +26,40 @@
 > admin confirms via `POST /api/admin/orders/<id>/verify-bank-transfer`) and
 > fixes duplicate Discord `#signups` alerts (fires once per account). The API on
 > Render serves this (live `providers.bank = true`). The Cloudflare auto-deploy
-> **silently skipped** (green run, deploy step skipped — `CLOUDFLARE_API_TOKEN`
-> not in GitHub secrets), so the SPA was published manually with `wrangler
-> deploy` (version `15ff5212`). Verified live 2026-10-22: `agribrige.com/` shows
-> the `pm-bank` checkout card and `agribrige.com/admin` shows the `Bank paid`
-> button. **Add `CLOUDFLARE_API_TOKEN` to GitHub secrets so future `static/`
-> pushes publish automatically** (see `docs/OPERATIONS_SETUP.md` §11). Pesapal
-> and Google remain unconfigured and unverified live.
-> Current verified suite: 434 Python tests (including 22 Playwright browser
-> tests) and 129 SQL assertions; see `docs/TEST_RESULTS.md`.
+> had **silently skipped** (green run, deploy step skipped), so the SPA has since
+> been published from an authenticated workstation each time.
+>
+> **Deploy automation, now honest and observed (pushes `5321418` + `db9d92f`,
+> 2026-10-22):** `Deploy public web app` no longer can pass while publishing
+> nothing — it exits 1 when a secret is missing, and on any wrangler failure it
+> captures the output and republishes the reason as a check annotation plus the
+> run summary (job logs are not readable without owner authentication). Both
+> `CLOUDFLARE_API_TOKEN` and `CLOUDFLARE_ACCOUNT_ID` now exist in GitHub, and the
+> step genuinely runs — it **fails with Cloudflare `Authentication error [10000]`
+> / `Invalid access token [9109]`, i.e. the stored token value is rejected.** The
+> identical `static/` tree deploys fine from a workstation, which isolates the
+> fault to the secret, not the code. **Owner action: replace `CLOUDFLARE_API_TOKEN`
+> with a freshly copied Cloudflare token *secret* value and re-run the workflow**
+> (`docs/OPERATIONS_SETUP.md` §11, `docs/LIVE_BASELINE_AUDIT.md` §16). Note that
+> Cloudflare *Workers Builds* also targets the same Worker and is failing — pick
+> one publisher.
+>
+> **Buyer-UI redesign (`74879f8`/`20f45f2`) merged red and was repaired in
+> `db9d92f`:** the redesign had reintroduced the retired `support@agribridge.ug`
+> contact, broken the pinned ruff gate, made 21 tests fail, and — most
+> importantly — rewrote `syncPayMethods()` to read a provider cache it never
+> fetched, so server-enabled payment options (Pesapal) and configured bank
+> accounts could stay hidden on a fresh page load. Fixed and confirmed in
+> **production** (the live page now populates `window._payProviders` on first
+> checkout render; Bank tile visible, Pesapal correctly hidden while unconfigured).
+> Live SPA = wrangler version `ffecfbb1-7937-4d90-8f97-2d610004a934`, sha256
+> identical to `static/index.html` at `db9d92f`.
+> Current verified suite: **436 Python tests** (including 22 Playwright browser
+> tests) and 129 SQL assertions; CI green on `db9d92f`; see `docs/TEST_RESULTS.md`.
+> Pesapal and Google remain unconfigured and unverified live.
 > **Live-baseline audit:** `docs/LIVE_BASELINE_AUDIT.md` (2026-10-22) records the
-> evidence-based production state and the first verified blocker (the SPA deploy
-> workflow reporting green while publishing nothing), with its fix on branch
-> `fix/deploy-workflow-honest-status`.
+> evidence-based production state, the first verified blocker (deploy automation
+> reporting green while publishing nothing) and its fix (§13–§17).
 
 **Phase 1 COMPLETE — Baseline Audit**
 **Completed:** 2026-10-10

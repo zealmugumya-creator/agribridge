@@ -30,11 +30,11 @@ PYTHONPATH=.test-deps /c/Users/HP/OneDrive/Python314/python.exe -m pytest -q
 ```
 
 ```
-434 passed, 103 warnings in 45.77s
+436 passed, 103 warnings in 39.64s
 ```
 
 This includes the 22 Playwright browser tests, the 14 Bank Transfer /
-signup-alert tests (`tests/test_bank_transfer.py`) and the 3 deploy-workflow
+signup-alert tests (`tests/test_bank_transfer.py`) and the 5 deploy-workflow
 contract tests (`tests/test_deploy_workflow.py`). Run with the system `python`
 (3.12) the Playwright E2E module skips because `.test-deps` is built for Python
 3.14 and its native `greenlet` extension cannot load there. The skip is a local
@@ -199,6 +199,25 @@ slices):
 The 19 pre-existing browser tests still pass (legal consent, signup validation,
 order flows and checkout UI).
 
+### Buyer-UI redesign repair set (push `db9d92f`, 2026-10-22)
+
+The redesign at `74879f8`/`20f45f2` arrived with **21 failures and a broken lint
+gate**. Reproduced locally, fixed, and each fixed item is pinned by a test:
+
+| Failure | Before | After |
+|---|---|---|
+| `tests/test_business_config.py` (2) — banned `support@agribridge.ug` back in `app.py` | FAIL | PASS (`VAPID_CONTACT` now defaults to `business.SUPPORT_EMAIL`) |
+| `tests/e2e/test_consent_ui.py::test_pesapal_is_offered_only_when_the_server_enables_it` — `syncPayMethods()` read an unfetched cache | FAIL (tile stayed hidden although the API enabled it) | PASS (awaits `getEnabledProviders()`), verified against **live** production in the browser (audit §17) |
+| `tests/e2e/test_consent_ui.py` (15) — first-visit splash overlay intercepted every click | FAIL | PASS (fixture enters the app as a returning user; no assertion weakened) |
+| `tests/test_pesapal_ui.py:109` — tile-order literal | FAIL | PASS (assertion now order-independent, still requires all six methods) |
+| `ruff check app.py services/ scripts/ tests/` (pinned 0.8.4) — I001 + 2x E701 in the new `_send_web_push` | FAIL | **All checks passed** |
+| `tests/test_deploy_workflow.py` (2 new) — deploy failure reason invisible without log access | FAIL against pre-fix workflow | PASS (`::error::wrangler deploy failed`, output capture, `exit "$status"`) |
+
+Full-suite result after the repairs: **436 passed**; SQL suites **129 assertions**
+pass unchanged (no SQL touched); `python scripts/build_legal.py --check` →
+"legal outputs up to date". CI on the pushed commit: `Backend lint + type + tests`
+**success** and `Migration 0007 on real PostgreSQL` **success** (run `39785941491`).
+
 ## 5. What these tests do not prove
 
 * Pesapal API calls are faked. Token caching, redirect validation, verification
@@ -233,6 +252,9 @@ order flows and checkout UI).
 | Public SPA bundle (Pesapal/Google) | Cloudflare run `39710797408` succeeded; live HTML contains `pm-pesapal` and `googleLoginBtn` | **Deployed**; live flows unverified |
 | Bank Transfer method (API — Render) | Push `6077883`; live `GET /api/pay/providers` returns `bank:true` and `bank_accounts:[]` (empty until `BANK_TRANSFER_ACCOUNTS` is set in Render); `/health` `200 supabase_connected:true` | **DEPLOYED and verified live** |
 | Bank Transfer checkout card + admin button (Cloudflare SPA) | Auto-deploy workflow for `6077883` **skipped** (missing `CLOUDFLARE_API_TOKEN`), so the SPA was published manually with `wrangler deploy` (version `15ff5212-5542-41f5-9682-01cf94903f8b`, account `Zealmugumya@gmail.com`). Live `GET https://agribrige.com/` now contains `pm-bank`/`renderBankOptions`/`bankInfoPanel`; `GET https://agribrige.com/admin` contains `verifyBankTransfer`/`Bank paid` | **DEPLOYED and verified live** on both the custom domain and `agribridge.zealmugumya.workers.dev`; checkout not exercised with a real bank order |
+| CI on the repaired `main` | Push `db9d92f`: `Backend lint + type + tests` **success** and `Migration 0007 on real PostgreSQL` **success** (run `39785941491`); previously **failure** on `20f45f2` | **Green in GitHub**, matching the local 436-test result |
+| `Deploy public web app` with the owner's new secrets | Run `39785941174` job `119849040101` **failure**, annotation: `Authentication error [code: 10000]` + `Invalid access token [code: 9109]` | **VERIFIED BLOCKER — stored token value rejected by Cloudflare**; nothing published by CI |
+| Redesigned SPA + checkout fix | Published from an authenticated workstation: version `ffecfbb1-7937-4d90-8f97-2d610004a934`. Live HTML is sha256-identical to `static/index.html` at `db9d92f`; production browser check shows `window._payProviders` empty on load, then populated by `syncPayMethods()` → Bank tile visible, Pesapal correctly hidden | **DEPLOYED and verified live**; provider-gated tile behavior confirmed in production |
 | Duplicate signup alert fix (API) | Once-per-account gate on the `signup_alerted` system_event + account-age window, carried by the deployed `6077883` API | **Deployed on Render**; live `#signups` behavior not yet observed over subsequent logins |
 
 A live payment can only be claimed after a real verified transaction produces a

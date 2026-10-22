@@ -264,19 +264,29 @@ repository secrets in GitHub Settings > Secrets and variables > Actions:
 The `Deploy public web app` workflow now **fails (red)** when
 `CLOUDFLARE_API_TOKEN` or `CLOUDFLARE_ACCOUNT_ID` is missing — it no longer
 reports a misleading green run while publishing nothing (an earlier version did
-exactly that and silently stranded SPA releases; fixed on branch
-`fix/deploy-workflow-honest-status`, see `docs/LIVE_BASELINE_AUDIT.md` §13).
-**A red `Deploy public web app` run with that `::error::` means the token is not
-yet configured, not that your code is broken.** Do not read a green deploy as
-proof unless you also confirm the served HTML (e.g.
-`curl -s https://agribrige.com/ | grep pm-bank`). As of 2026-10-22 the token is
-**still not configured**; the Bank Transfer checkout card from push `6077883` was
-published **manually** with `npx wrangler@4 deploy` (version `15ff5212`), so it is
-live, but every future `static/` change will keep failing the deploy until the
-secrets are added. To enable automatic deploys: add the two secrets above, then
-re-run the workflow (Actions → Deploy public web app → Run workflow, or
-`gh workflow run deploy-cloudflare.yml`), or keep deploying from an authenticated
-workstation with `npx wrangler@4 deploy`.
+exactly that and silently stranded SPA releases; fixed in `5321418` + `db9d92f`,
+both on `main` — see `docs/LIVE_BASELINE_AUDIT.md` §13).
+**A red `Deploy public web app` run means the deploy did not happen.** Since
+2026-10-22 the step also captures wrangler's own output and republishes its last
+lines as a check annotation and in the run summary, so a failure is diagnosable
+without opening the job log (`docs/LIVE_BASELINE_AUDIT.md` §14). Do not read a
+green deploy as proof unless you also confirm the served HTML (e.g.
+`curl -s https://agribrige.com/ | grep pm-bank`).
+
+**Current state (verified 2026-10-22):** both secrets now exist in GitHub, and the
+deploy step really runs — it fails with Cloudflare `Authentication error [10000]`
+and `Invalid access token [9109]`, i.e. **the stored token value is rejected by
+Cloudflare** (most often the token *ID* was pasted instead of the one-time secret,
+or the token was revoked). The same `static/` tree deploys successfully from an
+authenticated workstation, which proves the artifact and Worker config are fine.
+Until the secret is replaced with a valid token value, publish from a workstation
+with `npx wrangler@4 deploy` (this is how version `ffecfbb1`, the redesigned buyer
+app + bank checkout, went live).
+
+Note that Cloudflare's **Workers Builds** Git integration targets the *same*
+`agribridge` Worker and is currently failing too. Pick one publisher — disable
+Workers Builds, or drop the two GitHub secrets — otherwise whichever integration
+last succeeded decides what the public site serves.
 
 ---
 
@@ -284,7 +294,7 @@ workstation with `npx wrangler@4 deploy`.
 ```bash
 pip install -r requirements-dev.txt
 ruff check app.py services/ tests/     # lint gate (must be clean)
-pytest tests/ -q                       # 431 passed with Playwright installed
+pytest tests/ -q                       # 436 passed with Playwright installed
 cd tests/sql && npm install && npm test # PGlite migration suites
 ```
 Playwright lives outside `requirements-dev.txt` in this environment; the E2E
