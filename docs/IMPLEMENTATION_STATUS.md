@@ -52,13 +52,12 @@
 > accounts could stay hidden on a fresh page load. Fixed and confirmed in
 > **production** (the live page now populates `window._payProviders` on first
 > checkout render; Bank tile visible, Pesapal correctly hidden while unconfigured).
-> Live SPA = wrangler version `ffecfbb1-7937-4d90-8f97-2d610004a934`, sha256
-> identical to `static/index.html` at `db9d92f`.
+> Live SPA = wrangler version `bb9e65fb-974d-4381-8bf0-c78191a2e6d0`, sha256
+> identical to `static/index.html` after commit `30f8784`.
 > Current verified suite: **447 Python tests** (including 28 Playwright browser
 > tests) and 129 SQL assertions; CI green on `db9d92f` and on `30f8784`; the
-> Stage 1 commit is pushed, but its static bundle is **not published** because
-> the Cloudflare credentials are scoped to the wrong account
-> (`docs/LIVE_BASELINE_AUDIT.md` §20); see `docs/TEST_RESULTS.md`.
+> Stage 1 bundle is **published and verified live** (see
+> `docs/LIVE_BASELINE_AUDIT.md` §20); see `docs/TEST_RESULTS.md`.
 >
 > **Pesapal is now configured live (2026-10-22).** The owner added consumer
 > credentials and `PESAPAL_ENV=live` in Render; `/api/pay/providers` returns
@@ -82,7 +81,7 @@
 > evidence-based production state, the first verified blocker (deploy automation
 > reporting green while publishing nothing) and its fix (§13–§17).
 
-## Stage 1 — Buyer storefront (2026-10-22) — IMPLEMENTED LOCALLY, NOT DEPLOYED
+## Stage 1 — Buyer storefront (2026-10-22) — DEPLOYED AND VERIFIED LIVE
 
 The first slice of the buyer-interface work, in the owner's stated order:
 **homepage → product cards → product details → shopping cart**. Checkout,
@@ -125,16 +124,18 @@ and CI-pinned 0.8.4; `node --check` passes all four inline script blocks; a
 51/51 ad-hoc browser harness ran at mobile/desktop widths against the live
 Supabase project **read-only** (no order placed, no row written).
 
-**Production status: PUSHED, NOT PUBLISHED.** The work is commit `30f8784` on
-`main`; CI (`Backend lint + type + tests`, `Migration 0007`) is green. Live
-`https://agribrige.com/` is still 724,806 bytes, sha256 `b04f52a1…c813e`; the
-local file is 762,544 bytes, sha256 `8d73dd5a…2b9107`, and the live HTML
-contains none of the Stage 1 markers. The publish attempt failed before any
-upload: the GitHub deploy secret is rejected (`9109`) and the local wrangler
-login belongs to `mugumyazeal@gmail.com` (account `0b66e23d…`), not the Worker's
-account `7a675255…`. Workers Builds also failed. See
-`docs/LIVE_BASELINE_AUDIT.md` §20 for the two owner unblock paths. Rollback is a
-single-file revert; no migration is involved.
+**Production status: PUBLISHED AND VERIFIED.** The work is commit `30f8784` on
+`main`; CI (`Backend lint + type + tests`, `Migration 0007`) is green. Published
+as Worker version `bb9e65fb-974d-4381-8bf0-c78191a2e6d0`; both
+`https://agribrige.com/` and the workers.dev host serve 762,544 bytes, sha256
+`8d73dd5a411adedc0fd6a9e198e29e5ff98746397fd573fcc4728908992b9107`, identical to
+the local file, with all Stage 1 markers. A production browser smoke test went
+landing → Launch app → splash → Browse as guest → home cards → category filter →
+detail → add to cart → cart, with honest totals and **zero page errors** (no
+order placed). Previous version `8ef07b1d-36db-4a92-abfc-2a56de640a93` is the
+rollback target. CI auto-deploy is still broken: the GitHub
+`CLOUDFLARE_API_TOKEN` is rejected (`9109`) and Workers Builds still fails, so
+this publish was manual; see `docs/LIVE_BASELINE_AUDIT.md` §20.
 
 **Residual / out of scope:** cart is device-local (no server cart); promo codes
 remain deliberately absent; the legacy B2B invoice generator still hardcodes a

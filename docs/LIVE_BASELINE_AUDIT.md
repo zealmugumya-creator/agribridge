@@ -236,7 +236,7 @@ The owner supplied `PESAPAL_CONSUMER_KEY` / `PESAPAL_CONSUMER_SECRET` and set `P
 
 **INFORMATIONAL — production runtime ≠ CI runtime:** the owner's Render build log installs into `.venv/lib/python3.14/site-packages` with `cp314` wheels even though `render.yaml:5` pins `pythonVersion: "3.12.7"` and CI runs 3.12.7. The suite passes on both here (local harness is 3.14, CI is 3.12), so nothing is currently broken, but a dependency that only builds on one of the two would fail in production while CI stayed green. Worth pinning deliberately rather than leaving to Render's default.
 
-## 19. Stage 1 — buyer storefront (implemented locally, NOT deployed)
+## 19. Stage 1 — buyer storefront (deployed and verified live)
 
 Scope, in the owner's stated order: **homepage → product cards → product details → shopping cart**. Checkout, payment integration and delivery tracking are the next stages and were deliberately not redesigned here; the only checkout change is a guard that refuses to open checkout when the cart contains an out-of-stock line. Admin and the financial ledger were not touched.
 
@@ -262,12 +262,12 @@ Scope, in the owner's stated order: **homepage → product cards → product det
 | A late home fetch silently reset a category the buyer had just chosen | Repeated Playwright runs: the grid flipped from the filtered set back to all six featured cards | `window._homeCat` is tracked and re-applied after `loadHomeStats()`; the test now awaits a fresh load before asserting |
 | A delayed guest role refresh ejected the buyer from product details | Repeated runs: `Page.click: Timeout 30000ms exceeded` on `#pdQtyPlus` because `applyRoleUI()` → `showGuestLanding()` re-activated home 300 ms after load | `showGuestLanding()` only activates home when no page is active; the detail test calls `applyRoleUI()` while open |
 
-### Verification (local and harness; production NOT updated)
+### Verification (local, harness and production)
 
 - **New deterministic suite:** `tests/e2e/test_buyer_ui.py`, 6 Playwright tests — home data + real-ratings-only, signed-in buyer home, detail facts + disabled out-of-stock + guest role-refresh safety, honest cart totals/persistence across reload (Cocoa 10% discount: 2 × 8,100 = 16,200; delivery "Arranged after confirmation"), search/category over the same data incl. a late-load preservation check, zero JS errors. It serves the real `static/index.html` from disk, stubs only Supabase SDK/REST via routes, and reads no production data. The module passed **5 consecutive runs** (12.1–15.4 s) after the two navigation races above were fixed, and the full `tests/e2e/` set (28 tests) passed **twice consecutively** (73.4 s, 64.5 s).
 - **Ad-hoc browser harness:** 51/51 checks at mobile and desktop widths against the **live Supabase project, read-only** (`sb()` REST reads, auth stubbed): real cards, `Tomatoes` search → real result → detail, category filter, quantity min/max, add-to-cart badge, `localStorage` persistence, cart ±/remove/clear, totals equal item subtotal, signed-in buyer home, desktop layout/no overflow. No order was placed and no row was written.
 - **Full suite:** `PYTHONPATH=.test-deps … -m pytest -q` → **447 passed, 103 warnings in 66.09 s** (441 baseline + 6). `ruff check app.py services/ scripts/ tests/` clean under local **0.16.10** and CI-pinned **0.8.4**; `node --check` passes on all four inline script blocks.
-- **Production is still serving the pre-Stage-1 bundle.** `curl https://agribrige.com/` → 724,806 bytes, sha256 `b04f52a1…c813e`; local `static/index.html` → 762,544 bytes, sha256 `8d73dd5a…2b9107`. The live HTML contains **0** occurrences of `splashBrowseGuest`, `pdTrustVerified`, `homeMoreHead`, `_homeCat` or "Arranged after confirmation". Stage 1 was committed and pushed as `30f8784` (2026-10-22), but the live bundle still does not contain it; the publish attempt and its credential blocker are recorded in §20.
+- **Production is now serving Stage 1.** Worker version `bb9e65fb-974d-4381-8bf0-c78191a2e6d0` serves 762,544 bytes, sha256 `8d73dd5a…2b9107`, byte-identical to local `static/index.html`, on both `https://agribrige.com/` and `https://agribridge.zealmugumya.workers.dev/`. The served HTML contains `splashBrowseGuest`, `pdTrustVerified`, `homeMoreHead`, `_homeCat` and "Arranged after confirmation". A live headless-Chrome smoke test at 390×844 then exercised the real flows: landing → Launch app → splash → **Browse as guest** → 6 real home cards (Groundnuts / Zeal / Gulu / UGX 1,500/kg) → Vegetables filter (10 cards, title survives a forced late `loadHomeStats()`) → Groundnuts detail with the honest fallback description → add to cart → cart subtotal/total `UGX 1,500`, delivery "Arranged after confirmation", checkout enabled, **zero page errors**. Checkout was not clicked and no order was placed. Stage 1 was committed and pushed as `30f8784`; the deploy and its earlier credential blocker are recorded in §20.
 
 ### Residual risks / deliberately not changed
 
@@ -279,7 +279,7 @@ Scope, in the owner's stated order: **homepage → product cards → product det
 
 **Rollback path:** revert the single `static/index.html` change (and delete the new test file); no database, migration, API or dependency is involved. Re-publishing the previous `static/` commit with `wrangler deploy` restores the live bundle if a deploy had been made.
 
-## 20. Stage 1 publish attempt for `30f8784` — pushed, but Cloudflare auth is now scoped to the wrong account
+## 20. Stage 1 publish for `30f8784` — published manually and verified; CI token still rejected
 
 The Stage 1 work was committed as `30f8784` and pushed to `main` (`aef0423..30f8784`). GitHub checks for that push, read from the public checks API:
 
@@ -290,20 +290,29 @@ The Stage 1 work was committed as `30f8784` and pushed to `main` (`aef0423..30f8
 | `Deploy public web app` | **failure** | annotation: `Authentication error [code: 10000]` + `Invalid access token [code: 9109]` — the same rejected GitHub secret as §16; nothing was uploaded |
 | `Workers Builds: agribridge` | **failure** | build `d901d774-7a7f-4489-a3b3-e00121f15e5d`; Cloudflare reports the build against account `7a675255…` |
 
-**VERIFIED BLOCKER — the local wrangler login belongs to a different Cloudflare account than the Worker.** `npx wrangler@4 whoami` now reports `mugumyazeal@gmail.com`, account `0b66e23d65c1143a5b78311aec52df51`, while the production Worker `agribridge` is in account `7a6752557859ee5998bdc81c0989743b` (the account used by the last successful publish in §16/§17 and by the Workers Builds link). Forcing the production account:
+**First attempt failed on Cloudflare account scope.** The local wrangler login belonged to `mugumyazeal@gmail.com`, account `0b66e23d65c1143a5b78311aec52df51`, while Worker `agribridge` lives in account `7a6752557859ee5998bdc81c0989743b`. Forcing the production account failed with `Authentication error [code: 10000]` **before any asset upload**, and the live bundle was unchanged.
+
+**Resolution (2026-10-22):** the owner re-ran `npx wrangler@4 login` and approved the account that owns the Worker. `wrangler whoami` then reported `7a675255…`, and:
 
 ```bash
 CLOUDFLARE_ACCOUNT_ID=7a6752557859ee5998bdc81c0989743b npx --yes wrangler@4 deploy
 ```
 
-fails with `Authentication error [code: 10000]` **before any asset upload**; the live bundle is unchanged (724,806 bytes, sha256 `b04f52a1…c813e`, no Stage 1 markers). Running `wrangler deploy` *without* the override would select the logged-in account `0b66e23d…`, create/update a different Worker, and still not publish `agribrige.com` — do not do that.
+published Worker version **`bb9e65fb-974d-4381-8bf0-c78191a2e6d0`** (`Uploaded agribridge (13.83 sec)`). The previous version was `8ef07b1d-36db-4a92-abfc-2a56de640a93`.
 
-**Owner action (either path unblocks publishing):**
+**Published artifact verified, both domains:**
 
-1. **Local OAuth:** while signed in to the Cloudflare account that owns Worker `agribridge` (`Zealmugumya@gmail.com`, account `7a675255…`), run `npx wrangler@4 login` and approve; then the deploy command with the account override above. This is the same path that published `ffecfbb1` on 2026-10-22.
-2. **GitHub Actions:** replace the rejected `CLOUDFLARE_API_TOKEN` with a valid token scoped to the `7a675255…` account, then re-run `Deploy public web app`. Disable Workers Builds or remove the Actions secrets so only one publisher targets the Worker (§16 secondary finding).
+| Check | Result |
+|---|---|
+| `https://agribrige.com/` | 200, **762,544 bytes**, sha256 `8d73dd5a411adedc0fd6a9e198e29e5ff98746397fd573fcc4728908992b9107` — byte-identical to local `static/index.html` |
+| `https://agribridge.zealmugumya.workers.dev/` | same size and sha256 |
+| Stage 1 markers in served HTML | `splashBrowseGuest` ×2, `pdTrustVerified` ×2, `homeMoreHead` ×3, `_homeCat` ×4, "Arranged after confirmation" ×4 |
 
-Until one of these is done, Stage 1 remains **pushed to git but not served**; a green git record or a successful CI run is not evidence that the buyer sees it. Rollback after a successful publish remains the previous Worker version `ffecfbb1-7937-4d90-8f97-2d610004a934`; no database migration is involved.
+**Live browser smoke (production, 390×844, headless system Chrome):** landing → Launch app → splash → Browse as guest → 6 real cards (Groundnuts / Zeal / Gulu / UGX 1,500/kg) → Vegetables filter (10 cards; title stays "Vegetables" after a forced `loadHomeStats()`) → Groundnuts detail (fallback description "No description provided by the farmer yet.") → add to cart → cart subtotal and total `UGX 1,500`, delivery **"Arranged after confirmation"**, checkout enabled. **Zero page errors.** Checkout was not clicked and no order was placed. §19 records the full change set.
+
+**Still outstanding — CI auto-deploy is not fixed.** The GitHub `CLOUDFLARE_API_TOKEN` secret remains invalid (`9109`/`10000`), so every `static/` push still needs a manual `wrangler deploy`. Workers Builds also still fails on every push against the same Worker; two publishers target it. Owner action unchanged: replace the secret with a fresh token scoped to account `7a675255…` (or remove the workflow) and disable Workers Builds so exactly one publisher wins.
+
+**Rollback:** Worker version `8ef07b1d-36db-4a92-abfc-2a56de640a93` (or re-publish any commit's `static/` with `wrangler deploy`). No database migration is involved.
 
 
 

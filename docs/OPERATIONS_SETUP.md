@@ -288,15 +288,16 @@ or the token was revoked). The same `static/` tree deploys successfully from an
 authenticated workstation, which proves the artifact and Worker config are fine.
 Until the secret is replaced with a valid token value, publish from a workstation
 with `npx wrangler@4 deploy` (this is how version `ffecfbb1`, the redesigned buyer
-app + bank checkout, went live).
+app + bank checkout, and version `bb9e65fb`, Stage 1 of the buyer storefront,
+went live).
 
-**Workstation login check (2026-10-22):** do not assume the local wrangler login
-owns the Worker. `npx wrangler@4 whoami` currently reports
-`mugumyazeal@gmail.com` / account `0b66e23d65c1143a5b78311aec52df51`, while
-`agribridge` lives in `7a6752557859ee5998bdc81c0989743b`; forcing that account
-fails with `Authentication error [code: 10000]` before upload (attempt for
-`30f8784`, `docs/LIVE_BASELINE_AUDIT.md` §20). Sign in with the owning account
-first (`npx wrangler@4 login`, Cloudflare user `Zealmugumya@gmail.com`), then:
+**Workstation login check (verified 2026-10-22):** do not assume the local
+wrangler login owns the Worker. A login can silently belong to a different
+Cloudflare account (`0b66e23d…`) and then fail with `Authentication error
+[code: 10000]` before upload. Always run `npx wrangler@4 whoami` first; for this
+project it must report the account owning `agribridge`,
+`7a6752557859ee5998bdc81c0989743b`. If it does not, sign in with the owning
+account (`npx wrangler@4 login`, Cloudflare user `Zealmugumya@gmail.com`), then:
 
 ```bash
 export PATH="/c/Program Files/nodejs:$PATH"
@@ -304,6 +305,11 @@ export NODE_EXTRA_CA_CERTS="C:\\Users\\HP\\win-root-ca.pem"
 CLOUDFLARE_ACCOUNT_ID=7a6752557859ee5998bdc81c0989743b npx --yes wrangler@4 deploy
 curl -s https://agribrige.com/ | grep -c splashBrowseGuest   # must be > 0
 ```
+
+The re-login performed on 2026-10-22 published Worker version
+`bb9e65fb-974d-4381-8bf0-c78191a2e6d0`; both domains then served 762,544 bytes,
+sha256 `8d73dd5a…2b9107`, matching the local `static/index.html`, and a
+production browser smoke test passed with zero page errors.
 
 Never run `wrangler deploy` without the account override while logged in to
 `0b66…`: it targets the wrong account and leaves the public site untouched.

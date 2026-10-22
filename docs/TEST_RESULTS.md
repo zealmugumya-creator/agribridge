@@ -10,14 +10,16 @@ exercised. Migration 0017, 0016, 0002 and **0015** are applied live (verified by
 read-only PostgREST probes on 2026-10-22; `orders.source_ref` returns HTTP 200).
 Push `9123b38` (Pesapal + Google) and push `6077883` (Bank Transfer + signup
 fix) both deployed the **API on Render** — live `/api/pay/providers` now returns
-`bank:true`. The **Cloudflare SPA auto-deploy silently skipped** (the `Deploy
-public web app` run for `6077883` was green but its "Deploy Worker static
-assets" step was skipped because `CLOUDFLARE_API_TOKEN` is not in GitHub Actions
-secrets), so the SPA was published manually with `wrangler deploy`. Verified
-live 2026-10-22: `agribrige.com/` serves the `pm-bank` checkout card and
-`agribrige.com/admin` serves the `Bank paid` / `verifyBankTransfer` button. The
-bank option is therefore now visible to users. Adding the Cloudflare token to
-GitHub secrets is still required so future `static/` pushes publish on their own.
+`bank:true`. The **Cloudflare SPA auto-deploy is still broken**: the
+`Deploy public web app` workflow now attempts a real deploy but Cloudflare
+rejects the stored secret (`Authentication error [code: 10000]` /
+`Invalid access token [code: 9109]`), and Workers Builds also fails. The SPA is
+therefore published manually with `wrangler deploy`. Verified live 2026-10-22:
+`agribrige.com/` serves the `pm-bank` checkout card and the Stage 1 buyer
+surface (Worker version `bb9e65fb-974d-4381-8bf0-c78191a2e6d0`, sha256-identical
+to `static/index.html`); `agribrige.com/admin` serves the `Bank paid` /
+`verifyBankTransfer` button. Replacing the GitHub token with a valid value is
+still required so future `static/` pushes publish on their own.
 See §6 for exact evidence. Livestock/supplier checkout runs on the category-aware
 `create_order_atomic`.
 
@@ -310,10 +312,11 @@ production: the live bundle does not contain it (see §6).
 | `Deploy public web app` with the owner's new secrets | Run `39785941174` job `119849040101` **failure**, annotation: `Authentication error [code: 10000]` + `Invalid access token [code: 9109]` | **VERIFIED BLOCKER — stored token value rejected by Cloudflare**; nothing published by CI |
 | Redesigned SPA + checkout fix | Published from an authenticated workstation: version `ffecfbb1-7937-4d90-8f97-2d610004a934`. Live HTML is sha256-identical to `static/index.html` at `db9d92f`; production browser check shows `window._payProviders` empty on load, then populated by `syncPayMethods()` → Bank tile visible, Pesapal correctly hidden | **DEPLOYED and verified live**; provider-gated tile behavior confirmed in production |
 | Duplicate signup alert fix (API) | Once-per-account gate on the `signup_alerted` system_event + account-age window, carried by the deployed `6077883` API | **Deployed on Render**; live `#signups` behavior not yet observed over subsequent logins |
-| Stage 1 buyer storefront (home / cards / details / cart) | Committed and pushed as `30f8784`: `static/index.html` sha256 `8d73dd5a…2b9107` (762,544 bytes); 6 new Playwright tests (5 consecutive green runs; all 28 browser tests green twice); 447-test suite green; 51/51 ad-hoc checks against live Supabase read-only | **Pushed; NOT served.** Live HTML is `b04f52a1…c813e` (724,806 bytes) and contains none of the Stage 1 markers |
+| Stage 1 buyer storefront (home / cards / details / cart) | Committed and pushed as `30f8784`: `static/index.html` sha256 `8d73dd5a…2b9107` (762,544 bytes); 6 new Playwright tests (5 consecutive green runs; all 28 browser tests green twice); 447-test suite green; 51/51 ad-hoc checks against live Supabase read-only | **DEPLOYED and verified live.** Worker version `bb9e65fb-974d-4381-8bf0-c78191a2e6d0`; both `agribrige.com` and the workers.dev host serve 762,544 bytes, sha256 `8d73dd5a…2b9107`, byte-identical to local; live HTML contains all Stage 1 markers |
 | CI for `30f8784` | `Backend lint + type + tests` **success**, `Migration 0007 on real PostgreSQL (PGlite)` **success** | **Green in GitHub** |
-| Stage 1 publish attempt (`30f8784`) | `Deploy public web app` **failure**: `Authentication error [code: 10000]` / `Invalid access token [code: 9109]`; Workers Builds build `d901d774-…` **failure**; manual `wrangler deploy` against account `7a675255…` fails before upload because local OAuth is logged in as `mugumyazeal@gmail.com` (account `0b66e23d…`) | **VERIFIED BLOCKER — Cloudflare credentials are scoped to the wrong account**; no publish occurred. See `docs/LIVE_BASELINE_AUDIT.md` §20 |
-| Stage 1 live verification | `curl https://agribrige.com/` → 0 occurrences of `splashBrowseGuest`, `pdTrustVerified`, `homeMoreHead`, `_homeCat`, "Arranged after confirmation"; hash unchanged after the attempt | **Not in production**; owner must re-authenticate wrangler to the owning account or replace the GitHub token |
+| Stage 1 publish attempt (first) | `Deploy public web app` **failure**: `Authentication error [code: 10000]` / `Invalid access token [code: 9109]`; Workers Builds build `d901d774-…` **failure**; manual `wrangler deploy` against account `7a675255…` failed before upload because local OAuth was then logged in as `mugumyazeal@gmail.com` (account `0b66e23d…`) | **Resolved** — owner re-ran `wrangler login` against the owning account; the retry published successfully. GitHub token and Workers Builds remain broken |
+| Stage 1 live browser verification | Production headless Chrome at 390×844: landing → Launch app → splash → Browse as guest → 6 real home cards (Groundnuts / Zeal / Gulu / UGX 1,500/kg) → Vegetables filter (10 cards; survives a forced late `loadHomeStats()`) → Groundnuts detail (real fallback description) → add to cart → cart subtotal/total `UGX 1,500`, delivery "Arranged after confirmation", checkout enabled | **Verified in production, zero page errors**; checkout not clicked, no order placed |
+| Stage 1 live HTML probe | `curl https://agribrige.com/` → 762,544 bytes, sha256 `8d73dd5a…2b9107`; markers `splashBrowseGuest` ×2, `pdTrustVerified` ×2, `homeMoreHead` ×3, `_homeCat` ×4, "Arranged after confirmation" ×4; workers.dev host identical | **In production** on both domains |
 
 A live payment can only be claimed after a real verified transaction produces a
 `payment:<tx_ref>` journal. Pesapal additionally requires live credentials and
