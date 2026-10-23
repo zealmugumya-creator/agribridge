@@ -253,18 +253,90 @@ numbers themselves are still proven only against fixture rows of verified shape.
 
 **Deferred, with the reason:**
 
-- **Listing edit / pause / quantity change** — no business-rule-safe endpoint
-  exists; a raw RLS `PATCH` would bypass the `reserved_qty` stock rules and the
-  `stock_status` triggers. The produce screen says this plainly instead of
-  showing dead Edit buttons. Stage F2.
-- **Photo preview / replace / remove** — `#lpPhoto` is still a bare file input.
-  Stage F2.
+- **Listing edit / pause / quantity change** — closed by Stage F2. F1 shipped
+  with the produce screen saying plainly that editing was unavailable rather than
+  showing dead Edit buttons; `PATCH /api/listings/<id>` now provides the
+  business-rule-safe path those buttons needed.
+- **Photo preview / replace / remove** — closed by Stage F2 (`#lpPhoto` is no
+  longer a bare file input).
 - **`orders_farmer_update` allows a farmer to write any column of their orders**
   (`supabase/base-schema.sql`, no `with check` column restriction). Pre-existing
   security defect; the fix is a migration and none is authorised here. The
   farmer UI only ever calls `POST /api/orders/<id>/status`.
 - **Transport** — the app records no transporter charge or delivery fee, so no
   screen claims a matching, tracking or cost it cannot back.
+
+---
+
+## Stage F2 — Managing a listing (2026-10-23) — BUILT AND TESTED LOCALLY, NOT DEPLOYED
+
+Closes both F1 deferrals: a farmer can change a live listing, and can see,
+replace or remove a photograph before posting one.
+
+**The guarded write.** `PATCH /api/listings/<id>` re-reads the row filtered on
+`id` **and** `farmer_id`, refuses a `quantity_kg` below that row's
+`reserved_qty` (409 carrying the reason and the real figure), re-derives
+`stock_status` with the reservation triggers' own thresholds (unavailable when
+remaining ≤ 0, low_stock at ≤ 10% of quantity), and writes through
+`SupabaseClient.update_checked`, which compare-and-swaps on the `reserved_qty` it
+just read: zero rows back means an order landed first, so the edit is rejected
+and the farmer is told to reload instead of the write silently overwriting a
+reservation. PostgREST cannot compare two columns inside a filter, which is why
+the guard is an exact match on the observed value rather than a
+`reserved_qty=lt.quantity_kg` expression.
+
+No migration was needed or made: `listings_owner_update` already lets an owner
+write any column, so the browser could always have done this. The point of the
+endpoint is that the stock rule is now enforced server-side instead of trusted
+from the client.
+
+**The forms.** `Sell produce` gained a real photo picker (preview, replace,
+remove, type and size validation before any byte leaves the phone), byte-level
+upload progress from XHR instead of a decorative bar, an unsent-draft restore
+limited to the farmer's own typed fields (no session or payment data in
+localStorage), and a one-save lock. Every My Produce row now carries
+`Edit listing` and `Hide from buyers` / `Show to buyers`; the edit sheet shows
+what buyers can still order against what is reserved, prices per-unit and total
+from the discounted figure buyers actually pay, and on a 409 adopts the server's
+reserved number rather than leaving the farmer to guess.
+
+**Two honesty bugs found while testing, both fixed:**
+
+- A failed photo upload left the produce row reading "📷 Adding photo… 95%"
+  indefinitely while the toast said the photo had failed. The row now reads
+  "📷 Photo not added — open Edit listing to try again".
+- Clearing an `<input type=file>` programmatically fires a real `change` event,
+  so the media reset after a successful post re-saved the just-published details
+  as an "unsent draft" — which would have put them back on the next open and
+  invited a duplicate listing. Draft saving is now limited to while the form is
+  actually open.
+
+**Verification.** `tests/test_listing_edit.py` 14 tests (unauthenticated 401,
+not-owned 404, ownership filter on both read and write, quantity below the
+reserved floor refused with no write, `stock_status` thresholds, the in-flight
+reservation losing the race and returning 409, bounds, `is_available` touching no
+stock, transport-failure 502). `tests/e2e/test_farmer_ui.py` 21 tests, 9 of them
+F2, driving the real `static/index.html` in headless Chromium. Full suite
+**482 passed / 0 failed**; `ruff check app.py services/ scripts/ tests/` clean;
+all 7 inline `<script>` blocks parse.
+
+Seven deliberate mutations were made to the shipped code, one at a time, each
+reverted and byte-compared afterwards, to prove the new tests are not decorative:
+dropping the local reserved-floor check, dropping the one-save lock, dropping the
+409 reserved-figure adoption, making hide/show write an extra column, reverting
+the failed-upload pill, ignoring the discount in the total line, and removing the
+draft-open guard. **All seven were detected by the matching test.**
+
+**Working note for the owner.** At 08:41 and again at 09:09 this dashboard work
+was removed from the working tree by a `git stash` + reset issued by another
+session sharing the repo (both stashes are still listed by `git stash list`;
+nothing was dropped). It was recovered with `git stash apply` onto the newer HEAD
+that session had pushed (`ff107ec`, a 2-line navbar change), and the merge was
+checked to keep both changesets — the i18n helpers and the farmer dashboard are
+both present, and the navbar edit is untouched. The work is now committed, so a
+later `git stash` cannot take it again.
+
+**Production status: NOT DEPLOYED** at the time of writing this section.
 
 ---
 

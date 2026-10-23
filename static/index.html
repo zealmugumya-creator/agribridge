@@ -6734,6 +6734,13 @@ function lpBindDraft(){
   m.addEventListener('change', lpSaveDraft);
 }
 function lpSaveDraft(){
+  // Only while the farmer is actually filling the form. Clearing an
+  // <input type=file> programmatically fires a real change event, and after a
+  // successful post that event re-saved the details that had just been
+  // published — so the next Sell produce opened with a "not yet posted" draft
+  // of a listing that already existed, nudging a duplicate.
+  var m = document.getElementById('listProduceModal');
+  if (!m || !m.classList.contains('open')) return;
   try {
     var d = {}, touched = false;
     LP_TEXT_FIELDS.forEach(function (id) {
@@ -6771,7 +6778,7 @@ function lpClearDraft(){ try { localStorage.removeItem(LP_DRAFT); } catch (e) {}
 // a progress bar inside the form would never be seen. This state is what the
 // My Produce row renders while bytes are still moving.
 var _lpMedia = null;
-function lpMediaStart(id){ _lpMedia = { id: String(id), pct: 0 }; }
+function lpMediaStart(id){ _lpMedia = { id: String(id), pct: 0, failed: false }; }
 function lpMediaProgress(frac){
   if (!_lpMedia) return;
   _lpMedia.pct = Math.max(0, Math.min(1, Number(frac) || 0));
@@ -6780,11 +6787,16 @@ function lpMediaProgress(frac){
 }
 function lpMediaEnd(failed){
   if (!_lpMedia) return;
-  if (!failed) _lpMedia = null;
+  if (failed) _lpMedia.failed = true; else _lpMedia = null;
   if (document.getElementById('fp-body')) renderFarmerProduce();
 }
 function fhMediaPill(l){
   if (!_lpMedia || _lpMedia.id !== String(l.id)) return '';
+  // A failed upload must not leave the row claiming a photo is still coming.
+  if (_lpMedia.failed) {
+    return '<span class="fh-pill bad" data-lp-media="' + escHtml(_lpMedia.id) +
+      '">📷 Photo not added — open Edit listing to try again</span>';
+  }
   return '<span class="fh-pill low" data-lp-media="' + escHtml(_lpMedia.id) + '">📷 Adding photo… <b class="lp-pct">' +
     Math.round(_lpMedia.pct * 100) + '%</b></span>';
 }
@@ -7296,8 +7308,6 @@ function renderFarmerProduce() {
 // stock_status the way the reservation triggers do.
 var _leListing = null, _leReserved = 0, _leFile = null, _leUrl = '';
 
-function fhQty(n, u) { return Number(n).toLocaleString() + ' ' + escHtml(u || 'kg'); }
-
 function fhOpenEdit(id) {
   var l = (_fhProduce || []).filter(function (x) { return String(x.id) === String(id); })[0];
   if (!l) { showToast('We could not find that listing any more — refresh your produce'); return; }
@@ -7321,15 +7331,28 @@ function fhOpenEdit(id) {
 }
 function leCalc() {
   var qty = parseFloat((document.getElementById('leQty') || {}).value);
+  var price = parseFloat((document.getElementById('lePrice') || {}).value);
   var out = document.getElementById('leAvail');
-  if (!out) return;
   var u = fhUnit(_leListing || {});
-  if (!(qty > 0)) { out.textContent = 'Enter a quantity to see what buyers can order.'; return; }
-  var free = qty - _leReserved;
-  out.innerHTML = free <= 0
-    ? 'Buyers can order <b>0 ' + escHtml(u) + '</b> — the whole quantity is reserved by orders already.'
-    : 'Buyers can order <b>' + free.toLocaleString() + ' ' + escHtml(u) + '</b> of the ' +
-      qty.toLocaleString() + ' ' + escHtml(u) + ' you are listing.';
+  var pct = Number((_leListing && _leListing.discount_pct) || 0);
+  if (out) {
+    if (!(qty > 0)) { out.textContent = 'Enter a quantity to see what buyers can order.'; }
+    else {
+      var free = qty - _leReserved;
+      out.innerHTML = free <= 0
+        ? 'Buyers can order <b>0 ' + escHtml(u) + '</b> — the whole quantity is reserved by orders already.'
+        : 'Buyers can order <b>' + free.toLocaleString() + ' ' + escHtml(u) + '</b> of the ' +
+          qty.toLocaleString() + ' ' + escHtml(u) + ' you are listing.';
+    }
+  }
+  var tot = document.getElementById('leTotal');
+  if (!tot) return;
+  if (!(qty > 0) || !(price > 0)) { tot.textContent = 'Enter a quantity and a price to see what the whole listing adds up to.'; return; }
+  // Buyers see the discounted figure, so the total must be built from it.
+  var each = pct > 0 ? Math.round(price * (1 - pct / 100)) : price;
+  tot.textContent = 'UGX ' + each.toLocaleString() + ' each ' + u +
+    (pct > 0 ? ' after your ' + pct + '% discount' : '') +
+    ' — the whole listing adds up to UGX ' + (each * qty).toLocaleString() + '.';
 }
 function leSetErr(msg) {
   var el = document.getElementById('leErr');
@@ -11063,6 +11086,33 @@ document.addEventListener('DOMContentLoaded', function() {
       </div>
     </div>
     <button class="btn-submit" id="lpSubmit" onclick="submitListProduce()">📤 Post Listing Free</button>
+  </div>
+</div>
+
+<!-- ══ LISTING EDIT SHEET ═════════════════════════════════════ -->
+<div class="modal-overlay" id="listingEditModal" onclick="handleOverlay(event,'listingEditModal')" role="dialog" aria-label="Edit your listing">
+  <div class="modal-box">
+    <button class="modal-close" onclick="closeModal('listingEditModal')">✕</button>
+    <h3>✏️ Edit your listing</h3>
+    <div class="form-group"><label for="leCrop">Crop / produce</label>
+      <input type="text" id="leCrop" maxlength="120" placeholder="e.g. Matooke">
+    </div>
+    <div class="form-row">
+      <div class="form-group"><label for="leQty">Quantity you have (<span id="leUnitLabel">kg</span>)</label>
+        <input type="number" id="leQty" min="1" step="any" inputmode="decimal" oninput="leCalc()"></div>
+      <div class="form-group"><label for="lePrice">Price per unit (UGX)</label>
+        <input type="number" id="lePrice" min="1" step="any" inputmode="decimal" oninput="leCalc()"></div>
+    </div>
+    <div class="lp-hint" id="leTotal">Enter a quantity and a price to see what the whole listing adds up to.</div>
+    <div class="lp-hint" id="leReservedLine"></div>
+    <div class="lp-hint" id="leAvail"></div>
+    <div class="form-group"><label for="lePhoto">Photo buyers see on this listing</label>
+      <input type="file" id="lePhoto" accept="image/*" class="fh-file" onchange="lePickPhoto(this)">
+      <div id="lePhotoBox" class="lp-pick"></div>
+      <div class="lp-hint">A new photo replaces the old one as soon as it finishes uploading. JPEG or PNG, up to 5MB.</div>
+    </div>
+    <div class="lp-hint" id="leErr" role="alert"></div>
+    <button class="btn-submit" id="leSave" onclick="fhSaveEdit()">💾 Save changes</button>
   </div>
 </div>
 

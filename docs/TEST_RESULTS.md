@@ -340,6 +340,82 @@ rules were restored.
 Full runs after the stage: `tests/e2e` **40 passed** (79.4 s) and the whole
 suite **459 passed** (85.2 s; 419 unit + 40 browser), `ruff check` clean.
 
+### Stage F2 (2026-10-23) — managing a listing
+
+```bash
+PYTHONPATH=.test-deps /c/Users/HP/OneDrive/Python314/python.exe -m pytest tests/test_listing_edit.py -q
+PYTHONPATH=.test-deps /c/Users/HP/OneDrive/Python314/python.exe -m pytest tests/e2e/test_farmer_ui.py -q
+```
+
+```
+14 passed in 4.44s     (tests/test_listing_edit.py, new)
+21 passed in 63.83s    (tests/e2e/test_farmer_ui.py — 12 F1 + 9 new F2)
+```
+
+Full runs after the stage: `tests/e2e` **49 passed** (146.4 s), whole suite
+**482 passed** (246.3 s; 433 unit + 49 browser), `ruff check app.py services/
+scripts/ tests/` clean, all 7 inline `<script>` blocks parse.
+
+`tests/test_listing_edit.py` pins the endpoint's business rules: 401 without a
+verified session, 404 for a listing the caller does not own, the ownership filter
+present on *both* the read and the write, an empty body refused, a quantity below
+`reserved_qty` rejected with 409 **and no write at all**, `stock_status`
+re-derived at the trigger thresholds (`unavailable` at 0 remaining, `low_stock`
+at 92/100 reserved, `available` at 80/100), the compare-and-swap guard carrying
+the observed value, an in-flight reservation **losing the write** rather than
+overwriting it, bounds on price and quantity, a blank crop name, `is_available`
+touching no stock column, `updated_at` sent as an ISO stamp rather than the
+literal `now()`, and a failed transport returning 502 instead of pretending.
+`FakeSupa` enforces the guard and returns copies of rows, so the race test fails
+if the guard is removed rather than passing for the wrong reason.
+
+Browser coverage added in F2:
+
+* `test_a_chosen_photo_is_previewed_then_replaced_or_removed_before_posting` —
+  one preview, not two; replacing swaps it; removing returns the picker and
+  clears the file input so a removed photo cannot be posted by accident.
+* `test_an_unusable_photo_is_refused_with_a_reason_and_never_uploaded` — a text
+  file is refused as "not a photo" and a 5 MB+ image is refused with its actual
+  size, **before any upload request leaves the phone**.
+* `test_an_unsent_listing_form_is_put_back_when_the_farmer_returns` — the draft
+  survives a close and reopen, and its keys are asserted to be only the farmer's
+  own typed fields: no session token, no payment data.
+* `test_publishing_produce_saves_the_listing_then_attaches_the_photo` (extended) —
+  after a successful post the draft is gone, so a published listing cannot
+  resurrect itself as "unsent".
+* `test_photo_progress_and_failure_are_reported_on_the_listing_row` — 43 % mid
+  upload on the My Produce row, and after a failure the row stops claiming a
+  photo is still coming.
+* `test_the_edit_sheet_shows_real_numbers_and_blocks_a_quantity_below_reserved` —
+  the row's own quantity, price, unit and reserved figure; "buyers can order
+  40 kg of the 50 kg"; per-unit and total; a label for every field; 44 px save and
+  photo buttons; and a below-floor value refused locally with **no request sent**
+  while the sheet stays open.
+* `test_the_edit_sheet_prices_the_way_buyers_see_them` — with `discount_pct: 20`
+  the line reads UGX 2,400 each kg after the discount and UGX 120,000 for the
+  whole listing, built from the discounted unit price rather than the list price.
+* `test_saving_an_edit_writes_once_through_the_guarded_api` — two taps send **one**
+  PATCH whose body is exactly `{crop_name, quantity_kg, price_per_kg}`, the sheet
+  closes, the button is usable again and the row shows 50 kg free of 60 kg at the
+  new price.
+* `test_an_order_that_arrived_mid_edit_is_explained_and_the_floor_updates` — the
+  server's 409 reason is shown verbatim, its `reserved_qty: 35` is adopted so the
+  maths follows (5 kg of the 40 orderable), nothing looks saved and exactly one
+  attempt was made.
+* `test_hiding_and_showing_a_listing_is_a_server_write_the_row_reflects` — the
+  pause body is exactly `{is_available: false}` (no stock, price or status
+  rewrite), the row flips to "Hidden from buyers" with its next-step sentence and
+  the button becomes "Show to buyers", then back to Live.
+
+Seven deliberate mutations of the shipped code — drop the local reserved-floor
+check, drop the one-save lock, drop the 409 reserved-figure adoption, make
+hide/show write an extra column, revert the failed-upload pill, ignore the
+discount in the total, remove the draft-open guard — were each run against the
+matching test and **all seven were detected**; the file was restored byte-for-byte
+after each (`cmp` clean). The draft bug is the one that mattered most: clearing an
+`<input type=file>` programmatically fires a real `change` event, so the reset
+after a successful post re-saved the published details as an unsent draft.
+
 ## 5. What these tests do not prove
 
 * Pesapal API calls are faked. Token caching, redirect validation, verification
@@ -360,6 +436,11 @@ suite **459 passed** (85.2 s; 419 unit + 40 browser), `ruff check` clean.
   real farmer sign-in was performed, so every farmer figure is still proven only
   against fixture rows of verified shape, not against the owner's real listings,
   orders or payouts.
+* **Stage F2 is proven against fixtures, not against the owner's database.** The
+  409 path, the reserved floor and the compare-and-swap loss are all exercised by
+  fakes that implement the documented column behaviour; `PATCH /api/listings/<id>`
+  has never run against real rows, and `reserved_qty` is still only protected by
+  this endpoint's logic — no `CHECK` constraint exists in the schema.
 
 ## 6. Live verification status
 

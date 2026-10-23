@@ -145,6 +145,8 @@ def _reset_scenario(**over):
     SC["payouts"] = json.loads(json.dumps(PAYOUTS))
     SC["farmer"] = dict(FARMER)
     SC["fail"] = set()
+    SC["patch_status"] = None
+    SC["patch_body"] = None
     SC.update(over)
     del CALLS[:]
 
@@ -251,6 +253,23 @@ def _handle(route, request):
                     row["image_url"] = body.get("image_url")
             return route.fulfill(status=200, headers=cors, content_type="application/json",
                                  body=json.dumps({"ok": True}))
+        if path.startswith("/api/listings/") and method == "PATCH":
+            # The guarded edit endpoint: the fixture keeps the row, so what the
+            # farmer sees afterwards is what a successful write actually changed.
+            lid = int(path.split("/")[3])
+            body = json.loads(request.post_data or "{}")
+            CALLS.append(("listing-patch", lid, body))
+            if SC.get("patch_status"):
+                return route.fulfill(status=SC["patch_status"], headers=cors,
+                                     content_type="application/json",
+                                     body=json.dumps(SC.get("patch_body") or {"error": "rejected"}))
+            saved = None
+            for row in SC["listings"]:
+                if row["id"] == lid:
+                    row.update(body)
+                    saved = row
+            return route.fulfill(status=200, headers=cors, content_type="application/json",
+                                 body=json.dumps({"ok": True, "listing": saved}))
         if path == "/api/uploads":
             raw = (request.post_data_buffer or b"")[:4000].decode("utf-8", "replace")
             CALLS.append(("upload", raw))
@@ -615,6 +634,8 @@ def test_publishing_produce_saves_the_listing_then_attaches_the_photo(farm):
     body = page.inner_text("#fp-body")
     assert "30 kg free of 30 kg" in body
     assert page.locator("#fp-body .fh-card img").count() == 2   # own photos only
+    # A posted listing must not come back as an unsent draft on the next open.
+    assert not page.evaluate("!!localStorage.getItem('ab_listing_draft')")
     assert errors == [], errors
 
 
@@ -648,3 +669,242 @@ def test_every_farmer_screen_stays_reachable_and_error_free(farm):
         assert shortcuts.nth(i).bounding_box()["height"] >= 44
 
     assert errors == [], errors
+
+
+# ══ Stage F2: the listing form, the photo, and managing a live listing ═══════
+
+
+def test_a_chosen_photo_is_previewed_then_replaced_or_removed_before_posting(farm):
+    page, errors = farm
+    page.evaluate("openListProduceModal()")
+    page.wait_for_selector("#listProduceModal.open", timeout=8000)
+    assert "Take or choose a photo" in page.inner_text("#lpPhotoBox")
+
+    page.set_input_files("#lpPhoto", {"name": "harvest.png", "mimeType": "image/png", "buffer": PNG_1X1})
+    page.wait_for_selector("#lpPhotoBox .lp-shot img", timeout=4000)
+    assert page.locator("#lpPhotoBox .lp-shot").count() == 1
+    assert "harvest.png" in page.inner_text("#lpPhotoBox")
+    # The farmer is told what the picture will do, not just that a file was picked.
+    assert "This is the photo buyers will see" in page.inner_text("#lpPhotoHint")
+
+    # Replacing swaps the one preview instead of stacking a second one.
+    page.set_input_files("#lpPhoto", {"name": "second.png", "mimeType": "image/png", "buffer": PNG_1X1})
+    page.wait_for_function(
+        "document.querySelector('#lpPhotoBox .lp-name').textContent === 'second.png'", timeout=4000)
+    assert page.locator("#lpPhotoBox .lp-shot").count() == 1
+
+    # Removing puts the picker back and clears the file input, so a removed
+    # photo can never be posted by accident.
+    page.click("#lpPhotoBox .lp-acts button:nth-child(2)")
+    page.wait_for_selector("#lpPhotoBox .lp-pick-btn", timeout=4000)
+    assert page.evaluate("document.getElementById('lpPhoto').value") == ""
+    assert "A real photo of what you are actually selling" in page.inner_text("#lpPhotoHint")
+    assert errors == [], errors
+
+
+def test_an_unusable_photo_is_refused_with_a_reason_and_never_uploaded(farm):
+    page, errors = farm
+    del CALLS[:]
+    page.evaluate("openListProduceModal()")
+    page.wait_for_selector("#listProduceModal.open", timeout=8000)
+
+    page.set_input_files("#lpPhoto", {"name": "notes.txt", "mimeType": "text/plain", "buffer": b"not an image"})
+    page.wait_for_function(
+        "document.getElementById('lpPhotoHint').textContent.indexOf('not a photo') >= 0", timeout=4000)
+    assert "not a photo" in page.inner_text("#lpPhotoHint")
+    assert page.locator("#lpPhotoBox .lp-pick-btn").count() == 1   # nothing was accepted
+
+    # Oversize is refused on the phone, before a 5MB upload eats a data bundle.
+    page.set_input_files("#lpPhoto", {"name": "huge.png", "mimeType": "image/png",
+                                     "buffer": b"0" * (5 * 1024 * 1024 + 4096)})
+    page.wait_for_function("document.getElementById('lpPhotoHint').textContent.indexOf('under 5MB') >= 0", timeout=4000)
+    hint = page.inner_text("#lpPhotoHint")
+    assert "5.0 MB" in hint and "under 5MB" in hint
+    assert not any(c[0] == "upload" for c in CALLS)
+    assert errors == [], errors
+
+
+def test_an_unsent_listing_form_is_put_back_when_the_farmer_returns(farm):
+    page, errors = farm
+    page.evaluate("openListProduceModal()")
+    page.wait_for_selector("#listProduceModal.open", timeout=8000)
+    page.fill("#lpQty", "45")
+    page.fill("#lpPrice", "2100")
+    page.fill("#lpDesc", "Grade A, picked Tuesday")
+    page.select_option("#lpCat", "fruits")
+
+    # Interrupted before posting (dropped network, a phone call, the app closing).
+    page.evaluate("closeModal('listProduceModal')")
+    assert page.evaluate("!!localStorage.getItem('ab_listing_draft')")
+
+    page.evaluate("openListProduceModal()")
+    page.wait_for_selector("#listProduceModal.open", timeout=8000)
+    assert page.input_value("#lpQty") == "45"
+    assert page.input_value("#lpPrice") == "2100"
+    assert page.input_value("#lpDesc") == "Grade A, picked Tuesday"
+    assert page.evaluate("document.getElementById('lpCat').value") == "fruits"
+    assert "put back the details" in page.inner_text("#lpPhotoHint")
+    # Only the farmer's own typed text is kept — never a session or payment data.
+    draft = page.evaluate("JSON.parse(localStorage.getItem('ab_listing_draft'))")
+    assert set(draft) <= {"lpCrop", "lpCat", "lpQty", "lpPrice", "lpDistrict", "lpDesc",
+                          "lpSaleUnit", "lpMinOrder", "lpDelivery", "lpPayMomo", "lpPayCash", "lpPayBank"}
+    assert errors == [], errors
+
+
+def test_photo_progress_and_failure_are_reported_on_the_listing_row(farm):
+    page, errors = farm
+    page.evaluate("showPage('farmer-produce')")
+    page.wait_for_selector("#fp-body .fh-tab", timeout=8000)
+
+    # The listing is already saved and the form closed, so progress belongs on
+    # the row the farmer is looking at.
+    page.evaluate("lpMediaStart(201); lpMediaProgress(30/70); renderFarmerProduce()")
+    pill = page.locator("#fp-body [data-lp-media='201']")
+    assert "Adding photo" in pill.inner_text() and "43%" in pill.inner_text()
+
+    # A failure must stop claiming a photo is still on its way.
+    page.evaluate("lpMediaEnd(true); lpMediaProgress(0.6); renderFarmerProduce()")
+    txt = page.locator("#fp-body [data-lp-media='201']").inner_text()
+    assert "Photo not added" in txt and "Adding photo" not in txt
+
+    page.evaluate("lpMediaEnd(false)")
+    assert page.locator("#fp-body [data-lp-media]").count() == 0
+    assert errors == [], errors
+
+
+def test_the_edit_sheet_shows_real_numbers_and_blocks_a_quantity_below_reserved(farm):
+    page, errors = farm
+    page.evaluate("showPage('farmer-produce')")
+    page.wait_for_selector("#fp-body .fh-tab", timeout=8000)
+    del CALLS[:]
+
+    page.evaluate("fhOpenEdit(201)")   # Tomatoes: 50 kg listed, 10 kg already reserved
+    page.wait_for_selector("#listingEditModal.open", timeout=8000)
+    assert page.evaluate("document.getElementById('leCrop').value") == "Tomatoes"
+    assert page.input_value("#leQty") == "50"
+    assert page.input_value("#lePrice") == "3000"
+    assert page.evaluate("document.getElementById('leUnitLabel').textContent") == "kg"
+    assert "10 kg of this listing is already reserved" in page.inner_text("#leReservedLine")
+    assert "Buyers can order 40 kg of the 50 kg" in page.inner_text("#leAvail")
+    # Per-unit and total are spelled out, so a price is never a surprise.
+    total = page.inner_text("#leTotal")
+    assert "UGX 3,000 each kg" in total and "UGX 150,000" in total
+
+    for fid in ("leCrop", "leQty", "lePrice", "lePhoto"):
+        assert page.locator(f"label[for='{fid}']").count() == 1
+    # Thumb-sized on a phone: 0.1px slack because Chromium lays these out at
+    # 43.99998 CSS px against a min-height:44px rule.
+    assert page.locator("#leSave").bounding_box()["height"] >= 43.9
+    assert page.locator("#lePhotoBox .lp-pick-btn").bounding_box()["height"] >= 43.9
+
+    # Under the reserved floor the sheet refuses locally — no wasted request,
+    # and the sheet stays open so the farmer can correct the number.
+    page.fill("#leQty", "5")
+    assert "Buyers can order 0 kg" in page.inner_text("#leAvail")
+    page.click("#leSave")
+    page.wait_for_function("document.getElementById('leErr').textContent.length > 0", timeout=4000)
+    err = page.inner_text("#leErr")
+    assert "reserved by orders" in err and "cannot go below" in err
+    assert not any(c[0] == "listing-patch" for c in CALLS)
+    assert page.evaluate("document.getElementById('listingEditModal').classList.contains('open')")
+    assert errors == [], errors
+
+
+def test_saving_an_edit_writes_once_through_the_guarded_api(farm):
+    page, errors = farm
+    page.evaluate("showPage('farmer-produce')")
+    page.wait_for_selector("#fp-body .fh-tab", timeout=8000)
+    page.evaluate("fhOpenEdit(201)")
+    page.wait_for_selector("#listingEditModal.open", timeout=8000)
+    page.fill("#leQty", "60")
+    page.fill("#lePrice", "2900")
+    del CALLS[:]
+
+    # Two taps while the PATCH is in flight must write once, not twice.
+    page.evaluate("fhSaveEdit(); fhSaveEdit()")
+    assert _wait_call("listing-patch", page=page)
+    patches = [c for c in CALLS if c[0] == "listing-patch"]
+    assert len(patches) == 1
+    assert patches[0][1] == 201
+    # Only the three editable fields travel; reserved_qty and stock_status are
+    # the server's to decide, and is_available is untouched by a price edit.
+    assert patches[0][2] == {"crop_name": "Tomatoes", "quantity_kg": 60, "price_per_kg": 2900}
+
+    page.wait_for_function("!document.getElementById('listingEditModal').classList.contains('open')", timeout=8000)
+    assert "Saving" not in page.inner_text("#leSave")      # the button is usable again
+    row = page.locator("#fp-body .fh-card", has_text="Tomatoes").filter(has_text="50 kg free of 60 kg")
+    row.wait_for(timeout=8000)
+    assert "UGX 2,900" in row.inner_text()
+    assert errors == [], errors
+
+
+def test_an_order_that_arrived_mid_edit_is_explained_and_the_floor_updates(farm):
+    page, errors = farm
+    # The server kept the old quantity because a reservation landed first; it
+    # returns the real reserved figure rather than leaving the farmer to guess.
+    SC["patch_status"] = 409
+    SC["patch_body"] = {"error": "An order came in while you were editing, so the stock figure changed. "
+                                 "Reload the listing and try again.", "reserved_qty": 35}
+    page.evaluate("showPage('farmer-produce')")
+    page.wait_for_selector("#fp-body .fh-tab", timeout=8000)
+    page.evaluate("fhOpenEdit(201)")
+    page.wait_for_selector("#listingEditModal.open", timeout=8000)
+    page.fill("#leQty", "40")
+    del CALLS[:]
+    page.click("#leSave")
+
+    page.wait_for_function("document.getElementById('leErr').textContent.length > 0", timeout=8000)
+    assert "An order came in while you were editing" in page.inner_text("#leErr")
+    assert "35 kg of this listing is now reserved" in page.inner_text("#leReservedLine")
+    assert "Buyers can order 5 kg of the 40 kg" in page.inner_text("#leAvail")
+    # Nothing looks saved: the sheet stays open and the row still shows the old stock.
+    assert page.evaluate("document.getElementById('listingEditModal').classList.contains('open')")
+    assert "40 kg free of 50 kg" in page.locator("#fp-body .fh-card", has_text="Tomatoes").inner_text()
+    assert len([c for c in CALLS if c[0] == "listing-patch"]) == 1
+    assert errors == [], errors
+
+
+def test_hiding_and_showing_a_listing_is_a_server_write_the_row_reflects(farm):
+    page, errors = farm
+    page.evaluate("showPage('farmer-produce')")
+    page.wait_for_selector("#fp-body .fh-tab", timeout=8000)
+    page.evaluate("fhProdFilter('all')")
+    row = page.locator("#fp-body .fh-card", has_text="Tomatoes")
+    row.wait_for(timeout=8000)
+    del CALLS[:]
+
+    page.evaluate("fhSetVisible(201, false)")
+    assert _wait_call("listing-patch", page=page)
+    # Pausing touches visibility only: no stock, price or status rewrite.
+    assert [c for c in CALLS if c[0] == "listing-patch"][-1][2] == {"is_available": False}
+    page.locator("#fp-body .fh-card", has_text="Tomatoes").filter(has_text="Hidden from buyers").wait_for(timeout=8000)
+    assert "Show to buyers" in row.inner_text()
+    assert "The marketplace does not show this listing" in row.inner_text()
+
+    del CALLS[:]
+    page.evaluate("fhSetVisible(201, true)")
+    assert _wait_call("listing-patch", page=page)
+    assert [c for c in CALLS if c[0] == "listing-patch"][-1][2] == {"is_available": True}
+    page.locator("#fp-body .fh-card", has_text="Tomatoes").filter(has_text="Live").wait_for(timeout=8000)
+    assert "Hide from buyers" in row.inner_text()
+    assert errors == [], errors
+
+
+def test_the_edit_sheet_prices_the_way_buyers_see_them(farm):
+    page, errors = farm
+    # A running discount changes what a buyer pays per unit, so the total the
+    # farmer is shown must be built from the discounted figure, not the list price.
+    for row in SC["listings"]:
+        if row["id"] == 201:
+            row["discount_pct"] = 20
+    page.evaluate("farmerDataClear(); showPage('farmer-produce')")
+    page.locator("#fp-body .fh-card", has_text="Tomatoes").filter(has_text="UGX 2,400").wait_for(timeout=8000)
+
+    page.evaluate("fhOpenEdit(201)")
+    page.wait_for_selector("#listingEditModal.open", timeout=8000)
+    assert page.input_value("#lePrice") == "3000"      # the list price is what they edit
+    total = page.inner_text("#leTotal")
+    assert "UGX 2,400 each kg after your 20% discount" in total
+    assert "UGX 120,000" in total                      # 2,400 × 50 kg
+    assert errors == [], errors
+
