@@ -147,6 +147,127 @@ endorsed; checkout/payment/delivery-tracking behaviour is Stage 2/3 work.
 
 ---
 
+## Stage F1 — Farmer dashboard (2026-10-23) — BUILT AND TESTED LOCALLY, NOT DEPLOYED
+
+The first slice of the farmer interface, in the owner's stated order: **home
+dashboard first, then the screens behind it**. Five tabs — Home · Produce ·
+Orders · Earnings · Profile — with transport and every other tool reachable from
+the header ☰ sheet rather than a sixth tab.
+
+**Changed files:** `static/index.html` (+746/−44) and the new
+`tests/e2e/test_farmer_ui.py`. No migration, no RLS change, no backend change,
+no new dependency, no new build tooling — the same single-file SPA and the same
+publishable-key + user-JWT path to PostgREST.
+
+Every figure comes from a server row, and each read names its columns:
+
+- **Home** — greeting and avatar from the verified `farmers` row, Active produce
+  from `listings` (`quantity_kg − reserved_qty` + `stock_status`), New orders and
+  Needs action from `orders.status` filtered through the real `set_order_status`
+  transitions, Awaiting payout / Paid out from `payouts` only. The fabricated
+  `24°C` weather tile, the all-orders "Income" figure and the all-listings
+  "Active" figure were removed from the farmer home, together with the
+  `samplePrices()` fallback.
+- **My Produce** — the real stock model (Live / Low stock / Fully reserved /
+  Hidden from buyers / Temporarily unavailable) each with the next step, only the
+  farmer's own photographs (`image_url`/`photo_url`, never `listingImage()`'s
+  stock photo), tab counts from the same rows.
+- **Orders** — reference (`tracking_code` else order id), crop + quantity from
+  `notes`/`item_category`, date, total using the ledger's own precedence
+  (`total_amount` → `total_price` → qty×price), payment status, method, and only
+  the transitions the server allows. Cancellation asks first, because it is the
+  one action that cannot be undone from this screen.
+- **Earnings** — `payouts` records only: gross, commission and net as stored,
+  bucketed by `services/finance.py`'s status sets. An order is never presented as
+  money. Transport is stated as not recorded rather than invented.
+- **Profile** — name, phone and district editable through
+  `POST /api/user/profile` (server validates, normalises `+256`, 409s on a
+  duplicate); verification, premium, sub-county, village, farm size and crops are
+  read-only; the avatar goes through `POST /api/uploads` then an owner-scoped
+  `profile_photo` update.
+
+`sb()` returns `null` on a failed read and `[]` on a genuinely empty one, and
+that distinction is carried to every screen: an outage reads "Unavailable — try
+again" with a retry, never "you have nothing".
+
+**Two real defects found and fixed on the way** (both pinned by tests):
+
+1. `attachListingMedia()` had been deleted by the buyer-redesign commit `74879f8`
+   while both call sites survived, so choosing a photo in **Sell produce** threw
+   `ReferenceError: attachListingMedia is not defined` and silently dropped the
+   photograph. Restored from `ce64899`; the listing still saves first, so a slow
+   upload can never cost a farmer the listing.
+2. A double tap on **Post Listing Free** posted the same crop twice, because
+   nothing held the in-flight POST. Added a save lock plus visible "Saving your
+   listing…" progress. With the lock disabled the new test sees two identical
+   POSTs; with it enabled, one.
+
+Also fixed: the verified DB name/photo arriving after the home had painted left a
+stale greeting (`fhHeadRefresh()`), and the section links were click-only anchors
+no keyboard could reach (now real buttons). The buyer's phone number is now shown
+only once the farmer has accepted an order, matching the accepted privacy policy
+v1.0.0 §"Buyer and seller" ("private from each other until an order requires it")
+rather than on every open order.
+
+**A visual pass over all five screens at 390×844 found what no assertion had
+caught.** The farmer Home was 4677 px tall: `applyHomeMode()` un-hid every
+non-panel child of the home page, so a seller's dashboard was followed by the
+entire buyer storefront — search, hero, category chips, two 720 px product grids
+and the buyer footer. It now hides everything except the dashboard and the
+footer's contact/legal block, and the page measures 2438 px; a regression test
+asserts those five storefront sections compute `display:none` on a seller's Home.
+The same pass set the remaining touch targets to the 44 px floor the mandate
+asks for — the produce/orders filter chips (`.fh-tab`, was 40 px) and the buyer
+contact link, which moved off the phone-number line into a 44 px
+"Open delivery & tracking" button (was a 32 px inline link). Dead code
+(`fhViewListing()`, defined and referenced nowhere) was deleted rather than left
+in. Both CSS rules were checked by reverting them and watching the new
+assertions fail (32 px, and the chip row), then restoring.
+
+**Verification:** 12 new Playwright tests over the real HTML with deterministic
+fixtures (own rows vs another farmer's, legal-transition buttons, payout-derived
+money, exact `POST /api/user/profile` body, empty-vs-error states, the seller
+Home suppressing the buyer storefront, 44 px filter chips and contact button,
+zero page errors). Both new defect tests were confirmed to fail against the
+broken code, as were the two touch-target assertions against the reverted CSS.
+`tests/e2e/test_farmer_ui.py` 12 passed (23 s). All 40 browser tests pass
+(79.4 s). Full suite **459 passed** (85.2 s). `ruff check app.py services/
+scripts/ tests/` clean on local 0.16.10. All 6 inline script blocks parse.
+Heights are asserted with 0.1 px slack because Chromium lays a `min-height:44px`
+chip out at 43.99998 CSS px; the same probe measured every chip and the contact
+button at exactly 44.0 px.
+
+**Production status: NOT DEPLOYED.** The owner has not authorised pushing or
+deploying the farmer interface, so this is local-working-tree only; nothing on
+`agribrige.com` changed.
+
+What *could* be checked live without a deploy was checked: a read-only probe
+against the real Supabase project sent the four select strings scraped from
+`static/index.html` (61 columns across `listings`, `orders`, `payouts` and
+`farmers`) using only the publishable key the shipped SPA already carries. All
+four returned `200` with no "column does not exist" error, and `orders`/`payouts`
+returned zero rows to the anonymous role — so the schema the screens name is
+real and RLS still hides a farmer's money from anon. What that does **not**
+prove is the authenticated path: no real farmer sign-in was performed, so the
+numbers themselves are still proven only against fixture rows of verified shape.
+
+**Deferred, with the reason:**
+
+- **Listing edit / pause / quantity change** — no business-rule-safe endpoint
+  exists; a raw RLS `PATCH` would bypass the `reserved_qty` stock rules and the
+  `stock_status` triggers. The produce screen says this plainly instead of
+  showing dead Edit buttons. Stage F2.
+- **Photo preview / replace / remove** — `#lpPhoto` is still a bare file input.
+  Stage F2.
+- **`orders_farmer_update` allows a farmer to write any column of their orders**
+  (`supabase/base-schema.sql`, no `with check` column restriction). Pre-existing
+  security defect; the fix is a migration and none is authorised here. The
+  farmer UI only ever calls `POST /api/orders/<id>/status`.
+- **Transport** — the app records no transporter charge or delivery fee, so no
+  screen claims a matching, tracking or cost it cannot back.
+
+---
+
 **Phase 1 COMPLETE — Baseline Audit**
 **Completed:** 2026-10-10
 **Auditor:** Claude Code (baseline inspection, no live environment access)

@@ -2070,6 +2070,123 @@ def attach_listing_media(listing_id):
     return jsonify({'ok': True})
 
 
+# The web form warns about these, but the form is bypassable, so the same
+# bounds are enforced here and the two can never disagree.
+LISTING_MAX_QTY   = 1_000_000
+LISTING_MAX_PRICE = 10_000_000
+
+
+def _listing_stock_status(new_qty, reserved):
+    """Re-derive stock_status exactly as the reservation triggers do.
+
+    0001 sets 'unavailable' at zero remaining and 'low_stock' at 10% or less;
+    anything else is 'available'. 'temporarily_unavailable' is never written
+    here because nothing in the schema produces it.
+    """
+    remaining = new_qty - reserved
+    if remaining <= 0:
+        return 'unavailable'
+    if remaining <= new_qty * 0.1:
+        return 'low_stock'
+    return 'available'
+
+
+@app.route('/api/listings/<listing_id>', methods=['PATCH'])
+@rate_limit(max_req=20, window=60)
+def update_farmer_listing(listing_id):
+    """Edit a farmer's own listing under the stock rules the database uses.
+
+    The listings_owner_update policy lets an owner write any column of their
+    own row, so a raw browser PATCH could set quantity_kg below reserved_qty
+    and make the amount buyers can order negative. This route re-reads the
+    row, refuses that, and writes back only while reserved_qty still equals
+    what it just read — so an order reserved in between loses the write
+    instead of being silently overwritten.
+    """
+    uid, err = verify_supabase_user()
+    if err:
+        return err
+    blocked = legal_gate(uid)
+    if blocked:
+        return blocked
+    body = request.get_json(force=True, silent=True) or {}
+
+    patch = {}
+    if 'crop_name' in body:
+        crop = str(body.get('crop_name') or '').strip()[:80]
+        if not crop:
+            return jsonify({'error': 'crop_name cannot be empty'}), 400
+        patch['crop_name'] = crop
+    if 'description' in body:
+        patch['description'] = (str(body.get('description') or '').strip()[:300] or None)
+    if 'price_per_kg' in body:
+        try:
+            price = float(body.get('price_per_kg'))
+        except (TypeError, ValueError):
+            return jsonify({'error': 'price_per_kg must be a number'}), 400
+        if not (0 < price <= LISTING_MAX_PRICE):
+            return jsonify({'error': f'price_per_kg must be between 1 and {LISTING_MAX_PRICE:,}'}), 400
+        patch['price_per_kg'] = price
+    if 'is_available' in body:
+        patch['is_available'] = bool(body.get('is_available'))
+
+    new_qty = None
+    if 'quantity_kg' in body:
+        try:
+            new_qty = float(body.get('quantity_kg'))
+        except (TypeError, ValueError):
+            return jsonify({'error': 'quantity_kg must be a number'}), 400
+        if not (0 < new_qty <= LISTING_MAX_QTY):
+            return jsonify({'error': f'quantity_kg must be between 1 and {LISTING_MAX_QTY:,}'}), 400
+
+    if not patch and new_qty is None:
+        return jsonify({'error': 'Nothing to update'}), 400
+
+    rows = SUPA.select('listings', {
+        'id': f'eq.{listing_id}', 'farmer_id': f'eq.{uid}',
+        'select': 'id,reserved_qty,quantity_kg,stock_status,is_available,crop_name',
+    }, limit=1)
+    if not rows:
+        return jsonify({'error': 'Listing not found'}), 404
+    current = rows[0]
+    try:
+        reserved = float(current.get('reserved_qty') or 0)
+    except (TypeError, ValueError):
+        reserved = 0.0
+
+    if new_qty is not None:
+        if new_qty < reserved:
+            return jsonify({
+                'error': f'You already have {reserved:g} kg reserved by orders, '
+                         f'so the quantity cannot go below that.',
+                'reserved_qty': reserved, 'min_quantity': reserved,
+            }), 409
+        patch['quantity_kg'] = new_qty
+        patch['stock_status'] = _listing_stock_status(new_qty, reserved)
+
+    # Compare-and-swap on the value just read: if an order reserved stock while
+    # this request was in flight, zero rows come back and nothing is written.
+    guard = {'id': f'eq.{listing_id}', 'farmer_id': f'eq.{uid}'}
+    if new_qty is not None:
+        guard['reserved_qty'] = f'eq.{current.get("reserved_qty")}'
+    patch['updated_at'] = datetime.datetime.utcnow().isoformat()
+    res = SUPA.update_checked('listings', patch, guard)
+    if not res.ok:
+        log.error('listing.update_failed', listing_id=listing_id, status=res.status)
+        return jsonify({'error': 'Could not save your changes. Please try again.'}), 502
+    if not res.data:
+        return jsonify({
+            'error': 'An order came in while you were editing, so the stock figure '
+                     'changed. Reload the listing and try again.',
+            'reserved_qty': reserved,
+        }), 409
+
+    _log_system_event('listing_updated_web', {
+        'farmer_id': uid, 'listing_id': listing_id, 'fields': sorted(patch.keys()),
+    }, severity='info', user_id=uid)
+    return jsonify({'ok': True, 'listing': res.data[0]}), 200
+
+
 @app.route('/api/listings', methods=['GET'])
 @rate_limit(max_req=60, window=60)
 def public_listings():

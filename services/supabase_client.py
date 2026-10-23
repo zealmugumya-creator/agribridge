@@ -108,6 +108,32 @@ class SupabaseClient:
             log.error("supabase.update_failed", table=table, error=type(exc).__name__)
             return False
 
+    def update_checked(self, table: str, data: dict, filters: dict[str, Any]) -> RpcResult:
+        """UPDATE ... WHERE <filters> RETURNING the affected rows.
+
+        PostgREST cannot compare two columns in a filter, so a guard like
+        "only write this quantity while reserved_qty is still what I read" is
+        expressed as an exact-match condition on the value just observed. Zero
+        rows back means somebody else changed the row in between, which is how
+        the caller detects a lost race instead of silently overwriting it.
+        """
+        if not self.configured:
+            return RpcResult(ok=False, error="supabase not configured")
+        try:
+            resp = requests.patch(f"{self._url}/rest/v1/{table}", json=data,
+                                  params=filters,
+                                  headers=self._headers("return=representation"),
+                                  timeout=_TIMEOUT)
+            if resp.status_code < 300:
+                try:
+                    return RpcResult(ok=True, data=resp.json(), status=resp.status_code)
+                except ValueError:
+                    return RpcResult(ok=True, data=[], status=resp.status_code)
+            return RpcResult(ok=False, status=resp.status_code, error=resp.text[:300])
+        except requests.RequestException as exc:
+            log.error("supabase.update_checked_failed", table=table, error=type(exc).__name__)
+            return RpcResult(ok=False, error=type(exc).__name__)
+
     def upsert(self, table: str, data: dict | list[dict],
                on_conflict: str | None = None) -> RpcResult:
         """Insert-or-update by natural key (PostgREST merge resolution).

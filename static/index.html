@@ -895,6 +895,111 @@ input:focus,select:focus,textarea:focus{outline:none;border-color:var(--green) !
 .hd-qa button span{font-size:1.4rem}
 .hd-qa button:active{transform:scale(.96);border-color:rgba(23,224,107,.4);color:var(--green-light)}
 @media(min-width:760px){ .hd-tiles{grid-template-columns:repeat(4,1fr)} }
+
+/* ═══════════ FARMER DASHBOARD (Stage F1) ═══════════ */
+.fh-head{display:flex;align-items:center;gap:10px;margin:2px 0 14px}
+.fh-av-btn{display:flex;align-items:center;gap:10px;min-width:0;background:none;border:none;padding:0;cursor:pointer;font-family:inherit;color:inherit;text-align:left}
+.fh-avatar{width:44px;height:44px;border-radius:50%;flex:0 0 auto;overflow:hidden;background:var(--green);color:#04100a;font-weight:800;font-size:1.05rem;display:flex;align-items:center;justify-content:center}
+.fh-avatar img{width:100%;height:100%;object-fit:cover}
+.fh-hi{display:block;font-size:.72rem;color:var(--text2);font-weight:700;line-height:1.3}
+.fh-name{display:block;font-size:.98rem;font-weight:800;color:#fff;line-height:1.25;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:min(44vw,250px)}
+.fh-btns{margin-left:auto;display:flex;gap:6px;flex:0 0 auto}
+.fh-icon{position:relative;width:44px;height:44px;border-radius:14px;display:flex;align-items:center;justify-content:center;
+  background:var(--card);border:1px solid var(--border);color:var(--text);font-size:1.05rem;cursor:pointer;font-family:inherit}
+.fh-icon:active{transform:scale(.95)}
+.fh-dot{position:absolute;top:5px;right:5px;min-width:17px;height:17px;padding:0 4px;border-radius:999px;background:var(--amber);
+  color:#1a1204;font-size:.62rem;font-weight:800;display:none;align-items:center;justify-content:center}
+.fh-dot.on{display:flex}
+.fh-sell{display:flex;align-items:center;gap:12px;width:100%;min-height:66px;padding:14px 16px;border-radius:18px;
+  border:1px solid rgba(23,224,107,.42);background:linear-gradient(135deg,rgba(23,224,107,.18),rgba(23,224,107,.04));
+  color:#fff;cursor:pointer;font-family:inherit;text-align:left;margin-bottom:14px}
+.fh-sell:active{transform:scale(.99)}
+.fh-sell-ic{width:40px;height:40px;border-radius:12px;flex:0 0 auto;display:flex;align-items:center;justify-content:center;font-size:1.3rem;background:var(--green);color:#04100a}
+.fh-sell b{display:block;font-size:1.02rem;line-height:1.2}
+.fh-sell small{display:block;font-size:.76rem;color:var(--text2);font-weight:600;margin-top:3px}
+.fh-sell i{margin-left:auto;font-style:normal;font-size:1.15rem;color:var(--green-light)}
+.fh-stats,.fh-sum{display:grid;grid-template-columns:repeat(2,1fr);gap:10px;margin-bottom:16px}
+.fh-stat{display:block;width:100%;text-align:left;background:var(--card);border:1px solid var(--border);border-radius:16px;padding:12px 13px;cursor:pointer;font-family:inherit;color:inherit}
+.fh-stat:active{border-color:rgba(23,224,107,.4)}
+.fh-stat-lbl{display:block;font-size:.67rem;font-weight:800;letter-spacing:.04em;text-transform:uppercase;color:var(--text2)}
+.fh-stat-val{display:block;font-size:1.28rem;font-weight:800;color:#fff;margin:6px 0 2px;line-height:1.1;overflow-wrap:anywhere}
+.fh-stat-sub{display:block;font-size:.72rem;color:var(--text2);line-height:1.35}
+.fh-sec{margin:0 0 18px}
+.fh-sec-top{display:flex;align-items:baseline;gap:8px;margin-bottom:10px}
+.fh-sec-top h4{font-size:.95rem;font-weight:800;color:#fff;margin:0}
+.fh-sec-top a,.fh-more{margin-left:auto;font-size:.8rem;font-weight:700;color:var(--green-light);cursor:pointer;white-space:nowrap;padding:8px 2px;min-height:32px;background:none;border:0;font-family:inherit;text-align:left}
+.fh-sec-top .fh-more,.fh-more.fh-open{min-height:44px;display:inline-flex;align-items:center}
+.fh-list{display:flex;flex-direction:column;gap:9px}
+.fh-card{display:flex;align-items:flex-start;gap:11px;background:var(--card);border:1px solid var(--border);border-radius:16px;padding:11px 12px}
+.fh-thumb{width:48px;height:48px;border-radius:12px;flex:0 0 auto;overflow:hidden;background:var(--bg3);display:flex;align-items:center;justify-content:center;font-size:1.35rem}
+.fh-thumb img{width:100%;height:100%;object-fit:cover}
+.fh-mid{flex:1;min-width:0}
+.fh-t{font-size:.88rem;font-weight:700;color:#fff;overflow-wrap:anywhere;line-height:1.3}
+.fh-s{font-size:.74rem;color:var(--text2);margin-top:3px;line-height:1.4;overflow-wrap:anywhere}
+.fh-r{font-size:.86rem;font-weight:800;color:var(--green-light);white-space:nowrap;text-align:right;flex:0 0 auto}
+.fh-r small{display:block;font-size:.67rem;color:var(--text2);font-weight:600;margin-top:2px}
+.fh-pill{display:inline-block;padding:2px 8px;border-radius:999px;font-size:.67rem;font-weight:800;letter-spacing:.02em;margin:5px 5px 0 0}
+.fh-pill.live{background:rgba(23,224,107,.14);color:var(--green)}
+.fh-pill.low{background:rgba(255,194,75,.16);color:var(--amber)}
+.fh-pill.out,.fh-pill.bad{background:rgba(224,85,85,.14);color:#e05555}
+.fh-pill.off{background:var(--bg3);color:var(--text2)}
+.fh-pill.info{background:rgba(91,155,255,.14);color:#5b9bff}
+.fh-pill.ok{background:rgba(23,224,107,.14);color:var(--green)}
+.fh-next{font-size:.75rem;color:var(--text2);margin-top:7px;line-height:1.45}
+.fh-next b{color:var(--green-light);font-weight:700}
+.fh-empty{background:var(--card);border:1px dashed var(--border);border-radius:16px;padding:18px 14px;text-align:center}
+.fh-empty-ic{font-size:1.7rem;line-height:1}
+.fh-empty h5{font-size:.9rem;font-weight:800;color:#fff;margin:8px 0 4px}
+.fh-empty p{font-size:.78rem;color:var(--text2);line-height:1.45;margin:0 auto 12px;max-width:36ch}
+.fh-err{background:rgba(224,85,85,.07);border:1px solid rgba(224,85,85,.28);border-radius:16px;padding:14px}
+.fh-err p{font-size:.8rem;color:var(--text);margin:0 0 10px;line-height:1.45}
+.fh-note{background:var(--bg3);border:1px solid var(--border);border-radius:12px;padding:11px 12px;font-size:.75rem;color:var(--text2);line-height:1.5;margin-bottom:14px}
+.fh-sk{height:70px;border-radius:16px;background:linear-gradient(90deg,var(--card),var(--bg3),var(--card));background-size:200% 100%;animation:fhshimmer 1.3s linear infinite}
+.fh-sk.sm{height:56px}
+@keyframes fhshimmer{from{background-position:100% 0}to{background-position:-100% 0}}
+@media(prefers-reduced-motion:reduce){.fh-sk{animation:none}}
+.fh-acts{flex-basis:100%;display:flex;gap:8px;flex-wrap:wrap;margin-top:9px}
+.fh-acts .btn-sm{min-height:44px;padding:10px 14px;font-size:.8rem}
+.fh-card-wrap{display:flex;flex-wrap:wrap;align-items:center;gap:11px;background:var(--card);border:1px solid var(--border);border-radius:16px;padding:11px 12px}
+.fh-top{display:flex;align-items:center;gap:10px;margin-bottom:14px}
+.fh-top h3{font-size:1.1rem;font-weight:800;color:#fff;margin:0;min-width:0;line-height:1.25}
+.fh-filters{display:flex;gap:8px;overflow-x:auto;padding-bottom:10px;scrollbar-width:none;margin-bottom:6px}
+.fh-filters::-webkit-scrollbar{display:none}
+.fh-tab{flex:0 0 auto;min-height:44px;padding:10px 14px;border-radius:999px;background:var(--card);border:1px solid var(--border);
+  color:var(--text2);font-size:.78rem;font-weight:700;cursor:pointer;font-family:inherit}
+.fh-tab.on{background:var(--green);border-color:var(--green);color:#04100a}
+.fh-form label{display:block;font-size:.74rem;font-weight:800;color:var(--text2);margin:14px 0 6px;letter-spacing:.02em;text-transform:uppercase}
+.fh-form input,.fh-form select{width:100%;min-height:48px;padding:12px 13px;border-radius:13px;background:var(--bg3);border:1px solid var(--border);color:var(--text);font-size:.95rem;font-family:inherit}
+.fh-form .fh-ro{background:var(--bg2);color:var(--text2);border-style:dashed;cursor:default}
+.fh-save{width:100%;min-height:52px;margin-top:18px;border-radius:14px;background:var(--green);border:none;color:#04100a;font-weight:800;font-size:.95rem;cursor:pointer;font-family:inherit}
+.fh-save[disabled]{opacity:.55;cursor:default}
+.fh-link{display:block;width:100%;text-align:left;background:none;border:none;color:var(--green-light);font-size:.83rem;font-weight:700;cursor:pointer;font-family:inherit;padding:12px 0;min-height:44px}
+.farmer-page{padding:2px 14px;max-width:1100px;margin:0 auto}
+.bottom-nav--five .nav-item{padding:8px 2px}
+.bottom-nav--five .nav-item span:last-child{font-size:.62rem;letter-spacing:.01em}
+.fh-stat:focus-visible,.fh-icon:focus-visible,.fh-tab:focus-visible,.fh-av-btn:focus-visible,
+.fh-sell:focus-visible,.fh-link:focus-visible,.fh-save:focus-visible,.fh-sec-top a:focus-visible,.fh-more:focus-visible{outline:2px solid var(--green);outline-offset:2px}
+.fh-form input:focus-visible,.fh-form select:focus-visible{outline:2px solid var(--green);outline-offset:1px}
+/* Sell produce: a real photo control — preview, replace, remove, byte progress */
+.fh-file{position:absolute;width:1px;height:1px;opacity:0;overflow:hidden;clip-path:inset(50%);white-space:nowrap}
+.lp-pick{display:flex;align-items:center;gap:10px;min-height:56px}
+.lp-pick-btn{display:inline-flex;align-items:center;gap:8px;min-height:48px;padding:10px 16px;border-radius:13px;
+  background:var(--bg3);border:1px dashed var(--border);color:var(--text);font-size:.88rem;font-weight:700;cursor:pointer;font-family:inherit}
+.lp-shot{display:flex;align-items:flex-start;gap:11px;width:100%}
+.lp-shot img,.lp-ico{width:62px;height:62px;border-radius:12px;object-fit:cover;border:1px solid var(--border);
+  background:var(--bg3);flex:0 0 auto;display:flex;align-items:center;justify-content:center;font-size:1.5rem}
+.lp-meta{flex:1;min-width:0}
+.lp-name{font-size:.82rem;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.lp-size{font-size:.72rem;color:var(--text2);margin-top:2px}
+.lp-acts{display:flex;gap:6px;margin-top:7px;flex-wrap:wrap}
+.lp-acts button{min-height:44px;padding:8px 12px;border-radius:11px;background:var(--card);border:1px solid var(--border);
+  color:var(--green-light);font-size:.78rem;font-weight:700;cursor:pointer;font-family:inherit}
+.lp-bar{height:6px;border-radius:99px;background:var(--bg3);overflow:hidden;margin-top:8px}
+.lp-bar i{display:block;height:100%;width:0;background:var(--green);transition:width .25s ease}
+.lp-hint{font-size:.72rem;color:var(--text2);margin-top:5px;line-height:1.45}
+.lp-bad{color:#ff9a8a}
+@media(prefers-reduced-motion:reduce){.lp-bar i{transition:none}}
+@media(min-width:760px){ .fh-stats,.fh-sum{grid-template-columns:repeat(4,1fr)} .fh-name{max-width:340px} }
 /* Marketplace shop-by-category chips */
 .mk-cats{display:flex;gap:10px;overflow-x:auto;padding:2px 0 14px;scrollbar-width:none}
 .mk-cats::-webkit-scrollbar{display:none}
@@ -2207,6 +2312,46 @@ AgriBridge service</div>
   </div></div>
 </div>
 
+<!-- ══════════════════ PAGE: FARMER PRODUCE ══════════════════ -->
+<div id="page-farmer-produce" class="page">
+  <div class="farmer-page">
+    <div class="fh-top"><h3>My produce</h3>
+      <div class="fh-btns"><button class="fh-icon" onclick="openMore()" aria-label="More AgriBridge tools">☰</button></div>
+    </div>
+    <div id="fp-body" aria-live="polite"><div class="fh-sk"></div><div class="fh-sk sm" style="margin-top:10px"></div></div>
+  </div>
+</div>
+
+<!-- ══════════════════ PAGE: FARMER ORDERS ══════════════════ -->
+<div id="page-farmer-orders" class="page">
+  <div class="farmer-page">
+    <div class="fh-top"><h3>Orders</h3>
+      <div class="fh-btns"><button class="fh-icon" onclick="openMore()" aria-label="More AgriBridge tools">☰</button></div>
+    </div>
+    <div id="fo-body" aria-live="polite"><div class="fh-sk"></div><div class="fh-sk sm" style="margin-top:10px"></div></div>
+  </div>
+</div>
+
+<!-- ══════════════════ PAGE: FARMER EARNINGS ══════════════════ -->
+<div id="page-farmer-earnings" class="page">
+  <div class="farmer-page">
+    <div class="fh-top"><h3>Earnings</h3>
+      <div class="fh-btns"><button class="fh-icon" onclick="openMore()" aria-label="More AgriBridge tools">☰</button></div>
+    </div>
+    <div id="fe-body" aria-live="polite"><div class="fh-sk"></div><div class="fh-sk sm" style="margin-top:10px"></div></div>
+  </div>
+</div>
+
+<!-- ══════════════════ PAGE: FARMER PROFILE ══════════════════ -->
+<div id="page-farmer-profile" class="page">
+  <div class="farmer-page">
+    <div class="fh-top"><h3>My profile</h3>
+      <div class="fh-btns"><button class="fh-icon" onclick="openMore()" aria-label="More AgriBridge tools">☰</button></div>
+    </div>
+    <div id="fpr-body" aria-live="polite"><div class="fh-sk"></div><div class="fh-sk sm" style="margin-top:10px"></div></div>
+  </div>
+</div>
+
 <!-- ══════════════════ PAGE: COMMUNITY ══════════════════ -->
 <div id="page-community" class="page">
   <div class="page-header"><h2>🌱 Community</h2><p>Connect with farmers, buyers &amp; agri experts across Uganda</p></div>
@@ -3087,31 +3232,49 @@ async function sbInsert(t, d, opts) { return sb(t, { method:'POST', body:d, mini
 // Upload an image through the authenticated API; returns its public URL (or null).
 async function uploadImage(file, prefix){ return uploadMedia(file, prefix, 5); }
 // Upload a photo (<=5MB) or short video (<=25MB) through the authenticated API.
-async function uploadMedia(file, prefix, maxMB){
+// onProgress(doneBytes, totalBytes) is optional; it only works over XHR, which
+// is why this one request is not a fetch(). The contract is unchanged: a URL on
+// success, null plus a toast on any failure, and never a thrown error.
+async function uploadMedia(file, prefix, maxMB, onProgress){
   if(!file) return null;
   var isVideo=(file.type||'').indexOf('video')===0;
   var limit=(maxMB||(isVideo?25:5))*1024*1024;
   if(file.size > limit){ showToast((isVideo?'Video':'Image')+' too large (max '+(maxMB||(isVideo?25:5))+'MB)'); return null; }
   var token=_authToken || await refreshAuthToken();
   if(!token){ showToast('Your session expired. Please log in again before uploading.'); return null; }
-  var controller=new AbortController();
-  // A mobile connection or waking backend must not trap a farmer in this form.
-  // Listing media is optional. Do not leave a farmer trapped on a slow mobile
-  // connection: a compressed photo should complete well within this window and
-  // a timeout falls back to posting the listing without the attachment.
-  var timer=setTimeout(function(){ controller.abort(); },30000);
-  try{
+  var report=function(done,total){ if(typeof onProgress==='function'){ try{ onProgress(done,total); }catch(e){} } };
+  report(0,file.size);
+  return new Promise(function(resolve){
+    var settled=false;
+    var finish=function(url,msg){
+      if(settled) return; settled=true;
+      if(msg) showToast(msg);
+      resolve(url||null);
+    };
     var form=new FormData();
     form.append('file',file,file.name||'media');
     form.append('kind',prefix||'listings');
-    var res=await fetch(USSD_API+'/api/uploads',{ method:'POST', headers:{ Authorization:'Bearer '+token }, body:form, signal:controller.signal });
-    var data=await res.json().catch(function(){ return {}; });
-    if(!res.ok || !data.url){ showToast(data.error||'Photo/video upload failed. You can continue without it.'); return null; }
-    return data.url;
-  }catch(e){
-    showToast(e&&e.name==='AbortError'?'Upload timed out. You can continue without the photo.':'Upload error. You can continue without the photo.');
-    return null;
-  }finally{ clearTimeout(timer); }
+    var xhr=new XMLHttpRequest();
+    xhr.open('POST',USSD_API+'/api/uploads',true);
+    xhr.setRequestHeader('Authorization','Bearer '+token);
+    // A mobile connection or waking backend must not trap a farmer in this form.
+    // Listing media is optional. Do not leave a farmer trapped on a slow mobile
+    // connection: a compressed photo should complete well within this window and
+    // a timeout falls back to posting the listing without the attachment.
+    xhr.timeout=30000;
+    if(xhr.upload) xhr.upload.onprogress=function(ev){
+      if(ev.lengthComputable){ report(ev.loaded,ev.total||file.size); }
+    };
+    xhr.onload=function(){
+      var data={}; try{ data=JSON.parse(xhr.responseText)||{}; }catch(e){}
+      if(xhr.status>=200 && xhr.status<300 && data.url){ report(file.size,file.size); finish(data.url,null); return; }
+      finish(null,data.error||'Photo/video upload failed. You can continue without it.');
+    };
+    xhr.onerror=function(){ finish(null,'Upload error. You can continue without the photo.'); };
+    xhr.ontimeout=function(){ finish(null,'Upload timed out. You can continue without the photo.'); };
+    xhr.onabort=function(){ finish(null,'Upload timed out. You can continue without the photo.'); };
+    xhr.send(form);
+  });
 }
 async function sbUpdate(t, d, col, val) { return sb(t, { method:'PATCH', body:d, filters:[[col, `eq.${val}`]] }); }
 
@@ -3276,6 +3439,10 @@ function showPage(name) {
   if (name === 'animals')  loadAnimals();
   if (name === 'home')     { loadHomeStats(); renderRoleHome(); renderRecommendations(); applyHomeMode(); }
   if (name === 'dashboard') loadDashboard();
+  if (name === 'farmer-produce')  loadFarmerProduce();
+  if (name === 'farmer-orders')   loadFarmerOrders();
+  if (name === 'farmer-earnings') loadFarmerEarnings();
+  if (name === 'farmer-profile')  loadFarmerProfile();
   if (name === 'pitch')    guardPitch();
   if (name === 'supply')   renderSupply();
   // New buyer pages
@@ -6450,8 +6617,178 @@ async function sendContactMsgCore() {
 function openListProduceModal() {
   if(!currentUser){ showToast('Please log in or join free first 🌾'); setTimeout(()=>openModal('loginModal'),800); return; }
   const sel=document.getElementById('lpDistrict'); if(sel&&currentUser.district) sel.value=currentUser.district;
+  lpBindDraft(); lpRestoreDraft(); lpRenderPhoto(); lpRenderVideo();
   openModal('listProduceModal');
 }
+
+// ── Sell produce: photo / video picks with preview, replace and remove ─────
+// A bare <input type=file> gives no preview, no way to undo a wrong pick, and
+// no signal when the chosen file cannot be used — all three matter on a shared
+// phone where the farmer often cannot retake the shot.
+var _lpPhoto = null, _lpVideo = null, _lpPhotoUrl = '';
+var LP_MAX_PHOTO_MB = 5, LP_MAX_VIDEO_MB = 25;
+
+function lpFmtBytes(n){
+  n = Number(n) || 0;
+  if (n >= 1048576) return (n / 1048576).toFixed(1) + ' MB';
+  if (n >= 1024) return Math.round(n / 1024) + ' KB';
+  return n + ' bytes';
+}
+function lpSetHint(id, text, bad){
+  var el = document.getElementById(id);
+  if (!el) return;
+  el.textContent = text || '';
+  el.className = 'lp-hint' + (bad ? ' lp-bad' : '');
+}
+function lpPickPhoto(input){
+  var f = input && input.files && input.files[0];
+  if (!f) return;
+  if (!/^image\//.test(f.type || '')) {
+    input.value = ''; _lpPhoto = null; lpRenderPhoto();
+    lpSetHint('lpPhotoHint', 'That file is not a photo. Choose a JPEG or PNG image.', true);
+    showToast('That file is not a photo. Choose a JPEG or PNG image.');
+    return;
+  }
+  if (f.size > LP_MAX_PHOTO_MB * 1024 * 1024) {
+    input.value = ''; _lpPhoto = null; lpRenderPhoto();
+    lpSetHint('lpPhotoHint', 'That photo is ' + lpFmtBytes(f.size) + '. Choose one under ' + LP_MAX_PHOTO_MB + 'MB.', true);
+    showToast('That photo is bigger than ' + LP_MAX_PHOTO_MB + 'MB. Try a smaller one.');
+    return;
+  }
+  if (_lpPhotoUrl) { try { URL.revokeObjectURL(_lpPhotoUrl); } catch (e) {} _lpPhotoUrl = ''; }
+  _lpPhoto = f;
+  lpRenderPhoto();
+  lpSetHint('lpPhotoHint', 'This is the photo buyers will see. Check it shows your actual produce.');
+}
+function lpRemovePhoto(){
+  if (_lpPhotoUrl) { try { URL.revokeObjectURL(_lpPhotoUrl); } catch (e) {} _lpPhotoUrl = ''; }
+  _lpPhoto = null;
+  var i = document.getElementById('lpPhoto'); if (i) i.value = '';
+  lpRenderPhoto();
+  lpSetHint('lpPhotoHint', 'A real photo of what you are actually selling helps buyers trust your listing. JPEG or PNG, up to ' + LP_MAX_PHOTO_MB + 'MB.');
+}
+function lpRenderPhoto(){
+  var box = document.getElementById('lpPhotoBox'); if (!box) return;
+  if (!_lpPhoto) {
+    box.innerHTML = '<button type="button" class="lp-pick-btn" onclick="document.getElementById(\'lpPhoto\').click()">' +
+      '<span aria-hidden="true">📷</span> Take or choose a photo</button>';
+    return;
+  }
+  if (!_lpPhotoUrl) { try { _lpPhotoUrl = URL.createObjectURL(_lpPhoto); } catch (e) { _lpPhotoUrl = ''; } }
+  box.innerHTML = '<div class="lp-shot">' +
+    (_lpPhotoUrl ? '<img src="' + _lpPhotoUrl + '" alt="Preview of the photo you chose">' : '<div class="lp-ico" aria-hidden="true">📷</div>') +
+    '<div class="lp-meta"><div class="lp-name">' + escHtml(_lpPhoto.name || 'photo') + '</div>' +
+    '<div class="lp-size">' + lpFmtBytes(_lpPhoto.size) + ' · resized on your phone before uploading</div>' +
+    '<div class="lp-acts">' +
+      '<button type="button" onclick="document.getElementById(\'lpPhoto\').click()">Replace photo</button>' +
+      '<button type="button" onclick="lpRemovePhoto()">Remove</button>' +
+    '</div></div></div>';
+}
+function lpPickVideo(input){
+  var f = input && input.files && input.files[0];
+  if (!f) return;
+  if (!/^video\//.test(f.type || '')) {
+    input.value = ''; _lpVideo = null; lpRenderVideo();
+    showToast('That file is not a video.'); return;
+  }
+  if (f.size > LP_MAX_VIDEO_MB * 1024 * 1024) {
+    input.value = ''; _lpVideo = null; lpRenderVideo();
+    showToast('That video is bigger than ' + LP_MAX_VIDEO_MB + 'MB. Keep it short.'); return;
+  }
+  _lpVideo = f; lpRenderVideo();
+}
+function lpRemoveVideo(){
+  _lpVideo = null;
+  var i = document.getElementById('lpVideo'); if (i) i.value = '';
+  lpRenderVideo();
+}
+function lpRenderVideo(){
+  var box = document.getElementById('lpVideoBox'); if (!box) return;
+  if (!_lpVideo) {
+    box.innerHTML = '<button type="button" class="lp-pick-btn" onclick="document.getElementById(\'lpVideo\').click()">' +
+      '<span aria-hidden="true">🎥</span> Choose a short video</button>';
+    return;
+  }
+  box.innerHTML = '<div class="lp-shot"><div class="lp-ico" aria-hidden="true">🎥</div>' +
+    '<div class="lp-meta"><div class="lp-name">' + escHtml(_lpVideo.name || 'video') + '</div>' +
+    '<div class="lp-size">' + lpFmtBytes(_lpVideo.size) + '</div>' +
+    '<div class="lp-acts">' +
+      '<button type="button" onclick="document.getElementById(\'lpVideo\').click()">Replace video</button>' +
+      '<button type="button" onclick="lpRemoveVideo()">Remove</button>' +
+    '</div></div></div>';
+}
+function lpResetMedia(){ lpRemovePhoto(); lpRemoveVideo(); }
+
+// ── Sell produce: keep an unsent form across a screen-off or a crash ───────
+// Only the farmer's own draft text, no session or payment data. Losing a typed
+// description to a locked phone is the kind of thing that stops listings.
+var LP_DRAFT = 'ab_listing_draft';
+var LP_TEXT_FIELDS = ['lpCrop','lpCat','lpQty','lpPrice','lpDistrict','lpDesc','lpSaleUnit','lpMinOrder'];
+var LP_FLAG_FIELDS = ['lpDelivery','lpPayMomo','lpPayCash','lpPayBank'];
+function lpBindDraft(){
+  if (window._lpDraftBound) return;
+  var m = document.getElementById('listProduceModal');
+  if (!m) return;
+  window._lpDraftBound = true;
+  m.addEventListener('input', lpSaveDraft);
+  m.addEventListener('change', lpSaveDraft);
+}
+function lpSaveDraft(){
+  try {
+    var d = {}, touched = false;
+    LP_TEXT_FIELDS.forEach(function (id) {
+      var el = document.getElementById(id); if (!el) return;
+      d[id] = el.value; if (String(el.value || '').trim()) touched = true;
+    });
+    LP_FLAG_FIELDS.forEach(function (id) {
+      var el = document.getElementById(id); if (el) d[id] = !!el.checked;
+    });
+    if (!touched) { localStorage.removeItem(LP_DRAFT); return; }
+    localStorage.setItem(LP_DRAFT, JSON.stringify(d));
+  } catch (e) {}
+}
+function lpRestoreDraft(){
+  var d; try { d = JSON.parse(localStorage.getItem(LP_DRAFT) || 'null'); } catch (e) { d = null; }
+  if (!d) return;
+  var filled = 0;
+  LP_TEXT_FIELDS.forEach(function (id) {
+    var el = document.getElementById(id); if (!el) return;
+    if (d[id] === undefined || d[id] === null) return;
+    if (String(el.value || '').trim() && id !== 'lpDistrict') return;
+    if (id === 'lpDistrict' && el.value && currentUser && el.value === currentUser.district) { /* keep profile default */ }
+    el.value = d[id]; filled++;
+  });
+  LP_FLAG_FIELDS.forEach(function (id) {
+    var el = document.getElementById(id);
+    if (el && typeof d[id] === 'boolean') el.checked = d[id];
+  });
+  if (filled) lpSetHint('lpPhotoHint', 'We put back the details you had typed but not posted.');
+}
+function lpClearDraft(){ try { localStorage.removeItem(LP_DRAFT); } catch (e) {} }
+
+// ── Photo upload progress on the listing itself ────────────────────────────
+// The listing is saved and the modal closes before the optional upload runs, so
+// a progress bar inside the form would never be seen. This state is what the
+// My Produce row renders while bytes are still moving.
+var _lpMedia = null;
+function lpMediaStart(id){ _lpMedia = { id: String(id), pct: 0 }; }
+function lpMediaProgress(frac){
+  if (!_lpMedia) return;
+  _lpMedia.pct = Math.max(0, Math.min(1, Number(frac) || 0));
+  var el = document.querySelector('[data-lp-media="' + _lpMedia.id + '"] .lp-pct');
+  if (el) el.textContent = Math.round(_lpMedia.pct * 100) + '%';
+}
+function lpMediaEnd(failed){
+  if (!_lpMedia) return;
+  if (!failed) _lpMedia = null;
+  if (document.getElementById('fp-body')) renderFarmerProduce();
+}
+function fhMediaPill(l){
+  if (!_lpMedia || _lpMedia.id !== String(l.id)) return '';
+  return '<span class="fh-pill low" data-lp-media="' + escHtml(_lpMedia.id) + '">📷 Adding photo… <b class="lp-pct">' +
+    Math.round(_lpMedia.pct * 100) + '%</b></span>';
+}
+
 async function submitListProduceCore() {
   const crop=document.getElementById('lpCrop')?.value, cat=document.getElementById('lpCat')?.value;
   const qty=parseFloat(document.getElementById('lpQty')?.value), price=parseFloat(document.getElementById('lpPrice')?.value);
@@ -6465,8 +6802,8 @@ async function submitListProduceCore() {
   const minOrder=parseInt(document.getElementById('lpMinOrder')?.value||'0')||0;
   const delivery=document.getElementById('lpDelivery')?.checked||false;
   const pays=[]; if(document.getElementById('lpPayMomo')?.checked)pays.push('MoMo'); if(document.getElementById('lpPayCash')?.checked)pays.push('Cash'); if(document.getElementById('lpPayBank')?.checked)pays.push('Bank');
-  const photoFile=document.getElementById('lpPhoto')?.files?.[0]||null;
-  const videoFile=document.getElementById('lpVideo')?.files?.[0]||null;
+  const photoFile=_lpPhoto||null;
+  const videoFile=_lpVideo||null;
   // Save the listing FIRST, without waiting on media. The old flow blocked the
   // save behind a mobile upload that could take 30–45s or time out, so farmers
   // saw "Uploading photo…" and ended up with no listing at all. Media is
@@ -6495,14 +6832,63 @@ async function submitListProduceCore() {
     return;
   }
   closeModal('listProduceModal');
+  lpClearDraft();
+  lpResetMedia();
   showToast(`✅ ${crop} listing posted! Buyers can now find you.`);
   // Force a real refetch: clearing allListings while _listingsFull stayed true
   // made loadListings() re-render an empty list instead of fetching the new row.
   allListings=[]; window._listingsFull=false;
   if(document.querySelector('.page.active')?.id==='page-market') loadListings();
   if(typeof loadLiveBoard==='function') loadLiveBoard();
+  // The farmer's own produce/home counts come from a separate read, so drop the
+  // cache or a freshly published listing would not appear for 15 seconds.
+  if(getCurrentRole()==='farmer') farmerAfterChange();
   // Optional photo/video: never blocks or invalidates the saved listing.
   if(photoFile||videoFile) attachListingMedia(listing.id, photoFile, videoFile);
+}
+
+// Best-effort media attachment for an already-saved listing. Runs after the
+// success toast; a failure here only costs the photo, never the listing.
+async function attachListingMedia(listingId, photoFile, videoFile){
+  if(!listingId) return;
+  lpMediaStart(listingId);
+  try{
+    let imageUrl=null, videoUrl=null;
+    if(photoFile){
+      let uploadPhoto=photoFile;
+      try{
+        if((photoFile.type||'').indexOf('image/')===0){
+          const compressed=await downscaleImage(photoFile,1280,0.82);
+          uploadPhoto=new File([compressed],'listing.jpg',{type:'image/jpeg'});
+        }
+      }catch(e){ /* upload the original if on-device resizing fails */ }
+      imageUrl=await uploadMedia(uploadPhoto,'listings',5,function(done,total){
+        lpMediaProgress(total ? done/total : 0);
+      });
+    }
+    if(videoFile) videoUrl=await uploadMedia(videoFile,'listings',25);
+    if(!imageUrl&&!videoUrl){ lpMediaEnd(true); return; }
+    const tok=_authToken||await refreshAuthToken();
+    if(!tok){ lpMediaEnd(true); return; }
+    const r=await fetch(USSD_API+'/api/listings/'+encodeURIComponent(listingId)+'/media',{
+      method:'PATCH',
+      headers:{'Content-Type':'application/json','Authorization':'Bearer '+tok},
+      body:JSON.stringify({image_url:imageUrl,video_url:videoUrl})
+    });
+    if(r.ok){
+      lpMediaEnd(false);
+      window._listingsFull=false;
+      showToast('📷 Photo added to your listing');
+      if(document.querySelector('.page.active')?.id==='page-market') loadListings();
+      if(getCurrentRole()==='farmer') farmerAfterChange();
+    }else{
+      lpMediaEnd(true);
+      showToast('Listing saved. The photo could not be added — open Edit on the listing to try again.');
+    }
+  }catch(e){
+    lpMediaEnd(true);
+    showToast('Listing saved. The photo could not be added — open Edit on the listing to try again.');
+  }
 }
 
 // ─────────────────────────────────────────────────────────────────
@@ -6541,23 +6927,7 @@ async function renderRoleHome() {
   const aiCard=`<div class="afc2" onclick="toggleAI()"><div class="afc2-txt"><div class="afc2-title">AI Farm Assistant</div><div class="afc2-sub">How can I help you today?</div><span class="afc2-btn">Ask AgriBridge AI ›</span></div><div class="afc2-orb"><span class="of-eye"></span><span class="of-eye"></span><span class="of-smile"></span></div></div>`;
   const greet=`<div class="hd-greet"><h3>Hello, ${escHtml(firstName)} 👋</h3><p>${greeting}! Let's grow more today.</p></div>`;
   if(role==='farmer') {
-    panel.innerHTML=`<div class="hd">${greet}${aiCard}
-      <div class="hd-tiles">
-        <div class="hd-tile"><div class="hd-ic">🌱</div><div class="hd-t-lbl">My Listings</div><div class="hd-t-num" id="hd-listings">–</div><div class="hd-t-sub">Active</div></div>
-        <div class="hd-tile"><div class="hd-ic">🌦️</div><div class="hd-t-lbl">Weather</div><div class="hd-t-num">24°C</div><div class="hd-t-sub">Good to plant</div></div>
-        <div class="hd-tile"><div class="hd-ic">💰</div><div class="hd-t-lbl">Income</div><div class="hd-t-num" id="hd-income">–</div><div class="hd-t-sub">This month</div></div>
-        <div class="hd-tile" onclick="showPage('dashboard')"><div class="hd-ic">🛒</div><div class="hd-t-lbl">Orders</div><div class="hd-t-num" id="hd-orders">–</div><div class="hd-t-sub">View all ›</div></div>
-      </div>
-      <div class="hd-sec-head"><span>Market Prices <small>Today</small></span><a onclick="showPage('prices')">See all ›</a></div>
-      <div class="hd-prices" id="hd-prices"></div>
-      <div class="hd-sec-head"><span>Quick Actions</span></div>
-      <div class="hd-qa">
-        <button onclick="openListProduceModal()"><span>🌾</span>Sell Produce</button>
-        <button onclick="showPage('doctor')"><span>🩺</span>Scan Disease</button>
-        <button onclick="showPage('finance')"><span>🧾</span>Add Expense</button>
-        <button onclick="showPage('prices')"><span>🔔</span>Price Alerts</button>
-      </div></div>`;
-    loadFarmerKpis(); renderHomePrices();
+    loadFarmerHome();
   } else if(role==='supplier') {
     panel.innerHTML=`<div class="hd">${greet}${aiCard}
       <div class="hd-tiles">
@@ -6608,16 +6978,728 @@ function renderHomePrices(){
     return `<div class="hd-price" onclick="showPage('prices')"><div class="hd-price-top"><span>${getCropEmoji(p.crop_name)}</span><b>${escHtml(p.crop_name)}</b></div><div class="hd-price-val">UGX ${Number(p.price_per_kg||0).toLocaleString()}<small>/kg</small></div><div class="hd-price-chg ${up?'up':'dn'}">${up?'▲':'▼'} ${Math.abs(ch)}%</div></div>`; }).join('');
   if((typeof allPrices==='undefined'||!allPrices||!allPrices.length)&&navigator.onLine&&typeof loadPrices==='function'){ loadPrices(true).then(function(){ renderHomePrices(); }); }
 }
-async function loadFarmerKpis() {
-  if(!currentUser) return;
-  const [listings,orders]=await Promise.all([sb('listings',{ select:'id,price_per_kg,quantity_kg', filters:currentUser.supaId?[['farmer_id','eq.'+currentUser.supaId]]:[['limit','eq.0']] }),sb('orders',{ select:'id,total_price,total_amount,quantity_kg,price_per_kg,status,created_at', filters:currentUser.supaId?[['farmer_id','eq.'+currentUser.supaId]]:[['limit','eq.0']] })]);
-  const set=(id,v)=>{ const e=document.getElementById(id); if(e) e.textContent=v; };
-  set('hd-listings', listings?.length||0);
-  set('hd-orders', orders?.length||0);
-  const now=new Date(), ms=new Date(now.getFullYear(),now.getMonth(),1);
-  const monthEarned=(orders||[]).filter(o=>new Date(o.created_at)>=ms).reduce((s,o)=>s+Number(o.total_price||o.total_amount||0),0);
-  set('hd-income', 'UGX '+fmtShort(monthEarned));
+// ═════════════════════════════════════════════════════════════════
+// FARMER DASHBOARD (Stage F1)
+// Every figure is read from this farmer's own rows through the RLS-scoped
+// REST path. sb() returns null when a read fails and [] when the server
+// really has no rows, so each screen can tell "unavailable" from "empty"
+// and never fills a gap with an estimate.
+// ═════════════════════════════════════════════════════════════════
+var F_LISTING_SEL = 'id,farmer_id,crop_name,category,unit,sale_unit,min_order_kg,quantity_kg,reserved_qty,price_per_kg,discount_pct,district,description,is_available,is_verified,is_organic,delivery_available,payment_terms,stock_status,image_url,photo_url,views,created_at';
+var F_ORDER_SEL = 'id,listing_id,quantity_kg,price_per_kg,total_price,total_amount,status,payment_status,payment_method,item_category,notes,tracking_code,buyer_id,buyer_phone,created_at,updated_at';
+var F_PAYOUT_SEL = 'id,order_id,gross_amount,commission_pct,commission_amount,net_amount,status,provider,provider_ref,created_at,paid_at';
+var FH_CACHE_MS = 15000;
+var _fh = { id:null, at:0, listings:null, orders:null, payouts:null };
+var _fhReq = null, _fhReqId = null;
+var _fpFilter = 'all', _foFilter = 'open';
+
+function farmerId() { return (currentUser && currentUser.supaId) ? String(currentUser.supaId) : null; }
+
+function farmerData(force) {
+  var id = farmerId();
+  if (!id) return Promise.resolve(null);
+  if (!force && _fh.id === id && (Date.now() - _fh.at) < FH_CACHE_MS) return Promise.resolve(_fh);
+  if (_fhReq && _fhReqId === id) return _fhReq;
+  _fhReqId = id;
+  _fhReq = (async function () {
+    var rows = await Promise.all([
+      sb('listings', { select: F_LISTING_SEL, filters: [['farmer_id', 'eq.' + id], ['order', 'created_at.desc'], ['limit', '200']] }),
+      sb('orders',   { select: F_ORDER_SEL,   filters: [['farmer_id', 'eq.' + id], ['order', 'created_at.desc'], ['limit', '200']] }),
+      sb('payouts',  { select: F_PAYOUT_SEL,  filters: [['farmer_id', 'eq.' + id], ['order', 'created_at.desc'], ['limit', '200']] })
+    ]);
+    _fhReq = null; _fhReqId = null;
+    if (farmerId() !== id) return null;  // the account changed while these were in flight
+    _fh = { id: id, at: Date.now(), listings: rows[0], orders: rows[1], payouts: rows[2] };
+    return _fh;
+  })();
+  return _fhReq;
 }
+function farmerDataClear() { _fh = { id: null, at: 0, listings: null, orders: null, payouts: null }; }
+
+// ── produce state: mirrors the DB stock rules, not a guess ─────────────────
+// remaining = quantity_kg − reserved_qty (listingAvailable), and stock_status
+// is written by the reservation triggers (unavailable at 0, low_stock at 10%).
+function fhProduceState(l) {
+  if (l.is_available === false) return 'paused';
+  var s = String(l.stock_status || 'available');
+  if (s === 'temporarily_unavailable') return 'soon';
+  if (s === 'unavailable' || listingAvailable(l) <= 0) return 'sold';
+  if (s === 'low_stock') return 'low';
+  return 'live';
+}
+var FH_PSTATE = {
+  live:   { cls: 'live', label: 'Live',              next: 'Buyers can order this now.' },
+  low:    { cls: 'low',  label: 'Low stock',         next: 'Most of it is already reserved. List the next harvest when it is ready.' },
+  sold:   { cls: 'out',  label: 'Fully reserved',    next: 'Nothing left to order from this listing.' },
+  paused: { cls: 'off',  label: 'Hidden from buyers', next: 'The marketplace does not show this listing.' },
+  soon:   { cls: 'off',  label: 'Temporarily unavailable', next: 'Buyers cannot order this until stock is returned.' }
+};
+
+// ── order projections ──────────────────────────────────────────────────────
+// Value precedence matches the ledger (services/finance.py order_total and the
+// 0016 payout trigger), so Orders and Earnings never disagree.
+function fhOrderAmt(o) {
+  return Number(o.total_amount || o.total_price || (Number(o.quantity_kg || 0) * Number(o.price_per_kg || 0)) || 0);
+}
+function fhOrderName(o) {
+  var m = /Item:(.*)$/.exec(o.notes || '');
+  return String((m && m[1]) || o.item_category || 'Order').trim() || 'Order';
+}
+function fhOrderQty(o) { return Number(o.quantity_kg || 0).toLocaleString() + (o.item_category === 'animal' ? '' : ' kg'); }
+// Legal transitions are the ones set_order_status() (migration 0015) allows and
+// /api/orders/<id>/status enforces. Anything else gets no button.
+var FH_FLOW = {
+  pending:    { label: 'New order',   next: 'Confirm it, or reject it if you cannot deliver.', acts: [['confirmed', 'Confirm order'], ['cancelled', 'Reject']] },
+  confirmed:  { label: 'Confirmed',   next: 'Agree collection or delivery with the buyer, then mark it in transit.', acts: [['in_transit', 'Mark in transit'], ['cancelled', 'Cancel order']] },
+  in_transit: { label: 'On the way',  next: 'Mark it delivered once the buyer has received the goods.', acts: [['delivered', 'Mark delivered']] },
+  delivered:  { label: 'Delivered',   next: 'A payout record appears under Earnings once the buyer payment is recorded.', acts: [] },
+  packed:     { label: 'Packed',      next: 'This stage cannot be advanced from the app. Contact support to move it.', acts: [] },
+  cancelled:  { label: 'Cancelled',   next: 'Reserved quantity was returned to your listing.', acts: [] },
+  disputed:   { label: 'Disputed',    next: 'This order is on hold. Contact support to resolve it.', acts: [] }
+};
+var FH_PAYSTATE = { unpaid: ['Awaiting payment', 'low'], paid: ['Paid', 'ok'], refunded: ['Refunded', 'off'] };
+var FH_PAYMETHOD = { mtn_momo: 'MTN MoMo', momo: 'MTN MoMo', airtel_money: 'Airtel Money', airtel: 'Airtel Money',
+  cash: 'Cash', bank: 'Bank transfer', card: 'Card', pesapal: 'Card payment', mobile_money: 'Mobile money', direct: 'Direct' };
+
+// ── payout projections (buckets mirror services/finance.py) ────────────────
+var FH_PAID_S = ['paid', 'completed', 'settled'];
+var FH_PEND_S = ['pending', 'processing', 'approved', 'scheduled', 'in_transit'];
+var FH_FAIL_S = ['failed', 'cancelled', 'rejected'];
+var FH_DISP_S = ['disputed', 'on_hold', 'held'];
+function fhBucket(p) {
+  var s = String(p.status || 'pending').toLowerCase();
+  if (FH_PAID_S.indexOf(s) >= 0) return 'paid';
+  if (FH_FAIL_S.indexOf(s) >= 0) return 'failed';
+  if (FH_DISP_S.indexOf(s) >= 0) return 'disputed';
+  return 'pending';
+}
+function fhBucketRows(P, b) { return (P || []).filter(function (p) { return fhBucket(p) === b; }); }
+function fhNet(P, b) { return fhBucketRows(P, b).reduce(function (s, p) { return s + Number(p.net_amount || 0); }, 0); }
+function fhField(P, k) { return (P || []).reduce(function (s, p) { return s + Number(p[k] || 0); }, 0); }
+
+// ── shared state UI ────────────────────────────────────────────────────────
+function fhSk(n) { var h = ''; for (var i = 0; i < (n || 2); i++) h += '<div class="fh-sk"' + (i ? ' style="margin-top:9px"' : '') + '></div>'; return h; }
+function fhEmpty(ic, title, body, btn, fn) {
+  return '<div class="fh-empty"><div class="fh-empty-ic" aria-hidden="true">' + ic + '</div><h5>' + escHtml(title) + '</h5>' +
+    '<p>' + escHtml(body) + '</p>' + (btn ? '<button class="btn-primary" style="width:auto;padding:11px 20px" onclick="' + fn + '">' + escHtml(btn) + '</button>' : '') + '</div>';
+}
+function fhErr(msg, fn) {
+  return '<div class="fh-err"><p>' + escHtml(msg || 'We could not load this from the server. Check your connection and try again.') + '</p>' +
+    '<button class="btn-sm outline" style="min-height:44px" onclick="' + fn + '">Try again</button></div>';
+}
+// Never a stock photograph: only the farmer's own uploaded image, else an emoji.
+function fhThumb(l) {
+  var src = (l && l.image_url) || (l && l.photo_url) || '';
+  var img = String(src).indexOf('http') === 0 ? '<img src="' + escHtml(src) + '" alt="">' : '';
+  return '<div class="fh-thumb" aria-hidden="true">' + img + (img ? '' : listingEmoji(l || {})) + '</div>';
+}
+function fhUnit(l) { return listingUnit(l); }
+function fhProduceRow(l) {
+  var st = fhProduceState(l), meta = FH_PSTATE[st], rem = listingAvailable(l), u = fhUnit(l);
+  var tot = Number(l.quantity_kg || 0);
+  var id = escHtml(String(l.id || ''));
+  var hidden = l.is_available === false;
+  var acts = '<div class="fh-acts">' +
+    '<button class="btn-sm outline" onclick="fhOpenEdit(\'' + id + '\')">Edit listing</button>' +
+    '<button class="btn-sm' + (hidden ? '' : ' ghost') + '" onclick="fhSetVisible(\'' + id + '\',' + (hidden ? 'true' : 'false') + ')">' +
+      (hidden ? 'Show to buyers' : 'Hide from buyers') + '</button>' +
+    '</div>';
+  return '<div class="fh-card">' + fhThumb(l) +
+    '<div class="fh-mid"><div class="fh-t">' + escHtml(l.crop_name || 'Produce') + '</div>' +
+    '<div class="fh-s">' + rem.toLocaleString() + ' ' + escHtml(u) + ' free of ' + tot.toLocaleString() + ' ' + escHtml(u) +
+    (Number(l.min_order_kg) > 0 ? ' · min ' + Number(l.min_order_kg).toLocaleString() + ' ' + escHtml(u) : '') +
+    (l.district ? ' · ' + escHtml(l.district) : '') + '</div>' +
+    '<span class="fh-pill ' + meta.cls + '">' + meta.label + '</span>' +
+    fhMediaPill(l) +
+    (l.is_verified ? '<span class="fh-pill info">Verified</span>' : '') +
+    (l.is_organic ? '<span class="fh-pill ok">Organic</span>' : '') +
+    '<div class="fh-next">' + escHtml(meta.next) + '</div>' + acts + '</div>' +
+    '<div class="fh-r">' + fmtUgx(listingPrice(l)) + '<small>per ' + escHtml(u) + '</small></div>' +
+    '</div>';
+}
+function fhOrderRow(o) {
+  var flow = FH_FLOW[String(o.status || 'pending')] || FH_FLOW.pending;
+  var pay = FH_PAYSTATE[String(o.payment_status || 'unpaid')] || [String(o.payment_status || '—'), 'off'];
+  var when = o.created_at ? new Date(o.created_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }) : '';
+  var ref = o.tracking_code ? escHtml(o.tracking_code) : ('#' + String(o.id || '').slice(0, 8));
+  var acts = '';
+  if (flow.acts.length) {
+    acts = '<div class="fh-acts">' + flow.acts.map(function (a) {
+      var danger = a[0] === 'cancelled' ? ' ghost' : '';
+      return '<button class="btn-sm' + danger + '" onclick="fhAct(\'' + o.id + '\',\'' + a[0] + '\',this,\'' + escHtml(a[1]) + '\')">' + escHtml(a[1]) + '</button>';
+    }).join('') + '</div>';
+  }
+  // The accepted privacy policy keeps buyer and seller numbers private "until an
+  // order requires it": once the farmer has accepted, not while it is a request
+  // and not after it is closed.
+  var call = (o.buyer_phone && (o.status === 'confirmed' || o.status === 'in_transit'))
+    ? '<div class="fh-next">Buyer contact: <b>' + escHtml(o.buyer_phone) + '</b></div>' +
+      '<div><button class="fh-more fh-open" onclick="showPage(\'delivery\')">Open delivery &amp; tracking</button></div>' : '';
+  return '<div class="fh-card-wrap">' +
+    '<div class="fh-thumb" aria-hidden="true">' + (o.item_category === 'animal' ? '🐄' : o.item_category === 'supply' ? '🧺' : '🌾') + '</div>' +
+    '<div class="fh-mid"><div class="fh-t">' + escHtml(fhOrderName(o)) + ' · ' + fhOrderQty(o) + '</div>' +
+    '<div class="fh-s">Ref ' + ref + (when ? ' · ' + when : '') + '</div>' +
+    '<span class="fh-pill ' + (o.status === 'cancelled' ? 'bad' : o.status === 'delivered' ? 'ok' : o.status === 'pending' ? 'low' : 'info') + '">' + flow.label + '</span>' +
+    '<span class="fh-pill ' + pay[1] + '">' + escHtml(pay[0]) + '</span>' +
+    (FH_PAYMETHOD[o.payment_method] ? '<span class="fh-pill off">' + escHtml(FH_PAYMETHOD[o.payment_method]) + '</span>' : '') +
+    '<div class="fh-next"><b>Next:</b> ' + escHtml(flow.next) + '</div>' + call +
+    '<div class="fh-r" style="text-align:left;white-space:normal;margin-top:6px">' + fmtUgx(fhOrderAmt(o)) + '<small>order total</small></div>' +
+    acts + '</div></div>';
+}
+// ── farmer home ────────────────────────────────────────────────────────────
+function fhHead() {
+  var name = (currentUser && currentUser.name) || (currentUser && currentUser.email ? currentUser.email.split('@')[0] : 'Farmer');
+  var first = String(name).split(' ')[0] || 'Farmer';
+  var hour = new Date().getHours();
+  var hello = hour < 12 ? 'Good morning' : hour < 17 ? 'Good afternoon' : 'Good evening';
+  var photo = (currentUser && currentUser.avatar_url) || '';
+  var av = String(photo).indexOf('http') === 0 ? '<img src="' + escHtml(photo) + '" alt="">' : escHtml(first.charAt(0).toUpperCase());
+  return '<div class="fh-head">' +
+    '<button class="fh-av-btn" onclick="showPage(\'farmer-profile\')" aria-label="Open my profile">' +
+      '<span class="fh-avatar">' + av + '</span>' +
+      '<span style="min-width:0"><span class="fh-hi">' + hello + '</span><span class="fh-name">' + escHtml(first) + '</span></span>' +
+    '</button>' +
+    '<div class="fh-btns">' +
+      '<button class="fh-icon" onclick="toggleNotifPanel()" aria-label="Notifications">🔔<span class="fh-dot" id="fhNotifDot"></span></button>' +
+      '<button class="fh-icon" onclick="openMore()" aria-label="More AgriBridge tools">☰</button>' +
+    '</div></div>';
+}
+
+// hydrateUserProfile() can land after the home has already painted, carrying the
+// verified DB name and photo. Repaint the greeting without refetching anything.
+function fhHeadRefresh() {
+  if (!currentUser || getCurrentRole() !== 'farmer') return;
+  var panel = document.getElementById('roleHomePanel');
+  var head = panel && panel.querySelector('.fh-head');
+  if (!head) return;
+  head.outerHTML = fhHead();
+  _setNotifUnread(_lastNotifUnread);
+}
+function fhStat(lbl, val, sub, page) {
+  return '<button class="fh-stat" onclick="showPage(\'' + page + '\')">' +
+    '<span class="fh-stat-lbl">' + escHtml(lbl) + '</span><span class="fh-stat-val">' + val + '</span><span class="fh-stat-sub">' + escHtml(sub) + '</span></button>';
+}
+function fhStatRo(lbl, val, sub) {
+  return '<div class="fh-stat" style="cursor:default"><span class="fh-stat-lbl">' + escHtml(lbl) + '</span><span class="fh-stat-val">' + val +
+    '</span><span class="fh-stat-sub">' + escHtml(sub) + '</span></div>';
+}
+function fhOpenOrders(O) { return (O || []).filter(function (o) { return (FH_FLOW[String(o.status || 'pending')] || FH_FLOW.pending).acts.length > 0; }); }
+function fhLiveProduce(L) { return (L || []).filter(function (l) { var s = fhProduceState(l); return s === 'live' || s === 'low'; }); }
+
+async function loadFarmerHome() {
+  var panel = document.getElementById('roleHomePanel');
+  if (!panel || !currentUser) return;
+  panel.innerHTML = '<div class="hd">' + fhHead() +
+    '<div class="fh-sk tall" style="height:66px"></div>' + fhSk(2) + '</div>';
+  var d = await farmerData(false);
+  if (panel.querySelector('.fh-av-btn') === null) return;  // the role changed while loading
+  if (!d) {
+    panel.innerHTML = '<div class="hd">' + fhHead() + fhErr('We could not reach your AgriBridge account. Check your connection.', 'loadFarmerHome()') + '</div>';
+    return;
+  }
+  renderFarmerHome(d);
+}
+function renderFarmerHome(d) {
+  var panel = document.getElementById('roleHomePanel');
+  if (!panel || !currentUser) return;
+  var L = d.listings, O = d.orders, P = d.payouts;
+  var liveN = L ? fhLiveProduce(L).length : null;
+  var openN = O ? fhOpenOrders(O).length : null;
+  var newN = O ? O.filter(function (o) { return o.status === 'pending'; }).length : null;
+  var pendN = P ? fhBucketRows(P, 'pending').length : null;
+  var paidN = P ? fhBucketRows(P, 'paid').length : null;
+
+  var stats = '<div class="fh-stats">' +
+    (L === null ? fhStat('Active produce', '–', 'Unavailable — pull to refresh', 'farmer-produce')
+                : fhStat('Active produce', String(liveN), (L.length ? 'of ' + L.length + ' listing' + (L.length === 1 ? '' : 's') : 'nothing listed yet'), 'farmer-produce')) +
+    (O === null ? fhStat('New orders', '–', 'Unavailable', 'farmer-orders')
+                : fhStat('New orders', String(newN), newN ? 'waiting for your reply' : 'nothing to answer', 'farmer-orders')) +
+    (O === null ? fhStat('Needs action', '–', 'Unavailable', 'farmer-orders')
+                : fhStat('Needs action', String(openN), openN ? 'you can move these now' : 'all caught up', 'farmer-orders')) +
+    (P === null ? fhStat('Awaiting payout', '–', 'Unavailable', 'farmer-earnings')
+                : fhStat('Awaiting payout', fmtUgx(fhNet(P, 'pending')), paidN ? paidN + ' paid out' : 'no payout paid yet', 'farmer-earnings')) +
+    '</div>';
+
+  var todo = '';
+  if (O === null) todo = fhErr('We could not load your orders.', 'loadFarmerHome()');
+  else if (!fhOpenOrders(O).length) todo = fhEmpty('✅', 'No orders waiting', O.length ? 'You have answered every order you have. New ones appear here.' : 'When a buyer orders your produce, it appears here for you to confirm.', 'Sell produce', 'openListProduceModal()');
+  else todo = '<div class="fh-list">' + fhOpenOrders(O).slice(0, 3).map(fhOrderRow).join('') + '</div>';
+
+  var prod = '';
+  if (L === null) prod = fhErr('We could not load your produce.', 'loadFarmerHome()');
+  else if (!L.length) prod = fhEmpty('🌾', 'You have not listed anything yet', 'Add what you have harvested, set your own price, and buyers in your district can order it.', 'Sell produce', 'openListProduceModal()');
+  else prod = '<div class="fh-list">' + L.slice(0, 3).map(fhProduceRow).join('') + '</div>';
+
+  panel.innerHTML = '<div class="hd">' + fhHead() +
+    '<button class="fh-sell" onclick="openListProduceModal()">' +
+      '<span class="fh-sell-ic" aria-hidden="true">🌾</span>' +
+      '<span style="min-width:0"><b>Sell produce</b><small>List what you harvested and set your own price</small></span>' +
+      '<i aria-hidden="true">›</i></button>' +
+    stats +
+    '<div class="fh-sec"><div class="fh-sec-top"><h4>Needs your action</h4><button class="fh-more" onclick="showPage(\'farmer-orders\')">All orders ›</button></div>' + todo + '</div>' +
+    '<div class="fh-sec"><div class="fh-sec-top"><h4>My produce</h4><button class="fh-more" onclick="showPage(\'farmer-produce\')">All produce ›</button></div>' + prod + '</div>' +
+    '<div class="fh-sec"><div class="fh-sec-top"><h4>Earnings</h4><button class="fh-more" onclick="showPage(\'farmer-earnings\')">Details ›</button></div>' +
+      (P === null ? fhErr('We could not load your payout records.', 'loadFarmerHome()')
+        : !P.length ? fhEmpty('💰', 'No payout record yet', 'A payout record is created after an order is delivered and the buyer payment is recorded.', 'See your orders', 'showPage(\'farmer-orders\')')
+        : '<div class="fh-sum">' +
+            '<button class="fh-stat" onclick="showPage(\'farmer-earnings\')"><span class="fh-stat-lbl">Paid out</span><span class="fh-stat-val">' + fmtUgx(fhNet(P, 'paid')) + '</span><span class="fh-stat-sub">' + fhBucketRows(P, 'paid').length + ' payout record' + (fhBucketRows(P, 'paid').length === 1 ? '' : 's') + '</span></button>' +
+            '<button class="fh-stat" onclick="showPage(\'farmer-earnings\')"><span class="fh-stat-lbl">Completed sales</span><span class="fh-stat-val">' + String(P.length) + '</span><span class="fh-stat-sub">delivered &amp; paid orders</span></button>' +
+          '</div>') + '</div>' +
+    '<div class="fh-note">Money shown here comes only from payout records the server creates after an order is delivered and paid. An order on its own is not money owed to you. Transport costs are not part of these figures — AgriBridge does not record a delivery charge on an order or a payout.</div>' +
+    '<div class="afc2" onclick="toggleAI()"><div class="afc2-txt"><div class="afc2-title">AI Farm Assistant</div><div class="afc2-sub">Ask about prices, pests or your harvest</div><span class="afc2-btn">Ask AgriBridge AI ›</span></div><div class="afc2-orb"><span class="of-eye"></span><span class="of-eye"></span><span class="of-smile"></span></div></div>' +
+    '</div>';
+  _setNotifUnread(_lastNotifUnread);
+}
+
+// ── MY PRODUCE ─────────────────────────────────────────────────────────────
+var _fhProduce = null;
+var FH_PFILT = { all: 'All', live: 'Live', low: 'Low stock', sold: 'Fully reserved', paused: 'Hidden' };
+async function loadFarmerProduce(force) {
+  var el = document.getElementById('fp-body');
+  if (!el) return;
+  if (!farmerId()) { el.innerHTML = fhEmpty('🔒', 'Log in to see your produce', 'Your listings belong to your AgriBridge account.', 'Log In', "openModal('loginModal')"); return; }
+  el.innerHTML = fhSk(3);
+  var d = await farmerData(force);
+  if (!d || d.listings === null) { el.innerHTML = fhErr('We could not load your produce from the server. Check your connection.', 'loadFarmerProduce(true)'); return; }
+  _fhProduce = d.listings;
+  renderFarmerProduce();
+}
+function fhProdFilter(f) { _fpFilter = f; renderFarmerProduce(); }
+function renderFarmerProduce() {
+  var el = document.getElementById('fp-body');
+  if (!el || !_fhProduce) return;
+  var L = _fhProduce;
+  var rows = L.filter(function (l) { return _fpFilter === 'all' ? true : fhProduceState(l) === _fpFilter; });
+  var kg = L.reduce(function (s, l) { return s + listingAvailable(l); }, 0);
+  var tabs = '<div class="fh-filters" role="tablist">' + Object.keys(FH_PFILT).map(function (k) {
+    var n = k === 'all' ? L.length : L.filter(function (l) { return fhProduceState(l) === k; }).length;
+    return '<button class="fh-tab' + (_fpFilter === k ? ' on' : '') + '" role="tab" aria-selected="' + (_fpFilter === k ? 'true' : 'false') + '" onclick="fhProdFilter(\'' + k + '\')">' + FH_PFILT[k] + ' (' + n + ')</button>';
+  }).join('') + '</div>';
+  var head = L.length ? '<div class="fh-stats">' +
+      fhStatRo('Listings', String(L.length), 'created by you') +
+      fhStatRo('Active now', String(fhLiveProduce(L).length), 'buyers can order') +
+      fhStatRo('Quantity free', kg.toLocaleString() + ' kg', 'not reserved by orders') +
+      fhStat('Needs action', String(fhOpenOrders(_fh.orders).length), 'open your orders', 'farmer-orders') +
+    '</div>' : '';
+  var list = rows.length ? '<div class="fh-list">' + rows.map(fhProduceRow).join('') + '</div>'
+    : (L.length ? fhEmpty('🔍', 'Nothing under this filter', 'Try another tab to see the rest of your produce.', 'Show all', 'fhProdFilter(\'all\')')
+                 : fhEmpty('🌾', 'You have not listed anything yet', 'Add what you have harvested, set your own price per unit, and buyers in your district can order it.', 'Sell produce', 'openListProduceModal()'));
+  el.innerHTML = head + tabs + list +
+    '<div class="fh-note">Quantity free is your listed quantity minus what buyers have already reserved — it updates as orders come in. <b>Edit listing</b> changes the name, quantity and price, and <b>Hide from buyers</b> takes a listing off the marketplace without deleting it. Anything already reserved by an order stays as it is.</div>' +
+    '<button class="fh-link" onclick="openListProduceModal()">+ Sell produce</button>';
+}
+
+// ── listing edit sheet: the guarded path, never a raw PATCH ────────────────
+// The listings_owner_update policy would let the browser write any column, so
+// every change here goes through PATCH /api/listings/<id>, which re-reads the
+// row, refuses a quantity below what orders already reserved, and re-derives
+// stock_status the way the reservation triggers do.
+var _leListing = null, _leReserved = 0, _leFile = null, _leUrl = '';
+
+function fhQty(n, u) { return Number(n).toLocaleString() + ' ' + escHtml(u || 'kg'); }
+
+function fhOpenEdit(id) {
+  var l = (_fhProduce || []).filter(function (x) { return String(x.id) === String(id); })[0];
+  if (!l) { showToast('We could not find that listing any more — refresh your produce'); return; }
+  _leListing = l;
+  _leReserved = Number(l.reserved_qty || 0);
+  var crop = document.getElementById('leCrop'), qty = document.getElementById('leQty'),
+      price = document.getElementById('lePrice');
+  if (crop) crop.value = l.crop_name || '';
+  if (qty) qty.value = Number(l.quantity_kg || 0);
+  if (price) price.value = Number(l.price_per_kg || 0);
+  var u = fhUnit(l);
+  var ul = document.getElementById('leUnitLabel'); if (ul) ul.textContent = u;
+  var rl = document.getElementById('leReservedLine');
+  if (rl) rl.textContent = _leReserved > 0
+    ? Number(_leReserved).toLocaleString() + ' ' + u + ' of this listing is already reserved by orders, so the quantity cannot go below that.'
+    : 'Nothing from this listing is reserved by an order yet.';
+  leRenderPhoto();
+  leSetErr('');
+  leCalc();
+  openModal('listingEditModal');
+}
+function leCalc() {
+  var qty = parseFloat((document.getElementById('leQty') || {}).value);
+  var out = document.getElementById('leAvail');
+  if (!out) return;
+  var u = fhUnit(_leListing || {});
+  if (!(qty > 0)) { out.textContent = 'Enter a quantity to see what buyers can order.'; return; }
+  var free = qty - _leReserved;
+  out.innerHTML = free <= 0
+    ? 'Buyers can order <b>0 ' + escHtml(u) + '</b> — the whole quantity is reserved by orders already.'
+    : 'Buyers can order <b>' + free.toLocaleString() + ' ' + escHtml(u) + '</b> of the ' +
+      qty.toLocaleString() + ' ' + escHtml(u) + ' you are listing.';
+}
+function leSetErr(msg) {
+  var el = document.getElementById('leErr');
+  if (!el) return;
+  el.textContent = msg || '';
+  el.className = 'lp-hint lp-bad';
+}
+async function fhSaveEdit() {
+  var l = _leListing;
+  if (!l) { showToast('Open the listing again and try once more'); return; }
+  if (window._leSaving) { showToast('Your changes are still being saved — please wait a moment'); return; }
+  var crop = String((document.getElementById('leCrop') || {}).value || '').trim();
+  var qty = parseFloat((document.getElementById('leQty') || {}).value);
+  var price = parseFloat((document.getElementById('lePrice') || {}).value);
+  var u = fhUnit(l);
+  if (!crop) { leSetErr('Enter the name of the produce.'); return; }
+  if (!(qty > 0)) { leSetErr('Enter a quantity greater than 0.'); return; }
+  if (!(price > 0)) { leSetErr('Enter a price greater than 0.'); return; }
+  if (qty < _leReserved) {
+    leSetErr('You already have ' + Number(_leReserved).toLocaleString() + ' ' + u +
+             ' reserved by orders, so the quantity cannot go below that.');
+    return;
+  }
+  var tok = _authToken || await refreshAuthToken();
+  if (!tok) { leSetErr('Your session expired — please log in again.'); return; }
+  window._leSaving = true;
+  var btn = document.getElementById('leSave');
+  var label = btn ? btn.textContent : '';
+  if (btn) { btn.disabled = true; btn.textContent = 'Saving…'; }
+  var unlock = function () {
+    window._leSaving = false;
+    if (btn) { btn.disabled = false; btn.textContent = label; }
+  };
+  try {
+    var r = await fetch(USSD_API + '/api/listings/' + encodeURIComponent(l.id), {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + tok },
+      body: JSON.stringify({ crop_name: crop, quantity_kg: qty, price_per_kg: price })
+    });
+    var data = await r.json().catch(function () { return {}; });
+    if (r.status === 409) {
+      // The server kept the old quantity. Show its reason and pull the real
+      // reserved figure so the farmer is not asked to guess it.
+      if (typeof data.reserved_qty === 'number' && data.reserved_qty) {
+        _leReserved = data.reserved_qty;
+        var rl = document.getElementById('leReservedLine');
+        if (rl) rl.textContent = Number(_leReserved).toLocaleString() + ' ' + u +
+          ' of this listing is now reserved by orders.';
+        leCalc();
+      }
+      leSetErr(data.error || 'The stock figure changed while you were editing. Reload and try again.');
+      farmerAfterChange();
+      return;
+    }
+    if (!r.ok || !data.ok) {
+      leSetErr(data.error || 'Could not save your changes. Check your connection and try again.');
+      return;
+    }
+    closeModal('listingEditModal');
+    showToast('✅ Your listing is updated');
+    window._listingsFull = false;
+    if (document.querySelector('.page.active') && document.querySelector('.page.active').id === 'page-market') loadListings();
+    farmerAfterChange();
+  } catch (e) {
+    leSetErr('Network error — check your connection and try again.');
+  } finally {
+    unlock();
+  }
+}
+async function fhSetVisible(id, visible) {
+  var tok = _authToken || await refreshAuthToken();
+  if (!tok) { showToast('Your session expired — please log in again'); return; }
+  if (window._leVis) return;
+  window._leVis = true;
+  showToast(visible ? 'Showing your listing to buyers…' : 'Hiding your listing from buyers…');
+  try {
+    var r = await fetch(USSD_API + '/api/listings/' + encodeURIComponent(id), {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + tok },
+      body: JSON.stringify({ is_available: !!visible })
+    });
+    var data = await r.json().catch(function () { return {}; });
+    if (!r.ok || !data.ok) {
+      showToast(data.error || 'Could not change that listing. Try again.');
+      return;
+    }
+    showToast(visible ? '👀 Your listing is live again for buyers' : '🙈 Your listing is hidden. Buyers can no longer order it.');
+    window._listingsFull = false;
+    farmerAfterChange();
+  } catch (e) {
+    showToast('Network error — the listing is unchanged. Try again.');
+  } finally {
+    window._leVis = false;
+  }
+}
+
+// Photo change from the edit sheet: the listing is already saved, so an upload
+// here can afford to report progress inside the open form.
+function leRenderPhoto() {
+  var box = document.getElementById('lePhotoBox');
+  if (!box) return;
+  var current = String((_leListing && (_leListing.image_url || _leListing.photo_url)) || '');
+  if (_leFile) {
+    box.innerHTML = '<div class="lp-shot"><img src="' + _leUrl + '" alt="Preview of the new photo you chose">' +
+      '<div class="lp-meta"><div class="lp-name">' + escHtml(_leFile.name || 'photo') + '</div>' +
+      '<div class="lp-size">' + lpFmtBytes(_leFile.size) + ' · resized on your phone before uploading</div>' +
+      '<div class="lp-acts"><button type="button" onclick="leClearPick()">Remove</button></div>' +
+      '<div class="lp-bar" id="lePhotoBar"><i></i></div></div></div>';
+    return;
+  }
+  if (current) {
+    box.innerHTML = '<div class="lp-shot"><img src="' + escHtml(current) + '" alt="Your current listing photo">' +
+      '<div class="lp-meta"><div class="lp-name">This is the photo buyers see now</div>' +
+      '<div class="lp-acts"><button type="button" onclick="document.getElementById(\'lePhoto\').click()">Change photo</button></div>' +
+      '<div class="lp-bar" id="lePhotoBar"><i></i></div></div></div>';
+    return;
+  }
+  box.innerHTML = '<button type="button" class="lp-pick-btn" onclick="document.getElementById(\'lePhoto\').click()">' +
+    '<span aria-hidden="true">📷</span> Add a photo</button><div class="lp-bar" id="lePhotoBar"><i></i></div>';
+}
+function leClearPick() {
+  if (_leUrl) { try { URL.revokeObjectURL(_leUrl); } catch (e) {} _leUrl = ''; }
+  _leFile = null;
+  var i = document.getElementById('lePhoto'); if (i) i.value = '';
+  leRenderPhoto();
+}
+async function lePickPhoto(input) {
+  var f = input && input.files && input.files[0];
+  if (!f) return;
+  if (!/^image\//.test(f.type || '')) { input.value = ''; leSetErr('That file is not a photo. Choose a JPEG or PNG image.'); return; }
+  if (f.size > LP_MAX_PHOTO_MB * 1024 * 1024) { input.value = ''; leSetErr('That photo is bigger than ' + LP_MAX_PHOTO_MB + 'MB.'); return; }
+  leSetErr('');
+  if (_leUrl) { try { URL.revokeObjectURL(_leUrl); } catch (e) {} }
+  _leFile = f;
+  try { _leUrl = URL.createObjectURL(f); } catch (e) { _leUrl = ''; }
+  leRenderPhoto();
+  var tok = _authToken || await refreshAuthToken();
+  if (!tok || !(_leListing && _leListing.id)) { leSetErr('Your session expired — please log in again.'); return; }
+  var bar = function (done, total) {
+    var el = document.querySelector('#lePhotoBar i');
+    if (el) el.style.width = Math.round((total ? done / total : 0) * 100) + '%';
+  };
+  bar(0, f.size);
+  var upload = f;
+  try {
+    var compressed = await downscaleImage(f, 1280, 0.82);
+    upload = new File([compressed], 'listing.jpg', { type: 'image/jpeg' });
+  } catch (e) { /* send the original if on-device resizing fails */ }
+  var url = await uploadMedia(upload, 'listings', LP_MAX_PHOTO_MB, bar);
+  if (!url) { leSetErr('The photo could not be uploaded. Your listing is unchanged.'); leClearPick(); return; }
+  try {
+    var r = await fetch(USSD_API + '/api/listings/' + encodeURIComponent(_leListing.id) + '/media', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + tok },
+      body: JSON.stringify({ image_url: url })
+    });
+    if (!r.ok) { leSetErr('The photo uploaded but could not be attached. Try again.'); leClearPick(); return; }
+  } catch (e) {
+    leSetErr('Network error attaching the photo. Your listing is unchanged.'); leClearPick(); return;
+  }
+  _leListing.image_url = url;
+  leClearPick();
+  showToast('📷 Photo updated on your listing');
+  window._listingsFull = false;
+  farmerAfterChange();
+}
+
+// ── ORDERS ─────────────────────────────────────────────────────────────────
+var _fhOrders = null;
+var FH_OFILT = { open: 'Needs action', pending: 'New', confirmed: 'Confirmed', moving: 'On the way', done: 'Delivered', all: 'All' };
+function fhOrderIn(o, k) {
+  var s = String(o.status || 'pending');
+  if (k === 'all') return true;
+  if (k === 'open') return (FH_FLOW[s] || FH_FLOW.pending).acts.length > 0;
+  if (k === 'moving') return s === 'in_transit';
+  if (k === 'done') return s === 'delivered';
+  return s === k;
+}
+async function loadFarmerOrders(force) {
+  var el = document.getElementById('fo-body');
+  if (!el) return;
+  if (!farmerId()) { el.innerHTML = fhEmpty('🔒', 'Log in to see your orders', 'Orders are only shown to the farmer who owns them.', 'Log In', "openModal('loginModal')"); return; }
+  el.innerHTML = fhSk(3);
+  var d = await farmerData(force);
+  if (!d || d.orders === null) { el.innerHTML = fhErr('We could not load your orders from the server. Check your connection.', 'loadFarmerOrders(true)'); return; }
+  _fhOrders = d.orders;
+  renderFarmerOrders();
+}
+function fhOrderFilter(f) { _foFilter = f; renderFarmerOrders(); }
+function renderFarmerOrders() {
+  var el = document.getElementById('fo-body');
+  if (!el || !_fhOrders) return;
+  var O = _fhOrders;
+  var rows = O.filter(function (o) { return fhOrderIn(o, _foFilter); });
+  var tabs = O.length ? '<div class="fh-filters" role="tablist">' + Object.keys(FH_OFILT).map(function (k) {
+    var n = O.filter(function (o) { return fhOrderIn(o, k); }).length;
+    return '<button class="fh-tab' + (_foFilter === k ? ' on' : '') + '" role="tab" aria-selected="' + (_foFilter === k ? 'true' : 'false') + '" onclick="fhOrderFilter(\'' + k + '\')">' + FH_OFILT[k] + ' (' + n + ')</button>';
+  }).join('') + '</div>' : '';
+  var list = rows.length ? '<div class="fh-list">' + rows.map(fhOrderRow).join('') + '</div>'
+    : (O.length ? fhEmpty('📭', 'No orders in this tab', 'Switch tabs to see the rest of your orders.', 'Show all', 'fhOrderFilter(\'all\')')
+                : fhEmpty('📥', 'No orders yet', 'Buyers order the produce you list. Your listings are what make this happen.', 'Sell produce', 'openListProduceModal()'));
+  el.innerHTML = tabs + list +
+    '<div class="fh-note">Confirming, cancelling or marking an order moves it through the same server-side rules the AgriBridge team uses, so stock stays correct. Cancelling returns the reserved quantity to your listing and cannot be undone from this screen.</div>' +
+    '<button class="fh-link" onclick="showPage(\'delivery\')">Delivery &amp; tracking ›</button>';
+}
+function fhAct(id, status, btn, label) {
+  if (status === 'cancelled') {
+    if (!window.confirm('Cancel this order? The buyer is told and the reserved quantity goes back to your listing. This cannot be undone.')) return;
+  }
+  updateOrderStatus(id, status, btn);
+}
+
+// ── EARNINGS ───────────────────────────────────────────────────────────────
+async function loadFarmerEarnings(force) {
+  var el = document.getElementById('fe-body');
+  if (!el) return;
+  if (!farmerId()) { el.innerHTML = fhEmpty('🔒', 'Log in to see your earnings', 'Payout records belong to your AgriBridge account.', 'Log In', "openModal('loginModal')"); return; }
+  el.innerHTML = fhSk(3);
+  var d = await farmerData(force);
+  if (!d || d.payouts === null) { el.innerHTML = fhErr('We could not load your payout records from the server. Check your connection.', 'loadFarmerEarnings(true)'); return; }
+  var P = d.payouts, O = d.orders || [];
+  var byId = {};
+  O.forEach(function (o) { byId[String(o.id)] = o; });
+  var pend = fhNet(P, 'pending'), paid = fhNet(P, 'paid'), disp = fhNet(P, 'disputed'), fail = fhNet(P, 'failed');
+  var comm = fhField(P, 'commission_amount'), gross = fhField(P, 'gross_amount');
+  var h = '<div class="fh-sum">' +
+    fhStatRo('Awaiting payout', fmtUgx(pend), fhBucketRows(P, 'pending').length + ' record' + (fhBucketRows(P, 'pending').length === 1 ? '' : 's')) +
+    fhStatRo('Paid out', fmtUgx(paid), fhBucketRows(P, 'paid').length + ' record' + (fhBucketRows(P, 'paid').length === 1 ? '' : 's')) +
+    fhStatRo('Completed sales', String(P.length), 'delivered & paid orders') +
+    fhStatRo('Order value', fmtUgx(gross), 'before commission') +
+    '</div>';
+  if (disp > 0) h += '<div class="fh-note">' + fmtUgx(disp) + ' across ' + fhBucketRows(P, 'disputed').length + ' payout record(s) is on hold or disputed. Contact support through the ☰ menu.</div>';
+  if (fail > 0) h += '<div class="fh-note">' + fmtUgx(fail) + ' across ' + fhBucketRows(P, 'failed').length + ' payout record(s) failed or was rejected. Contact support through the ☰ menu.</div>';
+  h += '<div class="fh-sec"><div class="fh-sec-top"><h4>Commission</h4></div><div class="fh-card"><div class="fh-mid"><div class="fh-t">' + fmtUgx(comm) + '</div>' +
+    '<div class="fh-s">Deducted from ' + fmtUgx(gross) + ' of completed order value across ' + P.length + ' payout record(s). Each payout stores its own rate.</div></div></div></div>';
+  if (!P.length) {
+    h += fhEmpty('💰', 'No payout record yet', 'AgriBridge creates one payout record per order after it is delivered and the buyer payment is recorded. Delivered orders without a payout are still awaiting payment.', 'See your orders', 'showPage(\'farmer-orders\')');
+  } else {
+    h += '<div class="fh-sec"><div class="fh-sec-top"><h4>Payout history</h4></div><div class="fh-list">' +
+      P.map(function (p) {
+        var o = byId[String(p.order_id)];
+        var b = fhBucket(p);
+        var pill = b === 'paid' ? 'ok' : b === 'pending' ? 'low' : b === 'disputed' ? 'info' : 'bad';
+        var when = p.paid_at || p.created_at;
+        return '<div class="fh-card"><div class="fh-thumb" aria-hidden="true">' + (b === 'paid' ? '✅' : b === 'pending' ? '⏳' : b === 'disputed' ? '⚠️' : '❌') + '</div>' +
+          '<div class="fh-mid"><div class="fh-t">' + fmtUgx(p.net_amount) + '</div>' +
+          '<div class="fh-s">' + escHtml(o ? fhOrderName(o) : ('order ' + String(p.order_id || '').slice(0, 8))) + (when ? ' · ' + new Date(when).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }) : '') + '</div>' +
+          '<div class="fh-s">' + fmtUgx(p.gross_amount) + ' − ' + fmtUgx(p.commission_amount) + ' commission' + (Number(p.commission_pct) ? ' (' + Number(p.commission_pct) + '%)' : '') + '</div>' +
+          '<span class="fh-pill ' + pill + '">' + escHtml(String(p.status || b)) + '</span>' +
+          (p.provider ? '<span class="fh-pill off">' + escHtml(p.provider) + (p.provider_ref ? ' · ' + escHtml(String(p.provider_ref)) : '') + '</span>' : '') +
+          '</div></div>';
+      }).join('') + '</div></div>';
+  }
+  h += '<div class="fh-note">These are the server\'s own payout records — nothing here is estimated. Delivery and transport charges are not included: an order does not store a delivery fee, so it cannot be reported as money. Payment method and buyer payment status live under <b>Orders</b>.</div>' +
+    '<button class="fh-link" onclick="fhRefresh(\'farmer-earnings\')">↻ Refresh from the server</button>';
+  el.innerHTML = h;
+}
+function fhRefresh(page) { farmerDataClear(); if (page === 'farmer-produce') loadFarmerProduce(true); else if (page === 'farmer-earnings') loadFarmerEarnings(true); else loadFarmerHome(); }
+
+// ── PROFILE ────────────────────────────────────────────────────────────────
+var _fprRow = null, _fprSaving = false;
+async function loadFarmerProfile() {
+  var el = document.getElementById('fpr-body');
+  if (!el) return;
+  var id = farmerId();
+  if (!id) { el.innerHTML = fhEmpty('🔒', 'Log in to manage your profile', 'Your farm details belong to your AgriBridge account.', 'Log In', "openModal('loginModal')"); return; }
+  el.innerHTML = fhSk(3);
+  var row = await sb('farmers', { select: 'full_name,phone,district,sub_county,village,farm_size_acres,crops_grown,is_verified,is_premium,profile_photo,created_at', filters: [['id', 'eq.' + id]], single: true });
+  if (!row) { el.innerHTML = fhErr('We could not load your profile from the server. Check your connection.', 'loadFarmerProfile()'); return; }
+  _fprRow = row;
+  renderFarmerProfile();
+}
+function fhFieldRo(lbl, val, hint) {
+  return '<label>' + escHtml(lbl) + '</label><input class="fh-ro" readonly tabindex="-1" aria-readonly="true" value="' + escHtml(val || 'Not recorded') + '">' + (hint ? '<div class="fh-s" style="margin-top:5px">' + escHtml(hint) + '</div>' : '');
+}
+function renderFarmerProfile() {
+  var el = document.getElementById('fpr-body');
+  if (!el || !_fprRow) return;
+  var r = _fprRow;
+  var photo = r.profile_photo || (currentUser && currentUser.avatar_url) || '';
+  var av = String(photo).indexOf('http') === 0 ? '<img src="' + escHtml(photo) + '" alt="">' : escHtml(String(r.full_name || currentUser.name || 'F').charAt(0).toUpperCase());
+  var dists = (typeof UG_DISTRICTS !== 'undefined' && UG_DISTRICTS) ? UG_DISTRICTS : [];
+  var dl = '<datalist id="abDistricts">' + dists.map(function (d) { return '<option value="' + escHtml(d) + '">'; }).join('') + '</datalist>';
+  el.innerHTML = '<div class="fh-head"><div class="fh-avatar" style="width:56px;height:56px;font-size:1.3rem">' + av + '</div>' +
+      '<div style="min-width:0"><div class="fh-hi">Signed in as</div><div class="fh-name">' + escHtml(r.full_name || (currentUser && currentUser.email) || 'Farmer') + '</div>' +
+      '<div class="fh-s">' + (r.is_verified ? 'Verified farmer' : 'Not verified yet') + (r.created_at ? ' · since ' + new Date(r.created_at).toLocaleDateString('en-GB', { month: 'short', year: 'numeric' }) : '') + '</div></div></div>' +
+    '<div class="fh-note">Only your name, phone and district can be changed here, and they are checked by the AgriBridge server before they are saved. Verification, your farm size and crops are looked at by the AgriBridge team — use the ☰ menu to contact them.</div>' +
+    '<button class="fh-link" onclick="document.getElementById(\'fprPhoto\').click()">Change my photo</button>' +
+    '<input type="file" id="fprPhoto" accept="image/*" style="display:none" onchange="saveFarmerPhoto(this)">' +
+    '<div class="fh-form">' + dl +
+      '<label for="fprName">Full name</label><input id="fprName" autocomplete="name" maxlength="60" value="' + escHtml(r.full_name || '') + '">' +
+      '<label for="fprPhone">Phone number</label><input id="fprPhone" type="tel" inputmode="tel" autocomplete="tel" maxlength="20" placeholder="0771 234567" value="' + escHtml(r.phone || '') + '">' +
+      '<label for="fprDistrict">District</label><input id="fprDistrict" list="abDistricts" maxlength="100" autocomplete="off" value="' + escHtml(r.district || '') + '">' +
+      '<button class="fh-save" id="fprSave" onclick="saveFarmerProfile()">Save changes</button>' +
+    '</div>' +
+    '<div class="fh-sec" style="margin-top:22px"><div class="fh-sec-top"><h4>Held by AgriBridge</h4></div>' +
+      fhFieldRo('Account verification', r.is_verified ? 'Verified' : 'Not verified', 'Checked against your ID and farm by the AgriBridge team.') +
+      fhFieldRo('Premium listing', r.is_premium ? 'Yes' : 'No', 'Set by the AgriBridge team.') +
+      fhFieldRo('Sub-county / village', [r.sub_county, r.village].filter(Boolean).join(' · ') || '', 'Kept private; not shown to buyers.') +
+      fhFieldRo('Farm size', r.farm_size_acres ? (Number(r.farm_size_acres) + ' acres') : '', 'Ask support to correct it.') +
+      fhFieldRo('Crops grown', (r.crops_grown && r.crops_grown.length) ? r.crops_grown.join(', ') : '', 'Ask support to correct it.') +
+    '</div>' +
+    '<button class="fh-link" onclick="openModal(\'myAccountModal\')">Account, language &amp; sign out ›</button>';
+}
+async function saveFarmerProfile() {
+  if (_fprSaving) return;
+  var el = document.getElementById('fpr-body');
+  var name = ((document.getElementById('fprName') || {}).value || '').trim();
+  var phone = ((document.getElementById('fprPhone') || {}).value || '').trim();
+  var dist = ((document.getElementById('fprDistrict') || {}).value || '').trim();
+  if (!name) { showToast('Please enter your full name'); return; }
+  if (!dist) { showToast('Please enter your district'); return; }
+  var btn = document.getElementById('fprSave');
+  _fprSaving = true;
+  if (btn) { btn.disabled = true; btn.dataset.orig = btn.textContent; btn.textContent = 'Saving…'; }
+  try {
+    var tok = await refreshAuthToken();
+    if (!tok) throw new Error('signed out');
+    var r = await fetch(USSD_API + '/api/user/profile', {
+      method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + tok },
+      body: JSON.stringify({ full_name: name, phone: phone, district: dist })
+    });
+    var data = await r.json().catch(function () { return {}; });
+    if (r.ok && data.ok) {
+      showToast('Profile saved ✓');
+      if (currentUser) { currentUser.name = name; currentUser.district = dist; if (phone) currentUser.phone = phone; try { localStorage.setItem('ab_user', JSON.stringify(currentUser)); } catch (e) {} }
+      updateNavUser(currentUser);
+      farmerDataClear();
+      await hydrateUserProfile();
+      _fprRow = null;
+      loadFarmerProfile();
+      return;
+    }
+    showToast(data.error || 'Could not save your profile — please try again');
+  } catch (e) {
+    showToast('Could not save your profile — check your connection');
+  } finally {
+    _fprSaving = false;
+    if (btn) { btn.disabled = false; btn.textContent = btn.dataset.orig || 'Save changes'; }
+  }
+}
+async function saveFarmerPhoto(input) {
+  var file = input && input.files && input.files[0];
+  if (!file) return;
+  showToast('Uploading photo…');
+  var url = await uploadImage(file, 'avatars');
+  input.value = '';
+  if (!url) { showToast('Upload failed — please try again'); return; }
+  var saved = await sbUpdate('farmers', { profile_photo: url }, 'id', farmerId());
+  if (!saved) { showToast('Photo uploaded but could not be saved to your profile'); return; }
+  if (currentUser) { currentUser.avatar_url = url; try { localStorage.setItem('ab_user', JSON.stringify(currentUser)); } catch (e) {} }
+  if (_fprRow) _fprRow.profile_photo = url;
+  updateNavUser(currentUser);
+  showToast('Photo updated ✓');
+  renderFarmerProfile();
+  loadFarmerHome();
+}
+
+// ── keep every farmer surface honest after a change ────────────────────────
+function farmerAfterChange(pageId) {
+  farmerDataClear();
+  var active = document.querySelector('.page.active');
+  var id = pageId || (active && active.id) || '';
+  if (id === 'page-dashboard') { loadDashboard(); return; }
+  if (id === 'page-farmer-orders') loadFarmerOrders(true);
+  else if (id === 'page-farmer-produce') loadFarmerProduce(true);
+  else if (id === 'page-farmer-earnings') loadFarmerEarnings(true);
+  else if (id === 'page-home') loadFarmerHome();
+}
+
 async function loadBuyerKpis() {
   if(!currentUser) return;
   const set=(id,v)=>{ const e=document.getElementById(id); if(e) e.textContent=v; };
@@ -6654,12 +7736,13 @@ async function updateOrderStatus(id, status, btn){
       body:JSON.stringify({ status: status })
     });
     const data = await r.json().catch(function(){ return {}; });
-    if(r.ok && data.ok){ showToast('Order marked '+status+' ✅'); loadDashboard(); return; }
+    if(r.ok && data.ok){ showToast('Order marked '+status+' ✅'); farmerAfterChange(); return true; }
     showToast(data.error || 'Could not update the order — please try again');
   }catch(e){
     showToast('Could not update the order — please try again');
   }
   if(btn){ btn.disabled=false; btn.textContent=btn.dataset.orig||'Retry'; }
+  return false;
 }
 // Build the farmer analytics header (revenue + 30-day chart + top products) from real orders.
 function renderFarmerAnalytics(orders){
@@ -6854,6 +7937,19 @@ function toggleNotifPanel(){
   }
 }
 
+// One place writes the unread count so the navbar bell and the farmer Home bell
+// can never disagree. Only ever fed by the server's own /api/user/notifications.
+var _lastNotifUnread = 0;
+function _setNotifUnread(n){
+  n = Number(n || 0);
+  _lastNotifUnread = n;
+  var txt = n > 9 ? '9+' : String(n);
+  var badge = document.getElementById('notifCount');
+  if(badge){ badge.textContent = txt; badge.style.display = n > 0 ? '' : 'none'; }
+  var dot = document.getElementById('fhNotifDot');
+  if(dot){ dot.textContent = txt; dot.className = 'fh-dot' + (n > 0 ? ' on' : ''); }
+}
+
 async function loadNotifications(){
   const list=document.getElementById('notifList');
   if(!list) return;
@@ -6866,9 +7962,7 @@ async function loadNotifications(){
     const data=await r.json();
     const notifs=data.notifications||[];
     const unread=data.unread||0;
-    // Update bell badge
-    const badge=document.getElementById('notifCount');
-    if(badge){ badge.textContent=unread>9?'9+':String(unread); badge.style.display=unread>0?'':'none'; }
+    _setNotifUnread(unread);
     // Show "mark all read" if there are unread
     const markBtn=document.getElementById('markAllReadBtn');
     if(markBtn) markBtn.style.display=unread>0?'':'none';
@@ -6937,8 +8031,7 @@ async function _pollNotifBadge(){
     if(!r.ok) return;
     const data=await r.json();
     const unread=data.unread||0;
-    const badge=document.getElementById('notifCount');
-    if(badge){ badge.textContent=unread>9?'9+':String(unread); badge.style.display=unread>0?'':'none'; }
+    _setNotifUnread(unread);
     _notifyIfNew(unread, (data.notifications||[])[0]);
   } catch(e){}
 }
@@ -7812,10 +8905,24 @@ function submitListProduce() {
   if (!crop)    { showToast('Please select a crop type'); return; }
   if (qty <= 0) { showToast('Please enter a valid quantity'); return; }
   if (price <= 0){ showToast('Please enter a valid price'); return; }
+  // On a slow mobile connection the POST can take longer than the farmer waits,
+  // so a second tap used to post the same crop twice. One save at a time.
+  if (window._lpSaving) { showToast('Your listing is still being saved — please wait a moment'); return; }
   // Rate-limit only real, validated submissions (not incomplete attempts), and
   // allow a farmer to list a whole catalogue in one sitting.
   if (!checkRateLimit('submitListing', 20)) return;
-  return submitListProduceCore();
+  window._lpSaving = true;
+  var btn = document.getElementById('lpSubmit');
+  var label = btn ? btn.textContent : '';
+  if (btn) { btn.disabled = true; btn.textContent = 'Saving your listing…'; }
+  var unlock = function () {
+    window._lpSaving = false;
+    if (btn) { btn.disabled = false; btn.textContent = label; }
+  };
+  var p = submitListProduceCore();
+  if (p && typeof p.then === 'function') { p.then(unlock, unlock); return p; }
+  unlock();
+  return p;
 }
 
 // ── Enhanced sendContactMsg with sanitisation ─────────────
@@ -8121,7 +9228,8 @@ window.showPage = function(name) {
 // Pages each role can access
 var ROLE_PAGES = {
   guest:  ['home','market','prices','about','contact','ussd','doctor','animals','crops','training','community'],
-  farmer: ['home','market','prices','crops','animals','training','delivery','ussd',
+  farmer: ['home','farmer-produce','farmer-orders','farmer-earnings','farmer-profile',
+           'market','prices','crops','animals','training','delivery','ussd',
            'doctor','supply','dashboard','community','finance','coldchain','about','contact'],
   vendor: ['home','market','prices','crops','animals','delivery','ussd',
            'doctor','supply','community','about','contact'],
@@ -8130,7 +9238,7 @@ var ROLE_PAGES = {
 // Bottom nav items each role sees
 var ROLE_NAV = {
   guest:  [{page:'home',icon:'🏠',label:'Home'},{page:'market',icon:'🛒',label:'Browse'},{page:'about',icon:'💡',label:'About'},{page:'contact',icon:'✉️',label:'Contact'}],
-  farmer: [{page:'home',icon:'🏠',label:'Home'},{page:'market',icon:'🌾',label:'Listings'},{page:'dashboard',icon:'📊',label:'Dashboard'},{page:'doctor',icon:'🩺',label:'AI Doc'},{page:'finance',icon:'💰',label:'Finance'}],
+  farmer: [{page:'home',icon:'🏠',label:'Home'},{page:'farmer-produce',icon:'🌾',label:'Produce'},{page:'farmer-orders',icon:'📥',label:'Orders'},{page:'farmer-earnings',icon:'💰',label:'Earnings'},{page:'farmer-profile',icon:'👤',label:'Profile'}],
   vendor: [{page:'home',icon:'🏠',label:'Home'},{page:'market',icon:'🛒',label:'Market'},{page:'prices',icon:'📊',label:'Prices'},{page:'animals',icon:'🐄',label:'Animals'},{page:'delivery',icon:'🚚',label:'Orders'}],
   hotel:  [{page:'home',icon:'🏠',label:'Home'},{page:'b2b',icon:'🏢',label:'B2B Portal'},{page:'market',icon:'🛒',label:'Browse'},{page:'delivery',icon:'🚚',label:'Deliveries'},{page:'contact',icon:'✉️',label:'Support'}],
   supplier:[{page:'home',icon:'🏠',label:'Home'},{page:'dashboard',icon:'🏪',label:'My Store'},{page:'supply',icon:'🌱',label:'Supplies'},{page:'delivery',icon:'🚚',label:'Orders'},{page:'market',icon:'🛒',label:'Market'}],
@@ -8147,11 +9255,13 @@ var MORE_ITEMS = {
   finance:{icon:'💰',label:'Finance'}, b2b:{icon:'🏢',label:'B2B'},
   community:{icon:'🌱',label:'Community'}, coldchain:{icon:'❄️',label:'Cold Chain'},
   export:{icon:'🌍',label:'Export'}, ussd:{icon:'📱',label:'USSD'},
-  about:{icon:'💡',label:'About'}, contact:{icon:'✉️',label:'Contact'}
+  about:{icon:'💡',label:'About'}, contact:{icon:'✉️',label:'Contact'},
+  market:{icon:'🛒',label:'Market'}, prices:{icon:'📊',label:'Prices'},
+  ai:{icon:'✨',label:'AI Assistant'}
 };
 var MORE_BY_ROLE = {
   guest:  ['crops','animals','doctor','training','delivery','supply','finance','b2b','community','coldchain','export','ussd','about','contact'],
-  farmer: ['crops','animals','doctor','training','finance','supply','coldchain','export','delivery','community','ussd','about','contact'],
+  farmer: ['market','prices','ai','crops','animals','doctor','training','finance','supply','coldchain','export','delivery','community','ussd','about','contact'],
   vendor: ['crops','animals','delivery','training','community','coldchain','ussd','about','contact'],
   hotel:  ['b2b','supply','delivery','coldchain','finance','community','training','ussd','about','contact'],
   supplier:['supply','delivery','community','training','coldchain','finance','ussd','about','contact']
@@ -8160,7 +9270,10 @@ function renderMoreGrid(){
   var grid=document.querySelector('#moreSheet .more-grid'); if(!grid) return;
   var role=(typeof getCurrentRole==='function')?getCurrentRole():'guest';
   var keys=MORE_BY_ROLE[role]||MORE_BY_ROLE.guest;
-  grid.innerHTML=keys.map(function(k){ var it=MORE_ITEMS[k]; return it?'<button onclick="mnav(\''+k+'\')"><span>'+it.icon+'</span>'+it.label+'</button>':''; }).join('');
+  grid.innerHTML=keys.map(function(k){ var it=MORE_ITEMS[k]; if(!it) return '';
+    // The AI assistant has no page — it slides open over whatever is showing.
+    var act = k==='ai' ? 'closeMore();toggleAI()' : 'mnav(\''+k+'\')';
+    return '<button onclick="'+act+'"><span>'+it.icon+'</span>'+it.label+'</button>'; }).join('');
 }
 
 function getCurrentRole() {
@@ -8206,9 +9319,18 @@ function applyRoleUI() {
     }
     var orb = '<button class="nav-ai" onclick="toggleAI()" aria-label="AI Assistant">' +
       '<span class="nav-ai-orb"><span class="of-eye"></span><span class="of-eye"></span><span class="of-smile"></span></span></button>';
-    var left  = it.slice(0, 2).map(navBtn).join('');
-    var right = it.slice(2, 3).map(navBtn).join('') + navBtn({ page:'more', icon:'☰', label:'More', more:true });
-    nav.innerHTML = left + orb + right;
+    if (role === 'farmer') {
+      // Five full-width tabs (Home, Produce, Orders, Earnings, Profile) and no
+      // centre orb: the AI assistant stays on the Home card and in the ☰ sheet,
+      // and each farmer screen carries its own ☰ button so nothing is stranded.
+      nav.classList.add('bottom-nav--five');
+      nav.innerHTML = (ROLE_NAV.farmer || []).slice(0, 5).map(navBtn).join('');
+    } else {
+      nav.classList.remove('bottom-nav--five');
+      var left  = it.slice(0, 2).map(navBtn).join('');
+      var right = it.slice(2, 3).map(navBtn).join('') + navBtn({ page:'more', icon:'☰', label:'More', more:true });
+      nav.innerHTML = left + orb + right;
+    }
     var cur = nav.querySelector('#nav-home');
     if (cur) cur.classList.add('active');
   }
@@ -8236,7 +9358,13 @@ function applyRoleUI() {
   }
   // 6. If farmer, default to home with farmer quick links
   else if (role === 'farmer') {
-    showPage('home');
+    // applyRoleUI re-runs whenever the nav avatar refreshes (including after a
+    // profile save), so it must not eject a farmer who is standing on one of
+    // their own screens.
+    var _cur = document.querySelector('.page.active');
+    var _cid = (_cur && _cur.id) || '';
+    if (_cid !== 'page-farmer-produce' && _cid !== 'page-farmer-orders' &&
+        _cid !== 'page-farmer-earnings' && _cid !== 'page-farmer-profile') showPage('home');
     renderFarmerQuickLinks();
   }
   // 7. If vendor/buyer, default to the buyer home
@@ -8299,10 +9427,14 @@ function applyHomeMode() {
   if (currentUser) role = String(currentUser.role || currentUser.user_role || '').toLowerCase();
   var isSeller = !!currentUser && (role === 'farmer' || role === 'supplier');
   var panel = document.getElementById('roleHomePanel');
+  // A seller's Home is their dashboard. Everything else on this page is the
+  // buyer storefront (search, hero, category chips, product grids) and stays
+  // hidden until someone actually shops; the footer keeps contact and legal.
+  var sellerKeep = ['buyer-footer'];
   Array.prototype.forEach.call(home.children, function(ch) {
     if (ch.id === 'roleHomePanel' || ch.id === 'farmerQuickLinks') return;
     if (ch.id === 'guestCta') { ch.style.display = isSeller ? 'none' : ''; return; }
-    ch.style.display = '';
+    ch.style.display = (isSeller && sellerKeep.indexOf(ch.id) < 0) ? 'none' : '';
   });
   var hiw = document.getElementById('howItWorks');
   if (hiw) hiw.style.display = currentUser ? 'none' : '';
@@ -8511,6 +9643,7 @@ async function hydrateUserProfile() {
   if (row.district && !currentUser.district) currentUser.district = row.district;
   try { localStorage.setItem('ab_user', JSON.stringify(currentUser)); } catch (e) {}
   updateNavUser(currentUser);
+  fhHeadRefresh();
   // If DB has no name saved, nudge the user to complete their profile
   if (!row.full_name || !row.full_name.trim()) {
     setTimeout(function(){
@@ -9908,12 +11041,14 @@ document.addEventListener('DOMContentLoaded', function() {
       <select id="lpDistrict"><option>Kampala</option><option>Wakiso</option><option>Mukono</option><option>Jinja</option><option>Mbarara</option><option>Gulu</option><option>Lira</option><option>Mbale</option><option>Kasese</option><option>Masaka</option><option>Other</option></select>
     </div>
     <div class="form-group"><label>Description (optional)</label><textarea id="lpDesc" placeholder="e.g. Grade A tomatoes, freshly harvested…" style="min-height:60px"></textarea></div>
-    <div class="form-group"><label>Photo of your produce (optional)</label>
-      <input type="file" id="lpPhoto" accept="image/*" style="width:100%;padding:8px;border:1px solid var(--border);border-radius:8px;background:var(--card);color:var(--text)">
-      <div style="font-size:0.72rem;color:var(--text2);margin-top:4px">A real photo helps buyers trust your listing. Max 5MB.</div>
+    <div class="form-group"><label for="lpPhoto">Photo of your produce (optional)</label>
+      <input type="file" id="lpPhoto" accept="image/*" class="fh-file" onchange="lpPickPhoto(this)">
+      <div id="lpPhotoBox" class="lp-pick"></div>
+      <div class="lp-hint" id="lpPhotoHint">A real photo of what you are actually selling helps buyers trust your listing. JPEG or PNG, up to 5MB.</div>
     </div>
-    <div class="form-group"><label>🎥 Short video (optional, max 25MB)</label>
-      <input type="file" id="lpVideo" accept="video/*" style="width:100%;padding:8px;border:1px solid var(--border);border-radius:8px;background:var(--card);color:var(--text)">
+    <div class="form-group"><label for="lpVideo" id="lpVideoLabel">🎥 Short video (optional, max 25MB)</label>
+      <input type="file" id="lpVideo" accept="video/*" class="fh-file" onchange="lpPickVideo(this)" aria-labelledby="lpVideoLabel">
+      <div id="lpVideoBox" class="lp-pick"></div>
     </div>
     <div class="form-group"><label>How do you sell? (optional)</label>
       <div class="form-row">
@@ -9927,7 +11062,7 @@ document.addEventListener('DOMContentLoaded', function() {
         <label style="display:flex;align-items:center;gap:5px;font-weight:400"><input type="checkbox" id="lpPayBank" style="width:auto"> Bank</label>
       </div>
     </div>
-    <button class="btn-submit" onclick="submitListProduce()">📤 Post Listing Free</button>
+    <button class="btn-submit" id="lpSubmit" onclick="submitListProduce()">📤 Post Listing Free</button>
   </div>
 </div>
 

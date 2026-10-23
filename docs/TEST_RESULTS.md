@@ -273,6 +273,73 @@ is runtime evidence for the implementation, not a repeatable CI test.
 Neither the 6-test suite nor the 51-check harness proves the stage in
 production: the live bundle does not contain it (see §6).
 
+### Stage F1 (2026-10-23) — farmer dashboard
+
+```bash
+PYTHONPATH=.test-deps /c/Users/HP/OneDrive/Python314/python.exe -m pytest tests/e2e/test_farmer_ui.py -q
+```
+
+```
+12 passed in 23.13s
+```
+
+The harness is the buyer module's pattern: real `static/index.html` in headless
+Chromium at 390 × 844, Supabase SDK stubbed for auth only, PostgREST and the
+Render API answered from deterministic fixtures, unrelated hosts aborted. It
+holds its own farmer's rows *and* another farmer's rows so ownership is genuinely
+tested, and can fail any single table read to exercise the error path.
+
+* `test_farmer_nav_is_five_named_tabs_and_sell_is_the_lead_action` — tab order
+  and ids, no centre orb, Sell produce above the stats and wider than a tile,
+  ≥ 44 px targets, greeting from the farmer's own name.
+* `test_farmer_home_reports_real_counts_not_estimates` — 3 active produce
+  (live + low stock), 1 new order, 3 needing action, Awaiting payout
+  **UGX 38,000** = the pending payout's stored net, no `24°C`, "Weather" or
+  "Income" anywhere, and the buyer storefront (`buyerHomeTop`, category chips,
+  both product grids) computed `display:none` so a seller's Home is only a
+  dashboard.
+* `test_farmer_home_lists_only_own_orders_and_produce` — another farmer's
+  listing never appears.
+* `test_my_produce_uses_the_real_stock_model_and_the_farmers_own_photos` — all
+  five stock states from `stock_status`/`reserved_qty`, tab counts from the same
+  rows, exactly one `<img>` (the farmer's own upload), no Unsplash, `40 kg free
+  of 50 kg` and `0 kg free of 100 kg`.
+* `test_orders_expose_only_legal_transitions` — button sets match
+  `set_order_status`, delivered/cancelled offer nothing, the buyer's phone
+  appears only after the farmer accepts, and the filter chips plus the
+  "Open delivery & tracking" button are ≥ 44 px touch targets.
+* `test_confirming_an_order_goes_through_the_api_and_reloads` — real
+  `POST /api/orders/<id>/status`, the row re-renders from the changed fixture
+  state, the actions follow, and the home tiles agree.
+* `test_cancelling_needs_an_explicit_confirmation` — no API call until the
+  confirm dialog is accepted.
+* `test_earnings_come_from_payout_records_only` — 38,000 / 380,000 / 2 completed
+  / 440,000 order value / 22,000 commission, all from `payouts`, plus the
+  statement that transport is not included because no delivery fee is stored.
+* `test_profile_splits_editable_from_verified_details` — the exact
+  `POST /api/user/profile` body, verified/sub-county/village/farm-size/crops
+  read-only.
+* `test_publishing_produce_saves_the_listing_then_attaches_the_photo` — the
+  listing POSTs with `image_url: null` first, then `/api/uploads`, then
+  `PATCH /api/listings/<id>/media`; the upload carries the on-device-compressed
+  `listing.jpg`; two taps produce **one** listing.
+* `test_empty_and_error_states_offer_a_next_action` — empty versus failed reads
+  are never confused.
+* `test_every_farmer_screen_stays_reachable_and_error_free` — nav, `applyRoleUI()`
+  not ejecting the farmer, the ☰ sheet, keyboard-reachable section links, zero
+  page errors.
+
+Both defect tests were run against deliberately broken code and confirmed to
+fail: disabling `attachListingMedia()` reproduces the production
+`ReferenceError: attachListingMedia is not defined`, and disabling the save lock
+produces two identical `POST /api/listings` bodies. The two new touch-target
+assertions were likewise checked against reverted CSS — `.fh-tab` back to 40 px
+and the contact button back to a 32 px inline link — and both failed before the
+rules were restored.
+
+Full runs after the stage: `tests/e2e` **40 passed** (79.4 s) and the whole
+suite **459 passed** (85.2 s; 419 unit + 40 browser), `ruff check` clean.
+
 ## 5. What these tests do not prove
 
 * Pesapal API calls are faked. Token caching, redirect validation, verification
@@ -286,8 +353,13 @@ production: the live bundle does not contain it (see §6).
 * Stage 1's browser tests use fixture listings; the 51-check harness read real
   Supabase listings but stubbed authentication. Neither places an order, so
   cart → checkout hand-off with a real backend is not covered by this stage.
-* **The Stage 1 bundle is not deployed.** The checks above describe the working
-  tree only; `https://agribrige.com/` still serves the pre-Stage-1 HTML (see §6).
+* **The Stage F1 farmer dashboard is not deployed.** Its 12 browser tests describe
+  the working tree only; `https://agribrige.com/` still serves the Stage 1 buyer
+  HTML (see §6). Its 61 column names have now been confirmed against the live
+  project read-only (see §6), but the **authenticated** read path has not: no
+  real farmer sign-in was performed, so every farmer figure is still proven only
+  against fixture rows of verified shape, not against the owner's real listings,
+  orders or payouts.
 
 ## 6. Live verification status
 
@@ -327,6 +399,7 @@ production: the live bundle does not contain it (see §6).
 | Stage 1 live HTML probe (post-CI) | `curl https://agribrige.com/` → 752,146 bytes, sha256 `439306a7…a19a13`, exactly `git show bb2cd7a:static/index.html`; after `tr -d '\r'` it matches the workstation file (`8d73dd5a…` raw, CRLF). Markers `splashBrowseGuest` ×2, `pdTrustVerified` ×2, `homeMoreHead` ×3, `_homeCat` ×3, "Arranged after confirmation" ×4; workers.dev host identical | **In production** on both domains; raw-byte hash differs only by line endings |
 | Workers Builds on `bb2cd7a` | Check-run **failure** while the Actions deploy succeeds | **Resolved** — Git integration disconnected on 2026-10-23; the Actions workflow is the sole publisher |
 | Web Push registration (production) | Render log 2026-10-22T22:15Z from `https://agribrige.com/`: `GET /api/push/vapid-public-key` 200, five `POST /api/user/push-subscriptions` 200 (`{"ok":true}`, upsert on `endpoint`), `GET /api/user/notifications` 200 every ~60 s | **Registration and polling verified in production**; delivery of a push is not tested |
+| Stage F1 farmer column lists (live, read-only) | The four select strings scraped from `static/index.html` (`F_LISTING_SEL` 23 cols, `F_ORDER_SEL` 16, `F_PAYOUT_SEL` 11, the `farmers` profile read 11) sent as `GET …/rest/v1/<table>?<select>&limit=1` with only the publishable key already shipped in the SPA: `listings` **200**, `orders` **200**, `payouts` **200**, `farmers` **200**. No 42703 "column does not exist" on any of the 61 columns. `orders` and `payouts` returned **0 rows** to the anonymous role while `listings`/`farmers` returned rows | **Schema verified live** — every column the farmer screens name exists in the real project, and RLS still hides orders and payouts from anon. **Not** a verification of the authenticated read path: no real farmer sign-in was performed, so no farmer has yet seen their own rows |
 
 A live payment can only be claimed after a real verified transaction produces a
 `payment:<tx_ref>` journal. Pesapal additionally requires live credentials and
