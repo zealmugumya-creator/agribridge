@@ -147,7 +147,7 @@ endorsed; checkout/payment/delivery-tracking behaviour is Stage 2/3 work.
 
 ---
 
-## Stage F1 — Farmer dashboard (2026-10-23) — BUILT AND TESTED LOCALLY, NOT DEPLOYED
+## Stage F1 — Farmer dashboard (2026-10-23) — BUILT, TESTED AND DEPLOYED
 
 The first slice of the farmer interface, in the owner's stated order: **home
 dashboard first, then the screens behind it**. Five tabs — Home · Produce ·
@@ -237,9 +237,11 @@ Heights are asserted with 0.1 px slack because Chromium lays a `min-height:44px`
 chip out at 43.99998 CSS px; the same probe measured every chip and the contact
 button at exactly 44.0 px.
 
-**Production status: NOT DEPLOYED.** The owner has not authorised pushing or
-deploying the farmer interface, so this is local-working-tree only; nothing on
-`agribrige.com` changed.
+**Production status: DEPLOYED AND VERIFIED LIVE (2026-10-23).** The owner
+authorised completing and pushing the farmer interface, so it is no longer
+working-tree only. See §Stage F2 for the commit, CI and live-comparison evidence
+— it is the same bundle, published together, because both stages live in one
+`static/index.html`.
 
 What *could* be checked live without a deploy was checked: a read-only probe
 against the real Supabase project sent the four select strings scraped from
@@ -268,7 +270,7 @@ numbers themselves are still proven only against fixture rows of verified shape.
 
 ---
 
-## Stage F2 — Managing a listing (2026-10-23) — BUILT AND TESTED LOCALLY, NOT DEPLOYED
+## Stage F2 — Managing a listing (2026-10-23) — DEPLOYED AND VERIFIED LIVE
 
 Closes both F1 deferrals: a farmer can change a live listing, and can see,
 replace or remove a photograph before posting one.
@@ -336,7 +338,41 @@ checked to keep both changesets — the i18n helpers and the farmer dashboard ar
 both present, and the navbar edit is untouched. The work is now committed, so a
 later `git stash` cannot take it again.
 
-**Production status: NOT DEPLOYED** at the time of writing this section.
+**Production status: DEPLOYED AND VERIFIED LIVE (2026-10-23).** The owner's
+instruction was to finish the work, push it, and have it reflect in production.
+`a02829a` (F1) and `d5bd6c0` (F2) were rebased onto the other session's
+`365acec` and pushed to `main`; `git rev-parse HEAD origin/main` now returns the
+same sha for both and the working tree is clean.
+
+* **CI** — on `d5bd6c0`, *Backend lint + type + tests* and *Migration 0007 on
+  real PostgreSQL (PGlite)* are both `completed / success` (run `39992212374`),
+  and the *Deploy public web app* workflow's `deploy` job (`39992212165`)
+  succeeded. The suite that passed locally under ruff 0.16.10 therefore also
+  passes CI's pinned 0.8.4.
+* **Frontend** — the comparison that survives `core.autocrlf=true`:
+  `git show HEAD:static/index.html` and `curl https://agribrige.com/` hash to the
+  same `137949deee95a6e4a4f40589c0b35c76250a7ae93d6e220c0131995596931ce1` at
+  858,366 bytes, and `https://agribridge.zealmugumya.workers.dev/` returns those
+  identical bytes. The served HTML contains `listingEditModal`, `fhProduceRow`,
+  `leReservedLine` and `lpSaveDraft`, so the edit sheet and the F1 screens are
+  what a farmer's phone actually downloads — not merely what the repo holds.
+* **Backend** — the guarded write is live on Render, proved by discriminating
+  probes instead of by a `200`: `PATCH /api/listings/999999` with no token →
+  `401 {"error":"Missing token"}`, and with a forged bearer →
+  `401 {"error":"Invalid or expired session"}`, while a nonexistent path →
+  `404 {"error":"Not found"}` and `GET /api/listings/999999` → `405`. The only
+  `before_request` hook mints a correlation ID, so a `401` can only mean the rule
+  matched and `verify_supabase_user()` ran. The route exists *only* from `a02829a`
+  — `365acec:app.py` has no such rule — so `401` where the old build would answer
+  `404` is the evidence that Render is running the new code. No row was written:
+  both responses come from the auth check, before any database call.
+
+**What production still has not proved.** None of the above is an *authenticated*
+farmer request. No real sign-in was performed, so the live edit, pause,
+photo-upload and 409-lost-race paths have each run only against a fixture row and
+a fake Supabase, and the figures on the screens are still verified against rows of
+verified shape rather than against the owner's real listings, orders or payouts.
+That last check needs a farmer account and is the owner's to authorise.
 
 ---
 

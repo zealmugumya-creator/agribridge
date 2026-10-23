@@ -429,18 +429,22 @@ after a successful post re-saved the published details as an unsent draft.
 * Stage 1's browser tests use fixture listings; the 51-check harness read real
   Supabase listings but stubbed authentication. Neither places an order, so
   cart → checkout hand-off with a real backend is not covered by this stage.
-* **The Stage F1 farmer dashboard is not deployed.** Its 12 browser tests describe
-  the working tree only; `https://agribrige.com/` still serves the Stage 1 buyer
-  HTML (see §6). Its 61 column names have now been confirmed against the live
-  project read-only (see §6), but the **authenticated** read path has not: no
-  real farmer sign-in was performed, so every farmer figure is still proven only
-  against fixture rows of verified shape, not against the owner's real listings,
-  orders or payouts.
+* **The Stage F1 farmer dashboard is deployed and is the HTML production serves**
+  (see §6): `agribrige.com`, the workers.dev copy and `git show HEAD` hash
+  identically, so the 21 tests in `tests/e2e/test_farmer_ui.py` (F1's five
+  screens plus F2's listing management) now describe what a farmer's phone
+  downloads rather than a private working tree. Its 61 column names had already
+  been confirmed against the live project read-only, but the **authenticated**
+  read path still has not: no real farmer sign-in was performed, so every farmer
+  figure is proven only against fixture rows of verified shape, not against the
+  owner's real listings, orders or payouts.
 * **Stage F2 is proven against fixtures, not against the owner's database.** The
   409 path, the reserved floor and the compare-and-swap loss are all exercised by
   fakes that implement the documented column behaviour; `PATCH /api/listings/<id>`
   has never run against real rows, and `reserved_qty` is still only protected by
-  this endpoint's logic — no `CHECK` constraint exists in the schema.
+  this endpoint's logic — no `CHECK` constraint exists in the schema. The route is
+  deployed (see §6), but every live request to it so far has been refused at the
+  auth check, which proves the code is running and proves nothing about the write.
 
 ## 6. Live verification status
 
@@ -479,6 +483,9 @@ after a successful post re-saved the published details as an unsent draft.
 | Stage 1 live browser verification | Production headless Chrome at 390×844: landing → Launch app → splash → Browse as guest → 6 real home cards (Groundnuts / Zeal / Gulu / UGX 1,500/kg) → Vegetables filter (10 cards; survives a forced late `loadHomeStats()`) → Groundnuts detail (real fallback description) → add to cart → cart subtotal/total `UGX 1,500`, delivery "Arranged after confirmation", checkout enabled | **Verified in production, zero page errors**; checkout not clicked, no order placed |
 | Stage 1 live HTML probe (post-CI) | `curl https://agribrige.com/` → 752,146 bytes, sha256 `439306a7…a19a13`, exactly `git show bb2cd7a:static/index.html`; after `tr -d '\r'` it matches the workstation file (`8d73dd5a…` raw, CRLF). Markers `splashBrowseGuest` ×2, `pdTrustVerified` ×2, `homeMoreHead` ×3, `_homeCat` ×3, "Arranged after confirmation" ×4; workers.dev host identical | **In production** on both domains; raw-byte hash differs only by line endings |
 | Workers Builds on `bb2cd7a` | Check-run **failure** while the Actions deploy succeeds | **Resolved** — Git integration disconnected on 2026-10-23; the Actions workflow is the sole publisher |
+| Stage F1+F2 farmer bundle (Cloudflare SPA) | Pushed `a02829a` + `d5bd6c0`; on `d5bd6c0` CI run `39992212374` gives `Backend lint + type + tests` **success** and `Migration 0007 on real PostgreSQL (PGlite)` **success**, deploy run `39992212165` **success**. `curl https://agribrige.com/` → 858,366 bytes, sha256 `137949de…931ce1`, byte-for-byte equal to `git show HEAD:static/index.html`; `agribridge.zealmugumya.workers.dev` returns the same hash. Markers `listingEditModal` ×4, `fhProduceRow` ×3, `leReservedLine` ×3, `lpSaveDraft` ×3 all present in the served bytes | **DEPLOYED and verified live** on both domains |
+| Guarded listing-edit API (Render) | `PATCH /api/listings/999999` → `401 {"error":"Missing token"}`; with a forged bearer → `401 {"error":"Invalid or expired session"}`. Controls that make the 401 mean something: an unknown path → `404 {"error":"Not found"}`, `GET` on the same path → `405`, and the only `before_request` hook just mints a correlation ID. The rule does not exist in `365acec:app.py`, so `401` where the previous build answered `404` is the deployment evidence | **Deployed and reachable**; the write itself has never run with a real farmer token, so nothing was written |
+| Authenticated farmer path in production | No real farmer sign-in performed; schema read-only probe only | **Not yet exercised live** — needs an owner-supplied farmer account |
 | Web Push registration (production) | Render log 2026-10-22T22:15Z from `https://agribrige.com/`: `GET /api/push/vapid-public-key` 200, five `POST /api/user/push-subscriptions` 200 (`{"ok":true}`, upsert on `endpoint`), `GET /api/user/notifications` 200 every ~60 s | **Registration and polling verified in production**; delivery of a push is not tested |
 | Stage F1 farmer column lists (live, read-only) | The four select strings scraped from `static/index.html` (`F_LISTING_SEL` 23 cols, `F_ORDER_SEL` 16, `F_PAYOUT_SEL` 11, the `farmers` profile read 11) sent as `GET …/rest/v1/<table>?<select>&limit=1` with only the publishable key already shipped in the SPA: `listings` **200**, `orders` **200**, `payouts` **200**, `farmers` **200**. No 42703 "column does not exist" on any of the 61 columns. `orders` and `payouts` returned **0 rows** to the anonymous role while `listings`/`farmers` returned rows | **Schema verified live** — every column the farmer screens name exists in the real project, and RLS still hides orders and payouts from anon. **Not** a verification of the authenticated read path: no real farmer sign-in was performed, so no farmer has yet seen their own rows |
 
