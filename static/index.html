@@ -528,7 +528,7 @@ img{max-width:100%}
   /* Keep Log In, Join Free AND the notification bell reachable on phones.
      Free the space by hiding only the language button and compacting the
      icon buttons + header so nothing clips or overlaps. */
-  #langPickerBtn{display:none}
+  /* langPickerBtn is now always visible as the language shortcut in navbar */
   /* The floating basket button already covers phones — the top-bar copy is
      redundant and was pushing Log In / Join Free off the screen. */
   #basketNavBtn{display:none}
@@ -1705,8 +1705,7 @@ html.is-web:not(.app-entered) body{overflow:hidden}
   <button class="mob-search-btn" onclick="toggleMobSearch()" aria-label="Search">🔍</button>
   <button class="notif-bell" onclick="toggleNotifPanel()" title="Notifications" id="notifBell" aria-label="Notifications">🔔<span class="notif-badge" id="notifCount" style="display:none">4</span></button>
   <button class="notif-bell" onclick="toggleBasket()" title="Basket" id="basketNavBtn" style="position:relative" aria-label="Basket">🛒<span class="notif-badge" id="basketNavCount" style="display:none;background:#f44336">0</span></button>
-  <button id="langPickerBtn" class="btn-sm outline" onclick="openModal('langModal')" style="font-size:0.8rem;padding:5px 10px" title="Change Language">🌐 EN</button>
-  <button id="settingsBtn" class="notif-bell" onclick="openSettings()" title="Settings" aria-label="Settings">⚙️</button>
+  <button id="langPickerBtn" class="btn-sm outline" onclick="settingsGo('language');openModal('settingsModal')" style="font-size:0.8rem;padding:5px 10px" title="Change Language">🌐 EN</button>
   <div class="nav-btns">
     <button class="btn-sm outline" onclick="openModal('loginModal')">Log In</button>
     <button class="btn-sm" onclick="openModal('registerModal')">Join Free</button>
@@ -2698,17 +2697,17 @@ AgriBridge service</div>
   <div class="profile-menu">
     <div class="profile-menu-item" onclick="openSettings()">
       <div class="profile-menu-ic">⚙️</div>
-      <span class="profile-menu-label">Settings</span>
+      <span class="profile-menu-label" data-i18n="profile.settings">Settings</span>
       <span class="profile-menu-arrow">›</span>
     </div>
     <div class="profile-menu-item" onclick="showPage('about')">
       <div class="profile-menu-ic">💡</div>
-      <span class="profile-menu-label">Help &amp; Support</span>
+      <span class="profile-menu-label" data-i18n="profile.help">Help &amp; Support</span>
       <span class="profile-menu-arrow">›</span>
     </div>
-    <div class="profile-menu-item" onclick="openModal('langModal')">
+    <div class="profile-menu-item" onclick="settingsGo('language');openModal('settingsModal')">
       <div class="profile-menu-ic">🌐</div>
-      <span class="profile-menu-label">Language</span>
+      <span class="profile-menu-label" data-i18n="profile.language">Language</span>
       <span class="profile-menu-arrow">›</span>
     </div>
   </div>
@@ -2725,7 +2724,7 @@ AgriBridge service</div>
       <span class="profile-menu-arrow">›</span>
     </div>
   </div>
-  <button class="profile-logout-btn" onclick="signOut()">Sign Out</button>
+  <button class="profile-logout-btn" onclick="signOut()" data-i18n="profile.signout">Sign Out</button>
   <div style="height:20px"></div>
 </div>
 
@@ -6949,13 +6948,13 @@ async function _pollNotifBadge(){
 function acceptCookies(){ localStorage.setItem('ab_cookies','1'); const b=document.getElementById('cookieBanner'); if(b) b.style.display='none'; }
 function checkCookieBanner(){ if(!localStorage.getItem('ab_cookies')) setTimeout(()=>{ const b=document.getElementById('cookieBanner'); if(b) b.style.display='flex'; },3000); }
 function toggleFaq(qEl){ const aEl=qEl.nextElementSibling; const isOpen=aEl.classList.contains('open'); document.querySelectorAll('.faq-a.open').forEach(a=>{ a.classList.remove('open'); a.previousElementSibling?.classList.remove('open'); }); if(!isOpen){ aEl.classList.add('open'); qEl.classList.add('open'); } }
-function setLang(code){ localStorage.setItem('ab_lang',code); const langBtn=document.getElementById('langPickerBtn'); if(langBtn) langBtn.textContent={en:'🇬🇧 EN',lg:'🇺🇬 LG',rn:'🇺🇬 RN',ac:'🇺🇬 AC'}[code]||'🌐'; closeModal('langModal'); showToast('Language updated ✓'); }
+function setLang(code){ localStorage.setItem('ab_lang',code); var langBtn=document.getElementById('langPickerBtn'); if(langBtn) langBtn.textContent={en:'🌐 EN',lg:'🇺🇬 LG',rn:'🌄 RN',ac:'🌾 AC'}[code]||'🌐'; closeModal('langModal'); showToast('Language updated ✓'); /* i18n engine overrides this below */ }
 // ── Settings hub (Telegram-style: home menu + one screen per section) ──────────
 var _setScreen='home';
 var _LANGS=[['en','🇬🇧 English'],['lg','🇺🇬 Luganda'],['rn','🌄 Runyankole'],['ac','🌾 Acholi/Luo']];
 var _ROLE_LABELS={farmer:'🌾 Farmer (I sell produce)',vendor:'🛒 Buyer (I buy produce)',hotel:'🏨 Hotel / Restaurant (B2B)',supplier:'🏪 Supplier (I sell farm inputs)'};
 var _ROLE_SHORT={farmer:'Farmer',vendor:'Buyer',hotel:'Hotel / Restaurant',supplier:'Supplier',guest:'Guest'};
-var _SCREEN_TITLES={account:'Account',notifications:'Notifications',language:'Language',privacy:'Privacy & legal',help:'Help & support'};
+var _SCREEN_TITLES={account:'set.account',notifications:'set.notif',language:'set.language',privacy:'set.privacy',help:'set.help'};
 
 // Opens Settings on the home menu (the gear button).
 function openSettings(){ _setScreen='home'; renderSettings(); openModal('settingsModal'); }
@@ -6983,7 +6982,7 @@ function renderSettings(){
   if(screen!=='home' && !currentUser && screen!=='language' && screen!=='help') screen=_setScreen='home';
   var back=document.getElementById('settingsBack'), title=document.getElementById('settingsTitle');
   if(back) back.style.display=screen==='home'?'none':'block';
-  if(title) title.textContent=screen==='home'?'⚙️ Settings':(_SCREEN_TITLES[screen]||'Settings');
+  if(title) title.textContent=screen==='home'?(typeof t==='function'?t('set.title'):'⚙️ Settings'):(typeof t==='function'?t(_SCREEN_TITLES[screen]||screen):(_SCREEN_TITLES[screen]||'Settings'));
   var html='';
   var lang=localStorage.getItem('ab_lang')||'en';
   var langName=(_LANGS.filter(function(l){return l[0]===lang;})[0]||_LANGS[0])[1].replace(/^\S+\s/,'');
@@ -6996,28 +6995,28 @@ function renderSettings(){
         '<div class="st-sub">'+escHtml(currentUser.phone||currentUser.email||'')+'</div>'+
         (currentUser.phone&&currentUser.email?'<div class="st-sub">'+escHtml(currentUser.email)+'</div>':'')+'</div>';
       html+='<div class="st-group">'+
-        _stRow('👤','#2f7de1','Account','Name, phone, district, account type',"settingsGo('account')")+
-        _stRow('🔔','#e8505b','Notifications','<span id="stNotifSub">Phone alerts and in-app updates</span>',"settingsGo('notifications')")+
-        _stRow('🌐','#8e5be8','Language',escHtml(langName),"settingsGo('language')")+
+        _stRow('👤','#2f7de1',typeof t==='function'?t('set.account'):'Account',typeof t==='function'?t('set.account.sub'):'Name, phone, district, account type',"settingsGo('account')")+
+        _stRow('🔔','#e8505b',typeof t==='function'?t('set.notif'):'Notifications','<span id="stNotifSub">'+(typeof t==='function'?t('set.notif.sub'):'Phone alerts and in-app updates')+'</span>',"settingsGo('notifications')")+
+        _stRow('🌐','#8e5be8',typeof t==='function'?t('set.language'):'Language',escHtml(langName),"settingsGo('language')")+
       '</div>';
       if(role==='farmer'){
         html+='<div class="st-group">'+
-          _stRow('🌾','#2eae5b','List produce','Add something for sale',"closeModal('settingsModal');openListProduceModal()")+
-          _stRow('📊','#e8a33a','My dashboard','Orders, earnings and listings',"closeModal('settingsModal');showPage('dashboard')")+
+          _stRow('🌾','#2eae5b',typeof t==='function'?t('set.list'):'List produce',typeof t==='function'?t('set.list.sub'):'Add something for sale',"closeModal('settingsModal');openListProduceModal()")+
+          _stRow('📊','#e8a33a',typeof t==='function'?t('set.dashboard'):'My dashboard',typeof t==='function'?t('set.dashboard.sub'):'Orders, earnings and listings',"closeModal('settingsModal');showPage('dashboard')")+
         '</div>';
       }
       html+='<div class="st-group">'+
-        _stRow('🔒','#3aa8a0','Privacy &amp; legal','Terms, consent, your data',"settingsGo('privacy')")+
-        _stRow('💬','#e1832f','Help &amp; support','Email, WhatsApp, call us',"settingsGo('help')")+
+        _stRow('🔒','#3aa8a0',typeof t==='function'?t('set.privacy'):'Privacy &amp; legal',typeof t==='function'?t('set.privacy.sub'):'Terms, consent, your data',"settingsGo('privacy')")+
+        _stRow('💬','#e1832f',typeof t==='function'?t('set.help'):'Help &amp; support','Email, WhatsApp, call us',"settingsGo('help')")+
       '</div>';
-      html+='<div class="st-group">'+_stRow('🚪','rgba(255,107,107,.18)','Log out','',"logOut()",' danger')+'</div>';
+      html+='<div class="st-group">'+_stRow('🚪','rgba(255,107,107,.18)',typeof t==='function'?t('set.logout'):'Log out','',"logOut()",' danger')+'</div>';
     } else {
-      html+='<div class="st-panel"><div style="font-size:0.9rem;color:var(--text2);margin-bottom:12px">Log in to edit your profile and manage your listings.</div>'+
+      html+='<div class="st-panel"><div style="font-size:0.9rem;color:var(--text2);margin-bottom:12px">'+(typeof t==='function'?t('set.login_prompt'):'Log in to edit your profile and manage your listings.')+'</div>'+
         '<div style="display:flex;gap:8px"><button class="btn-sm" onclick="closeModal(\'settingsModal\');openModal(\'loginModal\')">Log In</button>'+
         '<button class="btn-sm outline" onclick="closeModal(\'settingsModal\');openModal(\'registerModal\')">Join Free</button></div></div>';
       html+='<div class="st-group">'+
-        _stRow('🌐','#8e5be8','Language',escHtml(langName),"settingsGo('language')")+
-        _stRow('💬','#e1832f','Help &amp; support','Email, WhatsApp, call us',"settingsGo('help')")+
+        _stRow('🌐','#8e5be8',typeof t==='function'?t('set.language'):'Language',escHtml(langName),"settingsGo('language')")+
+        _stRow('💬','#e1832f',typeof t==='function'?t('set.help'):'Help &amp; support','Email, WhatsApp, call us',"settingsGo('help')")+
       '</div>';
     }
   }
@@ -9688,9 +9687,9 @@ document.addEventListener('DOMContentLoaded', function() {
 
 <!-- ══ LOGIN MODAL ══════════════════════════════════════════ -->
 <div class="modal-overlay" id="loginModal" onclick="handleOverlay(event,'loginModal')" role="dialog" aria-label="Login">
-  <div class="modal-box">
+  <div class="modal-box" id="loginModalInner">
     <button class="modal-close" onclick="closeModal('loginModal')">✕</button>
-    <h3>Welcome Back 👋</h3>
+    <h3 data-i18n="login.title">Welcome Back 👋</h3>
     <p style="font-size:0.83rem;color:var(--text2);margin-bottom:18px">Log in to manage your listings, orders and animals</p>
     <div id="loginLockMsg" style="display:none;background:#b71c1c22;border:1px solid #b71c1c;border-radius:8px;padding:10px 14px;margin-bottom:14px;font-size:0.83rem;color:#ff5252">
       🔒 Account locked after 5 failed attempts. Try again in <strong id="lockCountdown">5:00</strong> or <a href="#" onclick="openForgotPassword();return false" style="color:var(--amber)">reset your password</a>.
@@ -9711,7 +9710,7 @@ document.addEventListener('DOMContentLoaded', function() {
         <a href="#" onclick="openForgotPassword();return false" style="font-size:0.78rem;color:var(--green)">Forgot password?</a>
       </div>
     </div>
-    <button class="btn-submit" id="loginSubmitBtn" onclick="doLogin()">Log In</button>
+    <button class="btn-submit" id="loginSubmitBtn" onclick="doLogin()" data-i18n="login.btn">Log In</button>
     <div id="googleLoginWrap" style="display:none">
       <div class="auth-or">or</div>
       <button type="button" class="btn-google" id="googleLoginBtn" onclick="doGoogleLogin('login')">
@@ -9725,9 +9724,9 @@ document.addEventListener('DOMContentLoaded', function() {
 
 <!-- ══ REGISTER MODAL ════════════════════════════════════════ -->
 <div class="modal-overlay" id="registerModal" onclick="handleOverlay(event,'registerModal')" role="dialog" aria-label="Register">
-  <div class="modal-box">
+  <div class="modal-box" id="registerModalInner">
     <button class="modal-close" onclick="closeModal('registerModal')">✕</button>
-    <h3>Join AgriBridge Free 🌾</h3>
+    <h3 data-i18n="reg.title">Join AgriBridge Free 🌾</h3>
     <p style="font-size:0.83rem;color:var(--text2);margin-bottom:18px">Create your account in 2 minutes — free forever</p>
     <div id="regErrMsg" style="display:none;background:#b71c1c22;border:1px solid #b71c1c;border-radius:8px;padding:10px 14px;margin-bottom:14px;font-size:0.83rem;color:#ff5252"></div>
     <div id="regStep1">
@@ -9739,9 +9738,9 @@ document.addEventListener('DOMContentLoaded', function() {
         <div style="font-size:0.72rem;color:var(--text2);text-align:center;margin-top:6px">You'll choose your role, phone number and accept the terms after signing in.</div>
         <div class="auth-or">or sign up with email</div>
       </div>
-      <div class="form-group"><label>Full Name</label><input type="text" id="regName" placeholder="e.g. Grace Nakato" autocomplete="name"></div>
-      <div class="form-group"><label>Phone (MTN or Airtel)</label><input type="tel" id="regPhone" placeholder="+256 7xx xxx xxx" autocomplete="tel"></div>
-      <div class="form-group"><label>Email Address</label><input type="email" id="regEmail" placeholder="your@email.com" autocomplete="email"></div>
+      <div class="form-group"><label data-i18n="reg.name">Full Name</label><input type="text" id="regName" placeholder="e.g. Grace Nakato" autocomplete="name"></div>
+      <div class="form-group" id="regPhoneFormGroup"><label data-i18n="reg.phone">Phone</label><input type="tel" id="regPhone" placeholder="+256 7xx xxx xxx" autocomplete="tel"></div>
+      <div class="form-group"><label data-i18n="reg.email">Email Address</label><input type="email" id="regEmail" placeholder="your@email.com" autocomplete="email"></div>
       <div class="form-row">
         <div class="form-group"><label>I am a…</label>
           <select id="regRole" onchange="updateRegRoleTerms()"><option value="farmer">Farmer 🌾</option><option value="vendor">Vendor / Buyer 🛒</option><option value="hotel">Hotel / Restaurant 🏨</option><option value="supplier">Supplier / Input Seller 🏪</option></select>
@@ -9785,7 +9784,7 @@ document.addEventListener('DOMContentLoaded', function() {
         </div>
         <div class="legal-note">The promotions box is optional. You can create an account without it and change it any time in Settings.</div>
       </div>
-      <button class="btn-submit" id="regSubmitBtn" onclick="doRegister()">Create Account 🌾</button>
+      <button class="btn-submit" id="regSubmitBtn" onclick="doRegister()" data-i18n="reg.btn">Create Account 🌾</button>
     </div>
     <div id="regStep2" style="display:none;text-align:center;padding:10px 0">
       <div style="font-size:3rem;margin-bottom:8px">📧</div>
@@ -9829,7 +9828,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
 <!-- ══ FORGOT PASSWORD MODAL ════════════════════════════════ -->
 <div class="modal-overlay" id="forgotPwdModal" onclick="handleOverlay(event,'forgotPwdModal')" role="dialog" aria-label="Forgot password">
-  <div class="modal-box" style="max-width:400px">
+  <div class="modal-box" id="forgotPwdModalInner" style="max-width:400px">
     <button class="modal-close" onclick="closeModal('forgotPwdModal')">✕</button>
     <div id="forgotStep1">
       <div style="text-align:center;margin-bottom:16px"><div style="font-size:2.5rem">🔑</div></div>
@@ -10439,6 +10438,631 @@ function loadLegalInto(doc, elId) {
     ensureLegalManifest();
   });
 })();
+</script>
+
+<!-- ══ AGRIBRIDGE i18n ENGINE ══════════════════════════════════════════════ -->
+<script>
+(function(){
+'use strict';
+
+// ── 1. Translation dictionary ──────────────────────────────────────────────
+var _dict = {
+  en: {
+    // Nav / global
+    'nav.search': 'Search crops, animals, farmers…',
+    'nav.login': 'Log In',
+    'nav.join': 'Join Free',
+    'nav.language': 'Language',
+    // Login modal
+    'login.title': 'Welcome back 👋',
+    'login.email': 'Email or Phone',
+    'login.password': 'Password',
+    'login.btn': 'Log In',
+    'login.forgot': 'Forgot password?',
+    'login.no_account': "Don't have an account?",
+    'login.join': 'Join free',
+    // Register modal
+    'reg.title': 'Join AgriBridge 🌾',
+    'reg.name': 'Full Name',
+    'reg.phone': 'Phone',
+    'reg.email': 'Email Address',
+    'reg.role': 'I am a…',
+    'reg.district': 'District',
+    'reg.password': 'Password',
+    'reg.confirm': 'Confirm Password',
+    'reg.btn': 'Create Account 🌾',
+    'reg.role.farmer': 'Farmer 🌾',
+    'reg.role.vendor': 'Vendor / Buyer 🛒',
+    'reg.role.hotel': 'Hotel / Restaurant 🏨',
+    'reg.role.supplier': 'Supplier / Input Seller 🏪',
+    // Password reset
+    'pwd.title': 'Reset Password',
+    'pwd.email': 'Your email address',
+    'pwd.btn': 'Send Reset Link',
+    'pwd.new.title': 'Create New Password',
+    'pwd.new.pw': 'New Password',
+    'pwd.new.confirm': 'Confirm Password',
+    'pwd.new.btn': 'Save New Password ✓',
+    // Settings
+    'set.title': '⚙️ Settings',
+    'set.account': 'Account',
+    'set.account.sub': 'Name, phone, district, account type',
+    'set.notif': 'Notifications',
+    'set.notif.sub': 'Phone alerts and in-app updates',
+    'set.language': 'Language',
+    'set.privacy': 'Privacy & legal',
+    'set.privacy.sub': 'Terms, consent, your data',
+    'set.help': 'Help & support',
+    'set.list': 'List produce',
+    'set.list.sub': 'Add something for sale',
+    'set.dashboard': 'My dashboard',
+    'set.dashboard.sub': 'Orders, earnings and listings',
+    'set.logout': 'Log out',
+    'set.save': 'Save changes',
+    'set.login_prompt': 'Log in to edit your profile and manage your listings.',
+    // Profile
+    'profile.settings': 'Settings',
+    'profile.help': 'Help & Support',
+    'profile.language': 'Language',
+    'profile.privacy': 'Privacy Policy',
+    'profile.terms': 'Terms & Conditions',
+    'profile.signout': 'Sign Out',
+    // Common actions
+    'btn.save': 'Save',
+    'btn.cancel': 'Cancel',
+    'btn.close': 'Close',
+    'btn.back': 'Back',
+    'btn.confirm': 'Confirm',
+    'btn.loading': 'Loading…',
+    'btn.saving': 'Saving…',
+    // Errors / validation
+    'err.required': 'This field is required.',
+    'err.phone': 'Enter a valid phone number.',
+    'err.email': 'Enter a valid email address.',
+    'err.pwd_short': 'Password must be at least 8 characters.',
+    'err.pwd_match': 'Passwords do not match.',
+    'err.generic': 'Something went wrong. Please try again.',
+    // Toast / feedback
+    'toast.lang_updated': 'Language updated ✓',
+    'toast.saved': 'Saved ✓',
+    'toast.pwd_updated': '✅ Password updated! You are now logged in.',
+    // Order statuses
+    'status.pending': 'Pending',
+    'status.confirmed': 'Confirmed',
+    'status.scheduled': 'Scheduled',
+    'status.in_transit': 'In transit',
+    'status.delivered': 'Delivered',
+    'status.cancelled': 'Cancelled',
+    // Tracking
+    'trk.title': 'Track your order',
+    'trk.placeholder': 'Enter TRK-xxx or order ref',
+    'trk.btn': 'Track',
+    'trk.pickup': 'Pickup',
+    'trk.delivery': 'Delivery',
+    'trk.rider': 'Rider',
+    'trk.vehicle': 'Vehicle',
+    'trk.no_rider': 'Not yet assigned',
+  },
+
+  lg: { // Luganda
+    'nav.search': 'Noonya ebimera, ensolo, abalimi…',
+    'nav.login': 'Yingira',
+    'nav.join': 'Yingira Ofree',
+    'nav.language': 'Olulimi',
+    'login.title': 'Tukuweeza nate 👋',
+    'login.email': 'Email oba Essimu',
+    'login.password': 'Ekikolwa ky\'ekuuma',
+    'login.btn': 'Yingira',
+    'login.forgot': 'Waddimentiika ekikolwa?',
+    'login.no_account': 'Tolina kkaawunti?',
+    'login.join': 'Yingira ofree',
+    'reg.title': 'Yingira mu AgriBridge 🌾',
+    'reg.name': 'Erinnya Lyoona',
+    'reg.phone': 'Enamba y\'essimu',
+    'reg.email': 'Endagiriro ya Email',
+    'reg.role': 'Ndi…',
+    'reg.district': 'Akabirijako',
+    'reg.password': 'Ekikolwa ky\'ekuuma',
+    'reg.confirm': 'Kakasa Ekikolwa',
+    'reg.btn': 'Tonda Kkaawunti 🌾',
+    'reg.role.farmer': 'Mulimi 🌾',
+    'reg.role.vendor': 'Omuguli 🛒',
+    'reg.role.hotel': 'Hoteli / Essuuka 🏨',
+    'reg.role.supplier': 'Omunyuzi 🏪',
+    'pwd.title': 'Ddamu Okuteekateka Ekikolwa',
+    'pwd.email': 'Endagiriro ya email yo',
+    'pwd.btn': 'Tuma Olunyiriri lw\'Okuzzaamu',
+    'pwd.new.title': 'Tonda Ekikolwa Ekipya',
+    'pwd.new.pw': 'Ekikolwa Ekipya',
+    'pwd.new.confirm': 'Kakasa Ekikolwa',
+    'pwd.new.btn': 'Kubika Ekikolwa Ekipya ✓',
+    'set.title': '⚙️ Entegeka',
+    'set.account': 'Kkaawunti',
+    'set.account.sub': 'Erinnya, essimu, akabirijako, ekika kya kkaawunti',
+    'set.notif': 'Obubaka',
+    'set.notif.sub': 'Obubaka ku ssiimu n\'emu',
+    'set.language': 'Olulimi',
+    'set.privacy': 'Ekyama n\'amateeka',
+    'set.privacy.sub': 'Amateeka, kwetaagisa, ebikuhuusa',
+    'set.help': 'Obuyambi',
+    'set.list': 'Teeka entuuze',
+    'set.list.sub': 'Gattako ekintu ky\'okutunda',
+    'set.dashboard': 'Kibaho kyange',
+    'set.dashboard.sub': 'Okulabirira, ensimbi, entuuze',
+    'set.logout': 'Fuluma',
+    'set.save': 'Kubika enkyukakyuka',
+    'set.login_prompt': 'Yingira okusinziira ku puloofiili yo n\'okukuuma entuuze zo.',
+    'profile.settings': 'Entegeka',
+    'profile.help': 'Obuyambi',
+    'profile.language': 'Olulimi',
+    'profile.privacy': 'Amateeka ga Ekyama',
+    'profile.terms': 'Amateeka n\'Ebiragiro',
+    'profile.signout': 'Fuluma',
+    'btn.save': 'Kubika',
+    'btn.cancel': 'Sazaamu',
+    'btn.close': 'Ggalawo',
+    'btn.back': 'Ddayo',
+    'btn.confirm': 'Kakasa',
+    'btn.loading': 'Kutegereza…',
+    'btn.saving': 'Kubika…',
+    'err.required': 'Ekibinja kino kirabirwa.',
+    'err.phone': 'Yingiza enamba y\'essimu ekituufu.',
+    'err.email': 'Yingiza endagiriro ya email ekituufu.',
+    'err.pwd_short': 'Ekikolwa kiba n\'ebintu 8 byebula.',
+    'err.pwd_match': 'Ebikolwa tibiviiririzanya.',
+    'err.generic': 'Ekisooka yakola. Gezaako nate.',
+    'toast.lang_updated': 'Olulimi olukozesebwa ✓',
+    'toast.saved': 'Kikubikiddwa ✓',
+    'toast.pwd_updated': '✅ Ekikolwa kikuumibbwamu! Oyingiriddemu.',
+    'status.pending': 'Kutegereza',
+    'status.confirmed': 'Kakasiddwa',
+    'status.scheduled': 'Teekateekiddwa',
+    'status.in_transit': 'Ku kkubo',
+    'status.delivered': 'Tunnulidwa',
+    'status.cancelled': 'Saziddwa',
+    'trk.title': 'Ggenda onoone okutuuka kw\'okusindika kwo',
+    'trk.placeholder': 'Yingiza TRK-xxx oba kkoodi y\'okutegeka',
+    'trk.btn': 'Noona',
+    'trk.pickup': 'Ggyawo',
+    'trk.delivery': 'Okusindika',
+    'trk.rider': 'Omuyizi',
+    'trk.vehicle': 'Ekyogero',
+    'trk.no_rider': 'Tena twamuteekamu',
+  },
+
+  rn: { // Runyankole/Rukiga — partial (key screens only)
+    'nav.login': 'Ngyena',
+    'nav.join': 'Ngyena Ofree',
+    'nav.language': 'Orurimi',
+    'login.title': 'Turakuganikira neza 👋',
+    'login.btn': 'Ngyena',
+    'reg.title': 'Ngyena mu AgriBridge 🌾',
+    'reg.btn': 'Hanga Account 🌾',
+    'set.title': '⚙️ Entegeka',
+    'set.logout': 'Sohoka',
+    'btn.save': 'Bika',
+    'btn.cancel': 'Reka',
+    'toast.lang_updated': 'Orurimi rwahinduriwe ✓',
+  },
+
+  ac: { // Acholi/Luo — partial (key screens only)
+    'nav.login': 'Donyo',
+    'nav.join': 'Donyo Ofree',
+    'nav.language': 'Leb',
+    'login.title': 'Waloyo dok 👋',
+    'login.btn': 'Donyo',
+    'reg.title': 'Donyo i AgriBridge 🌾',
+    'reg.btn': 'Yab Account 🌾',
+    'set.title': '⚙️ Ter',
+    'set.logout': 'Kat woko',
+    'btn.save': 'Gwok',
+    'btn.cancel': 'Wek',
+    'toast.lang_updated': 'Leb oloyo ✓',
+  }
+};
+
+// ── 2. Translation engine ──────────────────────────────────────────────────
+var _currentLang = localStorage.getItem('ab_lang') || 'en';
+
+/** Return translated string, falling back to English then the key itself */
+window.t = function(key) {
+  var lang = _currentLang;
+  return (_dict[lang] && _dict[lang][key]) ||
+         (_dict['en'] && _dict['en'][key]) ||
+         key;
+};
+
+/** Walk all [data-i18n] elements and set their textContent */
+function applyTranslations() {
+  var lang = _currentLang;
+  // Update lang picker button
+  var btn = document.getElementById('langPickerBtn');
+  var labels = {en:'🌐 EN', lg:'🇺🇬 LG', rn:'🌄 RN', ac:'🌾 AC'};
+  if (btn) btn.textContent = labels[lang] || '🌐';
+
+  // Translate all data-i18n elements
+  document.querySelectorAll('[data-i18n]').forEach(function(el) {
+    var key = el.getAttribute('data-i18n');
+    var val = t(key);
+    if (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA') {
+      var attr = el.getAttribute('data-i18n-attr') || 'placeholder';
+      el.setAttribute(attr, val);
+    } else {
+      el.textContent = val;
+    }
+  });
+
+  // Live-translate Settings modal if it's currently open
+  if (document.getElementById('settingsModal') &&
+      document.getElementById('settingsModal').style.display !== 'none') {
+    if (typeof renderSettings === 'function') renderSettings();
+  }
+}
+
+/** Override the existing setLang to also apply translations */
+var _origSetLang = window.setLang;
+window.setLang = function(code) {
+  _currentLang = code;
+  localStorage.setItem('ab_lang', code);
+  var btn = document.getElementById('langPickerBtn');
+  var labels = {en:'🌐 EN', lg:'🇺🇬 LG', rn:'🌄 RN', ac:'🌾 AC'};
+  if (btn) btn.textContent = labels[code] || '🌐';
+  closeModal && closeModal('langModal');
+  applyTranslations();
+  showToast && showToast(t('toast.lang_updated'));
+};
+
+/** Call after login to restore user's saved language preference */
+window.applyUserLang = function(savedLang) {
+  if (savedLang && _dict[savedLang]) {
+    _currentLang = savedLang;
+    localStorage.setItem('ab_lang', savedLang);
+  }
+  applyTranslations();
+};
+
+// Run on page load
+document.addEventListener('DOMContentLoaded', function() {
+  _currentLang = localStorage.getItem('ab_lang') || 'en';
+  applyTranslations();
+});
+
+// Also run now (in case DOMContentLoaded already fired)
+if (document.readyState !== 'loading') {
+  _currentLang = localStorage.getItem('ab_lang') || 'en';
+  applyTranslations();
+}
+
+})(); // end i18n IIFE
+</script>
+
+<!-- ══ COUNTRY PHONE SELECTOR ══════════════════════════════════════════════ -->
+<script>
+(function(){
+'use strict';
+
+// ── Country data (ISO 3166-1 α-2, dial code, flag emoji) ──────────────────
+var COUNTRIES = [
+  {c:'UG',d:'+256',f:'🇺🇬',n:'Uganda'},
+  {c:'KE',d:'+254',f:'🇰🇪',n:'Kenya'},
+  {c:'TZ',d:'+255',f:'🇹🇿',n:'Tanzania'},
+  {c:'RW',d:'+250',f:'🇷🇼',n:'Rwanda'},
+  {c:'BI',d:'+257',f:'🇧🇮',n:'Burundi'},
+  {c:'SS',d:'+211',f:'🇸🇸',n:'South Sudan'},
+  {c:'CD',d:'+243',f:'🇨🇩',n:'DR Congo'},
+  {c:'NG',d:'+234',f:'🇳🇬',n:'Nigeria'},
+  {c:'GH',d:'+233',f:'🇬🇭',n:'Ghana'},
+  {c:'ZA',d:'+27', f:'🇿🇦',n:'South Africa'},
+  {c:'ET',d:'+251',f:'🇪🇹',n:'Ethiopia'},
+  {c:'SD',d:'+249',f:'🇸🇩',n:'Sudan'},
+  {c:'EG',d:'+20', f:'🇪🇬',n:'Egypt'},
+  {c:'US',d:'+1',  f:'🇺🇸',n:'United States'},
+  {c:'GB',d:'+44', f:'🇬🇧',n:'United Kingdom'},
+  {c:'IN',d:'+91', f:'🇮🇳',n:'India'},
+  {c:'CN',d:'+86', f:'🇨🇳',n:'China'},
+  {c:'FR',d:'+33', f:'🇫🇷',n:'France'},
+  {c:'DE',d:'+49', f:'🇩🇪',n:'Germany'},
+  {c:'AE',d:'+971',f:'🇦🇪',n:'UAE'},
+  {c:'MZ',d:'+258',f:'🇲🇿',n:'Mozambique'},
+  {c:'ZM',d:'+260',f:'🇿🇲',n:'Zambia'},
+  {c:'ZW',d:'+263',f:'🇿🇼',n:'Zimbabwe'},
+  {c:'MW',d:'+265',f:'🇲🇼',n:'Malawi'},
+  {c:'AO',d:'+244',f:'🇦🇴',n:'Angola'},
+  {c:'CM',d:'+237',f:'🇨🇲',n:'Cameroon'},
+  {c:'SN',d:'+221',f:'🇸🇳',n:'Senegal'},
+  {c:'CI',d:'+225',f:'🇨🇮',n:'Ivory Coast'},
+  {c:'MA',d:'+212',f:'🇲🇦',n:'Morocco'},
+];
+
+// ── Normalise to E.164 ──────────────────────────────────────────────────────
+function normalisePhone(dialCode, national) {
+  // Strip leading 0 (trunk prefix) from national number
+  var num = national.replace(/[\s\-().]/g, '');
+  if (num.startsWith('0')) num = num.slice(1);
+  // If user typed the full international number starting with +, trust it
+  if (national.startsWith('+')) return national.replace(/[\s\-().]/g, '');
+  return dialCode + num;
+}
+
+// ── Build the phone input HTML ──────────────────────────────────────────────
+function buildPhoneInput(opts) {
+  /*
+   opts = { wrapperId, inputId, labelText, defaultCountry:'UG', required:false }
+  */
+  var dc = opts.defaultCountry || 'UG';
+  var country = COUNTRIES.find(function(c){ return c.c === dc; }) || COUNTRIES[0];
+  return '<div class="ab-phone-wrap" id="' + opts.wrapperId + '">' +
+    (opts.labelText ? '<label for="' + opts.inputId + '" style="display:block;font-size:0.85rem;font-weight:600;margin-bottom:5px;color:var(--text2)">' + opts.labelText + '</label>' : '') +
+    '<div style="display:flex;gap:0;border:1px solid var(--border);border-radius:10px;overflow:hidden;background:var(--bg2)">' +
+      '<button type="button" class="ab-cc-btn" id="' + opts.wrapperId + '_btn"' +
+        ' data-dial="' + country.d + '" data-iso="' + country.c + '"' +
+        ' onclick="openCountryPicker(\'' + opts.wrapperId + '\')"' +
+        ' style="display:flex;align-items:center;gap:5px;padding:9px 10px;background:none;border:none;border-right:1px solid var(--border);cursor:pointer;font-size:0.88rem;white-space:nowrap;color:var(--text);flex-shrink:0"' +
+        ' aria-label="Select country">' +
+        '<span class="ab-cc-flag">' + country.f + '</span>' +
+        '<span class="ab-cc-dial">' + country.d + '</span>' +
+        '<span style="font-size:0.65rem;color:var(--text2)">▼</span>' +
+      '</button>' +
+      '<input type="tel" id="' + opts.inputId + '" inputmode="tel" autocomplete="tel"' +
+        ' placeholder="Enter phone number"' +
+        (opts.required ? ' required' : '') +
+        ' style="flex:1;padding:9px 12px;background:none;border:none;color:var(--text);font-family:inherit;font-size:0.9rem;outline:none;min-width:0">' +
+    '</div>' +
+    '<div id="' + opts.inputId + '_err" style="font-size:0.76rem;color:#ff6b6b;margin-top:3px;display:none"></div>' +
+  '</div>';
+}
+
+// ── Country picker modal ────────────────────────────────────────────────────
+var _pickerTarget = null;
+
+window.openCountryPicker = function(wrapperId) {
+  _pickerTarget = wrapperId;
+  var modal = document.getElementById('abCountryPickerModal');
+  if (!modal) { buildCountryPickerModal(); modal = document.getElementById('abCountryPickerModal'); }
+  modal.style.display = 'flex';
+  var search = document.getElementById('abCPSearch');
+  if (search) { search.value = ''; renderCountryList(''); search.focus(); }
+};
+
+window.closeCountryPicker = function() {
+  var modal = document.getElementById('abCountryPickerModal');
+  if (modal) modal.style.display = 'none';
+  _pickerTarget = null;
+};
+
+window.selectCountry = function(iso, dial, flag) {
+  if (!_pickerTarget) return;
+  var btn = document.getElementById(_pickerTarget + '_btn');
+  if (btn) {
+    btn.setAttribute('data-dial', dial);
+    btn.setAttribute('data-iso', iso);
+    btn.querySelector('.ab-cc-flag').textContent = flag;
+    btn.querySelector('.ab-cc-dial').textContent = dial;
+  }
+  closeCountryPicker();
+};
+
+function renderCountryList(q) {
+  var list = document.getElementById('abCPList'); if (!list) return;
+  var filtered = q ? COUNTRIES.filter(function(c){
+    return c.n.toLowerCase().includes(q.toLowerCase()) ||
+           c.d.includes(q) || c.c.toLowerCase().includes(q.toLowerCase());
+  }) : COUNTRIES;
+  list.innerHTML = filtered.map(function(c){
+    return '<button onclick="selectCountry(\'' + c.c + '\',\'' + c.d + '\',\'' + c.f + '\')"' +
+      ' style="display:flex;align-items:center;gap:10px;width:100%;padding:10px 14px;background:none;border:none;border-bottom:1px solid var(--border);cursor:pointer;color:var(--text);text-align:left;font-family:inherit">' +
+      '<span style="font-size:1.3rem">' + c.f + '</span>' +
+      '<span style="flex:1;font-size:0.9rem">' + c.n + '</span>' +
+      '<span style="font-size:0.82rem;color:var(--text2)">' + c.d + '</span>' +
+      '</button>';
+  }).join('');
+}
+
+function buildCountryPickerModal() {
+  var div = document.createElement('div');
+  div.id = 'abCountryPickerModal';
+  div.style.cssText = 'position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,0.65);display:none;align-items:flex-end;justify-content:center';
+  div.innerHTML =
+    '<div style="background:var(--card);border-radius:20px 20px 0 0;width:100%;max-width:480px;max-height:85vh;display:flex;flex-direction:column">' +
+      '<div style="display:flex;align-items:center;justify-content:space-between;padding:14px 16px 10px;border-bottom:1px solid var(--border)">' +
+        '<div style="font-weight:700">Select Country</div>' +
+        '<button onclick="closeCountryPicker()" style="background:none;border:none;font-size:1.3rem;cursor:pointer;color:var(--text)">✕</button>' +
+      '</div>' +
+      '<div style="padding:10px 14px">' +
+        '<input id="abCPSearch" type="text" placeholder="Search country or dial code…" oninput="renderCountryList(this.value)"' +
+          ' style="width:100%;padding:9px 12px;background:var(--bg2);border:1px solid var(--border);border-radius:8px;color:var(--text);font-family:inherit;font-size:0.9rem;box-sizing:border-box">' +
+      '</div>' +
+      '<div id="abCPList" style="overflow-y:auto;flex:1"></div>' +
+    '</div>';
+  div.addEventListener('click', function(e){ if(e.target===div) closeCountryPicker(); });
+  document.body.appendChild(div);
+  renderCountryList('');
+}
+
+// ── Expose helpers for registration form ───────────────────────────────────
+/** Get normalised E.164 phone from a phone-input wrapper */
+window.getE164Phone = function(wrapperId, inputId) {
+  var btn = document.getElementById(wrapperId + '_btn');
+  var input = document.getElementById(inputId);
+  if (!btn || !input) return '';
+  var dial = btn.getAttribute('data-dial') || '+256';
+  return normalisePhone(dial, input.value.trim());
+};
+
+/** Replace the registration phone field with the new component */
+function upgradeRegPhoneField() {
+  var old = document.querySelector('#registerModal .form-group input#regPhone');
+  if (!old) return;
+  var fg = old.closest('.form-group'); if (!fg) return;
+  fg.outerHTML = buildPhoneInput({
+    wrapperId: 'regPhoneWrap',
+    inputId:   'regPhone',
+    labelText: 'Phone',
+    defaultCountry: 'UG',
+    required: false
+  });
+}
+
+/** Replace the Account Settings phone field with the new component */
+function upgradeSettingsPhoneField() {
+  // Settings is dynamically rendered — this is called from renderSettings patcher below
+}
+
+// ── Patch renderSettings to use phone input in Account screen ──────────────
+var _origRenderSettings = window.renderSettings;
+window.renderSettings = function() {
+  if (typeof _origRenderSettings === 'function') _origRenderSettings.apply(this, arguments);
+  // After render, if we're on the account screen, upgrade the plain phone input
+  if (window._setScreen === 'account') {
+    var setPhone = document.getElementById('setPhone');
+    if (setPhone && !document.getElementById('setPhoneWrap')) {
+      var currentVal = setPhone.value || '';
+      var fg = setPhone.closest('.st-panel') || setPhone.parentNode;
+      // Inject phone wrapper before the plain input then remove plain input
+      var wrapper = document.createElement('div');
+      wrapper.innerHTML = buildPhoneInput({
+        wrapperId: 'setPhoneWrap',
+        inputId:   'setPhone',
+        labelText: '',
+        defaultCountry: 'UG',
+        required: false
+      });
+      setPhone.parentNode.insertBefore(wrapper.firstElementChild, setPhone);
+      setPhone.remove();
+      // Restore saved value if it starts with a digit (national) or +
+      var restoredInput = document.getElementById('setPhone');
+      if (restoredInput && currentVal) restoredInput.value = currentVal.replace(/^\+\d+\s?/,'');
+    }
+    // Patch saveProfile to use E.164
+    if (!window._saveProfilePatched) {
+      window._saveProfilePatched = true;
+      var _origSave = window.saveProfile;
+      window.saveProfile = function() {
+        // Swap in E.164 value before original saveProfile reads #setPhone
+        var sp = document.getElementById('setPhone');
+        if (sp && document.getElementById('setPhoneWrap_btn')) {
+          sp.value = getE164Phone('setPhoneWrap', 'setPhone');
+        }
+        if (typeof _origSave === 'function') return _origSave.apply(this, arguments);
+      };
+    }
+  }
+};
+
+// ── Patch doRegister to read E.164 phone ─────────────────────────────────
+document.addEventListener('DOMContentLoaded', function() {
+  upgradeRegPhoneField();
+  // Patch doRegister to read normalised phone
+  var _origDoRegister = window.doRegister;
+  window.doRegister = function() {
+    var rp = document.getElementById('regPhone');
+    if (rp && document.getElementById('regPhoneWrap_btn')) {
+      rp.value = getE164Phone('regPhoneWrap', 'regPhone');
+    }
+    if (typeof _origDoRegister === 'function') return _origDoRegister.apply(this, arguments);
+  };
+});
+
+})(); // end phone IIFE
+</script>
+
+<!-- ══ LANGUAGE SELECTOR ON AUTH SCREENS ══════════════════════════════════ -->
+<script>
+(function(){
+'use strict';
+
+// Language labels for the compact selector
+var LANG_OPTS = [
+  ['en', '🇬🇧 English'],
+  ['lg', '🇺🇬 Luganda'],
+  ['rn', '🌄 Runyankole'],
+  ['ac', '🌾 Acholi'],
+];
+
+function buildAuthLangPicker(containerId) {
+  var lang = localStorage.getItem('ab_lang') || 'en';
+  return '<div id="' + containerId + '" style="display:flex;align-items:center;justify-content:center;gap:6px;flex-wrap:wrap;margin-top:14px;padding-top:12px;border-top:1px solid var(--border)">' +
+    LANG_OPTS.map(function(l){
+      var on = l[0] === lang;
+      return '<button onclick="setLang(\'' + l[0] + '\');refreshAuthLangPickers()" style="padding:5px 10px;border-radius:20px;border:1px solid ' + (on?'var(--green)':'var(--border)') + ';background:' + (on?'var(--green-dim)':'transparent') + ';color:var(--text);font-size:0.78rem;cursor:pointer;font-family:inherit">' + l[1] + '</button>';
+    }).join('') +
+  '</div>';
+}
+
+window.refreshAuthLangPickers = function() {
+  ['loginLangPicker','registerLangPicker','forgotLangPicker'].forEach(function(id){
+    var el = document.getElementById(id); if (!el) return;
+    el.outerHTML = buildAuthLangPicker(id);
+  });
+};
+
+function injectAuthLangPicker(modalContentId, pickerId) {
+  var target = document.getElementById(modalContentId);
+  if (!target || document.getElementById(pickerId)) return;
+  var div = document.createElement('div');
+  div.innerHTML = buildAuthLangPicker(pickerId);
+  target.appendChild(div.firstElementChild);
+}
+
+// Inject into login, register, forgot password modals when they open
+var _origOpenModal = window.openModal;
+window.openModal = function(id) {
+  if (typeof _origOpenModal === 'function') _origOpenModal.apply(this, arguments);
+  setTimeout(function() {
+    if (id === 'loginModal')    injectAuthLangPicker('loginModalInner',   'loginLangPicker');
+    if (id === 'registerModal') injectAuthLangPicker('registerModalInner','registerLangPicker');
+    if (id === 'forgotPwdModal')injectAuthLangPicker('forgotPwdModalInner','forgotLangPicker');
+  }, 50);
+};
+
+// Save lang preference to user profile after login
+document.addEventListener('DOMContentLoaded', function() {
+  // Hook into postAuthLegalCheck (fires after login) to persist language to DB
+  var _origPost = window.postAuthLegalCheck;
+  window.postAuthLegalCheck = function() {
+    // Read saved lang and persist to farmers table
+    var lang = localStorage.getItem('ab_lang') || 'en';
+    if (window.currentUser && window.currentUser.supaId && lang !== 'en') {
+      // Best-effort: save preferred_language to profile
+      try {
+        var SUPABASE_URL = window._supabaseUrl || '';
+        var SUPABASE_KEY = window._supabaseAnonKey || '';
+        if (SUPABASE_URL && SUPABASE_KEY) {
+          fetch(SUPABASE_URL + '/rest/v1/farmers?id=eq.' + encodeURIComponent(window.currentUser.supaId), {
+            method: 'PATCH',
+            headers: {
+              'apikey': SUPABASE_KEY,
+              'Authorization': 'Bearer ' + SUPABASE_KEY,
+              'Content-Type': 'application/json',
+              'Prefer': 'return=minimal'
+            },
+            body: JSON.stringify({ preferred_language: lang })
+          }).catch(function(){});
+        }
+      } catch(e) {}
+    }
+    if (typeof _origPost === 'function') return _origPost.apply(this, arguments);
+  };
+
+  // On auth state change load user's saved language preference
+  var _origOnAuth = window._onAuthStateChange;
+  if (typeof _origOnAuth !== 'function') {
+    // Try to hook via Supabase's onAuthStateChange
+    // The main app calls sbAuth.auth.onAuthStateChange — we watch currentUser instead
+    var _origSetCurrentUser = window.setCurrentUser || null;
+    if (typeof window.setCurrentUser === 'function') {
+      window.setCurrentUser = function(user) {
+        var ret = _origSetCurrentUser.apply(this, arguments);
+        if (user && user.preferred_language) {
+          window.applyUserLang && window.applyUserLang(user.preferred_language);
+        }
+        return ret;
+      };
+    }
+  }
+});
+
+})(); // end auth lang IIFE
 </script>
 </body>
 </html>
