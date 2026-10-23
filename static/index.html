@@ -1702,7 +1702,6 @@ html.is-web:not(.app-entered) body{overflow:hidden}
     <input type="text" id="globalSearch" placeholder="Search crops, animals, farmers…" oninput="handleSearch(this.value)" aria-label="Search">
     <span class="nav-search-icon">🔍</span>
   </div>
-  <button class="mob-search-btn" onclick="toggleMobSearch()" aria-label="Search">🔍</button>
   <button class="notif-bell" onclick="toggleNotifPanel()" title="Notifications" id="notifBell" aria-label="Notifications">🔔<span class="notif-badge" id="notifCount" style="display:none">4</span></button>
   <button class="notif-bell" onclick="toggleBasket()" title="Basket" id="basketNavBtn" style="position:relative" aria-label="Basket">🛒<span class="notif-badge" id="basketNavCount" style="display:none;background:#f44336">0</span></button>
   <button id="langPickerBtn" class="btn-sm outline" onclick="settingsGo('language');openModal('settingsModal')" style="font-size:0.8rem;padding:5px 10px" title="Change Language">🌐 EN</button>
@@ -8536,8 +8535,8 @@ function updateNavUser(nameOrUser, role) {
     var first = name.split(' ')[0];
     var photo = (currentUser && currentUser.avatar_url) || (nameOrUser && typeof nameOrUser === 'object' && nameOrUser.avatar_url) || '';
     var avInner = photo ? "<img src=\"" + photo + "\" alt=\"\" style=\"width:100%;height:100%;object-fit:cover\">" : init;
-    btns.innerHTML = "<div style=\"width:34px;height:34px;border-radius:50%;overflow:hidden;background:var(--green);color:#000;font-weight:800;font-size:0.9rem;display:flex;align-items:center;justify-content:center;cursor:pointer\" onclick=\"openModal('myAccountModal')\" title=\"My Account\">" + avInner + "</div>" +
-      "<button class=\"btn-sm outline\" onclick=\"openModal('myAccountModal')\" style=\"font-size:0.8rem\">" + first + "</button>";
+    btns.innerHTML = "<div style=\"width:34px;height:34px;border-radius:50%;overflow:hidden;background:var(--green);color:#000;font-weight:800;font-size:0.9rem;display:flex;align-items:center;justify-content:center;cursor:pointer\" onclick=\"showPage('profile-buyer')\" title=\"My Profile\">" + avInner + "</div>" +
+      "<button class=\"btn-sm outline\" onclick=\"showPage('profile-buyer')\" style=\"font-size:0.8rem\">" + first + "</button>";
   } else {
     btns.innerHTML = "<button class=\"btn-sm outline\" onclick=\"openModal('loginModal')\">Log In</button>" +
       "<button class=\"btn-sm\" onclick=\"openModal('registerModal')\">Join Free</button>";
