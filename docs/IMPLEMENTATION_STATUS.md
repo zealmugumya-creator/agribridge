@@ -356,6 +356,9 @@ same sha for both and the working tree is clean.
   identical bytes. The served HTML contains `listingEditModal`, `fhProduceRow`,
   `leReservedLine` and `lpSaveDraft`, so the edit sheet and the F1 screens are
   what a farmer's phone actually downloads — not merely what the repo holds.
+  Reached as a guest, all four farmer screens render their "Log in…" lock state
+  rather than any rows, so shipping the interface did not ship a way to read
+  someone else's produce, orders or payouts.
 * **Backend** — the guarded write is live on Render, proved by discriminating
   probes instead of by a `200`: `PATCH /api/listings/999999` with no token →
   `401 {"error":"Missing token"}`, and with a forged bearer →
