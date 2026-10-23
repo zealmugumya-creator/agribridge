@@ -374,6 +374,71 @@ a fake Supabase, and the figures on the screens are still verified against rows 
 verified shape rather than against the owner's real listings, orders or payouts.
 That last check needs a farmer account and is the owner's to authorise.
 
+### Found while verifying production, not while verifying tests
+
+Opening the live site in a browser (guest, no sign-in, no write) proved the
+deploy *and* turned up a console error no fixture could show, because every
+browser test stubs `farmer_ratings` with a fake row:
+
+```
+Failed to load resource: 404
+…/rest/v1/farmer_ratings?select=farmer_id,avg_rating,review_count
+```
+
+* The live project has **no `farmer_ratings` table** (`GET …/farmer_ratings` →
+  `404`; `listings`, `farmers`, `orders`, `payouts`, `animal_listings` all `200`).
+  It does have `reviews` (`200`, zero rows), which is what `supabase/base-schema.sql`
+  defines. No migration in the repo ever creates `farmer_ratings`.
+* Nothing in `app.py` or `services/`, and nothing in the SPA, writes ratings —
+  there is no review-submission route and no review UI. So the table is not
+  missing by accident: the ratings feature has only ever had a read path.
+* **The buyer home page degrades honestly.** `loadHomeStats()` guards on
+  `Array.isArray(ratings)`, `window.farmerRatings` stays undefined, and
+  `renderHomeFarmers()` — which returns early unless a farmer has
+  `avg_rating > 0` — hides both the strip and its heading. Confirmed in the live
+  DOM: `ratingsGlobal: undefined`, strip and heading `display: none`, and the
+  page still rendered 6 real listing cards. No invented stars.
+* `0004a_farmer_matching.up.sql:108` has the same dangling reference inside
+  `match_farmers`. Its sibling tables (`purchase_requests`, `order_offers`,
+  `matching_config`) do exist live, so that migration was applied — but the
+  function would fail the moment anything called it. Nothing does: `app.py` never
+  invokes `match_farmers`, so the automated-matching work (task #8) is
+  code-complete and unusable against the live schema.
+
+**Left unfixed, deliberately.** Closing this means either pointing the SPA at
+`reviews` (which is empty, so the strip stays hidden) or building a review
+capture path, and either way it needs a migration plus a product decision about
+who rates what and when. Fabricating ratings to make the strip appear is exactly
+what the mandate forbids, so this is recorded as an owner decision rather than
+patched half-way.
+
+A second console line pointed at a gap in the earlier audit, which had only
+looked at API responses (`docs/PRODUCTION_AUDIT.md` §177): **the site's own
+document is served with no security headers at all.**
+
+```
+curl -sI https://agribrige.com/  →  200, Server: cloudflare, CF-Cache-Status: HIT
+                                     no Content-Security-Policy
+                                     no X-Frame-Options
+                                     no X-Content-Type-Options
+                                     no Strict-Transport-Security
+                                     no Referrer-Policy
+```
+
+The SPA carries all of these as `<meta http-equiv=…>` (line 5-8 of
+`static/index.html`). A meta CSP is honoured by browsers, so the script/style
+restrictions in it do apply — but `X-Frame-Options` is **ignored in a meta tag**
+(the browser said exactly that in the console), and meta cannot express
+`frame-ancestors` either, because that directive is disallowed in meta-delivered
+policies. So the page that takes orders and payment details is currently
+frameable.
+
+Not changed here: the fix belongs on the response, which means a `static/_headers`
+file or header injection in the Worker — a change to how *every* production
+response is served, on a payments site, and one that would break any legitimate
+embedding if set wrong. That is the owner's call, so it is recorded with the
+evidence rather than applied.
+
 ---
 
 **Phase 1 COMPLETE — Baseline Audit**
