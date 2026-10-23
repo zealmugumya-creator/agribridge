@@ -71,6 +71,22 @@ jobs:
         working-directory: tests/sql
       - run: npm test
         working-directory: tests/sql
+      - name: Publish which migration test failed
+        if: failure()
+        working-directory: tests/sql
+        # Action logs are only readable by someone signed in to the repo, so a
+        # red SQL job tells an unauthenticated caller nothing. Annotations are
+        # served by the public commits API, which is how this failure gets
+        # diagnosed at all. Each file builds its own in-process PGlite, so
+        # re-running them here in alphabetical order is safe.
+        run: |
+          echo "node $(node -v), pglite $(node -p "require('@electric-sql/pglite/package.json').version")"
+          for f in *.test.mjs; do
+            if ! node "$f" >"$RUNNER_TEMP/out.log" 2>&1; then
+              detail="$(tr '\r\n' '  ' <"$RUNNER_TEMP/out.log" | tail -c 700)"
+              echo "::error::SQL test $f failed: $detail"
+            fi
+          done
 
   # NOTE: SQL tests for migrations 0001-0006 and Android .aab builds need live credentials
   # (Supabase DB, Android SDK/signing) and are documented as external steps in
