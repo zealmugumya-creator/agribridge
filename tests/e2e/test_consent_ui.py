@@ -336,6 +336,13 @@ def test_existing_user_without_acceptance_sees_review_and_must_tick(env):
     boxes = page.locator("#legalReviewDocs input[type=checkbox]")
     assert boxes.count() == 3 and all(not boxes.nth(i).is_checked() for i in range(3))
     page.click("#legalReviewBtn")
+    # The click listener is attached while the modal opens, so under load this
+    # click can land first; wait for the message instead of reading it once.
+    page.wait_for_function(
+        "document.getElementById('legalReviewErr').textContent.toLowerCase()"
+        ".includes('tick each box')",
+        timeout=5000,
+    )
     assert "tick each box" in page.inner_text("#legalReviewErr").lower()
     assert db.acceptances == []
     page.keyboard.press("Escape")
