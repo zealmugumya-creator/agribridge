@@ -1,23 +1,33 @@
 # Response headers for the Cloudflare Workers asset bundle (assets directory =
-# ./static). The SPA has always carried these as <meta http-equiv=…>, but a meta
-# tag cannot deliver every one of them: browsers ignore X-Frame-Options in meta,
-# and frame-ancestors is disallowed in a meta-delivered policy. Delivered as
-# headers they take effect, and they now cover the paths that never had them
-# (admin.html and logistics.html declare no CSP at all, so only the universal
-# headers below protect them).
+# ./static, wrangler.jsonc).
 #
-# Cloudflare's own analytics beacon stays blocked by the policy below. Adding
-# https://static.cloudflareinsights.com to script-src would enable it, which is a
-# call about visitor tracking rather than a fix, so it is left alone.
+# WHY THIS FILE EXISTS. The SPA has always carried these policies as
+# <meta http-equiv=…> tags, and a meta tag cannot deliver two of them: browsers
+# ignore X-Frame-Options in a meta (the console says so on every page load), and
+# CSP refuses frame-ancestors in a meta-delivered policy. So the clickjacking
+# protection the pages appeared to declare has never been in force. Delivered as
+# headers they take effect, and they now also cover admin.html, logistics.html
+# and transporter.html, which declare nothing at all.
+#
+# WHY EVERYTHING IS IN ONE BLOCK. A per-path block is not honoured by this
+# platform: with a CSP declared for / and /index.html, the deployed site sent the
+# universal headers on /index.html and no CSP at all — measured 2026-10-23 at
+# 19:36Z against agribrige.com and agribridge.zealmugumya.workers.dev, both HIT.
+# So a path-scoped CSP cannot be shipped this way, and a CSP on /* would be worse
+# than useless: admin.html, logistics.html and transporter.html declare no CSP and
+# have never been measured against one, so a blanket policy would silently
+# re-policy the screens the owner runs the business from. The meta CSP in
+# index.html keeps enforcing script/style/connect there, as it already did.
+#
+# Cloudflare's own analytics beacon is blocked by that meta policy. Whitelisting
+# https://static.cloudflareinsights.com would enable visitor tracking, which is a
+# product decision, not a fix, so it is left alone.
+#
+# X-Frame-Options: SAMEORIGIN is what the pages already declared; it is not a
+# stricter policy than the site believed it was running.
 
 /*
   X-Content-Type-Options: nosniff
   X-Frame-Options: SAMEORIGIN
   Referrer-Policy: strict-origin-when-cross-origin
   Strict-Transport-Security: max-age=15552000; includeSubDomains
-
-/
-  Content-Security-Policy: default-src 'self' https: data: blob:; script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://fonts.googleapis.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://fonts.gstatic.com; img-src 'self' https: data: blob:; connect-src 'self' https://lvloaweijidgcuezdnmu.supabase.co https://agribridge-1-og7a.onrender.com wss://lvloaweijidgcuezdnmu.supabase.co https://nominatim.openstreetmap.org https://router.project-osrm.org; font-src 'self' https://fonts.gstatic.com; frame-src https://www.youtube.com; frame-ancestors 'self'
-
-/index.html
-  Content-Security-Policy: default-src 'self' https: data: blob:; script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://fonts.googleapis.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://fonts.gstatic.com; img-src 'self' https: data: blob:; connect-src 'self' https://lvloaweijidgcuezdnmu.supabase.co https://agribridge-1-og7a.onrender.com wss://lvloaweijidgcuezdnmu.supabase.co https://nominatim.openstreetmap.org https://router.project-osrm.org; font-src 'self' https://fonts.gstatic.com; frame-src https://www.youtube.com; frame-ancestors 'self'

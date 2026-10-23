@@ -2,14 +2,20 @@
 
 """Guards for static/_headers — the response headers the Worker actually sends.
 
-The SPA has declared nosniff, SAMEORIGIN and a Referrer-Policy since before this
-test existed, but only as <meta http-equiv=…> tags. Two of them cannot work that
-way: browsers ignore X-Frame-Options delivered in meta, and CSP forbids
-frame-ancestors in a meta-delivered policy (and ignores X-Frame-Options there
-too). They were inert until delivered as headers. This test fails if the header
-file goes missing, loses a universal header, or drifts from the meta CSP — a
-drift where the header is *narrower* would break the app in production while
-every server-side test still passed.
+The SPA announced nosniff, SAMEORIGIN and a Referrer-Policy as
+<meta http-equiv=…> for as long as it has existed, and two of them cannot work
+that way: browsers ignore X-Frame-Options delivered in a meta, and CSP forbids
+frame-ancestors there. So the clickjacking protection the pages appeared to
+declare was never in force. This file is what makes it real, and what extends
+the same four headers to admin.html, logistics.html and transporter.html, which
+declare nothing at all.
+
+The tests below encode what was measured in production rather than what the
+Cloudflare documentation implies: a per-path header block is ignored by the
+assets runtime, so a CSP scoped to /index.html publishes nothing. That is why
+only a `/*` block is shipped, and why no CSP header is shipped at all — a
+blanket `/*` CSP would quietly re-policy the three screens the owner runs the
+business from, none of which has ever been measured against a policy.
 """
 from __future__ import annotations
 
@@ -27,110 +33,76 @@ UNIVERSAL = {
     "Strict-Transport-Security": "max-age=15552000; includeSubDomains",
 }
 
+PROTECTED_PAGES = ("/admin.html", "/logistics.html", "/transporter.html")
 
-def _parse(text: str) -> dict[str, dict[str, str]]:
-    """Parse a Cloudflare _headers file.
 
-    Pattern lines start at column 0; every header line under them must be
-    indented, which is also the syntax Cloudflare requires. This therefore
-    doubles as a syntax check: an unindented header line is read as a path.
-    """
+def _lines() -> list[str]:
+    assert HEADERS.exists(), "static/_headers is missing — the Worker sends no custom headers"
+    return HEADERS.read_text(encoding="utf-8").splitlines()
+
+
+def _blocks() -> dict[str, dict[str, str]]:
+    """Parse the file the way Cloudflare does: column 0 is a path pattern and
+    only an indented line is a header. The syntax test below keeps that true."""
     blocks: dict[str, dict[str, str]] = {}
     pattern = None
-    for raw in text.splitlines():
+    for raw in _lines():
         if not raw.strip() or raw.lstrip().startswith("#"):
             continue
-        if raw[:1] in (" ", "\t"):
-            assert pattern is not None, f"header line before any path pattern: {raw!r}"
+        if raw[0] in (" ", "\t"):
+            assert pattern is not None, f"header before any path pattern: {raw!r}"
             name, _, value = raw.strip().partition(":")
             assert name.strip(), f"header line with no name: {raw!r}"
             blocks[pattern][name.strip()] = " ".join(value.split())
         else:
             pattern = raw.strip()
-            assert pattern.startswith("/"), f"path pattern must start with /: {pattern!r}"
             blocks.setdefault(pattern, {})
     return blocks
 
 
-def _blocks() -> dict[str, dict[str, str]]:
-    assert HEADERS.exists(), "static/_headers is missing — the Worker sends no custom headers"
-    return _parse(HEADERS.read_text(encoding="utf-8"))
+def test_only_comments_and_path_patterns_start_a_line() -> None:
+    """A prose line that wraps without a leading # is read as a path pattern and
+    silently swallows the block under it."""
+    for raw in _lines():
+        if raw.strip() and raw[0] not in (" ", "\t"):
+            assert raw.strip().startswith(("/", "#")), f"bad line in _headers: {raw!r}"
 
 
-def _split_directives(csp: str) -> dict[str, str]:
-    out: dict[str, str] = {}
-    for part in csp.split(";"):
-        tokens = part.split()
-        if tokens:
-            out[tokens[0].lower()] = " ".join(tokens[1:])
-    return out
+def test_every_path_pattern_is_valid() -> None:
+    for pattern in _blocks():
+        assert pattern.startswith("/"), f"path pattern must start with /: {pattern!r}"
+        assert " " not in pattern, f"path pattern contains a space: {pattern!r}"
 
 
-_META_CSP = re.compile(
-    r'<meta\s+http-equiv="Content-Security-Policy"\s+content="([^"]+)"', re.IGNORECASE
-)
-
-
-def _meta_csp() -> str:
-    matches = _META_CSP.findall(INDEX.read_text(encoding="utf-8"))
-    assert len(matches) == 1, f"expected exactly one CSP meta in index.html, found {len(matches)}"
-    return matches[0]
-
-
-def test_headers_file_is_present_and_indented() -> None:
-    blocks = _blocks()
-    assert "/*" in blocks, "no /* block, so no path is protected"
-
-
-def test_universal_headers_apply_to_every_path() -> None:
-    got = _blocks()["/*"]
+def test_universal_headers_are_declared() -> None:
+    got = _blocks().get("/*", {})
     for name, value in UNIVERSAL.items():
         assert got.get(name) == value, f"/* sends {got.get(name)!r}, expected {value!r}"
 
 
-def test_csp_is_delivered_for_both_entry_paths() -> None:
-    """`/` is what a browser asks for; /index.html is what the asset is named."""
-    blocks = _blocks()
-    for path in ("/", "/index.html"):
-        assert "Content-Security-Policy" in blocks[path], f"{path} sends no CSP header"
-        assert blocks["/"]["Content-Security-Policy"] == blocks["/index.html"][
-            "Content-Security-Policy"
-        ], "CSP differs between / and /index.html — one of them is stale"
-
-
-def test_delivered_csp_keeps_every_meta_directive() -> None:
-    """The browser enforces the intersection of header and meta, so a narrower
-    header directive silently breaks features that work in every test."""
-    delivered = _split_directives(_blocks()["/index.html"]["Content-Security-Policy"])
-    declared = _split_directives(_meta_csp())
-    for name, sources in declared.items():
-        assert name in delivered, f"meta declares {name}, the header does not"
-        assert delivered[name] == sources, (
-            f"{name}: header {delivered[name]!r} != meta {sources!r}"
-        )
-
-
-def test_delivered_csp_adds_frame_ancestors_that_meta_cannot_express() -> None:
-    delivered = _split_directives(_blocks()["/index.html"]["Content-Security-Policy"])
-    assert delivered.get("frame-ancestors") == "'self'"
-    assert "frame-ancestors" not in _split_directives(_meta_csp())
-
-
-def test_pages_without_a_meta_csp_are_not_given_a_stricter_one() -> None:
-    """admin.html and logistics.html declare no CSP. Shipping one here would be a
-    new, untested policy for screens the owner uses daily; they get only the
-    universal headers from /*."""
-    blocks = _blocks()
-    for page in ("/admin.html", "/logistics.html"):
-        assert "Content-Security-Policy" not in blocks.get(page, {}), page
-    for page in ("/admin.html", "/logistics.html"):
-        assert "X-Frame-Options" not in blocks.get(page, {}), (
-            f"{page} overrides the universal X-Frame-Options"
-        )
+def test_no_csp_header_is_shipped_and_the_meta_policy_survives() -> None:
+    """A path-scoped CSP publishes nothing on this platform, so the enforceable
+    policy for index.html is its meta tag. Shipping a CSP header here would mean
+    a blanket one, which would also bind the pages that have no policy today."""
+    for pattern, headers in _blocks().items():
+        assert "Content-Security-Policy" not in headers, f"{pattern} declares a CSP"
+    head = INDEX.read_text(encoding="utf-8")[:4000]
+    assert len(re.findall(r'<meta\s+http-equiv="Content-Security-Policy"', head, re.I)) == 1, (
+        "index.html no longer carries exactly one CSP meta"
+    )
 
 
 def test_meta_only_headers_are_still_declared_in_the_page() -> None:
-    """Permissions-Policy has no header block yet; keep the meta honest."""
+    """The nosniff/referrer metas are redundant now that the header is real, but
+    the Capacitor shell loads the file without going through the Worker."""
     head = INDEX.read_text(encoding="utf-8")[:4000].lower()
     for name in ("x-content-type-options", "x-frame-options", "referrer-policy"):
         assert f'http-equiv="{name}"' in head, f"index.html no longer declares {name} in meta"
+
+
+def test_protected_pages_are_covered_by_the_universal_block_only() -> None:
+    """Nothing in the file overrides the universal headers for the operator
+    screens; if a block ever appears for them it must be deliberate."""
+    blocks = _blocks()
+    for page in PROTECTED_PAGES:
+        assert page not in blocks, f"{page} now has its own block — was that measured?"
