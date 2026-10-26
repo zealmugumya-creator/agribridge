@@ -26,11 +26,19 @@
 -- No feature needs the policy. Every legitimate order mutation goes through the
 -- backend: POST /api/orders/<id>/status validates the role, the transition and
 -- the legal gate, then calls the set_order_status RPC with the service role,
--- which bypasses RLS and is therefore unaffected by this migration. Confirmed
--- against the bundle deployed to production on 2026-10-23: static/index.html has
--- no direct write to /rest/v1/orders at all, and static/admin.html only calls
--- /api/admin/order/<id>/status. Reads keep working — orders_owner_select is
--- untouched, so a farmer still sees their own orders.
+-- which bypasses RLS and is therefore unaffected by this migration (app.py:2881).
+-- app.py and services/ contain no direct update of the orders table at all — a
+-- grep for an orders row write finds none — so nothing behind this policy is in
+-- use. Confirmed against the bundle deployed to production on 2026-10-23:
+-- static/index.html has no direct write to /rest/v1/orders, and static/admin.html
+-- only calls /api/admin/order/<id>/status. Reads keep working —
+-- orders_owner_select is untouched, so a farmer still sees their own orders.
+--
+-- The payout-minting path is demonstrated, not assumed: tests/sql/
+-- order_write_lockdown.test.mjs reproduces it against a real in-process Postgres
+-- before the drop and shows the service-role status path still paying out after
+-- it. This migration is not yet applied to the live project, so the hole is open
+-- in production until it is run.
 --
 -- Drops a policy only. No rows are touched. Safe to re-run.
 

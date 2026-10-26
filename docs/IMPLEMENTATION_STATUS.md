@@ -370,6 +370,32 @@ same sha for both and the working tree is clean.
   `404` is the evidence that Render is running the new code. No row was written:
   both responses come from the auth check, before any database call.
 
+**Verification round (2026-10-23, pushes `e8b512f` → `c34fa1d`).** Six commits,
+all pushed and all published through the normal pipeline, with CI as the only
+publisher. The first four went up in one push, so CI judged them at its tip:
+
+| Push | Contents | CI |
+|---|---|---|
+| `e8b512f` | `static/_headers` + `tests/test_spa_headers.py` | judged at ↓ |
+| `78fdad3` | 0018 + `farmer_ratings.test.mjs` | judged at ↓ |
+| `a661ea0` | 0019 + `order_write_lockdown.test.mjs` | judged at ↓ |
+| `61b0da7` | consent-test race fix | backend **success**, sql **failure**, deploy **success** |
+| `6e9ace0` | CI publishes which SQL test failed as an annotation | backend **success**, sql **success** |
+| `c34fa1d` | `_headers` reshaped to what the platform applies | sql **success**, deploy **success**, backend **success** |
+
+The `61b0da7` SQL failure did not reproduce: the same eight files pass locally,
+pass in a fresh clone of the pushed commit, and pass with CI's LF line endings,
+and the job then went green twice in a row on later commits. It was therefore a
+runner-side flake, and `6e9ace0` exists so that the next one names its file
+instead of leaving an unauthenticated reader with nothing (Action logs need a
+signed-in account; check-run annotations do not).
+
+Locally, the full suite ran four times across these commits: 489 passed,
+489 passed, 1 failed / 487 passed, and green again — the two failures were
+*different* tests in `tests/e2e/test_consent_ui.py`, and that file is 22/22 green
+whenever it is run on its own or as `tests/e2e`. Same known condition as above,
+under load.
+
 **What production still has not proved.** None of the above is an *authenticated*
 farmer request. No real sign-in was performed, so the live edit, pause,
 photo-upload and 409-lost-race paths have each run only against a fixture row and
@@ -408,12 +434,34 @@ Failed to load resource: 404
   invokes `match_farmers`, so the automated-matching work (task #8) is
   code-complete and unusable against the live schema.
 
-**Left unfixed, deliberately.** Closing this means either pointing the SPA at
-`reviews` (which is empty, so the strip stays hidden) or building a review
-capture path, and either way it needs a migration plus a product decision about
-who rates what and when. Fabricating ratings to make the strip appear is exactly
-what the mandate forbids, so this is recorded as an owner decision rather than
-patched half-way.
+**Closed by 0018 — written, tested, awaiting the owner's paste.** Fabricating a
+rating to make the strip appear is exactly what the mandate forbids, and pointing
+the SPA at `reviews` would not have helped: that table is empty live. 0018
+therefore creates only the aggregate the SPA already names —
+`public.farmer_ratings` over `reviews`, `security_invoker` so the base table's own
+RLS still decides who may see a review — and stops there. No rating appears until
+a real review exists, and the strip stays hidden until then. The product question
+of who rates what, and where the form lives, is still open; only the 404 is
+resolved. `tests/sql/farmer_ratings.test.mjs` holds the line with 9 assertions,
+starting from the pre-migration 404 and including "anon gets nothing once reviews
+stop being public", which is why the view is not a bypass.
+
+Reading `base-schema.sql:264` while verifying that schema turned up a second,
+worse gap that no browser could show. `orders_farmer_update` lets a farmer UPDATE
+their own order with no column restriction — RLS policies are row predicates, not
+column grants — and 0016 puts an `after insert or update of status,
+payment_status` trigger on `orders` whose function is `security definer`. So one
+PATCH `{"status":"delivered","payment_status":"paid"}` from a farmer mints a
+**pending payout they were never owed**, because the trigger inserts past
+`payouts`' own RLS. Settlement later refuses to disburse it without a ledger
+receipt, but the false obligation is already in the table the admin Finance view
+totals. `payment_ref` and `notes` are writable the same way. Reproduced in a
+PGlite sandbox with the real trigger shape, then closed by 0019 (`drop policy`),
+because nothing in the app writes orders directly: the SPA has no write to
+`/rest/v1/orders` and admin status changes go through
+`/api/admin/order/<id>/status`, which runs as service role and still fires the
+payout trigger. 12 assertions in `tests/sql/order_write_lockdown.test.mjs`,
+including the service-role path still working after the drop.
 
 A second console line pointed at a gap in the earlier audit, which had only
 looked at API responses (`docs/PRODUCTION_AUDIT.md` §177): **the site's own
@@ -433,14 +481,63 @@ The SPA carries all of these as `<meta http-equiv=…>` (line 5-8 of
 restrictions in it do apply — but `X-Frame-Options` is **ignored in a meta tag**
 (the browser said exactly that in the console), and meta cannot express
 `frame-ancestors` either, because that directive is disallowed in meta-delivered
-policies. So the page that takes orders and payment details is currently
-frameable.
+policies. So the page that takes orders and payment details was frameable, in
+spite of declaring itself not to be.
 
-Not changed here: the fix belongs on the response, which means a `static/_headers`
-file or header injection in the Worker — a change to how *every* production
-response is served, on a payments site, and one that would break any legitimate
-embedding if set wrong. That is the owner's call, so it is recorded with the
-evidence rather than applied.
+**Applied, and measuring it changed the design.** `static/_headers` now ships the
+four universal headers on `/*`, published by CI on `c34fa1d` and verified on the
+response:
+
+```
+curl -sSI https://agribrige.com/  →  200, CF-Cache-Status: HIT
+  x-content-type-options: nosniff
+  x-frame-options: SAMEORIGIN
+  referrer-policy: strict-origin-when-cross-origin
+  Strict-Transport-Security: max-age=15552000; includeSubDomains
+```
+
+The same four arrive on `/admin.html`, `/logistics.html` and
+`agribridge.zealmugumya.workers.dev`, none of which declared any policy before.
+`SAMEORIGIN` is what the meta already claimed to set — not a stricter policy
+than the site believed it was running — and no legitimate embedding of the site
+is known or used, so nothing depended on the hole.
+
+**The CSP header was tried and removed, on evidence.** The first version of the
+file also declared a CSP for `/` and `/index.html`. CI reported `deploy`
+*success*, wrangler said `Uploaded 2 worker bundle files`, and the served
+document returned the four universal headers with **no `Content-Security-Policy`
+at all** — on both domains, both `HIT`. A path-scoped `_headers` block is not
+honoured by this assets runtime, and the only alternative is `/*`, which would
+have bound a policy on `admin.html`, `logistics.html` and `transporter.html`:
+three screens that declare no CSP today, have never been measured against one,
+and are the ones the owner runs the business from. Their inline handlers survive
+(`script-src 'unsafe-inline'`), but a `frame-src` limited to YouTube would have
+been an untested guess about any map embed they use. So the file ships the
+headers that meta cannot deliver, and `index.html` keeps its meta CSP, which
+browsers honour and which the live reload re-confirms: `[AgriBridge Smoke Test]
+11/11 passed`, with the pre-existing `static.cloudflareinsights.com` block (Cloudflare's
+own analytics beacon, refused by the policy the page has always carried) and the
+`X-Frame-Options may only be set via an HTTP header` line that this change now
+makes true — the meta stays in the file for the Capacitor shell, which loads the
+HTML without going through the Worker.
+
+Rollback is `git revert` of `c34fa1d`; CI republishes.
+
+**Third finding from the same reload, left for the owner.** Six
+`images.unsplash.com` requests failed in the console, which led to the code and
+then to the data. `listingImage()` (`static/index.html:3639`) falls back to
+`cropPhotoUrl()` (`:3633`, a table of 19 Unsplash crop ids) whenever a listing has
+no `image_url`. A read-only probe of the live project says **all 63 `listings`
+rows have an empty `photo_url`**, so every buyer card and product detail on the
+site is currently showing a stock photograph over a real farmer's listing, with
+nothing on screen saying it is illustrative. The farmer screens already refuse
+this (`:7102` — "Never a stock photograph: only the farmer's own uploaded image,
+else an emoji"), so the buyer side is the inconsistent one. Not patched here:
+removing the fallback would leave the owner's redesigned home grid showing 63
+blank tiles, and adding an "Illustrative photo" label changes a screen they
+designed. Either is their call, and the record is what matters — the mandate
+forbids presenting stock photographs as a farmer's actual harvest, and today's
+production site does exactly that for every listing.
 
 ---
 

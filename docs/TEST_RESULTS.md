@@ -133,6 +133,32 @@ cd tests/sql && npm test
 | `category_orders.test.mjs` | 10 | all passed |
 | `settlements.test.mjs` | 11 | all passed |
 | `pesapal.test.mjs` | 24 | all passed |
+| `farmer_ratings.test.mjs` | 9 | all passed (new — migration 0018) |
+| `order_write_lockdown.test.mjs` | 12 | all passed (new — migration 0019) |
+
+Eight suites, 142 assertions in total, run with
+`cd tests/sql && npm test` (Node 20.19.0, `@electric-sql/pglite` 0.5.8).
+
+`farmer_ratings.test.mjs` starts by reproducing the production failure — the
+exact select string from `static/index.html:3479` rejects against the pre-0018
+schema, which is the 404 seen in the live console — then applies 0018 twice for
+idempotence, reads real aggregates (A = 4.5 over 2 reviews, B = 3 over 1), proves
+`insert into public.farmer_ratings` cannot write, swaps `reviews_public_select`
+for a buyer-scoped policy to show anon gets 0 rows and a buyer sees only their
+own reviews (so `security_invoker` is not a bypass), shows a deleted review moves
+the average and a farmer with no reviews left disappears rather than reading as
+zero stars, and down-migrates to confirm only the view goes.
+
+`order_write_lockdown.test.mjs` builds `orders`, `payouts` and a stand-in for
+0016's `create_payout_for_order()` with the same trigger event and the same
+`security definer` context, copies both order policies verbatim from
+`base-schema.sql`, and first demonstrates the hole: a farmer PATCH of
+`{"status":"delivered","payment_status":"paid"}` succeeds and mints a pending
+payout, and `payment_ref`/`notes` are writable. After 0019 every farmer write
+returns 0 rows, existing rows are untouched, reads behave exactly as before for
+farmer/buyer/anon, and `service_role` still completes an order and creates its
+payout — the path `/api/admin/order/<id>/status` actually uses. The down
+migration restores the policy text and re-applying closes it again.
 
 The Pesapal suite applies migration 0017 twice, verifies every payment method
 the checkout offers is accepted (including `pesapal`), NULL stays accepted and
@@ -416,6 +442,41 @@ after each (`cmp` clean). The draft bug is the one that mattered most: clearing 
 `<input type=file>` programmatically fires a real `change` event, so the reset
 after a successful post re-saved the published details as an unsent draft.
 
+### Response headers (`tests/test_spa_headers.py`, 6 tests, 2026-10-23)
+
+These guard `static/_headers`, the file that makes the site's declared
+protection actually arrive on the response. Four deliberate mutations were run
+against the suite and **all four were detected**, after which the file was
+restored byte-for-byte (`git status` clean, and the LF-normalised checkout
+`cmp`-identical to `git show HEAD:static/_headers`):
+
+| Mutation | Result |
+|---|---|
+| a prose line wrapped without its leading `#` (reads as a path pattern, swallows the block) | 2 failed |
+| `X-Frame-Options: SAMEORIGIN` deleted | 1 failed |
+| a CSP added to the `/*` block (would bind admin/logistics/transporter) | 1 failed |
+| `SAMEORIGIN` widened to `DENY` (a new policy nobody signed off) | 1 failed |
+
+The suite itself came out of a measurement, not a preference. The first version
+of the file put a CSP under `/` and `/index.html`; CI published it green,
+wrangler reported `Uploaded 2 worker bundle files`, and the live document
+returned the four universal headers with **no CSP** on both domains, both
+`HIT`. The design was then reduced to what the platform applies, which is why
+`test_no_csp_header_is_shipped_and_the_meta_policy_survives` pins the absence of
+a header CSP and the presence of the meta one.
+
+### Flake in the consent browser file (recorded, not papered over)
+
+`tests/e2e/test_consent_ui.py` failed twice in four full-suite runs locally, on
+**two different tests**, and was green every time it ran alone (22 passed) or as
+part of `tests/e2e` (49 passed). One race was fixed in `61b0da7` — the test read
+`#legalReviewErr` immediately after a click whose listener is attached while the
+modal opens, so under load it can read an empty string; it now waits for the text
+with the same 5 s ceiling and keeps the original assertion. The second failure
+(`test_settings_privacy_section_marketing_toggle_and_history`) was not
+reproduced after three attempts and is left alone rather than "fixed" blind. CI
+was green on `6e9ace0` and `c34fa1d`, which run the same suite on Linux.
+
 ## 5. What these tests do not prove
 
 * Pesapal API calls are faked. Token caching, redirect validation, verification
@@ -445,6 +506,14 @@ after a successful post re-saved the published details as an unsent draft.
   this endpoint's logic — no `CHECK` constraint exists in the schema. The route is
   deployed (see §6), but every live request to it so far has been refused at the
   auth check, which proves the code is running and proves nothing about the write.
+* **Migrations 0018 and 0019 are tested, not applied.** The two new PGlite suites
+  prove what the SQL does to a real Postgres with the Supabase roles stubbed, which
+  is the strongest evidence available without touching the owner's project. Until
+  the owner pastes them (steps in `docs/OPERATIONS_SETUP.md` §2), production still
+  404s on `farmer_ratings` — re-confirmed on 2026-10-23 — and `orders_farmer_update`
+  is still the policy in force, so the farmer-PATCH-mints-a-payout hole is still
+  open live. Nothing in this document claims either migration is working in
+  production.
 
 ## 6. Live verification status
 
@@ -490,6 +559,13 @@ after a successful post re-saved the published details as an unsent draft.
 | Authenticated farmer path in production | No real farmer sign-in performed; schema read-only probe only | **Not yet exercised live** — needs an owner-supplied farmer account |
 | Web Push registration (production) | Render log 2026-10-22T22:15Z from `https://agribrige.com/`: `GET /api/push/vapid-public-key` 200, five `POST /api/user/push-subscriptions` 200 (`{"ok":true}`, upsert on `endpoint`), `GET /api/user/notifications` 200 every ~60 s | **Registration and polling verified in production**; delivery of a push is not tested |
 | Stage F1 farmer column lists (live, read-only) | The four select strings scraped from `static/index.html` (`F_LISTING_SEL` 23 cols, `F_ORDER_SEL` 16, `F_PAYOUT_SEL` 11, the `farmers` profile read 11) sent as `GET …/rest/v1/<table>?<select>&limit=1` with only the publishable key already shipped in the SPA: `listings` **200**, `orders` **200**, `payouts` **200**, `farmers` **200**. No 42703 "column does not exist" on any of the 61 columns. `orders` and `payouts` returned **0 rows** to the anonymous role while `listings`/`farmers` returned rows | **Schema verified live** — every column the farmer screens name exists in the real project, and RLS still hides orders and payouts from anon. **Not** a verification of the authenticated read path: no real farmer sign-in was performed, so no farmer has yet seen their own rows |
+
+| Security response headers (Cloudflare SPA) | `static/_headers` published by CI on `c34fa1d` (deploy **success**). Live response on `/`: `x-content-type-options: nosniff`, `x-frame-options: SAMEORIGIN`, `referrer-policy: strict-origin-when-cross-origin`, `Strict-Transport-Security: max-age=15552000; includeSubDomains`. `/admin.html` and `/logistics.html` (307) and `agribridge.zealmugumya.workers.dev/` carry the same four. Reloaded in a real browser: `[AgriBridge Smoke Test] 11/11 passed`, `window.AGRIBRIDGE` present, no new violation besides the pre-existing analytics-beacon block | **DEPLOYED and verified live**. `X-Frame-Options` was inert in meta before this; it is now a header |
+| CSP as a response header | Shipped under `/` and `/index.html` in `e8b512f`, deploy job green, wrangler `Uploaded 2 worker bundle files` — and the served document returned **no** `Content-Security-Policy` on either domain (both HIT). Path-scoped `_headers` blocks are ignored by this assets runtime | **NOT SHIPPED, deliberately.** A `/*` CSP would bind the three operator pages, which declare none and have never been measured against a policy. `index.html` keeps its meta CSP, which browsers honour |
+| Migrations 0018 / 0019 | Written, applied twice each and covered by 21 PGlite assertions. Live `GET …/rest/v1/farmer_ratings?select=…` still returns `404` on 2026-10-23, i.e. the schema has not changed | **NOT APPLIED LIVE — owner paste required** (steps in `docs/OPERATIONS_SETUP.md` §2 "APPLY NOW"). Nothing about them is claimed as working in production |
+| Buyer cards against real data | Read-only probe of live `listings`: 63 rows, **every one with an empty `photo_url`**, so `listingImage()` (`static/index.html:3639`) falls through to `cropPhotoUrl()` and renders an Unsplash crop photo over each real listing; six such requests appear in the console on a live reload | **Verified production condition, not fixed** — presenting a stock photograph as a farmer's harvest is forbidden by the mandate, but removing the fallback would blank the owner's redesigned grid, so it is an owner decision (`docs/IMPLEMENTATION_STATUS.md`) |
+| CI after this stage | `6e9ace0`: backend **success**, sql **success**. `c34fa1d`: backend **success**, sql **success**, deploy **success** | **Green in GitHub** |
+| `npm test` intermittency on the runner | `61b0da7` sql job **failure** with no readable detail; the same eight files pass locally, in a fresh clone of the pushed commit, and with LF endings; green on `6e9ace0` and `c34fa1d`. `6e9ace0` adds an `if: failure()` step that re-runs each file and publishes the culprit as a check-run annotation, which the public API serves | **Runner-side flake, unresolved by design** — instrumented so the next occurrence names its file instead of being guessed at |
 
 A live payment can only be claimed after a real verified transaction produces a
 `payment:<tx_ref>` journal. Pesapal additionally requires live credentials and

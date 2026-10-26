@@ -43,7 +43,9 @@ supabase db push            # if the project is linked with the Supabase CLI
 ```
 
 > **LIVE STATUS (verified 2026-10-22 after pushes `9123b38` and `6077883`):**
-> 0013, 0014, 0002, 0015, 0016 and 0017 are applied. The new API and SPA bundle
+> 0013, 0014, 0002, 0015, 0016 and 0017 are applied. **0018 and 0019 are not** —
+> committed, tested against a real in-process Postgres, and waiting on the paste
+> in "APPLY NOW" below. The new API and SPA bundle
 > deploy automatically by Render and the `Deploy public web app` workflow
 > immediately after each push. **0015 is now applied** — `orders.source_ref`
 > returns HTTP 200 (read-only probe, 2026-10-22) — so livestock and supplier
@@ -99,6 +101,60 @@ supabase db push            # if the project is linked with the Supabase CLI
 | 0015 | category-aware `create_order_atomic`: livestock and supplier prices/owners resolved server-side, stock decremented | Checkout regression after the SPA cutover |
 | 0016 | pending farmer payouts on delivered+paid, `mark_payout_paid` guarded by a posted settlement journal, `admin_audit_log` dependency | Financial settlement correctness |
 | 0017 | Pesapal gateway state, subscriptions, recurring charges, wider `orders.payment_method` constraint | Recurring payments / hosted checkout |
+| 0018 | `public.farmer_ratings` view over `reviews` (`security_invoker`) | Buyer-home 404: the relation the SPA reads did not exist |
+| 0019 | drops `orders_farmer_update` | A farmer PATCH could mark an order delivered+paid and mint a payout |
+
+> **APPLY NOW — 0018 and 0019 (2026-10-23, written and tested but NOT live yet).**
+> These are the only two changes from this stage that cannot be deployed from
+> CI: the frontend and the API published themselves, but a schema change is the
+> owner's to run (Rule 6). Neither rewrites a row, neither touches money, and
+> both are safe to paste twice.
+>
+> 1. Supabase → your project → **SQL Editor** (left sidebar) → **New query**.
+> 2. Open `supabase/migrations/0018_farmer_ratings_view.up.sql` in a text
+>    editor, copy everything **below the comment block** (from `begin;` to
+>    `commit;`), paste, **Run**. Wait for `Success. No rows returned`.
+> 3. Repeat with `supabase/migrations/0019_lock_farmer_order_writes.up.sql`
+>    (its whole body is one `drop policy if exists` inside `begin;`/`commit;`).
+>    Run 0019 second so the ratings read is never missing while writes are
+>    already locked; the order does not actually matter, they are independent.
+> 4. Verify in the same editor — one query, no keys involved:
+>    ```sql
+>    select 'ratings_view'  as what, count(*) as n from public.farmer_ratings
+>    union all
+>    select 'farmer_update_policy', count(*) from pg_policies
+>      where schemaname = 'public' and tablename = 'orders'
+>        and policyname = 'orders_farmer_update';
+>    ```
+>    Expected: `ratings_view` `0` (live `reviews` is empty — that is honest, not
+>    a failure) and `farmer_update_policy` **`0`**. If the second row says `1`,
+>    0019 did not run.
+> 5. Confirm the SPA's own read stops 404-ing — from **cmd**, where
+>    `PASTE_ANON_KEY` is Supabase → Project Settings → API → `anon public`
+>    (the same publishable key the site already ships; never the service-role
+>    key):
+>    ```cmd
+>    curl -s -o ratings.json -w "HTTP %%{http_code}\n" "https://lvloaweijidgcuezdnmu.supabase.co/rest/v1/farmer_ratings?select=farmer_id,avg_rating,review_count&limit=5" -H "apikey: PASTE_ANON_KEY" -H "Authorization: Bearer PASTE_ANON_KEY"
+>    ```
+>    `200 []` before 0018 was `404`. At the interactive prompt (not inside a
+>    `.bat`) drop one `%`: `-w "HTTP %{http_code}\n"`.
+>
+> **What 0018 does and does not do.** It gives the buyer home the aggregate it
+> already asks for, so a real star rating can appear as soon as reviews exist.
+> It does **not** invent ratings: `reviews` has zero rows live, so the strip
+> stays hidden until review capture is actually exercised, and `renderHomeFarmers()`
+> still hides it unless a farmer has `avg_rating > 0`. It also does not repair
+> `match_eligible_farmers()` in 0004a, which expects one row per review — no
+> code calls it.
+>
+> **What 0019 costs.** Farmers lose the ability to update their own order rows
+> directly. Nothing in the app does that today: the SPA has no write to
+> `/rest/v1/orders`, and admin status changes go through
+> `/api/admin/order/<id>/status`, which runs as service role and still fires the
+> payout trigger. Reads are untouched. Rollback is
+> `0019_lock_farmer_order_writes.down.sql`, which re-opens the hole exactly as
+> base-schema declared it.
+
 
 > **Listing-photo fix:** deploy the API and web app together, then apply
 > `0012_uploads_bucket.up.sql`. It creates the `uploads` bucket and removes any
@@ -328,6 +384,36 @@ Worker and failed on every push. On 2026-10-23 the owner disconnected it
 Actions workflow as the only publisher. Do not reconnect it while the Actions
 workflow deploys — two publishers means whichever integration last succeeded
 decides what the public site serves.
+
+### 11b. Response headers (`static/_headers`)
+
+`static/_headers` is the only place the site's response headers are set, and it
+is published with the assets — a change to it needs a `Deploy public web app`
+run, not a Render redeploy. Verified on the live response for `/`,
+`/admin.html` and `agribridge.zealmugumya.workers.dev`:
+
+```bash
+curl -sSI https://agribrige.com/ | grep -iE "x-frame|x-content|referrer|strict-transport"
+```
+
+Two constraints were learned by measurement, not from documentation, and are
+recorded in `docs/IMPLEMENTATION_STATUS.md`:
+
+- **A path-scoped block in `_headers` is ignored by this assets runtime.** A CSP
+  declared for `/` and `/index.html` deployed green and arrived as *no CSP*.
+  Only a `/*` block lands, which is why every header lives in one block.
+- **Do not add `Content-Security-Policy` to `/*`.** It would bind
+  `admin.html`, `logistics.html` and `transporter.html`, which declare no policy
+  today and have never been measured against one. `index.html` keeps its meta
+  CSP, which browsers honour; `X-Frame-Options` and `frame-ancestors` are the
+  parts a meta cannot deliver, and the header now supplies `X-Frame-Options`.
+
+A clickjacking change is not cosmetic: `X-Frame-Options` blocks embedding the
+site in an iframe on another origin. Nothing in AgriBridge embeds the SPA that
+way. `tests/test_spa_headers.py` fails if the file's syntax degrades (an
+unindented or unwrapped line silently swallows a block) or if the four headers
+disappear.
+
 
 ---
 
