@@ -1963,6 +1963,40 @@ def upload_media():
     return jsonify({'ok': True, 'url': stored.data['url']}), 201
 
 
+@app.route('/api/admin/upload', methods=['POST'])
+def admin_upload_media():
+    """Upload media from the admin panel (authenticated via admin JWT)."""
+    payload, err = verify_token(required_role='admin')
+    if err:
+        return err
+    kind = str(request.form.get('kind', 'listings')).strip().lower()
+    if kind not in _MEDIA_UPLOAD_KINDS:
+        kind = 'listings'
+    uploaded = request.files.get('file')
+    if not uploaded or not uploaded.filename:
+        return jsonify({'error': 'Choose a photo or video first'}), 400
+    content_type = (uploaded.mimetype or '').lower().strip()
+    spec = _MEDIA_TYPES.get(content_type)
+    if not spec:
+        return jsonify({'error': 'Only JPG, PNG, WebP, MP4, WebM, and MOV files are allowed'}), 415
+    max_bytes, extension = spec
+    blob = uploaded.stream.read(max_bytes + 1)
+    if not blob:
+        return jsonify({'error': 'The selected file is empty'}), 400
+    if len(blob) > max_bytes:
+        label = 'Videos' if content_type.startswith('video/') else 'Photos'
+        limit_mb = 25 if content_type.startswith('video/') else 5
+        return jsonify({'error': f'{label} must be at most {limit_mb} MB'}), 413
+    if not _looks_like_declared_media(content_type, blob):
+        return jsonify({'error': 'The file content does not match its media type'}), 415
+    object_path = f"admin-{kind}/{uuid.uuid4().hex}.{extension}"
+    stored = SUPA.upload_public_media(object_path, blob, content_type)
+    if not stored.ok:
+        return jsonify({'error': 'Upload temporarily unavailable'}), 503
+    _log_system_event('admin_media_uploaded', {'kind': kind, 'bytes': len(blob), 'content_type': content_type}, severity='info')
+    return jsonify({'ok': True, 'url': stored.data['url']}), 201
+
+
 @app.route('/api/listings', methods=['POST'])
 @rate_limit(max_req=20, window=60)
 def create_listing():

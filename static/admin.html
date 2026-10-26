@@ -990,24 +990,33 @@
   function fieldWrap(f,inner,noLabel){ return (noLabel?'':'<label>'+h(f.label)+'</label>')+inner; }
   function closeEdit(){ document.getElementById('editOverlay').classList.remove('open'); editState=null; }
 
+  var currentUploadKey='';
   async function uploadField(input,key,kind){
     var file=input.files&&input.files[0]; if(!file) return;
     var maxMB=kind==='video'?25:5;
     if(file.size> maxMB*1024*1024){ document.getElementById('up_'+key).textContent=(kind==='video'?'Video':'Image')+' too large (max '+maxMB+'MB)'; return; }
+    currentUploadKey=key;
     document.getElementById('up_'+key).textContent='Uploading…';
-    var url=await uploadToStorage(file, kind==='video'?'admin-video':'admin-photo');
+    var url=await uploadToStorage(file, kind==='video'?'animals':'listings');
     if(url){ document.getElementById('ef_'+key).value=url; document.getElementById('up_'+key).textContent='✓ uploaded';
       document.getElementById('pv_'+key).innerHTML=kind==='image'?'<img src="'+h(url)+'">':'<video src="'+h(url)+'" controls></video>';
-    } else document.getElementById('up_'+key).textContent='Upload failed';
+    } else { if(document.getElementById('up_'+key).textContent==='Uploading…') document.getElementById('up_'+key).textContent='Upload failed'; }
   }
-  async function uploadToStorage(file, prefix){
+  async function uploadToStorage(file, kind){
     try{
-      var ext=((file.name||'file').split('.').pop()||'bin').toLowerCase().replace(/[^a-z0-9]/g,'')||'bin';
-      var path=prefix+'/'+Date.now()+'-'+Math.random().toString(36).slice(2,8)+'.'+ext;
-      var res=await fetch(SUPA_URL+'/storage/v1/object/uploads/'+path,{method:'POST',headers:{apikey:SUPA_KEY,Authorization:'Bearer '+SUPA_KEY,'Content-Type':file.type||'application/octet-stream','x-upsert':'true'},body:file});
-      if(!res.ok) return null;
-      return SUPA_URL+'/storage/v1/object/public/uploads/'+path;
-    }catch(e){ return null; }
+      var fd=new FormData();
+      fd.append('file',file);
+      fd.append('kind',kind||'listings');
+      var res=await fetch(API+'/api/admin/upload',{method:'POST',headers:{Authorization:'Bearer '+TOKEN},body:fd});
+      if(!res.ok){
+        var e=await res.json().catch(function(){return{};});
+        var upEl=document.getElementById('up_'+currentUploadKey);
+        if(upEl) upEl.textContent='Upload failed: '+(e.error||res.status);
+        return null;
+      }
+      var data=await res.json();
+      return data.url||null;
+    }catch(e){ console.error('Upload exception',e); return null; }
   }
 
   async function saveEdit(){

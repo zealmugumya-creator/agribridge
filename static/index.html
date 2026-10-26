@@ -1672,6 +1672,65 @@ html.is-web:not(.app-entered) body{overflow:hidden}
 
 /* Ensure new buyer pages get proper bottom padding */
 #page-cart,#page-orders,#page-product-detail,#page-profile-buyer{padding-bottom:80px}
+
+/* ── Farmer Dashboard (fd-*) ──────────────────────────────── */
+.fd-page{padding:0 0 90px;background:var(--bg)}
+.fd-header{display:flex;align-items:center;justify-content:space-between;padding:20px 16px 12px}
+.fd-greeting{display:flex;align-items:center;gap:12px}
+.fd-avatar{width:44px;height:44px;border-radius:50%;background:var(--green);display:flex;align-items:center;justify-content:center;font-size:1.4rem;overflow:hidden;flex-shrink:0}
+.fd-hello{font-size:.78rem;color:var(--text2)}
+.fd-name{font-size:1.05rem;font-weight:700;color:var(--text)}
+.fd-notif-btn{background:none;border:none;font-size:1.4rem;cursor:pointer;position:relative;padding:4px}
+.fd-notif-dot{position:absolute;top:4px;right:4px;width:8px;height:8px;background:#e53935;border-radius:50%}
+.fd-cta-wrap{display:flex;gap:10px;padding:0 16px 16px}
+.fd-cta-btn{flex:1;display:flex;align-items:center;gap:8px;padding:12px 14px;background:var(--green);color:#fff;border:none;border-radius:12px;font-size:.9rem;font-weight:600;cursor:pointer;transition:opacity .15s}
+.fd-cta-btn:active{opacity:.8}
+.fd-cta-secondary{background:var(--amber)}
+.fd-cta-icon{font-size:1.1rem}
+.fd-cta-text{flex:1;text-align:left}
+.fd-cta-arrow{font-size:1.1rem;opacity:.7}
+.fd-section-label{font-size:.72rem;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--text2);padding:0 16px;margin:8px 0 10px}
+.fd-section-head{display:flex;align-items:center;justify-content:space-between;padding:0 16px;margin-top:18px}
+.fd-see-all{background:none;border:none;color:var(--green);font-size:.85rem;font-weight:600;cursor:pointer;padding:4px 0}
+.fd-kpi-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:10px;padding:0 16px 16px}
+.fd-kpi{background:var(--card);border:1px solid var(--border);border-radius:14px;padding:14px 12px;text-align:center}
+.fd-kpi-amber{border-color:var(--amber);background:color-mix(in srgb,var(--amber) 8%,var(--card))}
+.fd-kpi-green{border-color:var(--green);background:color-mix(in srgb,var(--green) 8%,var(--card))}
+.fd-kpi-icon{font-size:1.3rem;margin-bottom:4px}
+.fd-kpi-num{font-size:1.35rem;font-weight:800;color:var(--text)}
+.fd-kpi-lbl{font-size:.7rem;color:var(--text2);margin-top:2px}
+.fd-card{background:var(--card);border:1px solid var(--border);border-radius:14px;padding:16px;margin:0 16px 16px;overflow:hidden}
+.fd-loading{color:var(--text2);font-size:.85rem;padding:12px 0;text-align:center}
+.fd-list-wrap{padding:0 16px;display:flex;flex-direction:column;gap:8px}
+.fd-row{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:12px;display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.fd-row-body{flex:1;min-width:0}
+.fd-row-title{font-size:.9rem;font-weight:600;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.fd-row-sub{font-size:.75rem;color:var(--text2);margin-top:2px}
+.fd-row-right{text-align:right;flex-shrink:0}
+.fd-row-price{font-size:.9rem;font-weight:700;color:var(--green)}
+.fd-row-actions{flex-basis:100%;display:flex;gap:8px;margin-top:4px}
+.fd-act-confirm,.fd-act-reject,.fd-act-transit,.fd-act-deliver{border:none;border-radius:8px;padding:7px 12px;font-size:.8rem;font-weight:600;cursor:pointer}
+.fd-act-confirm{background:#dcfce7;color:#166534}
+.fd-act-reject{background:#fee2e2;color:#991b1b}
+.fd-act-transit{background:#fef3c7;color:#92400e}
+.fd-act-deliver{background:#dbeafe;color:#1e40af}
+@media(prefers-color-scheme:dark){
+  .fd-act-confirm{background:#166534;color:#dcfce7}
+  .fd-act-reject{background:#991b1b;color:#fee2e2}
+  .fd-act-transit{background:#92400e;color:#fef3c7}
+  .fd-act-deliver{background:#1e40af;color:#dbeafe}
+}
+.fd-empty{text-align:center;padding:24px 16px;color:var(--text2)}
+.fd-empty-icon{font-size:2rem;margin-bottom:8px}
+.fd-qa-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;padding:0 16px}
+.fd-qa-btn{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:12px 6px;display:flex;flex-direction:column;align-items:center;gap:4px;font-size:.65rem;color:var(--text2);cursor:pointer}
+.fd-qa-btn:active{opacity:.7}
+.fd-badge{display:inline-block;padding:2px 8px;border-radius:20px;font-size:.7rem;font-weight:600;text-transform:capitalize}
+.fd-badge-pending{background:#fef3c7;color:#92400e}
+.fd-badge-confirmed{background:#dbeafe;color:#1e40af}
+.fd-badge-in_transit{background:#f3e8ff;color:#6b21a8}
+.fd-badge-delivered{background:#dcfce7;color:#166534}
+.fd-badge-cancelled{background:#fee2e2;color:#991b1b}
 </style>
 </head>
 <body>
@@ -2302,14 +2361,74 @@ AgriBridge service</div>
 </div>
 
 <!-- ══════════════════ PAGE: DASHBOARD ══════════════════ -->
-<div id="page-dashboard" class="page">
-  <div class="page-header"><h2>📊 My Dashboard</h2><p>Track your listings, orders &amp; earnings</p></div>
-  <div class="section"><div id="dash-content" style="min-height:200px"><div class="loader"><div class="spinner"></div>Loading…</div></div>
-  <div style="margin-top:20px;display:flex;gap:10px;flex-wrap:wrap">
-    <button class="btn-primary" style="width:auto;padding:12px 24px" onclick="openListProduceModal()">+ List Produce</button>
-    <button class="btn-primary" style="width:auto;padding:12px 24px;background:var(--amber)" onclick="showPage('animals');openListAnimalModal()">🐄 List Animal</button>
-    <button class="btn-outline" style="padding:12px 24px" onclick="showPage('market')">Browse Market</button>
-  </div></div>
+<div id="page-dashboard" class="page fd-page">
+  <!-- Farmer earnings dashboard — populated by loadDashboard() -->
+  <div class="fd-header">
+    <div class="fd-greeting">
+      <div class="fd-avatar" id="fdAvatar">🌾</div>
+      <div>
+        <div class="fd-hello" id="fdHello">Good morning 👋</div>
+        <div class="fd-name" id="fdName">Farmer</div>
+      </div>
+    </div>
+    <button class="fd-notif-btn" onclick="toggleNotifPanel()" aria-label="Notifications">🔔<span class="fd-notif-dot" id="fdNotifDot" style="display:none"></span></button>
+  </div>
+  <div class="fd-cta-wrap">
+    <button class="fd-cta-btn" onclick="openListProduceModal()">
+      <span class="fd-cta-icon">🌾</span><span class="fd-cta-text">List Produce</span><span class="fd-cta-arrow">›</span>
+    </button>
+    <button class="fd-cta-btn fd-cta-secondary" onclick="showPage('animals');openListAnimalModal()">
+      <span class="fd-cta-icon">🐄</span><span class="fd-cta-text">List Animal</span><span class="fd-cta-arrow">›</span>
+    </button>
+  </div>
+  <div class="fd-section-label">Your farm activity</div>
+  <div class="fd-kpi-grid">
+    <div class="fd-kpi" onclick="showPage('farmer-produce')" style="cursor:pointer">
+      <div class="fd-kpi-icon">🌾</div>
+      <div class="fd-kpi-num" id="fdKpiListings">–</div>
+      <div class="fd-kpi-lbl">Listings</div>
+    </div>
+    <div class="fd-kpi fd-kpi-amber" onclick="showPage('farmer-orders')" style="cursor:pointer">
+      <div class="fd-kpi-icon">📦</div>
+      <div class="fd-kpi-num" id="fdKpiOrders">–</div>
+      <div class="fd-kpi-lbl">Orders</div>
+    </div>
+    <div class="fd-kpi">
+      <div class="fd-kpi-icon">💰</div>
+      <div class="fd-kpi-num" id="fdKpiEarnings">–</div>
+      <div class="fd-kpi-lbl">Earnings</div>
+    </div>
+    <div class="fd-kpi fd-kpi-green">
+      <div class="fd-kpi-icon">✅</div>
+      <div class="fd-kpi-num" id="fdKpiDelivered">–</div>
+      <div class="fd-kpi-lbl">Delivered</div>
+    </div>
+  </div>
+  <div class="fd-section-label">Sales earnings</div>
+  <div class="fd-card" id="fd-analytics-card"><div class="fd-loading">Loading earnings…</div></div>
+  <div class="fd-section-head">
+    <span class="fd-section-label" style="margin:0">My listings</span>
+    <button class="fd-see-all" onclick="showPage('farmer-produce')">See all ›</button>
+  </div>
+  <div id="fd-listings-section" class="fd-list-wrap"><div class="fd-loading">Loading…</div></div>
+  <div class="fd-section-head" style="margin-top:20px">
+    <span class="fd-section-label" style="margin:0">Orders to fulfil</span>
+    <button class="fd-see-all" onclick="showPage('farmer-orders')">See all ›</button>
+  </div>
+  <div id="fd-orders-section-content" class="fd-list-wrap"><div class="fd-loading">Loading…</div></div>
+  <div id="fd-payouts-section" style="display:none;margin:0 0 24px">
+    <div class="fd-section-label">Payouts</div>
+    <div class="fd-card" id="fd-payouts-card"></div>
+  </div>
+  <div class="fd-section-label">Quick actions</div>
+  <div class="fd-qa-grid">
+    <button class="fd-qa-btn" onclick="showPage('doctor')">🩺<span>Farm Doctor</span></button>
+    <button class="fd-qa-btn" onclick="showPage('prices')">📈<span>Prices</span></button>
+    <button class="fd-qa-btn" onclick="showPage('finance')">🏦<span>Finance</span></button>
+    <button class="fd-qa-btn" onclick="showPage('training')">📚<span>Training</span></button>
+  </div>
+  <!-- Buyer/supplier fallback (hidden for farmers) -->
+  <div id="dash-content" style="display:none"></div>
 </div>
 
 <!-- ══════════════════ PAGE: FARMER PRODUCE ══════════════════ -->
@@ -7847,11 +7966,84 @@ function renderBuyerAnalytics(orders){
   ${topCats.length?`<div class="an-sect"><h3>Top categories</h3><div class="an-cats">${catHtml}</div></div>`:''}`;
 }
 async function loadDashboard() {
+  // ── FARMER fd-* earnings dashboard ─────────────────────────────
+  if(currentUser && currentUser.role==='farmer') {
+    const hour=new Date().getHours();
+    const greet=hour<12?'Good morning 👋':hour<17?'Good afternoon 👋':'Good evening 👋';
+    const helloEl=document.getElementById('fdHello'); if(helloEl) helloEl.textContent=greet;
+    const nameEl=document.getElementById('fdName'); if(nameEl) nameEl.textContent=currentUser.name||currentUser.email||'Farmer';
+    const avEl=document.getElementById('fdAvatar');
+    if(avEl){ if(currentUser.avatarUrl){ const img=document.createElement('img'); img.src=currentUser.avatarUrl; img.style.cssText='width:100%;height:100%;object-fit:cover;border-radius:50%'; avEl.innerHTML=''; avEl.appendChild(img); } else { avEl.textContent='🌾'; } }
+    const [listings,orders,anOrders,payouts]=await Promise.all([
+      currentUser.supaId ? sb('listings',{ select:'id,crop_name,quantity_kg,price_per_kg,is_available,views,image_url', filters:[['farmer_id','eq.'+currentUser.supaId],['order','created_at.desc'],['limit','5']] }) : Promise.resolve([]),
+      currentUser.supaId ? sb('orders',{ select:'id,quantity_kg,price_per_kg,total_price,total_amount,status,payment_status,created_at,notes', filters:[['farmer_id','eq.'+currentUser.supaId],['order','created_at.desc'],['limit','5']] }) : Promise.resolve([]),
+      currentUser.supaId ? sb('orders',{ select:'total_price,total_amount,status,payment_status,created_at', filters:[['farmer_id','eq.'+currentUser.supaId],['limit','500']] }) : Promise.resolve([]),
+      currentUser.supaId ? sb('payouts',{ select:'net_amount,status', filters:[['farmer_id','eq.'+currentUser.supaId]] }) : Promise.resolve([])
+    ]);
+    // KPIs
+    const allL=currentUser.supaId?(await sb('listings',{select:'id',filters:[['farmer_id','eq.'+currentUser.supaId]]}))||[]:[];
+    const allO=anOrders||[];
+    const totalEarned=allO.filter(o=>o.status==='delivered'&&o.payment_status==='paid').reduce((s,o)=>s+Number(o.total_price||o.total_amount||0),0);
+    const delivered=allO.filter(o=>o.status==='delivered').length;
+    const pending=allO.filter(o=>['pending','confirmed','in_transit'].includes(o.status)).length;
+    const kl=document.getElementById('fdKpiListings'); if(kl) kl.textContent=allL.length||0;
+    const ko=document.getElementById('fdKpiOrders'); if(ko) ko.textContent=pending||0;
+    const ke=document.getElementById('fdKpiEarnings'); if(ke) ke.textContent=totalEarned>=1000?'UGX '+(totalEarned/1000).toFixed(1)+'k':'UGX '+totalEarned;
+    const kd=document.getElementById('fdKpiDelivered'); if(kd) kd.textContent=delivered||0;
+    // Analytics card
+    const ac=document.getElementById('fd-analytics-card');
+    if(ac) ac.innerHTML=renderFarmerAnalytics(anOrders||[]);
+    // Listings section
+    const ls=document.getElementById('fd-listings-section');
+    if(ls){
+      if(listings&&listings.length){
+        ls.innerHTML=listings.map(l=>{
+          const img=l.image_url?`<img src="${l.image_url}" style="width:40px;height:40px;border-radius:8px;object-fit:cover" onerror="this.style.display='none'">`:'<span style="font-size:1.5rem">🌾</span>';
+          return `<div class="fd-row">${img}<div class="fd-row-body"><div class="fd-row-title">${escHtml(l.crop_name||'Listing')}</div><div class="fd-row-sub">${l.quantity_kg||0}kg · ${l.views||0} views</div></div><div class="fd-row-right"><div class="fd-row-price">UGX ${(l.price_per_kg||0).toLocaleString()}/kg</div></div></div>`;
+        }).join('');
+      } else {
+        ls.innerHTML='<div class="fd-empty"><div class="fd-empty-icon">🌾</div><p>No listings yet</p><button class="btn-sm" onclick="openListProduceModal()">List Produce</button></div>';
+      }
+    }
+    // Orders section
+    const os=document.getElementById('fd-orders-section-content');
+    if(os){
+      if(orders&&orders.length){
+        os.innerHTML=orders.map(o=>{
+          const amt=o.total_price||o.total_amount||(o.quantity_kg*(o.price_per_kg||0))||0;
+          const st=o.status||'pending';
+          const nm=((/Item:(.*)$/.exec(o.notes||'')||[])[1]||'Order').trim();
+          let acts='';
+          if(st==='pending') acts=`<button class="fd-act-confirm" onclick="updateOrderStatus('${o.id}','confirmed',this)">✅ Confirm</button><button class="fd-act-reject" onclick="updateOrderStatus('${o.id}','cancelled',this)">✕ Reject</button>`;
+          else if(st==='confirmed') acts=`<button class="fd-act-transit" onclick="updateOrderStatus('${o.id}','in_transit',this)">🚚 In Transit</button>`;
+          else if(st==='in_transit') acts=`<button class="fd-act-deliver" onclick="updateOrderStatus('${o.id}','delivered',this)">📦 Delivered</button>`;
+          return `<div class="fd-row"><div class="fd-row-body"><div class="fd-row-title">${escHtml(nm)} · ${o.quantity_kg||0}kg</div><div class="fd-row-sub"><span class="fd-badge fd-badge-${st}">${st}</span></div></div><div class="fd-row-right"><div class="fd-row-price">UGX ${Number(amt).toLocaleString()}</div></div>${acts?`<div class="fd-row-actions">${acts}</div>`:''}</div>`;
+        }).join('');
+      } else {
+        os.innerHTML='<div class="fd-empty"><div class="fd-empty-icon">📦</div><p>No pending orders</p></div>';
+      }
+    }
+    // Payouts section
+    const ps=document.getElementById('fd-payouts-section');
+    const pc=document.getElementById('fd-payouts-card');
+    if(ps&&pc&&payouts&&payouts.length){
+      const pend2=payouts.filter(p=>p.status==='pending').reduce((s,p)=>s+Number(p.net_amount||0),0);
+      const paid2=payouts.filter(p=>p.status==='paid').reduce((s,p)=>s+Number(p.net_amount||0),0);
+      pc.innerHTML=`<div class="fd-row"><div class="fd-row-body"><div class="fd-row-title">Pending payout</div><div class="fd-row-sub">Net of commission</div></div><div class="fd-row-right"><div class="fd-row-price" style="color:var(--green)">UGX ${Number(pend2).toLocaleString()}</div></div></div><div class="fd-row"><div class="fd-row-body"><div class="fd-row-title">Paid out</div></div><div class="fd-row-right"><div class="fd-row-price" style="color:var(--text2)">UGX ${Number(paid2).toLocaleString()}</div></div></div>`;
+      ps.style.display='';
+    } else if(ps){ ps.style.display='none'; }
+    return; // farmer done
+  }
+  // ── LEGACY dash-content for supplier/buyer ──────────────────────
   const el=document.getElementById('dash-content');
   if(!el) return;
+  if(el.style.display==='none') el.style.display='';
   if(!currentUser){ el.innerHTML='<div style="text-align:center;padding:40px"><div style="font-size:3rem">📭</div><p style="color:var(--text2);margin:12px 0">Log in to see your dashboard</p><button class="btn-primary" style="width:auto;padding:12px 24px" onclick="openModal(\'loginModal\')">Log In</button></div>'; return; }
   el.innerHTML='<div class="loader"><div class="spinner"></div>Loading…</div>';
   if(currentUser.role==='farmer') {
+    // safety fallback (farmer early-returns above)
+    el.innerHTML='';
+  } else if(getCurrentRole()==='supplier'){
     const [listings,orders]=await Promise.all([sb('listings',{ select:'id,crop_name,quantity_kg,price_per_kg,is_available,views', filters:currentUser.supaId?[['farmer_id','eq.'+currentUser.supaId],['order','created_at.desc'],['limit','20']]:[['limit','eq.0']] }),sb('orders',{ select:'id,quantity_kg,price_per_kg,total_price,total_amount,status,payment_status,created_at', filters:currentUser.supaId?[['farmer_id','eq.'+currentUser.supaId],['order','created_at.desc'],['limit','10']]:[['limit','eq.0']] })]);
     const anOrders = currentUser.supaId ? (await sb('orders',{ select:'total_price,total_amount,quantity_kg,price_per_kg,status,payment_status,created_at,notes', filters:[['farmer_id','eq.'+currentUser.supaId],['limit','500']] })||[]) : [];
     let html=renderFarmerAnalytics(anOrders)+`<div style="margin-bottom:20px;margin-top:20px"><h3 style="font-size:1rem;font-weight:700;margin-bottom:12px">🌾 My Listings (${listings?.length||0})</h3>`;
