@@ -356,6 +356,34 @@ curl -s https://agribrige.com/ | tr -d '\r' | sha256sum   # must match
 curl -s https://agribrige.com/ | grep -c splashBrowseGuest # must be > 0
 ```
 
+**Only one directory on this machine may name the `agribridge` Worker.** On
+2026-10-27 the site was found serving a 410,311-byte `index.html` whose hash
+matches **no commit in this repository**, while `Deploy public web app` had
+passed six minutes earlier. Cause: a second, unrelated clone
+(`C:\Users\HP\agribridge-app`, its own GitHub repo, `static/` last updated
+2026-07-20) had been given a hand-written `wrangler.jsonc` with
+`"name": "agribridge"`, and `wrangler deploy` run from it. Assets deploys
+replace the entire set, so `/sw.js`, `/manifest.json`, `/robots.txt`,
+`/sitemap.xml`, `/business-config.js`, `/icon-192.png`, `/logistics.html`,
+`/transporter.html`, `/legal/*` all began returning `404` and the
+`static/_headers` security headers disappeared. Full write-up:
+`docs/IMPLEMENTATION_STATUS.md`, section "2026-10-27".
+
+Two rules follow from that:
+
+1. Never run `wrangler deploy` from a directory that is not this repository, and
+   never write a `wrangler.jsonc` naming this Worker anywhere else. If a second
+   checkout needs its own Worker, give it a different `name`.
+2. A green deploy run is not proof. Hash the served document and compare it with
+   the committed blob — the command above does exactly that, and it is what
+   catches a publish from the wrong directory:
+
+```bash
+git show origin/main:static/index.html | sha256sum   # what should be live
+curl -sS -o /tmp/live.html https://agribrige.com/ && tr -d '\r' < /tmp/live.html | sha256sum
+curl -sSI https://agribrige.com/ | grep -icE "x-frame-options|x-content-type" # 2 = headers present
+```
+
 **Workstation login check (verified 2026-10-22):** do not assume the local
 wrangler login owns the Worker. A login can silently belong to a different
 Cloudflare account (`0b66e23d…`) and then fail with `Authentication error

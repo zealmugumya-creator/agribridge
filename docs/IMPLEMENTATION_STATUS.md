@@ -541,6 +541,106 @@ production site does exactly that for every listing.
 
 ---
 
+## 2026-10-27 — The mobile design was not regressed, production was overwritten
+
+The owner reported six visual defects on the mobile homepage: bottom nav wider
+than the screen, a low-contrast hero, a cookie panel covering too much, a
+crowded header, nav items cut off, and an unpolished overall presentation. The
+brief was to recover the previous design from Git history without redesigning.
+
+**There is no CSS regression in this repository, and no commit here caused it.**
+`agribrige.com` is currently serving a different application: a July-2026
+snapshot of a *different repository* on the same machine.
+
+### The evidence
+
+| Check | Result |
+|---|---|
+| `curl -o` + hash of `https://agribrige.com/` | **410,311 bytes**, normalised sha256 `a01d2ac6…faa213` |
+| Same hash across all 329 commits of this repo (`git log --all`, `static/index.html`) | **no match** — production is serving content that was never committed here |
+| Current `origin/main` (`ef9ea16`) `static/index.html` | 872,198 bytes — production is serving **less than half** the real bundle |
+| `Deploy public web app` on `ef9ea16` | run `40448483582`, **success**, 2026-10-27T04:12:48Z |
+| `agribridge.zealmugumya.workers.dev/` (origin, no site cache) | identical 410,311 bytes / `a01d2ac6…` — the Worker itself holds the wrong asset, not a stale CDN entry |
+| File on disk with that exact size and hash | `C:\Users\HP\agribridge-app\static\index.html`, mtime 2026-10-27 **07:18** — six minutes *after* the good deploy |
+
+`C:\Users\HP\agribridge-app` is **not a clone of this repository.** It is
+`github.com/zealmugumya-creator/agribridge-app` — 34 commits, a different root
+commit (`1e5bc0e` vs this repo's `e778409`), `app.py` of 29 KB, Capacitor and
+Gradle scaffolding, and a `static/index.html` whose last real change was
+2026-07-20 (`ff3b8a7`). On 2026-10-26 21:04 a hand-written `wrangler.jsonc`
+appeared in it naming **the same Worker**:
+
+```json
+{ "name": "agribridge", "compatibility_date": "2026-10-06", "assets": { "directory": "./static" } }
+```
+
+`wrangler deploy` replaces the whole asset set, so that one command replaced the
+production Worker's files with that directory's two files. Verified gone from
+production as of this writing (all `404`):
+
+`/sw.js` · `/manifest.json` · `/robots.txt` · `/sitemap.xml` ·
+`/business-config.js` · `/icon-192.png` · `/logistics.html` ·
+`/transporter.html` · `/legal/privacy.html`
+
+The four response headers shipped on 2026-10-23 by `static/_headers` (`e8b512f` →
+`c34fa1d`) are **absent again** — that directory has no `_headers` file, so the
+`X-Content-Type-Options`, `X-Frame-Options`, `Referrer-Policy` and
+`Strict-Transport-Security` values no longer exist on the Worker. `curl -sSI
+https://agribrige.com/` returns only Cloudflare's own headers (`Date`,
+`Content-Type`, `CF-Cache-Status`, `Cache-Control`, `Report-To`, `Nel`, `Server`,
+`CF-RAY`, `alt-svc`).
+
+### Every reported symptom reproduces in the stale build, and only there
+
+Measured with Playwright (Chrome channel, Android UA) against both files served
+locally, so the comparison is of markup and CSS, not of a moving production
+target. `C:\Users\HP\diag\measure.py`, raw output in `diag/bad.json` and
+`diag/restore.json`.
+
+| Symptom | Live stale build | This repo `ef9ea16` |
+|---|---|---|
+| Bottom nav beyond the screen | 17 items, **791 px of content in a 360 px bar**, `overflow-x:auto` → scrollable | 4 items + centre orb + More, **306 px in 360 px**, not scrollable |
+| Nav items cut off | **9 off-screen at 360 px and 390 px** (AI Doc, Supply, Community, About, Contact, B2B, Finance, Cold, Export); 4 at 768 px | **0 at every width** (360/390/768/1440) |
+| Cookie panel obscuring the page | `style="display:none;…;display:flex"` — a duplicate property, so the later one wins: **visible from first paint**, `pointer-events:auto`, over the hero CTAs | hidden at load, revealed at 3 s with `pointer-events:none` on the container and `auto` on the two buttons |
+| Hero contrast | white `h1`, `text-shadow:none`, overlay only `rgba(6,15,9,.35)→.72` with the title at 18 % down the block | **no element uses `.hero` at all** — the home page renders `.bh-hero`, a solid emerald card with `#fff` title and `#a8f5c0` accent |
+| Crowded header | no wordmark at 360 px, just two bare icons + `Join Free` | `AgriBridge` wordmark + bell, `Log In` / `Join Free`, search row below |
+| Horizontal overflow | none (`scrollWidth == innerWidth`) | none (`scrollWidth == innerWidth`) |
+| Console | **`pageerror: Unexpected identifier 'market'` at every width** — the stale bundle's script does not parse | no page errors |
+
+Note the consequence for the two "hero fixes" pushed today: `ef9ea16` here and
+`84f775e` in `agribridge-app` both edit `.hero`, and **`grep -c 'class="hero'`
+returns 0 in both files.** Both changes are to dead CSS. Neither can have
+improved what the owner saw, and the `agribridge-app` one was followed six
+minutes later by the deploy that caused the report.
+
+### Restoration, and why nothing was changed to achieve it
+
+The last known good design is this repository's `origin/main` (`ef9ea16`) — the
+bundle whose Stage 1 + F1/F2 production smoke test passed on 2026-10-23. It
+needs no repair for the six symptoms, so the recovery is a **republish, not a
+code change**: re-run `Deploy public web app` on `ef9ea16`. Doing it through the
+workflow (not from a workstation) keeps the one audited publisher and uses the
+CI-scoped Cloudflare token.
+
+Not done here, and deliberately so: no `git revert`, no branch reset, no
+`static/` edit, no migration touched, and no attempt to "improve" the layout
+while the owner is still looking at the wrong app. The one genuine polish
+candidate found in the correct bundle — the consent banner occupies ~20 % of a
+360 × 740 viewport when it appears (147 px tall, both buttons on screen,
+`pointer-events:none` on the container so it never blocks a tap behind it, and
+`ab_cookies='1'` confirmed written on Accept) is noted here, not patched, because
+it is a judgement about a screen the owner designed and it is unrelated to the
+regression being recovered from.
+
+**Prevention, pending the owner's decision.** Two things make this repeatable:
+`agribridge-app` holds a `wrangler.jsonc` that names this Worker, and nothing in
+this repository detects a publish that shipped the wrong content. The first is
+one `mv` in a directory that is not part of this workspace, so it is the owner's
+to run. The second would be a post-deploy check that the live hash equals the
+committed blob — cheap, and it would have caught this within a minute.
+
+---
+
 **Phase 1 COMPLETE — Baseline Audit**
 **Completed:** 2026-10-10
 **Auditor:** Claude Code (baseline inspection, no live environment access)
