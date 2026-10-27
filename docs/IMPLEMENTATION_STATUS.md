@@ -625,7 +625,7 @@ CI-scoped Cloudflare token.
 Not done here, and deliberately so: no `git revert`, no branch reset, no
 `static/` edit, no migration touched, and no attempt to "improve" the layout
 while the owner is still looking at the wrong app. The one genuine polish
-candidate found in the correct bundle — the consent banner occupies ~20 % of a
+candidate found in the correct bundle, that the consent banner occupies ~20 % of a
 360 × 740 viewport when it appears (147 px tall, both buttons on screen,
 `pointer-events:none` on the container so it never blocks a tap behind it, and
 `ab_cookies='1'` confirmed written on Accept) is noted here, not patched, because
