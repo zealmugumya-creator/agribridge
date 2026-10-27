@@ -500,6 +500,12 @@
   var TABLE_OF = { orders:'orders', listings:'listings', animals:'animal_listings', deliveries:'deliveries', supplies:'supplier_products', farmers:'farmers', requests:'purchase_requests', offers:'offers', transporters:'transporters' };
 
   // ── Auth ────────────────────────────────────────────────────────
+  // Mirrors SETTINGS.cors_origins in services/config.py. Anything else - most
+  // often a *.workers.dev preview host - is blocked by the browser before the
+  // request is sent, which looks identical to a dead server unless it is named.
+  var OK_HOSTS = { 'agribrige.com':1, 'www.agribrige.com':1, 'agribridge-1-og7a.onrender.com':1,
+                   'localhost':1, '127.0.0.1':1, '':1 };
+  function wrongOrigin(){ return !OK_HOSTS[location.hostname]; }
   // The password goes to the server and nowhere else: it is never cached, logged
   // or retried automatically, and one submission stays in flight at a time because
   // the login route allows only 5 attempts per 5 minutes.
@@ -536,9 +542,17 @@
         e.textContent=(j&&j.error)?j.error:'Login failed (HTTP '+res.status+').';
       }
     }catch(err){
+      // A rejected fetch is not always a sleeping server. Chrome reports a
+      // cross-origin block exactly like a dead connection, and the API only
+      // answers the origins listed in services/config.py - a *.workers.dev
+      // preview address is not one of them, so the login POST never leaves the
+      // browser. Saying "it may be waking up" there sends the admin to sleep.
+      console.warn('admin login request failed:', err&&(err.name||'')+': '+(err.message||''), 'page origin', location.origin);
       e.textContent = (err && err.name==='AbortError')
         ? 'The server did not answer within 60 s. It is probably still starting — try again in about 20 s.'
-        : 'Could not reach the server. Wait ~20 s for it to wake up, then try again.';
+        : wrongOrigin()
+          ? 'This page is open at '+location.hostname+', which the API does not accept as a source, so the browser blocked the sign-in before it was sent. Open https://agribrige.com/admin instead.'
+          : 'Could not reach the server. Wait ~20 s for it to wake up, then try again.';
     }finally{
       if(timer) clearTimeout(timer);
       AUTH_BUSY=false; btn.disabled=false; btn.textContent='Log In';
@@ -1640,7 +1654,9 @@
     }
     // An unreachable API is not the same as a bad token: keep the token and let
     // the admin sign in, but say why the screen did not fill itself in.
-    if(el) el.textContent='Could not reach the server to restore your session. Sign in again, or wait for it to wake up.';
+    if(el) el.textContent = wrongOrigin()
+      ? 'This page is open at '+location.hostname+', which the API does not accept as a source. Open https://agribrige.com/admin instead.'
+      : 'Could not reach the server to restore your session. Sign in again, or wait for it to wake up.';
   }
   initSidebar();
   checkSession();

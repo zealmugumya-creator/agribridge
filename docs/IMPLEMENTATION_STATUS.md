@@ -727,8 +727,8 @@ be fixed by widening a policy.
 
 ## 2026-10-27 — Admin console: redesign and repair (after)
 
-`static/admin.html` was rewritten in place: **+823 / −230 lines, 72,785 → 112,280
-bytes**, one inline `<script>` (81,695 bytes of JS), still no framework and no CDN
+`static/admin.html` was rewritten in place: **+839 / −230 lines, 72,785 → 113,656
+bytes**, one inline `<script>` (83,055 bytes of JS), still no framework and no CDN
 library. `app.py` was changed in the earlier commit `a40408c` (counting stats
 instead of downloading tables). No other file was touched, no route or table was
 added, and no feature was removed: the console still reaches the same 18
@@ -857,6 +857,37 @@ The brief allows "careful horizontal scrolling inside individual data tables", t
 first column stays pinned, and the hint now says so — but an admin who approves
 orders from a phone should know the buttons are one swipe to the right.
 
+### A live report that turned out not to be a performance problem
+
+The owner sent a phone screenshot of the **deployed** admin page — the pre-redesign
+bundle, still what production serves — showing
+*"Could not reach the server. Wait ~30s (it may be waking up) and retry."* after
+typing the password. The page was open at a `*.zealmugumya.workers.dev` address
+rather than `https://agribrige.com`. Measured from this machine, same minute:
+
+| Probe | Result |
+|---|---|
+| `GET /health` on the Render service, twice | **200 in 1.50 s and 1.23 s** — the API is awake, so "it may be waking up" was false |
+| `OPTIONS /api/admin/login` with `Origin: https://…zealmugumya.workers.dev` | 200, but **no `Access-Control-Allow-Origin` header at all** |
+| Same preflight with `Origin: https://agribrige.com` | 200 **with** `access-control-allow-origin: https://agribrige.com` |
+| `GET /api/admin/stats` with the workers.dev origin | **401 with no ACAO** — the server answered; the browser was refused the answer |
+
+`SETTINGS.cors_origins` ([services/config.py:69-79](../services/config.py)) allows
+`agribrige.com`, `www.agribrige.com`, `PUBLIC_BASE_URL` and the Render origin. A
+workers.dev preview host is not in that list, so Chrome blocked the login POST
+before it left the phone, and `fetch()` rejected with a plain `TypeError` —
+indistinguishable, in the old bundle, from a dead connection.
+
+Two things follow. Operationally: **open the console at `https://agribrige.com/admin`,
+not the workers.dev address** — widening the CORS allowlist to a shared preview
+domain would let any project on that domain read admin responses, which is the
+opposite of what the brief asks. In the code: the message blamed a sleeping server
+for a blocked origin. The rewritten console now checks `location.hostname` against
+the same list, says *"This page is open at X, which the API does not accept as a
+source… Open https://agribrige.com/admin instead"*, keeps the cold-start wording for
+genuine timeouts, and logs the real `err.name`/`err.message` to the console.
+`admin_func.py` asserts both branches (115/115).
+
 ### Every structural cause from the baseline, and what happened to it
 
 | # | Baseline finding | Now | Verified by |
@@ -924,7 +955,7 @@ closing, and the absence of decorative emoji in action labels.
   0.8.4 and was not re-run locally — same caveat as before.)
 * `tests/sql` `npm test` → **12 order-write lockdown assertions passed** (untouched
   by this change, run to prove the admin rewrite did not drift the order rules).
-* `node --check` on the extracted inline script → clean, 81,695 bytes of JS in one
+* `node --check` on the extracted inline script → clean, 83,055 bytes of JS in one
   block (`diag/extract_js.py` → `diag/admin_script.js`).
 * Live production was **not** re-measured for the authenticated paths: there is no
   admin password in this workspace, so `#401`-protected endpoints were exercised
