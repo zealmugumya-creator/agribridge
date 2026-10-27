@@ -641,6 +641,92 @@ committed blob — cheap, and it would have caught this within a minute.
 
 ---
 
+## 2026-10-27 — Admin console: measured baseline (before any change)
+
+Every number below was produced by an actual request or an actual browser layout
+run. Nothing is estimated. Two harnesses live outside the repo:
+`C:\Users\HP\diag\admin_baseline.py` (production `/admin`, unauthenticated) and
+`C:\Users\HP\diag\admin_layout.py` (the real `static/admin.html` code paths driven
+against local fixtures, so the authenticated layout is measurable without the
+admin password).
+
+**What could not be measured and why:** there is no local `.env` and no admin
+password in this workspace, so no request reached an *authenticated* endpoint.
+Per-request figures for `/api/admin/stats` and the list endpoints are therefore
+decomposed from the two measurable halves — Render's HTTP floor and Supabase's
+query time — and labelled as such below. The dashboard's own new Performance panel
+(task #67) exists to produce the authenticated numbers on the owner's screen.
+
+### Where the time actually goes
+
+| Measurement | Result | How |
+|---|---|---|
+| `https://agribrige.com/admin` load event | **1,062–1,277 ms** at 320/360/390/430/768/1440 px | Chrome navigation timing |
+| Login form interactable (`#pwd` focusable) | **1,134–1,415 ms** | same |
+| Requests for the login screen | **2** (the document + Cloudflare `beacon.min.js`) | resource entries |
+| Console errors on `/admin` | **none** | console + pageerror listeners |
+| `GET /health` on Render, warm | **1.14–1.28 s** (connect 0.07 s — TTFB is the whole cost) | curl, 5 samples |
+| `GET /api/admin/verify` (401, no DB touch) | **0.60 s** ×3 | curl |
+| `POST /api/admin/login` wrong password | **0.62 s**, `401`, no session created | curl, one call |
+| PostgREST read, `select=id&limit=1000` | **0.29–0.51 s** per table | direct probe, publishable key |
+
+So the login *screen* is not slow. The cost is per API request: **~0.6 s of Render
+round trip before any query runs**, plus ~0.3–0.5 s per Supabase read.
+
+### Structural causes found in source
+
+1. `render.yaml:7` starts **`gunicorn --workers 2`** with sync workers, while
+   `refreshAll()` (`admin.html:287`) fires **13 requests** on every login and every
+   Refresh — measured as 14 fetches through the fixture harness. Two sync workers
+   serialise that fan-out, so "parallel" in the browser is sequential on the server.
+2. `refreshAll()` `await`s `loadStats()` **before** starting the 12 list loads, so the
+   slowest endpoint gates the whole dashboard.
+3. `/api/admin/stats` (`app.py:1405`) downloads **five tables at `limit=1000` with
+   every column** (`farmers`, `listings`, `orders`, `animal_listings`, `transporters`)
+   and then only calls `len()` on them — five sequential Supabase round trips to
+   count rows. PostgREST answers the same question with `limit=0` +
+   `Prefer: count=exact`, which returns `Content-Range: */84` and an empty body
+   (verified against the live project).
+4. `loadStats()` ends with `catch(e){}` — a failed KPI query leaves the grid **empty
+   with no message**, indistinguishable from zero.
+5. `load()` retries once after a blind **1200 ms** wait for *any* error, including a
+   cold start that needs far longer, and `api()` has **no timeout and no abort**, so a
+   stalled request spins forever.
+6. `showTab()` (`admin.html:645`) calls `load(t)` on **every click**, refetching data
+   already in `DATA`.
+7. `match()` (`admin.html:647`) runs `JSON.stringify(row)` per row **per keystroke**.
+8. `doLogin()` has **no in-flight guard** — the button stays live, so a slow
+   password entry allows duplicate submissions against a 5-per-300 s rate limit
+   (`app.py:589`).
+9. `logout()` clears the token but **not `DATA` or the finance cache**, so the next
+   admin on a shared machine sees the previous session's rows until they reload.
+10. `SUPA_URL`/`SUPA_KEY` (`admin.html:167-168`) are declared and **never used** —
+    dead code that reads like a credential leak.
+
+### Layout causes, measured on the real code at 360 × 740
+
+| Symptom | Measured |
+|---|---|
+| Tab bar | **19 nodes, 1,841 px of content in a 320 px bar → 8 wrapped rows, 347 px tall** (392 px / 9 rows at 320 px) |
+| KPI block | 6 cards, **333 px tall**, number font 25.6 px, revenue value wraps to two lines |
+| First actionable row | starts at **≈1,750 px** down; total page height **3,416 px** (≈4.6 screens) |
+| Data table | forced `min-width:640px` (`admin.html:53`) → renders 640 px wide in a 360 px viewport, header clipped mid-word; scroll is contained in `.tblwrap`, so the *page* does not overflow |
+| Header | 116 px tall at 320/360 px (wraps to 2 rows) |
+| Overview chart | 150 px tall, 7 slots; six months of genuine zeros beside one bar — honest but wasteful |
+
+### RLS / authorization posture (relevant to any caching decision)
+
+`render.yaml:18-21` documents `SUPABASE_KEY` as the **service-role** key, so every
+`supa_get()` read bypasses RLS and admin authorization rests entirely on the Flask
+JWT role check — not on a policy. Anonymous probes confirm the tables are locked
+down for the publishable key: `orders`, `deliveries`, `purchase_requests`,
+`order_offers`, `service_requests` return `Content-Range: */0`, and `transporters`
+and `system_events` return `42501 permission denied`. Consequence for this task:
+**no authenticated admin response may ever be cached publicly**, and no widget may
+be fixed by widening a policy.
+
+---
+
 **Phase 1 COMPLETE — Baseline Audit**
 **Completed:** 2026-10-10
 **Auditor:** Claude Code (baseline inspection, no live environment access)

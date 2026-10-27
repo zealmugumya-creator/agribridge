@@ -17,6 +17,7 @@ import secrets
 import threading
 import time as _time
 import uuid
+from concurrent.futures import ThreadPoolExecutor
 from urllib.parse import urlencode, urlparse
 
 import jwt
@@ -279,6 +280,46 @@ def supa_get(table, filters=None, limit=100):
     except Exception as e:
         print(f"Supabase GET error: {e}")
         return []
+
+def supa_count(table, filters=None):
+    """Exact row count for a filter without downloading the rows.
+
+    PostgREST answers `limit=0` + `Prefer: count=exact` with an empty body and the
+    total in `Content-Range`. Returns (count, error): a dashboard must be able to
+    tell "zero rows" apart from "could not ask", so a failure is never 0.
+    """
+    if not SUPABASE_KEY:
+        return None, 'supabase not configured'
+    params = {'limit': 0}
+    if filters:
+        params.update(filters)
+    headers = {
+        'apikey': SUPABASE_KEY,
+        'Authorization': f'Bearer {SUPABASE_KEY}',
+        'Prefer': 'count=exact',
+    }
+    try:
+        res = requests.get(f"{SUPABASE_URL}/rest/v1/{table}", params=params,
+                           headers=headers, timeout=8)
+    except Exception as e:
+        log.error('supabase.count_exception', table=table, error=type(e).__name__)
+        return None, type(e).__name__
+    if not res.ok:
+        try:
+            detail = res.json()
+        except Exception:
+            detail = {}
+        message = str(detail.get('message') or f'http {res.status_code}')
+        code = str(detail.get('code') or '')
+        log.error('supabase.count_failed', table=table, status=res.status_code,
+                  code=code, message=message)
+        return None, f'{code}: {message}' if code else message
+    total = str(res.headers.get('Content-Range') or '').rsplit('/', 1)[-1].strip()
+    if not total.isdigit():
+        # `count=planned`/`estimated` return '*' or '~n' — not good enough for a KPI.
+        return None, 'exact count unavailable'
+    return int(total), None
+
 
 def supa_get_admin(table, filters=None, limit=100):
     """Like supa_get but uses the service-role key to bypass RLS.
@@ -1402,27 +1443,62 @@ def sms_delivery():
 # ══════════════════════════════════════════════════════════════════════════════
 # ADMIN ROUTES
 # ══════════════════════════════════════════════════════════════════════════════
+# One exact count per metric. Each entry is (response key, table, PostgREST filter)
+# and costs one small request — the previous implementation downloaded up to five
+# full tables (limit=1000, every column) only to call len() on them.
+_ADMIN_STAT_COUNTS = (
+    ('farmers', 'farmers', None),
+    ('listings', 'listings', None),
+    ('orders', 'orders', None),
+    ('animals', 'animal_listings', None),
+    ('transporters', 'transporters', {'status': 'eq.active'}),
+    ('listings_live', 'listings', {'is_available': 'eq.true'}),
+    ('farmers_verified', 'farmers', {'is_verified': 'eq.true'}),
+    ('orders_pending', 'orders', {'status': 'eq.pending'}),
+    ('orders_paid', 'orders', {'payment_status': 'eq.paid'}),
+    ('payments_outstanding', 'orders',
+     {'payment_status': 'neq.paid', 'status': 'in.(pending,confirmed,in_transit)'}),
+)
+# Upper bound on the rows a revenue figure may sum. Past it the number is a lower
+# bound and says so; a true aggregate belongs in the database, not the browser.
+_ADMIN_REVENUE_CAP = 2000
+
+
 @app.route('/api/admin/stats', methods=['GET'])
 def admin_stats():
     payload, err = verify_token(required_role='admin')
     if err:
         return err
-    farmers      = supa_get('farmers',         limit=1000) or []
-    listings     = supa_get('listings',        limit=1000) or []
-    orders       = supa_get('orders',          limit=1000) or []
-    animals      = supa_get('animal_listings', limit=1000) or []
-    transporters = supa_get('transporters',    {'status': 'eq.active'}, limit=1000) or []
-    return jsonify({
-        'farmers':      len(farmers),
-        'listings':     len(listings),
-        'orders':       len(orders),
-        'animals':      len(animals),
-        'transporters': len(transporters),
-        'revenue_ugx': sum(
-            float(o.get('total_price', 0)) for o in orders
-            if o.get('payment_status') == 'paid'
-        )
-    })
+    out, errors = {}, {}
+
+    def _count(item):
+        key, table, filters = item
+        n, e = supa_count(table, filters)
+        return key, n, e
+
+    # Concurrent, because these are independent I/O waits and the API runs on two
+    # sync gunicorn workers: serialising them made the dashboard's first paint the
+    # sum of every round trip.
+    with ThreadPoolExecutor(max_workers=5, thread_name_prefix='stats') as pool:
+        for key, n, e in pool.map(_count, _ADMIN_STAT_COUNTS):
+            out[key] = n
+            if e:
+                errors[key] = e
+
+    # Confirmed revenue: paid orders only, one column, never a whole-row page.
+    rows, rev_err = supa_get_checked(
+        'orders', {'select': 'total_price', 'payment_status': 'eq.paid'},
+        limit=_ADMIN_REVENUE_CAP)
+    if rev_err:
+        out['revenue_ugx'] = None
+        errors['revenue_ugx'] = rev_err
+        out['revenue_partial'] = False
+    else:
+        out['revenue_ugx'] = round(sum(float(r.get('total_price') or 0) for r in rows))
+        paid = out.get('orders_paid')
+        out['revenue_partial'] = bool(paid and len(rows) < paid)
+    out['errors'] = errors
+    return jsonify(out)
 
 # ══════════════════════════════════════════════════════════════════════════════
 # FINANCIAL CONTROL CENTER (admin, read-only)
