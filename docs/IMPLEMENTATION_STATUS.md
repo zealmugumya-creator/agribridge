@@ -725,6 +725,223 @@ and `system_events` return `42501 permission denied`. Consequence for this task:
 **no authenticated admin response may ever be cached publicly**, and no widget may
 be fixed by widening a policy.
 
+## 2026-10-27 — Admin console: redesign and repair (after)
+
+`static/admin.html` was rewritten in place: **+823 / −230 lines, 72,785 → 112,280
+bytes**, one inline `<script>` (81,695 bytes of JS), still no framework and no CDN
+library. `app.py` was changed in the earlier commit `a40408c` (counting stats
+instead of downloading tables). No other file was touched, no route or table was
+added, and no feature was removed: the console still reaches the same 18
+destinations plus the logistics board.
+
+### How to read the two kinds of number in this section
+
+| Kind | What it is | Where it came from |
+|---|---|---|
+| **Production measurement** | A real request to a live server, or a real load of the live page | `admin_baseline.py`, curl, 5 samples — recorded in the baseline table above |
+| **Browser layout measurement** | Real Chrome laying out the real `admin.html` code paths, against fixture rows | `admin_layout2.py` — the pixel and count figures below are these |
+| **Service model** | **Not a measurement.** Each API reply is held for 600 ms and only 2 are in flight, from two *measured* facts: Render's warm floor (~0.6 s/request) and `gunicorn --workers 2` | `LATENCY_MS`/`CONCURRENCY` in `admin_layout2.py` |
+
+The fixture rows are invented so the CSS has something to lay out. **Nothing in
+this section is a business figure.** Both builds get byte-identical fixtures, on
+the same machine, back to back, so the only thing the numbers can express is how
+each build spends the same service capacity.
+
+### Timing, same model, both builds, idle machine
+
+Both builds, back to back on an idle machine, fixtures byte-identical, same
+600 ms / 2-slot service model, no CPU throttling. Each range is the six widths
+(320 · 360 · 390 · 430 · 768 · 1440) of one run — `diag/old_run.txt` and
+`diag/new_run.txt`, from `admin_layout2.py`.
+
+| Stage the brief asked for | Old console | New console | What the number is made of |
+|---|---|---|---|
+| **Initial page load** (document + CSS + first paint) | 131–253 ms | **102–134 ms** | Pure browser time, no network. The new file is 39 KB *larger* and still parses faster, because the sign-in screen's own layout went from 19 wrapped nav tabs (393 px of them) to a 57 px bar |
+| **Login form interactive** | 0 ms after load | 0 ms after load | neither build disables the password box before submit |
+| **Login request → dashboard shell** | 742–889 ms | **704–748 ms** | one modelled round trip (600 ms) + the JS that builds the shell. Production anchor for the same hop: `POST /api/admin/login` answered in **0.62 s** (wrong password, no session) |
+| **Role / permission resolution** | one `/api/admin/verify`, same 600 ms floor | **unchanged** | the shell is rendered from the login reply; `verify` runs only on a *returning* session. Production anchor: `GET /api/admin/verify` = **0.60 s** ×3 (that path touches no database) |
+| **Time to first real KPI digit** | 1,240–1,261 ms | 1,270–1,296 ms | **did not improve, and that is honest.** Both builds need login → then metrics: two sequential round trips, ~1.2 s of the model's floor. Nothing in a redesign removes a server hop that has to happen before a number is true |
+| **Time until the first screen has real data** | 1,830–1,848 ms | **1,239–1,257 ms** | latest of login / metrics / order rows. **−595 ms, −32 %** — metrics and the first list now leave together instead of the lists waiting behind the metrics. This is the one headline that reproduced across all three back-to-back pairs |
+| Replies **served** by the time the first KPI digit appears | 2 (login, metrics) | 3 (login, metrics, **order rows**) | the chart and the section tables already have their data when the numbers appear, instead of 600 ms later |
+| Requests *issued* by then | 14 | 3–14 depending on width | **not a win, stated plainly:** both builds fan all 14 out inside 1.5 s. What changed is the order they are served in, not how many are queued |
+| **Time to complete dashboard loading** | 4,838–4,855 ms | 4,879–4,900 ms | **+45 ms, deliberately.** The 11 list endpoints are prefetched for the badge counts and instant tab switches; the overview no longer waits for them |
+| **Number of network requests** | 14 | 14 | unchanged. Fewer requests was never achievable: 12 sections × 1 endpoint each is the floor for instant tab switching |
+| Filter keystroke, 24 order rows | 3.9–11.1 ms | 4.4–11.9 ms | browser only, both under 12 ms on this fixture — dropping `JSON.stringify` neither won nor lost measurably |
+| Console errors / 404s | clean | clean | both builds |
+
+**What this does *not* say.** It does not say the new console loads faster in
+production. Under the model, the first screen is 32 % sooner and the whole board
+lands at the same time; the only production figures here are the unauthenticated
+ones in the baseline table above, and the authenticated endpoints stay unmeasured
+until the owner opens the console and reads its own Performance view.
+
+### Throttled mobile: what it measured and what it cannot
+
+The brief asks for a throttled run "where tooling permits". Chrome's
+`Emulation.setCPUThrottlingRate` at **4×** was applied to both builds at
+390 × 844 (same fixtures, same service model) — `THROTTLE_X=4` in
+`admin_layout2.py`, artifacts `old_thr.txt` / `new_thr.txt` / `*_cost*.json`.
+
+**The wall-clock half of it is not usable.** Re-running the *same* build three
+times under 4× throttle gave login→shell of 3,795 / 4,112 / 3,749 ms and document
+load of 1,055 / 1,328 / 1,434 ms — a spread of about ±300 ms against differences
+small enough that the run order could explain them. Throttling stretches the
+harness's own polling and the fixture's timers along with the page, so a throttled
+before/after table would be reporting noise. It is recorded as a limitation, not
+as a result.
+
+**The attributed half is stable, and it is what the throttled run was for.** Summing
+the self-time the stopwatch collected over the login path:
+
+| | Old console | New console, as first written | New console, after the fix |
+|---|---|---|---|
+| Main-thread self time, login → every panel painted (4× CPU) | ≈ 320 ms | ≈ 2,960 ms | **≈ 1,960 ms** |
+| `renderOverview` calls for one login | — (it paints once) | 15 | **6** |
+
+The residue is one-time and honest: `showDash` 546 ms and `showTab` 536 ms at 4×
+(≈ 270 ms of a 1× budget) exist because the Overview is now a real command centre —
+18 labelled destinations, four KPI cards, a chart, 14 secondary metrics with their
+definitions and an activity list — where the old screen painted six numbers. It is
+paid once per sign-in, not once per click. Removing that work would mean removing
+the dashboard, so it stays.
+
+### What is now true on a phone
+
+| Reported symptom | Old, measured at 360 × 740 | New, same fixture, same probe |
+|---|---|---|
+| Navigation chrome | 19 tabs, 1,915 px of labels in a 320 px bar → **9 wrapped rows, 393 px tall** | **57 px top bar + 61 px bottom nav**; the rest is an off-canvas drawer that measures `visibility:hidden`, `left:-238px` when closed |
+| KPI cards | 6 cards, **333 px** of block, 25.6 px numbers, revenue wrapping | 4 cards, **152 px**, 18.56 px numbers; 14 secondary metrics listed underneath with their source |
+| Monthly orders chart | `#overviewExtras` block **806 px** tall, 3 children, **clipped at 320 px** | `.chart` **92 px**, 6 month bars, `clipped:false` at every width |
+| Where the first usable control sits | `#search` at **y = 1,737 px** — below four screens | `#search` at **y = 83 px** on all 18 sections |
+| Page height, overview | 3,480 px | 1,321 px |
+| Page height, per section | 1,910–3,480 px | 740–1,712 px |
+| Data table | forced `min-width:640px` → 640 px wide in a 360 px viewport | natural width 441–707 px; scrolls **inside its own wrapper** with the first column `position:sticky` (`.tblwrap.scrolling`), page `scrollWidth` still 360 |
+| Elements crossing the viewport | **6** (table, thead, tr, 3 th) | **0** at every width 320–1440 |
+| Layout viewport on a 320 px phone | **331 px** — the old CSS forced the visual viewport wider than the screen | **320 px** |
+| Console / failed requests | clean | clean, and **no 404s**: every path the console calls exists in `app.py` |
+
+Per section at 360 × 740 (old → new): page height orders 3,444 → 1,712, listings
+3,480 → 956, animals 2,312 → 740, supplies 2,538 → 846, farmers 2,606 → 940,
+transporters 2,229 → 740, deliveries 2,312 → 740, requests 2,143 → 740, offers
+2,255 → 740, cold storage / refrigerated transport / loans 2,120 → 740, matching
+1,910 → 740, inbox / scans 2,038 / 1,910 → 740, activity / errors 1,910 → 740,
+finance 2,012 → 740. Fourteen of the eighteen data sections now fit one screen
+exactly (740 px = the viewport height, i.e. no page scroll at all); orders,
+listings, farmers and supplies still scroll because they legitimately hold more
+rows, and
+they are the four that got sticky first columns and per-table scroll wrappers.
+Table width went from the forced 640 px to a natural 441–707 px; the
+four genuinely wide tables (transporters 707, loans 705, cold storage and
+refrigerated transport 642) scroll inside their own wrapper, which is the intended
+behaviour, not a page overflow.
+
+### Four things only a screenshot caught
+
+None of these failed a probe — the layout numbers were clean while all four were
+present. They were found by looking at rendered pixels, which is why
+`diag/admin_shots.py` exists now (it captures real 360 × 740 **viewports**, not a
+stitched full-page image: a full-page capture puts `position:fixed` elements in the
+middle of the document, which made the bottom nav look like it was covering the
+chart when it was not).
+
+| What the phone showed | Cause | Now |
+|---|---|---|
+| "Loan requests **requests** awaiting a decision" | the alert label appended `" requests awaiting a decision"` to a tab title that already ends in "requests" | label is `title + ' awaiting a decision'`; `admin_func.py` now fails the run if any two adjacent words repeat |
+| "METRICS AS OF **0S AGO**" | `ago()` had no case under 5 s, so a fresh read looked like a rounding error | `ago()` returns "just now" under 5 s and the header reads "updated just now" |
+| Chart range labelled "**last 6**" | the `<small>` interpolated only the number | "last 6 months", matching the axis footnote the panel already carries |
+| The orders table gave no sign it scrolls; the Status column was cut mid-word and the row's Approve/Reject buttons were simply not on the page | the "scroll the table sideways" hint was a sibling **below** the table, so on a long table it was off-screen | the hint is `position:sticky` at `bottom:var(--hintb)`, where `--hintb` is the bottom-nav height plus the safe-area inset on phones and `0` on desktop — visible in `diag/v4_orders.png` |
+
+The last one is a limitation that remains, not a bug that was closed: on a 360 px
+screen the actions column of a wide table is reached by scrolling, not by tapping.
+The brief allows "careful horizontal scrolling inside individual data tables", the
+first column stays pinned, and the hint now says so — but an admin who approves
+orders from a phone should know the buttons are one swipe to the right.
+
+### Every structural cause from the baseline, and what happened to it
+
+| # | Baseline finding | Now | Verified by |
+|---|---|---|---|
+| 1 | 13-request fan-out against 2 sync workers | unchanged in count, changed in **order and cost**: the first screen needs 3 replies; the other 11 are prefetched only once the browser is idle, for the badge counts | `admin_layout2.py` request log |
+| 2 | `refreshAll()` awaited `loadStats()` before starting the lists | the metrics and the first list are issued together; the KPI grid paints when the metrics land, without waiting for the order rows | `first real KPI` vs `first-screen data complete` |
+| 3 | `/api/admin/stats` downloaded 5 whole tables to `len()` them | replaced with `limit=0` + `Prefer: count=exact` counts, 10 of them through a 5-thread pool, in `a40408c` | 11 tests in `tests/test_admin_stats.py` |
+| 4 | `loadStats()` ended in `catch(e){}` — a failed query looked like zero | a failed count stays `null` and renders "unavailable"; a metrics failure replaces the grid with a named error and a Retry; capped revenue says "at least" | `admin_func.py` state scenario |
+| 5 | blind 1200 ms retry, no timeout, no abort | one retry after 1.5 s, then the panel reports the server's own message; every request carries a 20 s `AbortController`; `errText()` turns an abort into "the server did not answer within 20 s" | `admin_func.py` (asserts exactly 2 calls, not a loop) |
+| 6 | `showTab()` refetched on every click | `ensure()` serves from `DATA` and only refetches after a failure; every **write** forces a fresh read of its own tab | `admin_func.py` write scenario |
+| 7 | `JSON.stringify(row)` per row per keystroke | haystacks are built once per dataset; filtering is `indexOf` over strings | same fixture, same probe: 4.7–6.6 ms old → 5.2–8.7 ms new. Both under 10 ms, so this was never the bottleneck — reported as a wash, not a win |
+| 8 | `doLogin()` had no in-flight guard | `AUTH_BUSY` plus a disabled button and field; two rapid submissions measured as **exactly one** POST; 401/429/503/abort each get their own sentence; the password box keeps what the admin typed | `admin_func.py` auth scenario |
+| 9 | `logout()` cleared the token but not `DATA` | `logout()` clears `DATA`, `HAY`, `LOADING`, `DATA_ERR`, `STATS`, the finance cache and `PERF` | `admin_func.py` (asserts each is empty) |
+| 10 | dead `SUPA_URL`/`SUPA_KEY` that read like a leak | removed; no `localStorage` is used by the console at all, and the only storage key is `ab_admin_token` | grep + the storage assertion |
+
+### Three defects the rewrite introduced, caught by measurement
+
+The first two were found by `admin_func.py`, the third only by a CPU-throttled
+stopwatch. All three are fixed:
+
+1. `renderActivity()` declared `var icon=icon(...)` inside the same function that
+   calls the global `icon()` helper. `var` hoisting made the call hit `undefined`,
+   so the **Activity tab was blank and threw a `pageerror`**. Renamed to `ic`.
+2. `doLogin()` disables the password field and the button, and only re-enables
+   them if the sign-in screen is still visible when it finishes. So after a
+   sign-out — or after any mid-session `401` — the login form came back with the
+   **password box still disabled**: the console was unusable without a hard
+   reload. `logout()` now hands the form back and clears the error line. This
+   defect did not exist in the old console (it never disabled the field), so it
+   was a regression from this work, not a pre-existing bug.
+3. `load()` ended with `if(currentTab===tab || currentTab==='overview')
+   renderCurrent()`, so **every background prefetch that finished while the admin
+   sat on the Overview rebuilt the entire screen** — KPI cards, alerts, the chart's
+   month loop over the order rows, the 14 secondary metrics and the activity list.
+   Only the three service queues have anything visible there; the other nine
+   repaints changed nothing the admin could see. Measured with the wrapper in
+   `admin_layout2.py COST=1` at 4× CPU throttling: **`renderOverview` ran 15 times
+   for one login, 1,153 ms of self-time, plus 592 ms in `renderCurrent`**. Fixed by
+   repainting for the service tabs only, through one shared animation frame
+   (`queueOverview()`), while navigation, Refresh and a retry still paint
+   synchronously. Same probe afterwards: **6 calls, 821 ms**, `renderCurrent` gone
+   from the top costs. Nothing about what the screen shows changed.
+
+### Functional checks actually executed
+
+`admin_func.py` drives the production functions in a real Chrome at 390 × 844:
+**111 of 111 assertions pass** — re-run against the final file after the last three
+edits (`diag/func_final.txt`), not against an intermediate draft. They cover signing in and out, a wrong password,
+`429`, an unreachable API, a stalled request, double-submit, session restore with
+a good token / an expired token / a cold API, a mid-session `401`, all 20 sections
+rendering content with no console error, every navigation destination resolving to
+a titled module (no dead links), all six quick actions landing on the right page
+(including "Payment issues" → orders filtered to `unpaid`), the filter narrowing
+and then naming a term that matches nothing, unavailable counts, capped revenue,
+a failing list endpoint reporting itself and recovering on "Try again", genuinely
+empty tables, an order decision (confirm → `PATCH /api/admin/order/<id>/status` →
+fresh read) and declining that confirm (nothing sent), the drawer opening and
+closing, and the absence of decorative emoji in action labels.
+
+### Regression evidence for this change
+
+* `pytest -q` on the final file → **499 passed**, 115 pre-existing warnings,
+  167.83 s (`diag/pytest_final.txt`).
+* `ruff check app.py tests/` → **All checks passed**. (Local ruff 0.16.10; CI pins
+  0.8.4 and was not re-run locally — same caveat as before.)
+* `tests/sql` `npm test` → **12 order-write lockdown assertions passed** (untouched
+  by this change, run to prove the admin rewrite did not drift the order rules).
+* `node --check` on the extracted inline script → clean, 81,695 bytes of JS in one
+  block (`diag/extract_js.py` → `diag/admin_script.js`).
+* Live production was **not** re-measured for the authenticated paths: there is no
+  admin password in this workspace, so `#401`-protected endpoints were exercised
+  only through fixtures. The console's own Performance view now reports the real
+  authenticated timings on the owner's screen, per request, including the network.
+
+### A separate defect found while reading, not fixed here
+
+`static/sw.js` registers **two `push` listeners and two `notificationclick`
+listeners** (lines 30–47 are the current pair, 70–95 an older copy left appended).
+Both `push` handlers call `showNotification()` with different tags
+(`agribridge` and `agribridge-notif`), so one Web Push should surface as **two
+system notifications**, and the older block points `badge` at `/icon-96.png`,
+which does not exist in `static/`. This is verified in source only — no push was
+sent. It is outside the admin brief, so it is reported here rather than bundled
+into this change.
+
 ---
 
 **Phase 1 COMPLETE — Baseline Audit**

@@ -2,157 +2,329 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <meta name="robots" content="noindex,nofollow">
 <title>AgriBridge — Admin</title>
 <style>
-  :root{--bg:#0f1310;--bg2:#171c18;--bg3:#1e2620;--border:#2c352b;--text:#e8efe8;--text2:#9fb0a2;--green:#2ecc71;--green-dim:#123821;--amber:#f0a020;--red:#e05555}
+  :root{--bg:#0f1310;--bg2:#171c18;--bg3:#1e2620;--bg4:#28322a;--border:#2c352b;--border2:#3b473b;
+    --text:#e8efe8;--text2:#9fb0a2;--text3:#7b8a7e;--green:#2ecc71;--green-2:#4be08a;--green-dim:#123821;
+    --amber:#f0a020;--red:#e05555;--blue:#5b9bff;--r:10px;--rs:8px;--sbw:238px;--tap:40px;
+    --navb:60px;--hintb:0px}
   *{box-sizing:border-box;margin:0;padding:0}
-  body{font-family:-apple-system,Segoe UI,Roboto,Arial,sans-serif;background:var(--bg);color:var(--text);line-height:1.5}
+  body{font-family:-apple-system,Segoe UI,Roboto,Arial,sans-serif;background:var(--bg);color:var(--text);line-height:1.45;
+    -webkit-text-size-adjust:100%;font-variant-numeric:tabular-nums}
   a{color:var(--green)}
-  .wrap{max-width:1150px;margin:0 auto;padding:20px}
-  header{display:flex;align-items:center;justify-content:space-between;padding:16px 20px;background:var(--bg2);border-bottom:1px solid var(--border);flex-wrap:wrap;gap:8px}
-  header h1{font-size:1.1rem;font-weight:800}
-  header .sub{color:var(--text2);font-size:.8rem}
-  button{font-family:inherit;cursor:pointer;border:none;border-radius:8px;font-weight:700}
-  .btn{background:var(--green);color:#04210f;padding:10px 16px}
-  .btn.ghost{background:transparent;border:1px solid var(--border);color:var(--text2);padding:8px 12px}
+  button{font-family:inherit;cursor:pointer;border:none;border-radius:var(--rs);font-weight:700}
+  :focus-visible{outline:2px solid var(--green);outline-offset:2px}
+  .i{width:16px;height:16px;flex:none;stroke:currentColor;fill:none;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round}
+  /* ── Shell: sidebar + main column. min-width:0 keeps wide tables inside their own scroll ── */
+  .app{display:flex;align-items:flex-start;min-height:100vh}
+  .main{flex:1 1 auto;min-width:0;display:flex;flex-direction:column}
+  .sidebar{width:var(--sbw);flex:0 0 var(--sbw);background:var(--bg2);border-right:1px solid var(--border);
+    position:sticky;top:0;height:100vh;overflow-y:auto;overscroll-behavior:contain;display:flex;flex-direction:column;z-index:60}
+  .brand{display:flex;align-items:center;gap:9px;padding:14px 14px 12px;border-bottom:1px solid var(--border)}
+  .brand .mark{width:26px;height:26px;flex:none;border-radius:7px;background:var(--green-dim);display:grid;place-items:center;color:var(--green)}
+  .brand b{font-size:.92rem;white-space:nowrap}
+  .brand small{display:block;color:var(--text3);font-size:.66rem;font-weight:600}
+  .navgrp{padding:11px 10px 2px}
+  .navgrp h4{font-size:.6rem;letter-spacing:.07em;text-transform:uppercase;color:var(--text3);font-weight:800;padding:0 8px 5px}
+  .tab{display:flex;align-items:center;gap:9px;width:100%;padding:7px 9px;min-height:var(--tap);border-radius:var(--rs);
+    color:var(--text2);font-size:.83rem;font-weight:600;cursor:pointer;background:none;text-align:left;text-decoration:none}
+  .tab:hover{background:var(--bg3);color:var(--text)}
+  .tab.active{background:var(--green-dim);color:var(--green)}
+  .tab .lbl{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  body.sb-min .sidebar{width:58px;flex-basis:58px}
+  body.sb-min .tab .lbl,body.sb-min .navgrp h4,body.sb-min .brand .txt,body.sb-min .tab .cnt{display:none}
+  body.sb-min .brand{flex-direction:column;gap:5px;justify-content:center;padding:12px 4px}
+  body.sb-min .collapse .i{transform:rotate(180deg)}
+  .brand .collapse{margin-left:auto;width:28px;height:28px;border-radius:7px}
+  .topbar{position:sticky;top:0;z-index:40;display:flex;align-items:center;gap:8px;padding:9px 14px;
+    background:rgba(15,19,16,.94);border-bottom:1px solid var(--border)}
+  .topbar h1{font-size:.95rem;font-weight:800;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .topbar .sub{color:var(--text3);font-size:.7rem;font-weight:600}
+  .iconbtn{background:var(--bg3);border:1px solid var(--border);color:var(--text2);width:34px;height:34px;
+    display:grid;place-items:center;border-radius:var(--rs);flex:none}
+  .iconbtn:hover{color:var(--text);border-color:var(--border2)}
+  .view{padding:14px;width:100%;max-width:1220px}
+  .scrim{position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:55;display:none}
+  .bottomnav{display:none}
+  @media(max-width:1023px){
+    /* A closed drawer is not merely translated away: it must leave layout, hit
+       testing and the keyboard focus order, or a phone user tabs into invisible
+       navigation and the page reports off-screen content. */
+    .sidebar{position:fixed;top:0;bottom:0;left:0;transform:translateX(-100%);
+      visibility:hidden;pointer-events:none;
+      transition:transform .18s ease,visibility 0s linear .18s;
+      box-shadow:0 0 30px rgba(0,0,0,.5)}
+    body.nav-open .sidebar{visibility:visible;pointer-events:auto;transform:none;
+      transition:transform .18s ease,visibility 0s}
+    .brand .collapse{display:none}
+    body.nav-open .scrim{display:block}
+    .view{padding:12px 12px calc(var(--navb) + env(safe-area-inset-bottom) + 14px)}
+    :root{--hintb:calc(var(--navb) + env(safe-area-inset-bottom))}
+    .bottomnav{display:grid;grid-template-columns:repeat(5,1fr);position:fixed;left:0;right:0;bottom:0;z-index:50;
+      background:var(--bg2);border-top:1px solid var(--border);padding-bottom:env(safe-area-inset-bottom)}
+    .bottomnav .bn{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;height:var(--navb);
+      background:none;color:var(--text3);font-size:.6rem;font-weight:700}
+    .bottomnav .bn.active{color:var(--green)}
+  }
+  /* ── Cards, KPIs, chart ─────────────────────────────────────────── */
+  .card{background:var(--bg2);border:1px solid var(--border);border-radius:var(--r);padding:13px;margin-bottom:12px;min-width:0}
+  .card>h3,.chead{font-size:.86rem;font-weight:800;margin-bottom:10px;display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+  .chead small,.card>h3 small{color:var(--text3);font-weight:600;font-size:.66rem;text-transform:uppercase;letter-spacing:.05em;margin-left:auto}
+  .stats{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;margin-bottom:12px}
+  @media(min-width:700px){.stats{grid-template-columns:repeat(3,minmax(0,1fr))}}
+  @media(min-width:1080px){.stats{grid-template-columns:repeat(4,minmax(0,1fr))}}
+  .stat{background:var(--bg2);border:1px solid var(--border);border-radius:var(--r);padding:9px 11px;min-width:0;cursor:pointer;text-align:left}
+  .stat:hover{border-color:var(--border2)}
+  .stat .n{font-size:1.16rem;font-weight:800;line-height:1.25;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .stat .l{color:var(--text3);font-size:.63rem;text-transform:uppercase;letter-spacing:.04em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .stat .s{color:var(--text3);font-size:.63rem;margin-top:1px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .stat.go .n{color:var(--green)}
+  .stat.warn .n{color:var(--amber)}
+  .stat.bad .n{color:var(--red)}
+  .stat.na{border-style:dashed}
+  .stat.na .n{color:var(--text3);font-size:.86rem}
+  .grid2{display:grid;gap:12px;grid-template-columns:minmax(0,1fr)}
+  @media(min-width:1080px){.grid2{grid-template-columns:minmax(0,1.55fr) minmax(0,1fr)}}
+  .chart{display:flex;align-items:flex-end;gap:5px;height:92px;padding-top:4px}
+  .bar{flex:1 1 0;min-width:0;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;gap:3px;height:100%}
+  .bar b{font-size:.64rem;font-weight:700;color:var(--text2)}
+  .bar i{display:block;width:100%;max-width:26px;min-height:2px;border-radius:4px 4px 2px 2px;
+    background:linear-gradient(180deg,var(--green-2),var(--green))}
+  .bar.zero i{background:var(--border2)}
+  .bar span{font-size:.6rem;color:var(--text3);white-space:nowrap}
+  .cfoot{color:var(--text3);font-size:.66rem;margin-top:8px}
+  /* ── Alerts ─────────────────────────────────────────────────────── */
+  .alerts{display:grid;gap:7px}
+  .alert{display:flex;align-items:center;gap:9px;padding:8px 10px;border:1px solid var(--border);border-radius:var(--r);
+    background:var(--bg3);font-size:.8rem;color:var(--text);width:100%;text-align:left;font-weight:600}
+  .alert:hover{border-color:var(--border2)}
+  .alert.urgent{border-color:rgba(240,160,32,.45)}
+  .alert time{margin-left:auto;color:var(--text3);font-size:.65rem;font-weight:600;flex:none}
+  .alert b{color:var(--green)}
+  .alert.urgent b{color:var(--amber)}
+  /* ── Actions ────────────────────────────────────────────────────── */
+  .qa{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:7px}
+  @media(min-width:520px){.qa{grid-template-columns:repeat(3,minmax(0,1fr))}}
+  .qa button{display:flex;align-items:center;gap:8px;background:var(--bg3);border:1px solid var(--border);color:var(--text);
+    padding:9px 10px;border-radius:var(--rs);font-size:.79rem;font-weight:700;min-height:var(--tap);text-align:left}
+  .qa button:hover{border-color:var(--green);color:var(--green)}
+  .btn{background:var(--green);color:#04210f;padding:9px 14px;min-height:38px}
+  .btn.ghost{background:transparent;border:1px solid var(--border);color:var(--text2);padding:7px 11px}
   .btn.amber{background:var(--amber);color:#3a2600}
   .btn.red{background:transparent;border:1px solid var(--red);color:var(--red)}
-  .btn.sm{padding:5px 10px;font-size:.78rem}
-  input,select,textarea{font-family:inherit;background:var(--bg3);border:1px solid var(--border);color:var(--text);border-radius:8px;padding:10px 12px;width:100%;font-size:.95rem}
-  label{display:block;font-size:.8rem;color:var(--text2);margin:10px 0 4px}
-  .card{background:var(--bg2);border:1px solid var(--border);border-radius:12px;padding:18px;margin-bottom:16px}
-  #login{max-width:380px;margin:8vh auto}
-  #login h2{font-size:1.3rem;margin-bottom:6px}
-  #login p{color:var(--text2);font-size:.85rem;margin-bottom:18px}
-  .err{color:var(--red);font-size:.85rem;min-height:1.2em;margin-top:8px}
-  .stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:12px;margin-bottom:18px}
-  .stat{background:var(--bg2);border:1px solid var(--border);border-radius:12px;padding:16px}
-  .stat .n{font-size:1.6rem;font-weight:800;color:var(--green)}
-  .stat .l{color:var(--text2);font-size:.74rem;text-transform:uppercase;letter-spacing:.03em}
-  #overviewExtras{display:grid;grid-template-columns:1fr;gap:16px;margin-bottom:18px}
-  @media(min-width:760px){ #overviewExtras{grid-template-columns:1.5fr 1fr} }
-  .ov-card{background:var(--bg2);border:1px solid var(--border);border-radius:12px;padding:18px}
-  .ov-head{font-weight:800;font-size:.95rem;margin-bottom:16px}
-  .ov-head small{color:var(--text2);font-weight:600;font-size:.72rem;text-transform:uppercase;letter-spacing:.04em;margin-left:6px}
-  .ov-chart{display:flex;align-items:flex-end;gap:10px;height:150px}
-  .ov-bar{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;height:100%;gap:6px}
-  .ov-bar-fill{width:100%;max-width:34px;border-radius:6px 6px 3px 3px;background:linear-gradient(180deg,#4be08a,var(--green));min-height:4px;transition:height .4s}
-  .ov-bar-val{font-size:.72rem;font-weight:700;color:var(--text)}
-  .ov-bar-lbl{font-size:.7rem;color:var(--text2)}
-  .ov-qa{display:grid;grid-template-columns:1fr 1fr;gap:10px}
-  .ov-qa button{display:flex;align-items:center;gap:8px;justify-content:flex-start;background:var(--bg3);border:1px solid var(--border);color:var(--text);padding:12px 14px;border-radius:10px;font-size:.85rem;font-weight:700}
-  .ov-qa button:hover{border-color:var(--green);color:var(--green)}
-  .tabs{display:flex;gap:8px;margin-bottom:14px;flex-wrap:wrap}
-  .tab{background:var(--bg3);color:var(--text2);padding:8px 14px;border-radius:20px;font-size:.85rem}
-  .tab.active{background:var(--green-dim);color:var(--green)}
-  .toolbar{display:flex;justify-content:space-between;align-items:center;gap:10px;margin-bottom:12px;flex-wrap:wrap}
-  .toolbar input{max-width:260px}
-  .tblwrap{overflow-x:auto}
-  table{width:100%;border-collapse:collapse;font-size:.85rem;min-width:640px}
-  th,td{text-align:left;padding:10px 8px;border-bottom:1px solid var(--border);vertical-align:middle}
-  th{color:var(--text2);font-weight:700;font-size:.72rem;text-transform:uppercase}
-  td .thumb{width:44px;height:44px;border-radius:8px;object-fit:cover;background:var(--bg3)}
-  .badge{display:inline-block;padding:2px 9px;border-radius:999px;font-size:.72rem;font-weight:700;text-transform:capitalize;background:var(--bg3);color:var(--text2)}
+  .btn.sm{padding:4px 9px;font-size:.75rem;min-height:29px}
+  .btn[disabled]{opacity:.55;cursor:progress}
+  input,select,textarea{font-family:inherit;background:var(--bg3);border:1px solid var(--border);color:var(--text);
+    border-radius:var(--rs);padding:9px 11px;width:100%;font-size:.9rem;min-height:38px}
+  label{display:block;font-size:.74rem;color:var(--text2);margin:9px 0 4px}
+  #login{max-width:340px;margin:14vh auto 0}
+  #login h2{font-size:1.12rem;margin-bottom:4px;display:flex;align-items:center;gap:8px}
+  #login p{color:var(--text2);font-size:.8rem;margin-bottom:14px}
+  .err{color:var(--red);font-size:.8rem;min-height:1.2em;margin-top:8px}
+  .toolbar{display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:10px;flex-wrap:wrap}
+  .toolbar input{max-width:240px;flex:1 1 140px}
+  /* ── Tables: scroll inside their own box, never on the page ─────── */
+  .tblwrap{overflow-x:auto;-webkit-overflow-scrolling:touch;position:relative;margin:0 -13px -13px;padding:0 13px 13px}
+  .tblhint{display:none;align-items:center;gap:6px;color:var(--text3);font-size:.68rem;padding:7px 8px;
+    margin:0 -13px;position:sticky;bottom:var(--hintb);z-index:3;background:var(--bg2);border-top:1px solid var(--border)}
+  .tblwrap.scrolling+.tblhint,.tblhint.on{display:flex}
+  table{width:100%;border-collapse:collapse;font-size:.79rem}
+  th,td{text-align:left;padding:8px 7px;border-bottom:1px solid var(--border);vertical-align:middle;white-space:nowrap}
+  th{color:var(--text3);font-weight:700;font-size:.64rem;text-transform:uppercase;letter-spacing:.03em}
+  td.w,th.w{white-space:normal;min-width:110px;max-width:230px}
+  .tblwrap.scrolling th:first-child,.tblwrap.scrolling td:first-child{position:sticky;left:0;background:var(--bg2);z-index:2}
+  td .thumb{width:38px;height:38px;border-radius:7px;object-fit:cover;background:var(--bg3);display:block}
+  td .thumb.ph{display:flex;align-items:center;justify-content:center;color:var(--text3);border:1px solid var(--border)}
+  td .thumb.ph .i{width:17px;height:17px}
+  .badge{display:inline-block;padding:2px 8px;border-radius:999px;font-size:.68rem;font-weight:700;text-transform:capitalize;
+    background:var(--bg3);color:var(--text2);white-space:nowrap}
   .badge.pending{background:rgba(240,180,40,.15);color:#e0a91e}
-  .badge.confirmed{background:rgba(70,140,240,.15);color:#5b9bff}
+  .badge.confirmed{background:rgba(70,140,240,.15);color:var(--blue)}
   .badge.in_transit{background:rgba(120,110,240,.15);color:#8f86ff}
-  .badge.delivered,.badge.available,.badge.active,.badge.paid{background:rgba(40,190,110,.15);color:var(--green)}
-  .badge.cancelled,.badge.failed,.badge.sold,.badge.rejected{background:rgba(224,85,85,.15);color:var(--red)}
-  .badge.completed,.badge.posted{background:rgba(40,190,110,.15);color:var(--green)}
-  .badge.reversed,.badge.not_captured{background:rgba(240,160,32,.15);color:var(--amber)}
-  .cnt{background:var(--amber);color:#3a2600;border-radius:999px;padding:0 7px;font-size:.7rem;font-weight:800;margin-left:4px}
+  .badge.delivered,.badge.available,.badge.active,.badge.paid,.badge.completed,.badge.posted,.badge.open{background:rgba(40,190,110,.15);color:var(--green)}
+  .badge.cancelled,.badge.failed,.badge.sold,.badge.rejected,.badge.closed{background:rgba(224,85,85,.15);color:var(--red)}
+  .badge.reversed,.badge.not_captured,.badge.scheduled{background:rgba(240,160,32,.15);color:var(--amber)}
+  .cnt{background:var(--amber);color:#3a2600;border-radius:999px;padding:0 6px;font-size:.65rem;font-weight:800;flex:none}
   .cnt:empty{display:none}
-  select.svc-st{width:auto;padding:5px 8px;font-size:.78rem}
+  select.svc-st{width:auto;padding:4px 7px;font-size:.75rem;min-height:30px}
   .muted{color:var(--text2)}
   .hidden{display:none}
-  .loading{color:var(--text2);padding:20px;text-align:center}
-  .rowbtns{display:flex;gap:6px;white-space:nowrap}
-  /* modal */
-  .overlay{position:fixed;inset:0;background:rgba(0,0,0,.6);display:none;align-items:flex-start;justify-content:center;padding:24px;z-index:100;overflow-y:auto}
+  .loading,.state{color:var(--text2);padding:16px;text-align:center;font-size:.84rem}
+  .state.err{color:var(--amber)}
+  .state .btn{margin-top:9px}
+  .rowbtns{display:flex;gap:5px;white-space:nowrap;align-items:center}
+  .sk{background:linear-gradient(90deg,var(--bg3),var(--bg4),var(--bg3));background-size:200% 100%;border-radius:5px;height:11px;
+    animation:sh 1.3s linear infinite}
+  @keyframes sh{to{background-position:-200% 0}}
+  @media(prefers-reduced-motion:reduce){.sk{animation:none}*{transition:none!important}}
+  /* modal — bottom sheet on phones so tall forms stay usable */
+  .overlay{position:fixed;inset:0;background:rgba(0,0,0,.62);display:none;align-items:flex-end;justify-content:center;padding:0;z-index:100;overflow-y:auto}
   .overlay.open{display:flex}
-  .modal{background:var(--bg2);border:1px solid var(--border);border-radius:14px;padding:20px;width:100%;max-width:520px;margin-top:2vh}
-  .modal h3{font-size:1.1rem;margin-bottom:4px}
-  .modal .close{float:right;background:none;color:var(--text2);font-size:1.2rem}
+  .modal{background:var(--bg2);border:1px solid var(--border);border-radius:14px 14px 0 0;padding:18px 16px
+      calc(18px + env(safe-area-inset-bottom));width:100%;max-width:560px;max-height:92vh;overflow-y:auto}
+  @media(min-width:640px){.overlay{align-items:flex-start;padding:24px}.modal{border-radius:14px;margin-top:3vh;
+      padding-bottom:18px;max-height:88vh}}
+  .modal h3{font-size:1rem;margin-bottom:4px}
+  .modal .close{position:sticky;top:0;float:right;background:var(--bg3);border:1px solid var(--border);color:var(--text2);
+    width:30px;height:30px;border-radius:var(--rs);display:grid;place-items:center}
   .media-preview{margin-top:6px}
   .media-preview img,.media-preview video{max-width:100%;max-height:160px;border-radius:8px}
-  .savebar{display:flex;gap:8px;margin-top:16px}
-  .up-status{font-size:.75rem;color:var(--text2);margin-top:4px}
+  .savebar{display:flex;gap:8px;margin-top:16px;position:sticky;bottom:-18px;background:var(--bg2);padding:10px 0 0}
+  .up-status{font-size:.72rem;color:var(--text2);margin-top:4px}
   /* Financial Control Center */
-  .fin-subnav{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:14px}
-  .fin-sub{background:var(--bg3);color:var(--text2);padding:6px 12px;border-radius:16px;font-size:.8rem;font-weight:700;border:1px solid var(--border)}
+  .fin-subnav{display:flex;gap:5px;flex-wrap:wrap;margin-bottom:12px}
+  .fin-sub{background:var(--bg3);color:var(--text2);padding:5px 10px;border-radius:16px;font-size:.74rem;font-weight:700;
+    border:1px solid var(--border);min-height:30px}
   .fin-sub.active{background:var(--green-dim);color:var(--green);border-color:var(--green)}
-  .fin-kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;margin-bottom:14px}
-  .fin-kpi{background:var(--bg3);border:1px solid var(--border);border-radius:10px;padding:12px}
-  .fin-kpi .l{font-size:.68rem;color:var(--text2);text-transform:uppercase;letter-spacing:.03em}
-  .fin-kpi .v{font-size:1.15rem;font-weight:800;margin-top:4px}
-  .fin-kpi .s{font-size:.68rem;color:var(--text2);margin-top:2px}
-  .fin-note{background:rgba(240,160,32,.08);border:1px solid rgba(240,160,32,.35);color:#f0c060;border-radius:10px;padding:11px 13px;margin-bottom:12px;font-size:.82rem}
+  .fin-kpis{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;margin-bottom:12px}
+  @media(min-width:820px){.fin-kpis{grid-template-columns:repeat(4,minmax(0,1fr))}}
+  .fin-kpi{background:var(--bg3);border:1px solid var(--border);border-radius:var(--r);padding:10px;min-width:0}
+  .fin-kpi .l{font-size:.62rem;color:var(--text3);text-transform:uppercase;letter-spacing:.03em}
+  .fin-kpi .v{font-size:1.02rem;font-weight:800;margin-top:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .fin-kpi .s{font-size:.64rem;color:var(--text3);margin-top:2px}
+  .fin-note{background:rgba(240,160,32,.08);border:1px solid rgba(240,160,32,.35);color:#f0c060;border-radius:var(--r);
+    padding:10px 12px;margin-bottom:11px;font-size:.78rem}
   .fin-note.ok{background:rgba(46,204,113,.08);border-color:rgba(46,204,113,.35);color:var(--green)}
   .fin-note code{background:rgba(0,0,0,.25);padding:1px 5px;border-radius:4px}
-  .fin-section{font-weight:800;font-size:.9rem;margin:16px 0 8px}
+  .fin-section{font-weight:800;font-size:.85rem;margin:14px 0 7px}
   .fin-good{color:var(--green)}
   .fin-bad{color:var(--red)}
   .fin-table td.num,.fin-table th.num{text-align:right}
   .fin-range{display:flex;gap:8px;align-items:end;flex-wrap:wrap;margin-bottom:12px}
   .fin-range label{margin:0 0 4px}
-  .fin-range input{width:auto;padding:7px 10px}
+  .fin-range input{width:auto;padding:6px 9px}
+  .perf{display:grid;gap:4px;font-size:.74rem}
+  .perf .r{display:flex;gap:8px;align-items:center;padding:5px 0;border-bottom:1px solid var(--border)}
+  .perf .r span:first-child{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--text2)}
+  .perf .ms{font-weight:800;flex:none}
+  .perf .ms.slow{color:var(--amber)}
 </style>
 </head>
 <body>
 
+<svg style="display:none" aria-hidden="true"><defs>
+<symbol id="i-leaf" viewBox="0 0 24 24"><path d="M11 20A7 7 0 0 1 9.8 6.1C15.5 5 17 4.48 19 2c1 2 2 4.18 2 8 0 5.5-4.78 10-10 10Z"/><path d="M2 21c0-3 1.85-5.36 5.08-6"/></symbol>
+<symbol id="i-grid" viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></symbol>
+<symbol id="i-cart" viewBox="0 0 24 24"><circle cx="9" cy="20" r="1.4"/><circle cx="18" cy="20" r="1.4"/><path d="M2 3h2.5l2.2 11.2a2 2 0 0 0 2 1.6h8.4a2 2 0 0 0 2-1.5L21 7H6"/></symbol>
+<symbol id="i-link" viewBox="0 0 24 24"><path d="M10 13a5 5 0 0 0 7.5.5l2-2a5 5 0 0 0-7-7l-1.2 1.2"/><path d="M14 11a5 5 0 0 0-7.5-.5l-2 2a5 5 0 0 0 7 7l1.2-1.2"/></symbol>
+<symbol id="i-inquiry" viewBox="0 0 24 24"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></symbol>
+<symbol id="i-handshake" viewBox="0 0 24 24"><path d="m11 17 2 2a1 1 0 0 0 1.4 0l3.6-3.6"/><path d="M18 15 8 5 2 11l3 3"/><path d="m6 12 3 3"/><path d="M14 6h4l4 5"/></symbol>
+<symbol id="i-box" viewBox="0 0 24 24"><path d="M21 8v8a2 2 0 0 1-1 1.7l-7 4a2 2 0 0 1-2 0l-7-4A2 2 0 0 1 3 16V8a2 2 0 0 1 1-1.7l7-4a2 2 0 0 1 2 0l7 4A2 2 0 0 1 21 8Z"/><path d="m3.3 7 8.7 5 8.7-5M12 22V12"/></symbol>
+<symbol id="i-tag" viewBox="0 0 24 24"><path d="M12.6 2.6A2 2 0 0 0 11.2 2H4a2 2 0 0 0-2 2v7.2a2 2 0 0 0 .6 1.4l8.8 8.8a2 2 0 0 0 2.8 0l7.2-7.2a2 2 0 0 0 0-2.8Z"/><circle cx="7.5" cy="7.5" r="1.2"/></symbol>
+<symbol id="i-paw" viewBox="0 0 24 24"><circle cx="6" cy="9" r="2"/><circle cx="10.5" cy="5" r="2"/><circle cx="16" cy="6.5" r="2"/><circle cx="19" cy="12" r="1.8"/><path d="M12 11c-3 0-5.5 2.6-5.5 5.2 0 1.6 1.2 2.8 2.8 2.8 1 0 1.7-.4 2.7-.4s1.7.4 2.7.4c1.6 0 2.8-1.2 2.8-2.8C20 13.6 15 11 12 11Z"/></symbol>
+<symbol id="i-users" viewBox="0 0 24 24"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.9M16 3.1a4 4 0 0 1 0 7.8"/></symbol>
+<symbol id="i-truck" viewBox="0 0 24 24"><path d="M14 17V5a1 1 0 0 0-1-1H2a1 1 0 0 0-1 1v11a1 1 0 0 0 1 1h1"/><path d="M14 9h4l3 3v5a1 1 0 0 1-1 1h-1"/><circle cx="6.5" cy="17.5" r="2"/><circle cx="17.5" cy="17.5" r="2"/></symbol>
+<symbol id="i-wheel" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="3"/><path d="M12 3v6M5.6 18l4.2-3.4M18.4 18l-4.2-3.4"/></symbol>
+<symbol id="i-snow" viewBox="0 0 24 24"><path d="M12 2v20M4.9 6.1 19.1 17.9M19.1 6.1 4.9 17.9M12 6l-2.5-2.5M12 6l2.5-2.5M12 18l-2.5 2.5M12 18l2.5 2.5"/></symbol>
+<symbol id="i-coins" viewBox="0 0 24 24"><circle cx="8" cy="8" r="5"/><path d="M13.4 5.2a5 5 0 1 1-5.6 8.2"/><path d="M18 12a4.5 4.5 0 1 1-4.5 6.6"/></symbol>
+<symbol id="i-money" viewBox="0 0 24 24"><rect x="2" y="6" width="20" height="12" rx="2"/><circle cx="12" cy="12" r="2.5"/><path d="M6 10v4M18 10v4"/></symbol>
+<symbol id="i-inbox" viewBox="0 0 24 24"><path d="M22 12h-6l-2 3h-4l-2-3H2"/><path d="M5.5 5.1 2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.5-6.9A2 2 0 0 0 16.7 4H7.3a2 2 0 0 0-1.8 1.1Z"/></symbol>
+<symbol id="i-scan" viewBox="0 0 24 24"><path d="M3 7V5a2 2 0 0 1 2-2h2M17 3h2a2 2 0 0 1 2 2v2M21 17v2a2 2 0 0 1-2 2h-2M7 21H5a2 2 0 0 1-2-2v-2"/><path d="M7 12h10"/></symbol>
+<symbol id="i-bell" viewBox="0 0 24 24"><path d="M18 8a6 6 0 1 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.7 21a2 2 0 0 1-3.4 0"/></symbol>
+<symbol id="i-warn" viewBox="0 0 24 24"><path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0Z"/><path d="M12 9v4M12 17h.01"/></symbol>
+<symbol id="i-pulse" viewBox="0 0 24 24"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></symbol>
+<symbol id="i-map" viewBox="0 0 24 24"><path d="m3 6 6-3 6 3 6-3v15l-6 3-6-3-6 3Z"/><path d="M9 3v15M15 6v15"/></symbol>
+<symbol id="i-refresh" viewBox="0 0 24 24"><path d="M21 12a9 9 0 1 1-3-6.7L21 8"/><path d="M21 3v5h-5"/></symbol>
+<symbol id="i-logout" viewBox="0 0 24 24"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><path d="m16 17 5-5-5-5M21 12H9"/></symbol>
+<symbol id="i-menu" viewBox="0 0 24 24"><path d="M3 6h18M3 12h18M3 18h18"/></symbol>
+<symbol id="i-chev" viewBox="0 0 24 24"><path d="m14 6-6 6 6 6"/></symbol>
+<symbol id="i-clock" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3.5 2"/></symbol>
+<symbol id="i-plus" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></symbol>
+<symbol id="i-x" viewBox="0 0 24 24"><path d="M18 6 6 18M6 6l12 12"/></symbol>
+<symbol id="i-check" viewBox="0 0 24 24"><path d="M20 6 9 17l-5-5"/></symbol>
+</defs></svg>
+
 <div id="login" class="card">
-  <h2>🌾 AgriBridge Admin</h2>
+  <h2><svg class="i" style="color:var(--green)"><use href="#i-leaf"/></svg> AgriBridge Admin</h2>
   <p>Enter the admin password to continue.</p>
   <input type="password" id="pwd" placeholder="Admin password" autocomplete="current-password" onkeydown="if(event.key==='Enter')doLogin()">
-  <button class="btn" style="width:100%;margin-top:12px" onclick="doLogin()">Log In</button>
-  <div class="err" id="loginErr"></div>
+  <button class="btn" style="width:100%;margin-top:12px" id="loginBtn" onclick="doLogin()">Log In</button>
+  <div class="err" id="loginErr" role="alert" aria-live="polite"></div>
+  <div class="muted" id="loginHint" style="font-size:.7rem;margin-top:10px"></div>
 </div>
 
-<div id="dash" class="hidden">
-  <header>
-    <div><h1>🌾 AgriBridge Admin</h1><div class="sub">Full management console</div></div>
-    <div style="display:flex;gap:8px"><button class="btn ghost sm" onclick="refreshAll()">↻ Refresh</button><button class="btn ghost sm" onclick="logout()">Log out</button></div>
-  </header>
-  <div class="wrap">
-    <div class="stats" id="stats"></div>
-    <div id="overviewExtras"></div>
-    <div class="tabs">
-      <div class="tab active" data-tab="orders"   onclick="showTab('orders',this)">Orders</div>
-      <div class="tab" data-tab="finance"        onclick="showTab('finance',this)">💵 Finance</div>
-      <div class="tab" data-tab="cold_storage"   onclick="showTab('cold_storage',this)">❄️ Cold Storage<span class="cnt" id="cnt_cold_storage"></span></div>
-      <div class="tab" data-tab="cold_transport" onclick="showTab('cold_transport',this)">🚚 Refrigerated Transport<span class="cnt" id="cnt_cold_transport"></span></div>
-      <div class="tab" data-tab="loans"          onclick="showTab('loans',this)">💰 Loan Requests<span class="cnt" id="cnt_loans"></span></div>
-      <div class="tab" data-tab="listings" onclick="showTab('listings',this)">Crop Listings</div>
-      <div class="tab" data-tab="animals"  onclick="showTab('animals',this)">Animals</div>
-      <div class="tab" data-tab="deliveries" onclick="showTab('deliveries',this)">Deliveries</div>
-      <div class="tab" data-tab="supplies" onclick="showTab('supplies',this)">Supplies</div>
-      <div class="tab" data-tab="farmers"  onclick="showTab('farmers',this)">Users</div>
-      <div class="tab" data-tab="requests" onclick="showTab('requests',this)">Requests</div>
-      <div class="tab" data-tab="offers"   onclick="showTab('offers',this)">Offers</div>
-      <div class="tab" data-tab="transporters" onclick="showTab('transporters',this)">🚛 Transporters</div>
-      <div class="tab" data-tab="matching"     onclick="showTab('matching',this)" style="color:#60d090;">🔗 Matching</div>
-      <div class="tab" data-tab="scans"        onclick="showTab('scans',this)" style="color:#60b0d0;">🌿 Scans</div>
-      <div class="tab" data-tab="inbox"        onclick="showTab('inbox',this)" style="color:#f0c060;">📥 Inbox</div>
-      <div class="tab" data-tab="activity"     onclick="showTab('activity',this)" style="color:#c0a0e0;">📊 Activity</div>
-      <div class="tab" data-tab="errors"       onclick="showTab('errors',this)" style="color:#f87171;">⚠ Errors</div>
-      <a href="/logistics.html" class="tab" style="color:#2ec471;text-decoration:none;border-left:2px solid #2ec471;margin-left:8px;" title="Logistics Command Center">🗺 Logistics</a>
+<div id="dash" class="app hidden">
+  <div class="sidebar" id="sidebar">
+    <div class="brand">
+      <div class="mark"><svg class="i"><use href="#i-leaf"/></svg></div>
+      <div class="txt"><b>AgriBridge</b><small>Admin console</small></div>
+      <button class="iconbtn collapse" id="sbBtn" title="Collapse sidebar" aria-label="Collapse sidebar"
+              aria-pressed="false" onclick="toggleSidebar()"><svg class="i"><use href="#i-chev"/></svg></button>
     </div>
-    <div class="card">
-      <div class="toolbar">
-        <input id="search" placeholder="Filter…" oninput="renderCurrent()">
-        <button class="btn sm amber" id="addBtn" onclick="openCreate()">+ Add</button>
+    <nav id="nav" aria-label="Admin sections">
+      <div class="navgrp"><span class="tab" data-tab="overview" role="button" tabindex="0" onclick="showTab('overview',this)" onkeydown="if(event.key==='Enter')showTab('overview',this)"><svg class="i"><use href="#i-grid"/></svg><span class="lbl">Overview</span></span></div>
+      <div class="navgrp"><h4>Orders</h4>
+        <span class="tab" data-tab="orders" role="button" tabindex="0" onclick="showTab('orders',this)"><svg class="i"><use href="#i-cart"/></svg><span class="lbl">Orders</span></span>
+        <span class="tab" data-tab="matching" role="button" tabindex="0" onclick="showTab('matching',this)"><svg class="i"><use href="#i-link"/></svg><span class="lbl">Matching</span></span>
+        <span class="tab" data-tab="requests" role="button" tabindex="0" onclick="showTab('requests',this)"><svg class="i"><use href="#i-inquiry"/></svg><span class="lbl">Purchase requests</span></span>
+        <span class="tab" data-tab="offers" role="button" tabindex="0" onclick="showTab('offers',this)"><svg class="i"><use href="#i-handshake"/></svg><span class="lbl">Offers</span></span>
       </div>
-      <div id="panel" class="tblwrap"><div class="loading">Loading…</div></div>
+      <div class="navgrp"><h4>Marketplace</h4>
+        <span class="tab" data-tab="listings" role="button" tabindex="0" onclick="showTab('listings',this)"><svg class="i"><use href="#i-leaf"/></svg><span class="lbl">Crop listings</span></span>
+        <span class="tab" data-tab="animals" role="button" tabindex="0" onclick="showTab('animals',this)"><svg class="i"><use href="#i-paw"/></svg><span class="lbl">Animals</span></span>
+        <span class="tab" data-tab="supplies" role="button" tabindex="0" onclick="showTab('supplies',this)"><svg class="i"><use href="#i-box"/></svg><span class="lbl">Supplies</span></span>
+      </div>
+      <div class="navgrp"><h4>People</h4>
+        <span class="tab" data-tab="farmers" role="button" tabindex="0" onclick="showTab('farmers',this)"><svg class="i"><use href="#i-users"/></svg><span class="lbl">Users</span></span>
+        <span class="tab" data-tab="transporters" role="button" tabindex="0" onclick="showTab('transporters',this)"><svg class="i"><use href="#i-wheel"/></svg><span class="lbl">Transporters</span></span>
+      </div>
+      <div class="navgrp"><h4>Delivery &amp; services</h4>
+        <span class="tab" data-tab="deliveries" role="button" tabindex="0" onclick="showTab('deliveries',this)"><svg class="i"><use href="#i-truck"/></svg><span class="lbl">Deliveries</span></span>
+        <span class="tab" data-tab="cold_storage" role="button" tabindex="0" onclick="showTab('cold_storage',this)"><svg class="i"><use href="#i-snow"/></svg><span class="lbl">Cold storage</span><span class="cnt" id="cnt_cold_storage"></span></span>
+        <span class="tab" data-tab="cold_transport" role="button" tabindex="0" onclick="showTab('cold_transport',this)"><svg class="i"><use href="#i-snow"/></svg><span class="lbl">Refrigerated transport</span><span class="cnt" id="cnt_cold_transport"></span></span>
+        <span class="tab" data-tab="loans" role="button" tabindex="0" onclick="showTab('loans',this)"><svg class="i"><use href="#i-coins"/></svg><span class="lbl">Loan requests</span><span class="cnt" id="cnt_loans"></span></span>
+        <a href="/logistics.html" class="tab" title="Logistics Command Center"><svg class="i"><use href="#i-map"/></svg><span class="lbl">Logistics board</span></a>
+      </div>
+      <div class="navgrp"><h4>Finance</h4>
+        <span class="tab" data-tab="finance" role="button" tabindex="0" onclick="showTab('finance',this)"><svg class="i"><use href="#i-money"/></svg><span class="lbl">Control center</span></span>
+      </div>
+      <div class="navgrp"><h4>Records &amp; system</h4>
+        <span class="tab" data-tab="inbox" role="button" tabindex="0" onclick="showTab('inbox',this)"><svg class="i"><use href="#i-inbox"/></svg><span class="lbl">Inbox</span></span>
+        <span class="tab" data-tab="scans" role="button" tabindex="0" onclick="showTab('scans',this)"><svg class="i"><use href="#i-scan"/></svg><span class="lbl">Crop doctor scans</span></span>
+        <span class="tab" data-tab="activity" role="button" tabindex="0" onclick="showTab('activity',this)"><svg class="i"><use href="#i-bell"/></svg><span class="lbl">Activity</span></span>
+        <span class="tab" data-tab="errors" role="button" tabindex="0" onclick="showTab('errors',this)"><svg class="i"><use href="#i-warn"/></svg><span class="lbl">Errors</span></span>
+        <span class="tab" data-tab="health" role="button" tabindex="0" onclick="showTab('health',this)"><svg class="i"><use href="#i-pulse"/></svg><span class="lbl">Performance</span></span>
+      </div>
+    </nav>
+  </div>
+  <div class="scrim" onclick="closeNav()"></div>
+  <div class="main">
+    <div class="topbar">
+      <button class="iconbtn" aria-label="Open navigation" onclick="openNav()"><svg class="i"><use href="#i-menu"/></svg></button>
+      <div style="flex:1;min-width:0">
+        <h1 id="pageTitle">Overview</h1>
+        <div class="sub" id="pageSub">Loading…</div>
+      </div>
+      <button class="iconbtn" title="Refresh this section" aria-label="Refresh this section" onclick="refreshTab()"><svg class="i"><use href="#i-refresh"/></svg></button>
+      <button class="iconbtn" title="Log out" aria-label="Log out" onclick="logout()"><svg class="i"><use href="#i-logout"/></svg></button>
     </div>
+    <div class="view">
+      <div id="overview"></div>
+      <div class="card hidden" id="sectionCard">
+        <div class="toolbar">
+          <input id="search" placeholder="Filter rows…" oninput="renderCurrent()" aria-label="Filter rows">
+          <button class="btn sm amber" id="addBtn" onclick="openCreate()">+ Add</button>
+        </div>
+        <div id="panel" class="tblwrap"><div class="loading">Loading…</div></div>
+        <div class="tblhint" id="tblHint"><svg class="i"><use href="#i-chev"/></svg> Scroll the table sideways — the first column stays put</div>
+      </div>
+    </div>
+    <nav class="bottomnav" aria-label="Primary sections">
+      <span class="bn" data-tab="overview" role="button" tabindex="0" onclick="showTab('overview')"><svg class="i"><use href="#i-grid"/></svg>Overview</span>
+      <span class="bn" data-tab="orders" role="button" tabindex="0" onclick="showTab('orders')"><svg class="i"><use href="#i-cart"/></svg>Orders</span>
+      <span class="bn" data-tab="matching" role="button" tabindex="0" onclick="showTab('matching')"><svg class="i"><use href="#i-link"/></svg>Match</span>
+      <span class="bn" data-tab="finance" role="button" tabindex="0" onclick="showTab('finance')"><svg class="i"><use href="#i-money"/></svg>Finance</span>
+      <span class="bn" role="button" tabindex="0" onclick="openNav()"><svg class="i"><use href="#i-menu"/></svg>More</span>
+    </nav>
   </div>
 </div>
 
 <!-- Edit / create modal -->
 <div class="overlay" id="editOverlay">
   <div class="modal">
-    <button class="close" onclick="closeEdit()">✕</button>
+    <button class="close" aria-label="Close" onclick="closeEdit()"><svg class="i"><use href="#i-x"/></svg></button>
     <h3 id="editTitle">Edit</h3>
     <div id="editFields"></div>
     <div class="savebar">
@@ -164,12 +336,17 @@
 
 <script>
   var API = 'https://agribridge-1-og7a.onrender.com';
-  var SUPA_URL = 'https://lvloaweijidgcuezdnmu.supabase.co';
-  var SUPA_KEY = 'sb_publishable_lzjlixcVLCUVg9MDy5adFw_pgxTz03y';
   var TOKEN = sessionStorage.getItem('ab_admin_token') || '';
-  var currentTab = 'orders';
-  var DATA = { orders:[], listings:[], animals:[], farmers:[], requests:[], offers:[], transporters:[], matching:[], errors:[], cold_storage:[], cold_transport:[], loans:[], inbox:[] };
-  var DATA_ERR = {}; // tab -> error, so a failed load is never shown as "no requests"
+  var currentTab = 'overview';
+  var DATA = {};      // tab -> rows; loaded lazily and reused on re-open
+  var HAY = {};       // tab -> one lowercase string per row, built when the rows arrive
+  var LOADING = {};   // tab -> true while its first request is in flight
+  var DATA_ERR = {};  // tab -> error, so a failed load is never shown as "no requests"
+  var STATS = null, STATS_ERR = null, STATS_AT = 0;
+  var PERF = [];      // this session's request timings, shown under Performance
+  var INFLIGHT = {};  // path -> Promise, so duplicate concurrent reads share one request
+  var TIMEOUT_MS = 20000;  // a cold Render instance answers late; a warm one answers in ~1s
+
   var INBOX_TABLES={account_deletion_requests:'Account deletions',privacy_requests:'Privacy requests',contact_messages:'Contact messages',disease_reports:'Disease reports',vet_bookings:'Vet bookings',purchase_requests:'Purchase requests',supply_orders:'Supply orders',payouts:'Payouts',fraud_flags:'Fraud flags',admin_devices:'Admin devices',user_roles:'User roles',reviews:'Reviews',community_posts:'Community posts',transporters:'Transporters',farmers:'Farmers',buyers:'Buyers',order_offers:'Match offers'};
   var inboxTable='contact_messages';
   // Admin tab -> service_requests.kind (cold storage, refrigerated transport and loan requests)
@@ -181,10 +358,62 @@
 
   function h(s){return String(s==null?'':s).replace(/[<>&"]/g,function(c){return {'<':'&lt;','>':'&gt;','&':'&amp;','"':'&quot;'}[c];});}
   function fmt(n){return 'UGX '+(Number(n)||0).toLocaleString('en-UG');}
+  // KPI cards are narrow; a full shilling figure must never wrap to two lines.
+  function fmtShort(n){
+    n = Number(n)||0;
+    if(Math.abs(n) >= 1e9) return 'UGX '+(n/1e9).toFixed(n<1e10?2:1).replace(/\.?0+$/,'')+'B';
+    if(Math.abs(n) >= 1e6) return 'UGX '+(n/1e6).toFixed(n<1e7?2:1).replace(/\.?0+$/,'')+'M';
+    return 'UGX '+n.toLocaleString('en-UG');
+  }
+  function icon(name,cls){ return '<svg class="i'+(cls?' '+cls:'')+'" aria-hidden="true"><use href="#i-'+name+'"/></svg>'; }
+  function ago(ts){
+    if(!ts) return '';
+    var s = Math.max(0, Math.round((Date.now()-ts)/1000));
+    if(s<60) return s<5 ? 'just now' : s+'s ago';
+    if(s<3600) return Math.round(s/60)+'m ago';
+    if(s<86400) return Math.round(s/3600)+'h ago';
+    return Math.round(s/86400)+'d ago';
+  }
+  function recordPerf(path, ms, note){
+    PERF.unshift({path:path, ms:ms, note:note||'', at:Date.now()});
+    if(PERF.length>60) PERF.length=60;
+  }
+  // Six months fits the card on a 320px phone without clipping a bar.
+  var CHART_MONTHS = 6;
+  // An AbortError carries no useful message; say what the admin can act on.
+  function errText(e){
+    if(!e) return 'the request failed.';
+    if(typeof e==='string') return e;
+    if(e.name==='AbortError') return 'the server did not answer within '+(TIMEOUT_MS/1000)+' s.';
+    return e.message || 'the request failed.';
+  }
   function api(path, opts){
     opts = opts || {};
-    opts.headers = Object.assign({'Content-Type':'application/json'}, opts.headers||{}, TOKEN?{'Authorization':'Bearer '+TOKEN}:{});
-    return fetch(API+path, opts).then(function(r){ if(r.status===401){ logout(); throw new Error('unauthorized'); } return r.json().catch(function(){return null;}); });
+    var isRead = !opts.method || opts.method==='GET';
+    if(isRead && INFLIGHT[path]) return INFLIGHT[path];
+    var init = Object.assign({}, opts);
+    init.headers = Object.assign({'Content-Type':'application/json'}, opts.headers||{},
+                                 TOKEN?{'Authorization':'Bearer '+TOKEN}:{});
+    var ctl = window.AbortController ? new AbortController() : null;
+    if(ctl) init.signal = ctl.signal;
+    var timer = ctl ? setTimeout(function(){ ctl.abort(); }, TIMEOUT_MS) : null;
+    var t0 = performance.now();
+    var p = fetch(API+path, init).then(function(r){
+      if(r.status===401){ logout(); throw new Error('unauthorized'); }
+      if(!r.ok){
+        // A 5xx from the API has a body, but never one the admin needs to read.
+        return r.json().catch(function(){ return null; }).then(function(j){
+          throw new Error((j&&j.error)?j.error:'the server returned HTTP '+r.status+'.');
+        });
+      }
+      return r.json().catch(function(){ return null; });
+    }).finally(function(){
+      if(timer) clearTimeout(timer);
+      delete INFLIGHT[path];
+      recordPerf(path, Math.round(performance.now()-t0));
+    });
+    if(isRead) INFLIGHT[path] = p;
+    return p;
   }
 
   // ── Field definitions per table ─────────────────────────────────
@@ -271,23 +500,122 @@
   var TABLE_OF = { orders:'orders', listings:'listings', animals:'animal_listings', deliveries:'deliveries', supplies:'supplier_products', farmers:'farmers', requests:'purchase_requests', offers:'offers', transporters:'transporters' };
 
   // ── Auth ────────────────────────────────────────────────────────
+  // The password goes to the server and nowhere else: it is never cached, logged
+  // or retried automatically, and one submission stays in flight at a time because
+  // the login route allows only 5 attempts per 5 minutes.
+  var AUTH_BUSY = false;
   async function doLogin(){
-    var pwd=document.getElementById('pwd').value, e=document.getElementById('loginErr'); e.textContent='';
-    if(!pwd){ e.textContent='Enter the password.'; return; }
+    var btn=document.getElementById('loginBtn'), pwd=document.getElementById('pwd'),
+        e=document.getElementById('loginErr'), hint=document.getElementById('loginHint');
+    e.textContent='';
+    if(AUTH_BUSY) return;
+    var v=pwd.value;
+    if(!v){ e.textContent='Enter the admin password.'; pwd.focus(); return; }
+    AUTH_BUSY=true; btn.disabled=true; pwd.disabled=true; btn.textContent='Signing in…';
+    hint.textContent='If the API is asleep this can take up to a minute.';
+    var ctl=window.AbortController?new AbortController():null;
+    var timer=ctl?setTimeout(function(){ ctl.abort(); }, 60000):null;
+    var t0=performance.now();
     try{
-      var res=await fetch(API+'/api/admin/login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({password:pwd})});
+      var res=await fetch(API+'/api/admin/login',{method:'POST',headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({password:v}), signal:ctl?ctl.signal:undefined});
       var j=await res.json().catch(function(){return null;});
-      if(res.ok&&j&&j.token){ TOKEN=j.token; sessionStorage.setItem('ab_admin_token',TOKEN); showDash(); }
-      else e.textContent=(j&&j.error)?j.error:'Login failed.';
-    }catch(err){ e.textContent='Could not reach the server. Wait ~30s (it may be waking up) and retry.'; }
+      var ms=Math.round(performance.now()-t0);
+      recordPerf('/api/admin/login', ms, 'HTTP '+res.status);
+      if(res.ok&&j&&j.token){
+        TOKEN=j.token; sessionStorage.setItem('ab_admin_token',TOKEN);
+        pwd.value=''; hint.textContent='Signed in in '+(ms/1000).toFixed(1)+' s.';
+        showDash();
+      } else if(res.status===401){
+        e.textContent='That password is not correct.';
+      } else if(res.status===429){
+        e.textContent='Too many attempts from this address. Wait a few minutes and try again.';
+      } else if(res.status===503){
+        e.textContent='Admin login is disabled on the server (ADMIN_PASSWORD is not configured).';
+      } else {
+        e.textContent=(j&&j.error)?j.error:'Login failed (HTTP '+res.status+').';
+      }
+    }catch(err){
+      e.textContent = (err && err.name==='AbortError')
+        ? 'The server did not answer within 60 s. It is probably still starting — try again in about 20 s.'
+        : 'Could not reach the server. Wait ~20 s for it to wake up, then try again.';
+    }finally{
+      if(timer) clearTimeout(timer);
+      AUTH_BUSY=false; btn.disabled=false; btn.textContent='Log In';
+      if(!document.getElementById('login').classList.contains('hidden')){
+        pwd.disabled=false; pwd.focus();
+      }
+    }
   }
-  function showDash(){ document.getElementById('login').classList.add('hidden'); document.getElementById('dash').classList.remove('hidden'); refreshAll(); }
-  function logout(){ TOKEN=''; sessionStorage.removeItem('ab_admin_token'); document.getElementById('dash').classList.add('hidden'); document.getElementById('login').classList.remove('hidden'); }
+  function showDash(){
+    document.getElementById('login').classList.add('hidden');
+    document.getElementById('dash').classList.remove('hidden');
+    showTab('overview');
+    refreshAll();
+  }
+  function logout(){
+    TOKEN=''; sessionStorage.removeItem('ab_admin_token');
+    // Nothing from the previous session survives a sign-out on a shared machine.
+    DATA={}; HAY={}; LOADING={}; DATA_ERR={}; STATS=null; STATS_AT=0; STATS_ERR=null;
+    FIN.cache={}; FIN.errors={}; FIN.loading=false; PERF=[];
+    document.getElementById('dash').classList.add('hidden');
+    document.getElementById('login').classList.remove('hidden');
+    // doLogin() disables the form and only re-enables it if the sign-in screen was
+    // still showing when it finished, so a sign-out has to hand the form back.
+    var pwd=document.getElementById('pwd'), btn=document.getElementById('loginBtn');
+    AUTH_BUSY=false; btn.disabled=false; btn.textContent='Log In';
+    pwd.disabled=false; pwd.value=''; pwd.focus();
+    document.getElementById('loginErr').textContent='';
+    document.getElementById('loginHint').textContent='';
+    closeNav();
+  }
 
-  async function refreshAll(){ await loadStats(); await Promise.all([load('orders'),load('listings'),load('animals'),load('deliveries'),load('supplies'),load('farmers'),load('requests'),load('offers'),load('transporters'),load('cold_storage'),load('cold_transport'),load('loans')]); renderOverviewExtras(); if(currentTab==='finance'){ loadFinance(FIN.view); } else { renderCurrent(); } }
+  // Staged loading. Every list endpoint is its own round trip and the API serves
+  // from two workers, so the first screen asks for two things and the rest is
+  // fetched when it is opened (or once the browser is idle, for the badge counts).
+  var TIER2 = ['cold_storage','cold_transport','loans'];
+  var TAIL  = ['listings','animals','deliveries','supplies','farmers','requests','offers','transporters'];
 
-  function showTabByName(t){ var node=document.querySelector('.tab[data-tab="'+t+'"]'); showTab(t,node||undefined); if(node) node.scrollIntoView({behavior:'smooth',block:'nearest'}); }
-  function retryTab(tab){ load(tab).then(renderCurrent); }
+  async function refreshAll(){
+    await Promise.all([loadStats(), ensure('orders')]);
+    renderOverview();
+    idle(function(){ TIER2.forEach(function(t){ ensure(t); }); });
+    idle(function(){ TAIL.forEach(function(t){ ensure(t); }); });
+  }
+  function idle(fn){ if(window.requestIdleCallback) requestIdleCallback(fn,{timeout:4000}); else setTimeout(fn,1500); }
+  function ensure(tab, force){
+    if(!force && DATA[tab] && !DATA_ERR[tab]) return Promise.resolve();
+    return load(tab);
+  }
+  function refreshTab(){
+    if(currentTab==='overview'){ loadStats().then(renderOverview); return; }
+    if(currentTab==='health'){ renderHealth(); return; }
+    if(currentTab==='finance'){ FIN.cache[FIN.view]=null; loadFinance(FIN.view); return; }
+    load(currentTab, false, true);
+  }
+  function openNav(){ document.body.classList.add('nav-open'); }
+  function closeNav(){ document.body.classList.remove('nav-open'); }
+  // Desktop only: the rail is a preference, not state, so losing it is harmless.
+  function toggleSidebar(){
+    var min = document.body.classList.toggle('sb-min');
+    var b = document.getElementById('sbBtn');
+    b.title = b.getAttribute('aria-label') = min ? 'Expand sidebar' : 'Collapse sidebar';
+    b.setAttribute('aria-pressed', min ? 'true' : 'false');
+    try{ localStorage.setItem('ab_sb_min', min ? '1' : '0'); }catch(e){}
+    scheduleScrollHint();
+  }
+  function initSidebar(){
+    if(localStorage.getItem('ab_sb_min') === '1') document.body.classList.add('sb-min');
+    document.querySelectorAll('.sidebar [data-tab]').forEach(function(n){
+      var t = n.getAttribute('data-tab');
+      n.title = (TITLES[t] || [t])[0];   // labels are hidden when the rail is collapsed
+    });
+  }
+  function showTabByName(t,q){
+    showTab(t);
+    if(q!=null){ var s=document.getElementById('search'); s.value=q; renderCurrent(); }
+  }
+  function retryTab(tab){ return load(tab, false, true).then(renderCurrent); }
 
   // ── Financial Control Center (read-only) ────────────────────────
   function finMoney(v){ return (v===null||v===undefined)?'—':fmt(v); }
@@ -565,67 +893,246 @@
     FIN.report.from=from; FIN.report.to=to; loadFinance('reports');
   }
 
-  // Platform Overview chart (real orders/month) + Quick Actions, mockup style.
-  function renderOverviewExtras(){
-    var el=document.getElementById('overviewExtras'); if(!el) return;
-    var orders=DATA.orders||[];
-    var now=new Date(), months=[], idx={};
-    for(var k=6;k>=0;k--){ var d=new Date(now.getFullYear(), now.getMonth()-k, 1);
-      var key=d.getFullYear()+'-'+d.getMonth();
-      idx[key]=months.length;
-      months.push({label:d.toLocaleString('en-US',{month:'short'}), count:0}); }
-    for(var i=0;i<orders.length;i++){ var o=orders[i]; if(!o.created_at) continue;
-      var od=new Date(o.created_at); var ky=od.getFullYear()+'-'+od.getMonth();
-      if(ky in idx) months[idx[ky]].count++; }
-    var counts=months.map(function(m){return m.count;});
-    var max=Math.max.apply(null, counts.concat([1]));
-    var bars=months.map(function(m){ var hp=Math.round(m.count/max*100);
-      return '<div class="ov-bar"><div class="ov-bar-val">'+m.count+'</div><div class="ov-bar-fill" style="height:'+Math.max(4,hp)+'%"></div><div class="ov-bar-lbl">'+m.label+'</div></div>';
-    }).join('');
+  // ── Overview ───────────────────────────────────────────────────
+  // Four primary KPIs, a compact orders chart, and the things that need action.
+  // A metric that could not be fetched is rendered as "unavailable", never as 0.
+  var TITLES = {
+    overview:['Overview','What needs attention'],
+    orders:['Orders','Newest first, up to 500 rows'],
+    matching:['Matching','Pending orders awaiting a farmer'],
+    requests:['Purchase requests','Buyer requests, newest first'],
+    offers:['Offers','Farmer replies to requests'],
+    listings:['Crop listings','Every listing farmers have published'],
+    animals:['Animal listings','Livestock on the marketplace'],
+    supplies:['Supplies','Seeds, fertilizer, tools and animal care'],
+    farmers:['Users','Farmer and buyer accounts'],
+    transporters:['Transporters','Onboarded vehicle owners'],
+    deliveries:['Deliveries','Movement of paid orders'],
+    cold_storage:['Cold storage','Storage bookings'],
+    cold_transport:['Refrigerated transport','Chilled haulage bookings'],
+    loans:['Loan requests','Input and equipment loan applications'],
+    finance:['Finance control center','Server-side ledger, payouts and reconciliation'],
+    inbox:['Inbox','Deletion, privacy and contact requests'],
+    scans:['Crop doctor scans','Diagnoses submitted by farmers'],
+    activity:['Activity','Recent audited events'],
+    errors:['Errors','Recorded system failures'],
+    health:['Performance','This browser’s own request timings']
+  };
+
+  function statCard(label, value, sub, cls, tab){
+    var v = (value===null||value===undefined)
+      ? '<div class="n">—</div>'
+      : '<div class="n">'+h(value)+'</div>';
+    return '<button class="stat '+(value==null?'na':(cls||''))+'"'+(tab?' onclick="showTabByName(\''+tab+'\')"':'')+'>'+
+      v+'<div class="l">'+h(label)+'</div>'+(sub?'<div class="s">'+h(sub)+'</div>':'')+'</button>';
+  }
+
+  // Paints caused by data arriving in the background share one animation frame.
+  // Navigation, an explicit Refresh and a retry still call renderOverview()
+  // directly, because a click must never wait on a frame.
+  var OV_DIRTY=false;
+  function queueOverview(){
+    if(OV_DIRTY) return;
+    OV_DIRTY=true;
+    (window.requestAnimationFrame||function(f){ return setTimeout(f,16); })(function(){
+      OV_DIRTY=false; renderOverview();
+    });
+  }
+  function renderOverview(){
+    var el=document.getElementById('overview'); if(!el) return;
+    var s=STATS, st=s?{}:(STATS_ERR?{err:STATS_ERR}:null);
+    var head='<div class="chead">'+icon('grid')+'Needs your attention'+
+      '<small>'+(STATS_AT?'updated '+ago(STATS_AT):'no metrics yet')+'</small></div>';
+    // ── KPI cards: primary set only; the rest are listed with their definition.
+    var cards;
+    if(!s){
+      cards='<div class="stats">'+
+        '<div class="stat na"><div class="sk" style="width:60%"></div><div class="l">loading metrics…</div></div>'.repeat(4)+'</div>';
+      if(st&&st.err){
+        cards='<div class="state err">Could not load the metrics: '+h(errText(st.err))+
+          '<br><button class="btn sm ghost" onclick="loadStats().then(renderOverview)">Retry</button></div>';
+      }
+    } else {
+      var na=function(k){ return s[k]===null||s[k]===undefined; };
+      cards='<div class="stats">'+
+        statCard('Registered users', s.farmers, na('farmers')?'unavailable':'all time', 'go', 'farmers')+
+        statCard('Live listings', s.listings_live, na('listings_live')?'unavailable':'of '+s.listings+' published', '', 'listings')+
+        statCard('Pending orders', s.orders_pending, na('orders_pending')?'unavailable':'of '+s.orders+' orders', s.orders_pending>0?'warn':'', 'matching')+
+        statCard('Paid revenue', s.revenue_ugx==null?null:fmtShort(s.revenue_ugx),
+                 (s.revenue_partial?'at least ':'')+ (s.orders_paid||0)+' paid orders, all time', 'go', 'finance')+
+      '</div>';
+    }
+    // ── Alerts, ordered by what blocks a customer.
+    var alerts=[];
+    if(s){
+      if(s.orders_pending>0) alerts.push(['urgent','link','Orders awaiting a farmer match',s.orders_pending,'matching']);
+      if(s.payments_outstanding>0) alerts.push(['urgent','money','Orders paid-for-but-unsettled or awaiting payment',s.payments_outstanding,'orders']);
+      if(s.farmers!=null&&s.farmers_verified!=null&&s.farmers-s.farmers_verified>0)
+        alerts.push(['','users','Users not yet verified',(s.farmers-s.farmers_verified),'farmers']);
+      if(s.transporters===0) alerts.push(['','wheel','No active transporter is available','none','transporters']);
+      TIER2.forEach(function(t){
+        var rows=DATA[t];
+        if(!rows) return;
+        var n=rows.filter(function(r){return (r.status||'pending')==='pending';}).length;
+        if(n) alerts.push(['', SVC_TABS[t]==='loan'?'coins':'snow',
+          TITLES[t][0]+' awaiting a decision', n, t]);
+      });
+    }
+    var alertHtml = !s ? '<div class="sk" style="width:80%;margin:8px 0"></div>'
+      : alerts.length ? '<div class="alerts">'+alerts.map(function(a){
+          return '<button class="alert'+(a[0]?' '+a[0]:'')+'" onclick="showTabByName(\''+a[4]+'\')">'+icon(a[1])+
+                 '<span>'+h(a[2])+'</span><b>'+h(a[3])+'</b>'+
+                 '<time>'+ (STATS_AT?ago(STATS_AT):'') +'</time></button>';
+        }).join('')+'</div>'
+      : '<div class="state">Nothing is waiting on you. '+
+        (DATA_ERR.orders?'<br><span class="muted">Order counts may be stale — see the chart below.</span>':'')+'</div>';
+    // ── Chart: real order rows, honest zeros, and an explicit failure state.
+    var chart;
+    if(LOADING.orders && !DATA.orders){
+      chart='<div class="chart" style="align-items:center"><div class="sk" style="width:100%;height:60px"></div></div>';
+    } else if(DATA_ERR.orders){
+      chart='<div class="state err">'+h(errText(DATA_ERR.orders))+
+        '<br><button class="btn sm ghost" onclick="retryTab(\'orders\')">Retry the orders query</button></div>';
+    } else {
+      var orders=DATA.orders||[];
+      var now=new Date(), months=[], idx={};
+      for(var k=CHART_MONTHS-1;k>=0;k--){
+        var d=new Date(now.getFullYear(), now.getMonth()-k, 1);
+        idx[d.getFullYear()+'-'+d.getMonth()]=months.length;
+        months.push({label:d.toLocaleString('en-US',{month:'short'}), count:0});
+      }
+      for(var i=0;i<orders.length;i++){
+        if(!orders[i].created_at) continue;
+        var od=new Date(orders[i].created_at), ky=od.getFullYear()+'-'+od.getMonth();
+        if(ky in idx) months[idx[ky]].count++;
+      }
+      var max=Math.max.apply(null, months.map(function(m){return m.count;}).concat([1]));
+      chart='<div class="chart" role="img" aria-label="Orders per month over the last '+CHART_MONTHS+' months">'+
+        months.map(function(m){
+          return '<div class="bar'+(m.count?'':' zero')+'" title="'+m.label+': '+m.count+' orders">'+
+            '<b>'+m.count+'</b><i style="height:'+Math.max(2,Math.round(m.count/max*64))+'px"></i>'+
+            '<span>'+m.label+'</span></div>';
+        }).join('')+'</div>'+
+        '<div class="cfoot">Orders created per calendar month, last '+CHART_MONTHS+' months. Counted from the '+
+        orders.length+' most recent orders returned by the server — a month older than that is undercounted, a 0 is a real zero.</div>';
+    }
+    // ── Quick actions: every one goes somewhere that already exists.
+    var qa='<div class="qa">'+
+      '<button onclick="showTabByName(\'farmers\')">'+icon('users')+'Review users</button>'+
+      '<button onclick="showTabByName(\'orders\')">'+icon('cart')+'Manage orders</button>'+
+      '<button onclick="showTabByName(\'listings\')">'+icon('leaf')+'Review listings</button>'+
+      '<button onclick="showTabByName(\'deliveries\')">'+icon('truck')+'Inspect deliveries</button>'+
+      '<button onclick="showTabByName(\'orders\',\'unpaid\')">'+icon('money')+'Payment issues</button>'+
+      '<button onclick="showTabByName(\'finance\')">'+icon('pulse')+'Financial records</button>'+
+      '</div>';
+    var secondary = s ? '<div class="perf" style="margin-top:4px">'+[
+        ['Animals listed', s.animals],['Active transporters', s.transporters],
+        ['Verified users', s.farmers_verified!=null&&s.farmers!=null?s.farmers_verified+' of '+s.farmers:s.farmers_verified],
+        ['Crop listings (all)', s.listings],['Orders (all)', s.orders],
+        ['Outstanding payments', s.payments_outstanding]
+      ].map(function(r){ return '<div class="r"><span>'+h(r[0])+'</span><span class="ms">'+h(r[1]==null?'unavailable':r[1])+'</span></div>'; }).join('')+'</div>'
+      : '<div class="sk" style="width:70%;margin:8px 0"></div>';
     el.innerHTML=
-      '<div class="ov-card"><div class="ov-head">Platform Overview<small>orders / month</small></div><div class="ov-chart">'+bars+'</div></div>'+
-      '<div class="ov-card"><div class="ov-head">Quick Actions</div><div class="ov-qa">'+
-        '<button onclick="showTabByName(\'farmers\')">👤 Verify Users</button>'+
-        '<button onclick="showTabByName(\'orders\')">📦 Manage Orders</button>'+
-        '<button onclick="showTabByName(\'deliveries\')">🚚 Deliveries</button>'+
-        '<button onclick="showTabByName(\'supplies\')">🏪 Supplies</button>'+
-        '<button onclick="showTabByName(\'requests\')">📋 Requests</button>'+
-        '<button onclick="showTabByName(\'transporters\')">🚛 Transporters</button>'+
-        '<button onclick="showTabByName(\'matching\')">🔗 Match Orders</button>'+
-      '</div></div>'+
-      '<div class="ov-card"><div class="ov-head">Bookings &amp; loans<small>pending</small></div><div class="ov-qa">'+
-        '<button onclick="showTabByName(\'cold_storage\')">❄️ Cold Storage <span class="cnt" id="ov_cnt_cold_storage"></span></button>'+
-        '<button onclick="showTabByName(\'cold_transport\')">🚚 Refrigerated Transport <span class="cnt" id="ov_cnt_cold_transport"></span></button>'+
-        '<button onclick="showTabByName(\'loans\')">💰 Loan Requests <span class="cnt" id="ov_cnt_loans"></span></button>'+
-      '</div></div>';
+      '<div class="card">'+head+cards+alertHtml+'</div>'+
+      '<div class="grid2">'+
+        '<div class="card"><div class="chead">'+icon('cart')+'Orders per month<small>last '+CHART_MONTHS+' months</small></div>'+chart+'</div>'+
+        '<div class="card"><div class="chead">'+icon('grid')+'Quick actions</div>'+qa+
+          '<div class="chead" style="margin-top:14px">'+icon('pulse')+'All metrics<small>from /api/admin/stats</small></div>'+secondary+'</div>'+
+      '</div>';
     updateSvcCounts();
   }
 
-  async function loadStats(){
-    try{
-      var s=await api('/api/admin/stats'); if(!s) return;
-      var cards=[['Total Users',s.farmers],['Crop Listings',s.listings],['Animals',s.animals],['Total Orders',s.orders],['Transporters',s.transporters||0],['Total Revenue',fmt(s.revenue_ugx)]];
-      document.getElementById('stats').innerHTML=cards.map(function(c){return '<div class="stat"><div class="n">'+(typeof c[1]==='number'?c[1]:h(c[1]))+'</div><div class="l">'+c[0]+'</div></div>';}).join('');
-    }catch(e){}
+  function renderHealth(){
+    var el=document.getElementById('overview'); if(!el) return;
+    var slow=PERF.slice().sort(function(a,b){return b.ms-a.ms;}).slice(0,8);
+    var rows=PERF.slice(0,25).map(function(p){
+      return '<div class="r"><span>'+h(p.path)+(p.note?' · '+h(p.note):'')+'</span>'+
+             '<span class="ms'+(p.ms>3000?' slow':'')+'">'+p.ms+' ms</span><span class="muted">'+ago(p.at)+'</span></div>';
+    }).join('');
+    var total=PERF.reduce(function(a,p){return a+p.ms;},0);
+    el.innerHTML='<div class="card"><div class="chead">'+icon('pulse')+
+      'Performance<small>'+PERF.length+' requests this session</small></div>'+
+      '<div class="fin-note">These are timings measured in <em>this</em> browser, so they include the network path from '+
+      'here to the API. The API answers a request in about 0.6 s when warm before any database work; a cold instance adds '+
+      'its start-up to the first request after a quiet period.</div>'+
+      (rows?'<div class="perf">'+rows+'</div>':'<div class="state">No requests recorded yet.</div>')+
+      (slow.length?'<div class="cfoot">Total time spent waiting: '+(total/1000).toFixed(1)+' s across '+PERF.length+
+        ' requests. Slowest: '+slow.map(function(p){return p.path.replace('/api/admin/','')+' '+p.ms+'ms';}).slice(0,3).join(' · ')+'</div>':'')+
+      '</div>';
   }
-  async function load(tab, isRetry){
-    var pathMap = {orders:'/api/admin/orders',listings:'/api/admin/listings',animals:'/api/admin/animals',deliveries:'/api/admin/deliveries',supplies:'/api/admin/supplies',farmers:'/api/admin/farmers',requests:'/api/admin/purchase-requests',offers:'/api/admin/offers',transporters:'/api/admin/transporters',cold_storage:'/api/admin/service-requests?kind=cold_storage',cold_transport:'/api/admin/service-requests?kind=refrigerated_transport',loans:'/api/admin/service-requests?kind=loan',matching:'/api/admin/match-candidates',errors:'/api/admin/events',scans:'/api/admin/events?event_type=scan',activity:'/api/admin/events?severity=info'};
-    var path = tab==='inbox' ? ('/api/admin/inbox?table='+encodeURIComponent(inboxTable)) : (pathMap[tab] || ('/api/admin/'+tab));
+
+  async function loadStats(){
+    STATS_ERR=null;
+    try{
+      var s=await api('/api/admin/stats');
+      if(!s||typeof s!=='object'||!('farmers' in s)) throw new Error('unexpected response from the server');
+      STATS=s; STATS_AT=Date.now();
+    }catch(e){
+      if(e && e.message!=='unauthorized') STATS_ERR=e;
+    }
+    // The KPI cards and the alerts come from this one call, so they are painted as
+    // soon as it lands — not behind the order rows that the chart still waits for.
+    if(currentTab==='overview') renderOverview();
+  }
+  // One endpoint per section. Sections are only opened on demand, so nothing here
+  // is fetched until the admin asks for it (or the browser goes idle).
+  var PATHS = {
+    orders:'/api/admin/orders', listings:'/api/admin/listings', animals:'/api/admin/animals',
+    deliveries:'/api/admin/deliveries', supplies:'/api/admin/supplies', farmers:'/api/admin/farmers',
+    requests:'/api/admin/purchase-requests', offers:'/api/admin/offers',
+    transporters:'/api/admin/transporters',
+    cold_storage:'/api/admin/service-requests?kind=cold_storage',
+    cold_transport:'/api/admin/service-requests?kind=refrigerated_transport',
+    loans:'/api/admin/service-requests?kind=loan',
+    matching:'/api/admin/match-candidates',
+    errors:'/api/admin/events', scans:'/api/admin/events?event_type=scan',
+    activity:'/api/admin/events?severity=info'
+  };
+
+  function hay(tab, r){
+    var s='';
+    try{ s=JSON.stringify(r).toLowerCase(); }catch(e){ return ''; }
+    // The orders table prints "unpaid" when the column is empty, so filtering by
+    // "unpaid" has to match those rows too.
+    if(tab==='orders') s+=' '+(r.payment_status||'unpaid')+' '+(r.status||'pending');
+    return s;
+  }
+
+  function setRows(tab, rows, err){
+    DATA[tab]=rows; DATA_ERR[tab]=err||null; LOADING[tab]=false;
+    HAY[tab]=rows.map(function(r){ return hay(tab, r); });
+    if(SVC_TABS[tab]) updateSvcCounts();
+  }
+
+  async function load(tab, isRetry, force){
+    if(!force && LOADING[tab]) return;                       // a duplicate read is already running
+    if(!force && !isRetry && DATA[tab] && !DATA_ERR[tab]) return;  // reuse what was fetched minutes ago
+    var path = tab==='inbox' ? ('/api/admin/inbox?table='+encodeURIComponent(inboxTable))
+                             : (PATHS[tab] || ('/api/admin/'+tab));
+    LOADING[tab]=true;
+    if(currentTab===tab) renderCurrent();
     try{
       var rows=await api(path);
       if(rows && !Array.isArray(rows) && rows.error) throw new Error(rows.error);
-      DATA[tab]=Array.isArray(rows)?rows:[];
-      DATA_ERR[tab]=null;
+      var arr = Array.isArray(rows) ? rows
+              : (rows && Array.isArray(rows.candidates)) ? rows.candidates   // match-candidates wraps
+              : rows && typeof rows==='object' ? [] : [];
+      setRows(tab, arr, null);
     }catch(e){
-      // Render may be waking up: retry once before telling the admin the tab failed.
+      // A sleeping Render instance fails the first read; retry once, bounded.
       if(!isRetry && (!e || e.message!=='unauthorized')){
-        await new Promise(function(r){ setTimeout(r,1200); });
-        return load(tab, true);
+        LOADING[tab]=false;
+        await new Promise(function(r){ setTimeout(r,1500); });
+        return load(tab, true, force);
       }
-      DATA[tab]=[];
-      DATA_ERR[tab]=e || new Error('load failed');
+      setRows(tab, [], e || new Error('load failed'));
     }
-    if(SVC_TABS[tab]) updateSvcCounts();
+    // A background prefetch must not rebuild the table the admin is reading.
+    // Of the idle-prefetched lists only the three service queues have anything
+    // visible on the overview (their pending counts become alerts), so only those
+    // are allowed to repaint it - and they land together, so they share one frame.
+    if(currentTab===tab) renderCurrent();
+    else if(currentTab==='overview' && SVC_TABS[tab] && STATS) queueOverview();
   }
 
   async function runMatching(){
@@ -638,38 +1145,84 @@
       } else {
         alert('Matching returned: '+(r&&r.error?r.error:'unknown result'));
       }
-      await load('requests'); await load('offers'); renderCurrent();
+      await Promise.all([load('requests',false,true), load('offers',false,true)]); renderCurrent();
     }catch(e){ alert('Matching failed: '+(e&&e.message?e.message:'check server logs.')); }
   }
 
-  function showTab(t,node){ currentTab=t; document.querySelectorAll('.tab').forEach(function(x){x.classList.remove('active');}); if(node)node.classList.add('active'); document.getElementById('search').value=''; var noAdd=['orders','requests','offers','cold_storage','cold_transport','loans','errors','matching','scans','activity','inbox','finance']; document.getElementById('addBtn').style.display=noAdd.indexOf(t)>-1?'none':'inline-block'; var tb=document.querySelector('.toolbar'); if(tb) tb.style.display=(t==='finance')?'none':'flex'; if(t==='finance'){ loadFinance(FIN.view); return; } load(t).then(renderCurrent); }
+  // Switching sections never re-downloads rows that are already on the page; the
+  // refresh button in the top bar is the only deliberate refetch.
+  function showTab(t, node){
+    currentTab=t;
+    document.querySelectorAll('.tab.active,.bn.active').forEach(function(x){ x.classList.remove('active'); });
+    var marked = node || document.querySelector('.sidebar [data-tab="'+t+'"]')
+                        || document.querySelector('.bottomnav [data-tab="'+t+'"]');
+    if(marked) marked.classList.add('active');
+    document.body.classList.remove('nav-open');
+    document.getElementById('search').value='';
+    var overview=(t==='overview'||t==='health');
+    document.getElementById('overview').classList.toggle('hidden',!overview);
+    document.getElementById('sectionCard').classList.toggle('hidden',overview);
+    var noAdd=['orders','requests','offers','cold_storage','cold_transport','loans','errors','scans','activity','inbox','finance','matching','health'];
+    document.getElementById('addBtn').style.display=noAdd.indexOf(t)>-1?'none':'inline-block';
+    var tb=document.querySelector('.toolbar'); if(tb) tb.style.display=(t==='finance')?'none':'flex';
+    var tt=TITLES[t]||[t,''];
+    document.getElementById('pageTitle').textContent=tt[0];
+    document.getElementById('pageSub').textContent=tt[1]||'';
+    window.scrollTo(0,0);
+    if(t==='overview'){ renderOverview(); ensure('orders'); return; }
+    if(t==='health'){ renderHealth(); return; }
+    if(t==='finance'){ if(!FIN.cache[FIN.view]&&!FIN.errors[FIN.view]) loadFinance(FIN.view); else renderFinance(); return; }
+    renderCurrent();
+    ensure(t).then(function(){ if(currentTab===t) renderCurrent(); });
+  }
 
-  function match(row,q){ if(!q)return true; q=q.toLowerCase(); return JSON.stringify(row).toLowerCase().indexOf(q)>-1; }
+  function filteredRows(tab, q){
+    var rows=DATA[tab]||[];
+    if(!q) return rows;
+    var hays=HAY[tab]||[], needle=String(q).toLowerCase(), out=[];
+    for(var i=0;i<rows.length;i++){ if((hays[i]||'').indexOf(needle)>-1) out.push(rows[i]); }
+    return out;
+  }
 
   function renderCurrent(){
+    if(currentTab==='overview'){ renderOverview(); return; }
+    if(currentTab==='health'){ renderHealth(); return; }
     if(currentTab==='finance'){ renderFinance(); return; }
-    if(DATA_ERR[currentTab]){
-      setPanel('<div class="loading">Could not load this tab — the server may be waking up. '+
-        '<button class="btn sm" style="margin-left:8px" onclick="retryTab(\''+currentTab+'\')">Retry</button></div>');
+    var tab=currentTab;
+    if(DATA_ERR[tab]){
+      setPanel('<div class="state err">'+icon('warn')+'Could not load '+h(TITLES[tab]?TITLES[tab][0]:tab)+
+        ' — '+h(errText(DATA_ERR[tab]))+
+        '<br><button class="btn sm ghost" onclick="retryTab(\''+tab+'\')">Try again</button></div>');
+      return;
+    }
+    if(!DATA[tab]){
+      setPanel('<div class="sk" style="width:100%"></div><div class="sk" style="width:92%;margin-top:9px"></div>'+
+        '<div class="sk" style="width:96%;margin-top:9px"></div><div class="sk" style="width:80%;margin-top:9px"></div>');
       return;
     }
     var q=document.getElementById('search').value;
-    var rows=(DATA[currentTab]||[]).filter(function(r){return match(r,q);});
-    if(SVC_TABS[currentTab])    return renderServiceRequests(rows, currentTab);
-    if(currentTab==='orders')   return renderOrders(rows);
-    if(currentTab==='listings') return renderListings(rows);
-    if(currentTab==='animals')  return renderAnimals(rows);
-    if(currentTab==='deliveries') return renderDeliveries(rows);
-    if(currentTab==='supplies')  return renderSupplies(rows);
-    if(currentTab==='farmers')   return renderFarmers(rows);
-    if(currentTab==='requests')  return renderRequests(rows);
-    if(currentTab==='offers')    return renderOffers(rows);
-    if(currentTab==='transporters') return renderTransporters(rows);
-    if(currentTab==='matching')     return renderMatching();
-    if(currentTab==='scans')        return renderScans(rows);
-    if(currentTab==='activity')     return renderActivity(rows);
-    if(currentTab==='errors')       return renderErrors(rows);
-    if(currentTab==='inbox')        return renderInbox(rows);
+    var rows=filteredRows(tab, q);
+    if(q && !rows.length && (DATA[tab]||[]).length){
+      setPanel('<div class="state">No '+h(TITLES[tab]?TITLES[tab][0].toLowerCase():tab)+
+        ' rows contain “'+h(q)+'”.</div>');
+      return;
+    }
+    if(SVC_TABS[tab])    return renderServiceRequests(rows, tab);
+    if(tab==='orders')   return renderOrders(rows);
+    if(tab==='listings') return renderListings(rows);
+    if(tab==='animals')  return renderAnimals(rows);
+    if(tab==='deliveries') return renderDeliveries(rows);
+    if(tab==='supplies')  return renderSupplies(rows);
+    if(tab==='farmers')   return renderFarmers(rows);
+    if(tab==='requests')  return renderRequests(rows);
+    if(tab==='offers')    return renderOffers(rows);
+    if(tab==='transporters') return renderTransporters(rows);
+    if(tab==='matching')     return renderMatching();
+    if(tab==='scans')        return renderScans(rows);
+    if(tab==='activity')     return renderActivity(rows);
+    if(tab==='errors')       return renderErrors(rows);
+    if(tab==='inbox')        return renderInbox(rows);
+    setPanel('<div class="state">This section has no view.</div>');
   }
 
   function renderTransporters(rows){
@@ -686,7 +1239,7 @@
     var data=DATA.matching||[];
     // The API returns {candidates:[…]} not a plain array
     var candidates=Array.isArray(data)?data:(data.candidates||[]);
-    if(!candidates.length){ panelMsg('No pending orders to match. 🎉'); return; }
+    if(!candidates.length){ panelMsg('No pending orders are waiting for a farmer match.'); return; }
     var html=candidates.map(function(c){
       var o=c.order||{};
       var farmers=c.farmer_matches||[];
@@ -697,13 +1250,13 @@
         ? '<label>Select farmer match:</label><select id="f_'+h(o.id)+'" style="margin-bottom:6px">'+farmerOpts+'</select>'
           +'<label>Assign transporter (optional):</label><select id="t_'+h(o.id)+'" style="margin-bottom:6px">'+trOpts+'</select>'
           +'<label>Notes to farmer/transporter:</label><input id="n_'+h(o.id)+'" type="text" placeholder="e.g. collect by Friday">'
-          +'<button class="btn sm" style="margin-top:8px;width:100%" onclick="approveMatch(\''+h(o.id)+'\')">✅ Approve & Notify</button>'
-        : '<p style="color:var(--amber);font-size:.82rem">⚠ No active farmer listings found for this order. Add a matching crop listing first.</p>';
+          +'<button class="btn sm" style="margin-top:8px;width:100%" onclick="approveMatch(\''+h(o.id)+'\')">'+icon('handshake')+'Approve &amp; notify</button>'
+        : '<p class="state err">'+icon('warn')+' No active farmer listing matches this order. Publish a matching crop listing first.</p>';
       return '<div class="card" style="margin-bottom:12px">'
         +'<div style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:8px;margin-bottom:10px">'
         +'<div><strong>Order '+h(o.ref||o.id.slice(0,8))+'</strong> &nbsp;<span class="badge pending">pending</span></div>'
         +'<div class="muted" style="font-size:.8rem">'+h(o.created_at?new Date(o.created_at).toLocaleString('en-UG'):'')+'</div></div>'
-        +'<div style="font-size:.85rem;margin-bottom:8px">📍 '+h(o.delivery_address||'—')+' &nbsp;·&nbsp; 💰 UGX '+Number(o.total_price||0).toLocaleString()+'</div>'
+        +'<div style="font-size:.85rem;margin-bottom:8px" class="muted">'+icon('map')+' '+h(o.delivery_address||'—')+' &nbsp;·&nbsp; UGX '+Number(o.total_price||0).toLocaleString()+'</div>'
         +matchSection
         +'</div>';
     }).join('');
@@ -725,13 +1278,13 @@
       if(r&&r.ok){
         var sms=r.sms||{};
         alert('Match approved!\nSMS to farmer: '+(sms.farmer||'not sent (AT not configured)')+'\nSMS to transporter: '+(sms.transporter||'N/A'));
-        await load('matching'); await load('orders'); renderCurrent();
+        await Promise.all([load('matching',false,true), load('orders',false,true), loadStats()]); renderCurrent();
       } else { alert('Error: '+(r&&r.error?r.error:'unknown')); }
     }catch(e){ alert('Request failed: '+e.message); }
   }
 
   function renderErrors(rows){
-    if(!rows.length){ panelMsg('No system errors recorded. 🎉'); return; }
+    if(!rows.length){ panelMsg('No system errors have been recorded.'); return; }
     var body=rows.map(function(ev){
       var sev=ev.severity||'error';
       var det=ev.details?JSON.stringify(ev.details).slice(0,200):'';
@@ -743,7 +1296,7 @@
 
   function renderScans(rows){
     var scanRows=rows.filter(function(ev){ return (ev.event_type||'').indexOf('scan')>-1||(ev.event_type||'').indexOf('crop_doctor')>-1||(ev.event_type||'').indexOf('disease')>-1; });
-    if(!scanRows.length){ panelMsg('No crop doctor scans yet. 🌿'); return; }
+    if(!scanRows.length){ panelMsg('No crop doctor scans have been submitted yet.'); return; }
     var body=scanRows.map(function(ev){
       var det=ev.details||{};
       var ts=ev.created_at?(new Date(ev.created_at)).toLocaleString('en-UG'):'';
@@ -757,7 +1310,7 @@
 
   function renderInbox(rows){
     var opts=Object.keys(INBOX_TABLES).map(function(k){return '<option value="'+k+'"'+(k===inboxTable?' selected':'')+'>'+INBOX_TABLES[k]+'</option>';}).join('');
-    var head='<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;padding:10px"><select onchange="inboxTable=this.value;load(\'inbox\').then(renderCurrent)" style="padding:6px 10px">'+opts+'</select><span style="color:#8b98a8;font-size:.8rem">Latest 100 rows, read-only</span><button class="btn" style="margin-left:auto" onclick="discordTest()">Send Discord test</button></div>';
+    var head='<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;padding:10px"><select onchange="inboxTable=this.value;retryTab(\'inbox\')" style="padding:6px 10px">'+opts+'</select><span style="color:#8b98a8;font-size:.8rem">Latest 100 rows, read-only</span><button class="btn" style="margin-left:auto" onclick="discordTest()">Send Discord test</button></div>';
     if(!rows.length){ setPanel(head+'<div class="loading">Nothing in this table yet.</div>'); return; }
     var cols=[]; rows.forEach(function(r){ Object.keys(r).forEach(function(k){ if(cols.indexOf(k)<0&&cols.length<9) cols.push(k); }); });
     var th=cols.map(function(c){return '<th>'+h(c)+'</th>';}).join('');
@@ -769,11 +1322,11 @@
   }
   function renderActivity(rows){
     if(!rows.length){ panelMsg('No recent activity recorded.'); return; }
-    var icons={'listing_created_web':'🌾','purchase_request_created':'🛒','offer_accepted':'🤝','offer_rejected':'❌','match_approved':'✅','transport_registered':'🚛','listing.created':'🌾','user.signup':'👤','order.created':'📦'};
+    var glyph={'listing_created_web':'leaf','listing.created':'leaf','purchase_request_created':'inquiry','offer_accepted':'handshake','offer_rejected':'x','match_approved':'check','transport_registered':'truck','transport.registered':'truck','user.signup':'users','order.created':'box'};
     var body=rows.map(function(ev){
       var ts=ev.created_at?(new Date(ev.created_at)).toLocaleString('en-UG'):'';
       var det=ev.details||{};
-      var icon=icons[ev.event_type]||'📋';
+      var ic=icon(glyph[ev.event_type]||'bell');
       var summary='';
       if(det.crop_name) summary='Crop: '+det.crop_name;
       else if(det.product) summary='Product: '+det.product;
@@ -781,7 +1334,7 @@
       else if(det.buyer_id) summary='Buyer ID: '+String(det.buyer_id).slice(0,8)+'...';
       else summary=JSON.stringify(det).slice(0,80);
       var uid=ev.user_id?String(ev.user_id).slice(0,8)+'...':'—';
-      return '<tr><td>'+icon+'</td><td>'+h(ev.event_type||'—')+'</td><td style="max-width:280px;font-size:0.82rem">'+h(summary)+'</td><td style="font-size:0.78rem">'+h(uid)+'</td><td>'+h(ts)+'</td></tr>';
+      return '<tr><td>'+ic+'</td><td>'+h(ev.event_type||'—')+'</td><td style="max-width:280px;font-size:0.82rem">'+h(summary)+'</td><td style="font-size:0.78rem">'+h(uid)+'</td><td>'+h(ts)+'</td></tr>';
     }).join('');
     setPanel('<table><thead><tr><th></th><th>Event</th><th>Summary</th><th>User</th><th>Time</th></tr></thead><tbody>'+body+'</tbody></table>');
   }
@@ -805,7 +1358,7 @@
     if(!confirm('Move this order to "'+status+'"? Only legal transitions are accepted.')){ renderCurrent(); return; }
     try{
       var r=await api('/api/admin/order/'+encodeURIComponent(id)+'/status',{method:'PATCH',body:JSON.stringify({status:status})});
-      if(r&&r.ok){ await load('orders'); } else alert((r&&r.error)||'Status update failed.');
+      if(r&&r.ok){ await load('orders',false,true); loadStats(); } else alert((r&&r.error)||'Status update failed.');
     }catch(e){ alert('Status update failed.'); }
     renderCurrent();
   }
@@ -825,22 +1378,22 @@
     if(!confirm('Mark this bank-transfer order PAID?\nReference: '+ref.trim()+'\nThe amount is taken from the stored order, not typed here.')) return;
     try{
       var r=await api('/api/admin/orders/'+encodeURIComponent(orderId)+'/verify-bank-transfer',{method:'POST',body:JSON.stringify({bank_reference:ref.trim()})});
-      if(r&&r.ok){ alert(r.already_paid?'Already marked paid (no double entry).':'Bank transfer recorded and posted to the ledger.'); await load('orders'); }
+      if(r&&r.ok){ alert(r.already_paid?'Already marked paid (no double entry).':'Bank transfer recorded and posted to the ledger.'); await Promise.all([load('orders',false,true), loadStats()]); }
       else alert('Error: '+((r&&r.error)||'unknown'));
     }catch(e){ alert('Request failed: '+e.message); }
     renderCurrent();
   }
   function renderListings(rows){
     if(!rows.length){ panelMsg('No crop listings.'); return; }
-    var body=rows.map(function(l){var img=l.image_url?'<img class="thumb" src="'+h(l.image_url)+'">':'🌾';
-      return '<tr><td>'+img+'</td><td>'+h(l.crop_name||'—')+(l.video_url?' 🎥':'')+'</td><td>'+fmt(l.price_per_kg)+'</td><td>'+(l.quantity_kg||0)+'kg</td><td>'+h(l.district||'—')+'</td><td>'+(l.is_available?'<span class="badge available">live</span>':'<span class="badge sold">hidden</span>')+'</td><td>'+actionsCell('listings',l.id)+'</td></tr>';
+    var body=rows.map(function(l){var img=l.image_url?'<img class="thumb" src="'+h(l.image_url)+'">':'<span class="thumb ph" title="No photograph">'+icon('leaf')+'</span>';
+      return '<tr><td>'+img+'</td><td>'+h(l.crop_name||'—')+(l.video_url?' <span class="badge">video</span>':'')+'</td><td>'+fmt(l.price_per_kg)+'</td><td>'+(l.quantity_kg||0)+'kg</td><td>'+h(l.district||'—')+'</td><td>'+(l.is_available?'<span class="badge available">live</span>':'<span class="badge sold">hidden</span>')+'</td><td>'+actionsCell('listings',l.id)+'</td></tr>';
     }).join('');
     setPanel('<table><thead><tr><th></th><th>Crop</th><th>Price</th><th>Qty</th><th>District</th><th>Status</th><th></th></tr></thead><tbody>'+body+'</tbody></table>');
   }
   function renderAnimals(rows){
     if(!rows.length){ panelMsg('No animal listings.'); return; }
-    var body=rows.map(function(a){var img=a.image_url?'<img class="thumb" src="'+h(a.image_url)+'">':'🐄';var st=a.status||'available';
-      return '<tr><td>'+img+'</td><td>'+h(a.name||'—')+(a.video_url?' 🎥':'')+'</td><td>'+h(a.species||a.category||'—')+'</td><td>'+fmt(a.price)+'</td><td>'+(a.qty||0)+'</td><td>'+h(a.district||'—')+'</td><td><span class="badge '+st+'">'+st+'</span></td><td>'+actionsCell('animals',a.id)+'</td></tr>';
+    var body=rows.map(function(a){var img=a.image_url?'<img class="thumb" src="'+h(a.image_url)+'">':'<span class="thumb ph" title="No photograph">'+icon('paw')+'</span>';var st=a.status||'available';
+      return '<tr><td>'+img+'</td><td>'+h(a.name||'—')+(a.video_url?' <span class="badge">video</span>':'')+'</td><td>'+h(a.species||a.category||'—')+'</td><td>'+fmt(a.price)+'</td><td>'+(a.qty||0)+'</td><td>'+h(a.district||'—')+'</td><td><span class="badge '+st+'">'+st+'</span></td><td>'+actionsCell('animals',a.id)+'</td></tr>';
     }).join('');
     setPanel('<table><thead><tr><th></th><th>Name</th><th>Type</th><th>Price</th><th>Qty</th><th>District</th><th>Status</th><th></th></tr></thead><tbody>'+body+'</tbody></table>');
   }
@@ -855,8 +1408,8 @@
   }
   function renderSupplies(rows){
     if(!rows.length){ panelMsg('No supply products.'); return; }
-    var catLabel={seeds:'🌱 Seeds',fertilizer:'🧪 Fertilizer',pesticide:'🐛 Pesticide',tool:'🔧 Tool',animal_supply:'🐾 Animal care'};
-    var body=rows.map(function(p){var img=p.image_id?'<img class="thumb" src="https://images.unsplash.com/photo-'+h(p.image_id)+'?auto=format&fit=crop&w=80&h=80&q=60">':'📦';
+    var catLabel={seeds:'Seeds',fertilizer:'Fertilizer',pesticide:'Pesticide',tool:'Tool',animal_supply:'Animal care'};
+    var body=rows.map(function(p){var img=p.image_id?'<img class="thumb" src="https://images.unsplash.com/photo-'+h(p.image_id)+'?auto=format&fit=crop&w=80&h=80&q=60">':'<span class="thumb ph" title="No photograph">'+icon('box')+'</span>';
       return '<tr><td>'+img+'</td><td>'+h(p.name||'—')+(p.badge?' <span class="badge">'+h(p.badge)+'</span>':'')+'</td><td>'+h(catLabel[p.category]||p.category||'—')+'</td><td>'+h(p.brand||'—')+'</td><td>'+fmt(p.price)+'</td><td>'+h(p.unit||'—')+'</td><td>'+(p.in_stock!==false?'<span class="badge available">in stock</span>':'<span class="badge sold">hidden</span>')+'</td><td>'+actionsCell('supplies',p.id)+'</td></tr>';
     }).join('');
     setPanel('<table><thead><tr><th></th><th>Product</th><th>Category</th><th>Brand</th><th>Price</th><th>Unit</th><th>Status</th><th></th></tr></thead><tbody>'+body+'</tbody></table>');
@@ -864,7 +1417,7 @@
   function renderFarmers(rows){
     if(!rows.length){ panelMsg('No users.'); return; }
     var body=rows.map(function(f){
-      return '<tr><td>'+h(f.full_name||'—')+'</td><td>'+h(f.phone||'—')+'</td><td>'+h(f.email||'—')+'</td><td>'+h(f.district||'—')+'</td><td>'+(f.is_verified?'✅':'—')+'</td><td>'+actionsCell('farmers',f.id)+'</td></tr>';
+      return '<tr><td>'+h(f.full_name||'—')+'</td><td>'+h(f.phone||'—')+'</td><td>'+h(f.email||'—')+'</td><td>'+h(f.district||'—')+'</td><td>'+(f.is_verified?'<span class="badge available">verified</span>':'<span class="badge pending">unverified</span>')+'</td><td>'+actionsCell('farmers',f.id)+'</td></tr>';
     }).join('');
     setPanel('<table><thead><tr><th>Name</th><th>Phone</th><th>Email</th><th>District</th><th>Verified</th><th></th></tr></thead><tbody>'+body+'</tbody></table>');
   }
@@ -896,7 +1449,7 @@
     if(!confirm(label+' this offer?')) return;
     try{
       var r=await api('/api/offers/'+offerId+'/'+action,{method:'POST',body:JSON.stringify({})});
-      if(r&&(r.ok||r.id||r.status)){ await load('offers'); renderCurrent(); }
+      if(r&&(r.ok||r.id||r.status)){ await load('offers',false,true); renderCurrent(); }
       else alert((r&&r.error)||label+' failed.');
     }catch(e){ alert(action+' failed.'); }
   }
@@ -904,10 +1457,12 @@
   // ── Cold storage / refrigerated transport / loan requests ───────────
   function updateSvcCounts(){
     Object.keys(SVC_TABS).forEach(function(t){
-      var n=(DATA[t]||[]).filter(function(r){return (r.status||'pending')==='pending';}).length;
-      ['cnt_'+t,'ov_cnt_'+t].forEach(function(id){
-        var el=document.getElementById(id); if(el) el.textContent=n>0?n:'';
-      });
+      var rows=DATA[t];
+      var el=document.getElementById('cnt_'+t); if(!el) return;
+      if(!rows){ el.textContent=''; el.title='not loaded yet'; return; }
+      var n=rows.filter(function(r){return (r.status||'pending')==='pending';}).length;
+      el.textContent=n>0?n:'';
+      el.title=n+' '+TITLES[t][0].toLowerCase()+' awaiting a decision';
     });
   }
   function svcDetails(r){
@@ -933,7 +1488,7 @@
         (isLoan?'<td>'+fmt(r.amount_ugx)+'</td>':'')+
         '<td><span class="badge '+h(st)+'">'+h(st)+'</span></td>'+
         '<td><div class="rowbtns"><select class="svc-st" onchange="setSvcStatus(\''+h(r.id)+'\',\''+tab+'\',this.value)">'+opts+'</select>'+
-        '<button class="btn ghost sm" title="Add a note" onclick="svcNote(\''+h(r.id)+'\',\''+tab+'\')">📝</button></div>'+
+        '<button class="btn ghost sm" title="Add a note" onclick="svcNote(\''+h(r.id)+'\',\''+tab+'\')">Note</button></div>'+
         (r.admin_notes?'<div class="muted" style="font-size:.75rem;margin-top:4px;white-space:normal">'+h(r.admin_notes)+'</div>':'')+'</td>'+
       '</tr>';
     }).join('');
@@ -942,8 +1497,8 @@
   async function patchSvc(id, tab, fields){
     try{
       var r=await api('/api/admin/service-requests/'+id,{method:'PATCH',body:JSON.stringify(fields)});
-      if(r&&r.ok){ await load(tab); renderCurrent(); }
-      else { alert((r&&r.error)||'Update failed.'); await load(tab); renderCurrent(); }
+      if(r&&r.ok){ await load(tab,false,true); renderCurrent(); }
+      else { alert((r&&r.error)||'Update failed.'); await load(tab,false,true); renderCurrent(); }
     }catch(e){ alert('Update failed.'); }
   }
   function setSvcStatus(id, tab, status){ patchSvc(id, tab, {status:status}); }
@@ -954,8 +1509,31 @@
     patchSvc(id, tab, {admin_notes:n});
   }
 
-  function setPanel(html){ document.getElementById('panel').innerHTML=html; }
-  function panelMsg(m){ setPanel('<div class="loading">'+m+'</div>'); }
+  function setPanel(html){
+    var p=document.getElementById('panel');
+    p.innerHTML=html;
+    scheduleScrollHint();
+  }
+  // Whether the table is wider than its box is answered after the browser has
+  // laid the new rows out. Reading scrollWidth synchronously here would force a
+  // reflow inside every search keystroke.
+  var _hintQueued=false;
+  function scheduleScrollHint(){
+    if(_hintQueued) return; _hintQueued=true;
+    var run=function(){
+      _hintQueued=false;
+      var p=document.getElementById('panel'), t=p.querySelector('table');
+      var wide=!!t && t.scrollWidth - p.clientWidth > 8;
+      p.classList.toggle('scrolling', wide);
+      document.getElementById('tblHint').classList.toggle('on', wide);
+    };
+    if(window.requestAnimationFrame) requestAnimationFrame(run); else setTimeout(run,0);
+  }
+  window.addEventListener('resize', scheduleScrollHint);
+  function panelMsg(m){
+    setPanel('<div class="state">'+m+
+      '<br><button class="btn sm ghost" onclick="retryTab(currentTab)">Reload</button></div>');
+  }
 
   // ── Edit / create ───────────────────────────────────────────────
   function rowById(tab,id){ return (DATA[tab]||[]).find(function(r){return String(r.id)===String(id);}) || {}; }
@@ -1035,7 +1613,7 @@
       var method='PATCH';
       if(editState.isNew){ method='POST'; } else { body.id=editState.id; }
       var r=await api('/api/admin/row',{ method:method, body:JSON.stringify(body) });
-      if(r&&r.ok){ closeEdit(); await load(editState.tab); await loadStats(); renderCurrent(); }
+      if(r&&r.ok){ closeEdit(); await Promise.all([load(editState.tab,false,true), loadStats()]); renderCurrent(); }
       else document.getElementById('editErr').textContent=(r&&r.error)?r.error:'Save failed.';
     }catch(e){ document.getElementById('editErr').textContent='Save failed.'; }
     document.getElementById('saveBtn').disabled=false; document.getElementById('saveBtn').textContent='Save';
@@ -1045,12 +1623,27 @@
     if(!confirm('Delete this '+tab.replace('s','')+'? This cannot be undone.')) return;
     try{
       var r=await api('/api/admin/row',{ method:'DELETE', body:JSON.stringify({ table:TABLE_OF[tab], id:id }) });
-      if(r&&r.ok){ await load(tab); await loadStats(); renderCurrent(); }
+      if(r&&r.ok){ await load(tab,false,true); await loadStats(); renderCurrent(); }
       else alert((r&&r.error)||'Delete failed.');
     }catch(e){ alert('Delete failed.'); }
   }
 
-  if(TOKEN){ api('/api/admin/verify').then(function(v){ if(v&&v.valid) showDash(); else logout(); }).catch(function(){ logout(); }); }
+  async function checkSession(){
+    if(!TOKEN) return;
+    var el=document.getElementById('loginHint');
+    if(el) el.textContent='Restoring your session…';
+    try{
+      var v=await api('/api/admin/verify');
+      if(v&&v.valid){ showDash(); return; }
+    }catch(e){
+      if(e && e.message==='unauthorized') return;   // api() already logged out
+    }
+    // An unreachable API is not the same as a bad token: keep the token and let
+    // the admin sign in, but say why the screen did not fill itself in.
+    if(el) el.textContent='Could not reach the server to restore your session. Sign in again, or wait for it to wake up.';
+  }
+  initSidebar();
+  checkSession();
 </script>
 </body>
 </html>
