@@ -2553,12 +2553,38 @@ _ADMIN_COLS = {
     'supplier_products': ['category', 'name', 'brand', 'price', 'unit', 'badge',
                           'description', 'image_id', 'in_stock'],
     'transporters':      ['full_name', 'phone', 'email', 'vehicle_type', 'plate_number',
-                          'district', 'capacity_kg', 'notes', 'status', 'is_available'],
+                          'district', 'capacity_kg', 'notes', 'status', 'is_available',
+                          'supabase_uid'],
 }
 
 def _filter_cols(table, data):
     allowed = _ADMIN_COLS.get(table, [])
     return {k: v for k, v in (data or {}).items() if k in allowed}
+
+
+def _check_transporter_login(fields, row_id):
+    """Keep a transporter's login a verified id, and one login to one driver.
+
+    Without this the portal is unreachable: /api/transporter/* resolves the
+    caller by `transporters.supabase_uid`, so a row that never got one answers
+    "account not linked" forever, and a copy-pasted uid makes two rows claim the
+    same person.
+    """
+    raw = str(fields.get('supabase_uid') or '').strip()
+    if not raw:
+        fields['supabase_uid'] = None
+        return None
+    if not _UUID_RE.match(raw):
+        return jsonify({'error': 'The login UID has to be the Supabase auth user id '
+                                 '(a UUID from Authentication → Users).',
+                        'code': 'invalid_login_uid'}), 400
+    fields['supabase_uid'] = raw
+    taken = supa_get('transporters', {'supabase_uid': f'eq.{raw}', 'select': 'id'}, limit=2)
+    for row in taken or []:
+        if str(row.get('id')) != str(row_id or ''):
+            return jsonify({'error': 'That login is already linked to another transporter.',
+                            'code': 'login_already_linked'}), 409
+    return None
 
 @app.route('/api/admin/row', methods=['POST', 'PATCH', 'DELETE'])
 def admin_row():
@@ -2585,6 +2611,10 @@ def admin_row():
     fields = _filter_cols(table, raw_fields)
     if not fields:
         return jsonify({'error': 'No editable fields provided'}), 400
+    if table == 'transporters' and 'supabase_uid' in fields:
+        refusal = _check_transporter_login(fields, data.get('id'))
+        if refusal:
+            return refusal
     if request.method == 'POST':
         row = supa_insert(table, fields)
         return (jsonify({'ok': True, 'row': row}), 200) if row else (jsonify({'error': 'Create failed'}), 500)

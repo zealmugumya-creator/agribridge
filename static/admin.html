@@ -483,7 +483,10 @@
       {k:'capacity_kg',label:'Capacity (kg)',t:'number'},
       {k:'notes',label:'Notes / MOU ref',t:'textarea'},
       {k:'status',label:'Account status',t:'select',opts:['active','inactive']},
-      {k:'is_available',label:'Available now',t:'check'}
+      {k:'is_available',label:'Available now',t:'check'},
+      // The portal finds a driver by this id, so a row without it answers
+      // "account not linked" no matter what else is filled in.
+      {k:'supabase_uid',label:'Login UID (Supabase → Authentication → Users → copy the user id)',t:'text'}
     ],
     supplier_products: [
       {k:'name',label:'Product name',t:'text'},

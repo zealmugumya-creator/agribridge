@@ -113,6 +113,47 @@ def test_admin_editor_still_updates_plain_order_fields(client, monkeypatch):
     assert updates and updates[0][1] == {'delivery_address': 'Kampala'}
 
 
+_UID = '8f14e45f-ceea-4c1a-9b1e-3e2f8b1a5c77'
+
+
+def test_admin_can_link_a_transporter_login(client, monkeypatch):
+    """The portal resolves a driver by this id, so the console has to set it."""
+    updates = []
+    monkeypatch.setattr(app_mod, 'supa_get', lambda *a, **k: [])
+    monkeypatch.setattr(app_mod, 'supa_update',
+                        lambda *a, **k: updates.append(a) or True)
+    r = client.patch('/api/admin/row', json={
+        'table': 'transporters', 'id': 't1', 'fields': {'supabase_uid': _UID}},
+        headers=_admin_headers())
+    assert r.status_code == 200
+    assert updates and updates[0][1] == {'supabase_uid': _UID}
+
+
+def test_admin_cannot_link_a_made_up_login(client, monkeypatch):
+    updates = []
+    monkeypatch.setattr(app_mod, 'supa_update',
+                        lambda *a, **k: updates.append(a) or True)
+    r = client.patch('/api/admin/row', json={
+        'table': 'transporters', 'id': 't1', 'fields': {'supabase_uid': 'not-a-uuid'}},
+        headers=_admin_headers())
+    assert r.status_code == 400
+    assert r.get_json()['code'] == 'invalid_login_uid'
+    assert updates == []
+
+
+def test_one_login_cannot_be_linked_to_two_drivers(client, monkeypatch):
+    updates = []
+    monkeypatch.setattr(app_mod, 'supa_get', lambda *a, **k: [{'id': 't2'}])
+    monkeypatch.setattr(app_mod, 'supa_update',
+                        lambda *a, **k: updates.append(a) or True)
+    r = client.patch('/api/admin/row', json={
+        'table': 'transporters', 'id': 't1', 'fields': {'supabase_uid': _UID}},
+        headers=_admin_headers())
+    assert r.status_code == 409
+    assert r.get_json()['code'] == 'login_already_linked'
+    assert updates == []
+
+
 class FakeRpc:
     def __init__(self, result):
         self.result = result

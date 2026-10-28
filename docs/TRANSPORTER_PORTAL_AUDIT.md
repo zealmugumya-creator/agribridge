@@ -428,6 +428,13 @@ offer, with `Fee`, `Code`, `Proof` and `Accept/Decline` actions wired to the
 §11 endpoints. The code is displayed once in a prompt and never stored
 readable; the proof photo opens through a 5-minute signed URL.
 
+The Transporters editor also gained **Login UID**. Without it the portal could
+never be reached: `/api/transporter/*` resolves the caller through
+`transporters.supabase_uid`, and no screen could set that column — every driver
+would have been told "account not linked" forever. `POST/PATCH /api/admin/row`
+now accepts it, rejects anything that is not a UUID (`400 invalid_login_uid`)
+and refuses to link one login to a second driver (`409 login_already_linked`).
+
 ### Verified / not verified (stage 3)
 
 | Claim | Basis |
@@ -465,8 +472,9 @@ readable; the proof photo opens through a 5-minute signed URL.
 | Existing pages unaffected | `/` → 200, `/admin` → 200, `/logistics` → 200 |
 
 **Still required before a driver can use it:** migrations 0020–0023 applied to
-Supabase, and a `transporters` row linked to a real login. Until then the
-portal's API calls return a loud error and nothing is silently invented.
+Supabase, then a `transporters` row with its **Login UID** filled in. Until
+then the portal's API calls return a loud error and nothing is silently
+invented.
 
 ### What happens on the first push (checked before releasing)
 
