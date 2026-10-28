@@ -450,7 +450,23 @@ readable; the proof photo opens through a 5-minute signed URL.
 | **Screenshots** | **Not captured** — the in-app browser had no visible surface; layout was measured from the DOM instead |
 | **Against the real backend** | **No.** The browser session used a localhost stub serving the real HTML with synthetic API bodies, because 0020–0023 are unapplied and no transporter credentials exist here. The API contract itself is covered by pytest |
 | Admin console actions end to end | **Not exercised in a browser** — `admin.html` needs the admin password, which is not in this environment |
-| Deployed | **No** |
+| Deployed | **Yes** — pushed as `ed838fe` on 2026-10-28; see "Released" below |
+
+### Released (verified against production, not inferred)
+
+| Check | Result |
+| --- | --- |
+| GitHub Actions on `ed838fe` | `CI` → success; `Deploy public web app` → success (read from the public runs API) |
+| The published portal is the committed file | `agribrige.com/transporter` → 200, **61,951 bytes**, sha256 `52b52ef5eaaadb7c…` — byte-identical to `git show HEAD:static/transporter.html`. The local working copy differs only by CRLF line endings |
+| The portal opens as a guest | Browser, live: "Transporter sign in" visible, bottom nav hidden, `scrollWidth - clientWidth == 0` |
+| The landing page links to it | Browser, live: the Transporter chip is a visible `<a href="/transporter">` (225×126 px, no underline) beside the other four chips; page overflow 0 |
+| The new API is live | `GET /api/transporter/dashboard` → **401 `{"error":"Missing token"}`**. The route did not exist at `4214074` (`grep` on that blob: 0), so this is new code answering, not a cached 404 |
+| The admin transport routes are live | `GET /api/admin/transport-rates` → 401; `POST /api/admin/transport-quote` → 405 on GET (route exists, method not allowed) |
+| Existing pages unaffected | `/` → 200, `/admin` → 200, `/logistics` → 200 |
+
+**Still required before a driver can use it:** migrations 0020–0023 applied to
+Supabase, and a `transporters` row linked to a real login. Until then the
+portal's API calls return a loud error and nothing is silently invented.
 
 ### What happens on the first push (checked before releasing)
 
