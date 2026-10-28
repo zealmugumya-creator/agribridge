@@ -312,7 +312,10 @@ def _signin(page, site):
         user_metadata:{name:'Grace Nakato', role:'farmer', phone:'+256700111222', district:'Mukono'}}});
     }""")
     page.wait_for_function("typeof getCurrentRole==='function' && getCurrentRole()==='farmer'", timeout=8000)
-    page.wait_for_function("!!document.querySelector('#roleHomePanel .fh-sell')", timeout=8000)
+    # The home panels are filled asynchronously and the role page is swapped in
+    # after that, so "the node exists" does not mean it has a box yet; tests
+    # below measure it, and a hidden node answers bounding_box() with None.
+    page.locator("#roleHomePanel .fh-sell").wait_for(state="visible", timeout=8000)
 
 
 @pytest.fixture
@@ -363,9 +366,11 @@ def test_farmer_nav_is_five_named_tabs_and_sell_is_the_lead_action(farm):
 
     sell = page.locator("#roleHomePanel .fh-sell")
     assert sell.count() == 1 and "Sell produce" in sell.inner_text()
-    assert sell.bounding_box()["y"] < page.locator("#roleHomePanel .fh-stats").bounding_box()["y"]
-    assert sell.bounding_box()["width"] > page.locator("#roleHomePanel .fh-stat").first.bounding_box()["width"]
-    assert sell.bounding_box()["height"] >= 44
+    sell_box = sell.bounding_box()
+    assert sell_box, "the Sell produce card has no box, so it is not on screen"
+    assert sell_box["y"] < page.locator("#roleHomePanel .fh-stats").bounding_box()["y"]
+    assert sell_box["width"] > page.locator("#roleHomePanel .fh-stat").first.bounding_box()["width"]
+    assert sell_box["height"] >= 44
 
     # The greeting carries the farmer's own verified given name, never a generic label.
     assert page.locator("#roleHomePanel .fh-name").first.inner_text() == "Grace"
