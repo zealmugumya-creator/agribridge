@@ -1099,6 +1099,9 @@ html.is-web:not(.app-entered) body{overflow:hidden}
 .wl-chip{background:var(--card);border:1px solid var(--border);border-radius:16px;padding:18px 14px;text-align:center;font-weight:700;color:#fff}
 .wl-chip>span{display:block;font-size:2rem;margin-bottom:8px}
 .wl-chip small{display:block;font-weight:500;color:var(--text2);font-size:.76rem;margin-top:3px}
+a.wl-chip{display:block;text-decoration:none}
+a.wl-chip:hover,a.wl-chip:focus-visible{border-color:var(--green);color:var(--green-light)}
+a.wl-chip small{color:var(--green)}
 .wl-trust{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:16px;
   border-top:1px solid var(--border);border-bottom:1px solid var(--border)}
 .wl-trust-item{text-align:center}
@@ -1807,7 +1810,7 @@ html.is-web:not(.app-entered) body{overflow:hidden}
     <div class="wl-chips">
       <div class="wl-chip"><span>🌾</span>Farmer<small>Sell &amp; grow</small></div>
       <div class="wl-chip"><span>🛒</span>Buyer<small>Source &amp; order</small></div>
-      <div class="wl-chip"><span>🚚</span>Transporter<small>Deliver &amp; earn</small></div>
+      <a class="wl-chip" href="/transporter"><span>🚚</span>Transporter<small>Driver portal →</small></a>
       <div class="wl-chip"><span>🏪</span>Supplier<small>List &amp; sell inputs</small></div>
       <div class="wl-chip"><span>🛡️</span>Admin / Co-op<small>Oversee &amp; support</small></div>
     </div>
@@ -1828,7 +1831,7 @@ html.is-web:not(.app-entered) body{overflow:hidden}
 
   <footer class="wl-foot">
     <div class="wl-logo">🌱 Agri<span>Bridge</span></div>
-    <div class="wl-foot-links"><a href="#" onclick="enterApp();return false">Home</a><a href="#wl-features">Features</a><a href="#" onclick="enterApp('login');return false">Sign in</a><a href="legal/terms-of-use.html">Terms</a><a href="legal/privacy-policy.html">Privacy</a><a href="#" onclick="openPrivacyRequest();return false">Privacy requests</a></div>
+    <div class="wl-foot-links"><a href="#" onclick="enterApp();return false">Home</a><a href="#wl-features">Features</a><a href="#" onclick="enterApp('login');return false">Sign in</a><a href="/transporter">Driver portal</a><a href="legal/terms-of-use.html">Terms</a><a href="legal/privacy-policy.html">Privacy</a><a href="#" onclick="openPrivacyRequest();return false">Privacy requests</a></div>
     <small>© 2026 AgriBridge Uganda · Bridging Farms. Building Markets.</small>
   </footer>
 </div>
@@ -9496,6 +9499,10 @@ function getCurrentRole() {
   if (role === 'hotel' || role === 'restaurant' || role === 'b2b') return 'hotel';
   if (role === 'farmer') return 'farmer';
   if (role === 'supplier' || role === 'input_seller') return 'supplier';
+  // Transporter accounts are created by an administrator and drive deliveries in
+  // their own portal. Without this branch a driver fell through to 'vendor' and
+  // was shown a buyer's screens for a role they do not have.
+  if (role === 'transporter' || role === 'driver') return 'transporter';
   return 'vendor';
 }
 
@@ -9508,6 +9515,15 @@ function applyRoleUI() {
   _applyingRoleUI = true;
   setTimeout(function(){ _applyingRoleUI = false; }, 0);
   var role = getCurrentRole();
+
+  // A transporter has no marketplace screens; their five destinations live in the
+  // dedicated portal. Send them there instead of painting a buyer's navigation.
+  if (role === 'transporter') {
+    if (location.pathname.replace(/\/+$/, '') !== '/transporter') {
+      location.replace('/transporter');
+    }
+    return;
+  }
 
   // 1. Role indicator stripe at top
   var indicator = document.getElementById('roleIndicator');

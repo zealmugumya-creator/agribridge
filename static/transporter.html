@@ -2,272 +2,1238 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="theme-color" content="#0f1310">
 <title>AgriBridge — Transporter Portal</title>
 <style>
-  :root{--bg:#0f1310;--bg2:#171c18;--bg3:#1e2620;--border:#2c352b;--text:#e8efe8;--text2:#9fb0a2;--green:#2ecc71;--green-dim:#123821;--amber:#f0a020;--red:#e05555}
+  :root{
+    --bg:#0f1310;--bg2:#171c18;--bg3:#1e2620;--bg4:#28322a;--border:#2c352b;--border2:#3b473b;
+    --text:#e8efe8;--text2:#9fb0a2;--text3:#7b8a7e;--green:#2ecc71;--green-2:#4be08a;
+    --green-dim:#123821;--amber:#f0a020;--red:#e05555;--blue:#5b9bff;
+    --r:12px;--rs:9px;--navb:64px;--tap:48px;
+  }
   *{box-sizing:border-box;margin:0;padding:0}
-  body{font-family:-apple-system,Segoe UI,Roboto,Arial,sans-serif;background:var(--bg);color:var(--text);line-height:1.5;min-height:100vh}
-  header{display:flex;align-items:center;justify-content:space-between;padding:16px 20px;background:var(--bg2);border-bottom:1px solid var(--border)}
-  header h1{font-size:1.05rem;font-weight:800}
-  .wrap{max-width:500px;margin:0 auto;padding:24px 16px}
-  .card{background:var(--bg2);border:1px solid var(--border);border-radius:14px;padding:22px;margin-bottom:16px}
-  .card h2{font-size:1.1rem;font-weight:800;margin-bottom:4px}
-  .card p{color:var(--text2);font-size:.88rem;margin-bottom:16px}
-  button{font-family:inherit;cursor:pointer;border:none;border-radius:10px;font-weight:700;font-size:1rem;padding:14px 20px;width:100%}
-  .btn-avail{background:var(--green);color:#04210f;transition:background .2s}
-  .btn-avail.off{background:var(--bg3);border:2px solid var(--border);color:var(--text2)}
-  .toggle-wrap{display:flex;align-items:center;justify-content:space-between;background:var(--bg3);border:1px solid var(--border);border-radius:12px;padding:18px}
-  .toggle-label{font-weight:800;font-size:1rem}
-  .toggle-sub{color:var(--text2);font-size:.82rem;margin-top:2px}
-  .toggle{position:relative;width:56px;height:30px;flex-shrink:0}
-  .toggle input{opacity:0;width:0;height:0}
-  .slider{position:absolute;inset:0;background:var(--bg);border:2px solid var(--border);border-radius:30px;cursor:pointer;transition:.3s}
-  .slider:before{content:'';position:absolute;width:22px;height:22px;left:2px;bottom:2px;background:var(--text2);border-radius:50%;transition:.3s}
-  input:checked + .slider{background:var(--green-dim);border-color:var(--green)}
-  input:checked + .slider:before{transform:translateX(26px);background:var(--green)}
-  .status-pill{display:inline-flex;align-items:center;gap:6px;padding:6px 14px;border-radius:999px;font-size:.82rem;font-weight:700}
-  .status-pill.on{background:rgba(46,204,113,.15);color:var(--green)}
-  .status-pill.off{background:rgba(155,176,162,.1);color:var(--text2)}
-  .dot{width:8px;height:8px;border-radius:50%;background:currentColor}
-  .profile-row{display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--border);font-size:.88rem}
-  .profile-row:last-child{border-bottom:none}
-  .profile-row .lbl{color:var(--text2)}
-  .err{color:var(--red);font-size:.85rem;margin-top:8px;min-height:1.2em}
-  input,select{font-family:inherit;background:var(--bg3);border:1px solid var(--border);color:var(--text);border-radius:8px;padding:10px 12px;width:100%;font-size:.95rem;margin-bottom:10px}
-  label{display:block;font-size:.8rem;color:var(--text2);margin:8px 0 3px}
-  .hidden{display:none}
-  .muted{color:var(--text2);font-size:.82rem}
-  .spin{display:inline-block;animation:spin 1s linear infinite}
+  html,body{overflow-x:hidden}
+  body{
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Arial,sans-serif;
+    background:var(--bg);color:var(--text);line-height:1.5;min-height:100vh;
+    padding-bottom:calc(var(--navb) + env(safe-area-inset-bottom) + 12px);
+    -webkit-tap-highlight-color:transparent;
+  }
+  button{font-family:inherit;cursor:pointer;border:none;background:none;color:inherit}
+  [hidden]{display:none !important}
+  :focus-visible{outline:2px solid var(--green-2);outline-offset:2px}
+  .muted{color:var(--text2);font-size:.85rem}
+  .tiny{color:var(--text3);font-size:.76rem}
+  .wrap{max-width:1080px;margin:0 auto;padding:14px 14px 8px}
+
+  /* ── shell ── */
+  .topbar{
+    position:sticky;top:0;z-index:30;display:flex;align-items:center;justify-content:space-between;
+    gap:12px;padding:12px 16px;background:rgba(23,28,24,.96);border-bottom:1px solid var(--border);
+    backdrop-filter:blur(8px);
+  }
+  .brand{display:flex;align-items:center;gap:10px;min-width:0}
+  .brand-mark{width:32px;height:32px;border-radius:9px;background:var(--green-dim);display:grid;
+    place-items:center;color:var(--green);flex:0 0 auto}
+  .brand-name{font-weight:800;font-size:.98rem;letter-spacing:.2px;white-space:nowrap;
+    overflow:hidden;text-overflow:ellipsis}
+  .brand-sub{font-size:.72rem;color:var(--text3);margin-top:-2px}
+  .who{font-size:.8rem;color:var(--text2);text-align:right;min-width:0;max-width:42vw;
+    overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .who b{color:var(--text);font-weight:700}
+  .shell{display:block}
+  .sidenav{display:none}
+  .main{min-width:0}
+
+  /* ── bottom nav / side nav ── */
+  .bottomnav{
+    position:fixed;left:0;right:0;bottom:0;z-index:40;display:grid;grid-template-columns:repeat(5,1fr);
+    background:rgba(23,28,24,.98);border-top:1px solid var(--border);
+    padding-bottom:env(safe-area-inset-bottom);backdrop-filter:blur(8px);
+  }
+  .navbtn{
+    display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;
+    min-height:var(--navb);padding:6px 2px;color:var(--text3);font-size:.68rem;font-weight:700;
+    letter-spacing:.1px;background:none;border-radius:0;
+  }
+  .navbtn svg{width:24px;height:24px}
+  .navbtn[aria-current="page"]{color:var(--green)}
+  .navbtn .badge{
+    position:absolute;transform:translate(14px,-12px);background:var(--red);color:#fff;
+    font-size:.62rem;font-weight:800;border-radius:999px;min-width:16px;height:16px;
+    display:grid;place-items:center;padding:0 4px
+  }
+  .navbtn{position:relative}
+  @media(min-width:900px){
+    body{padding-bottom:24px}
+    .bottomnav{display:none}
+    .shell{display:grid;grid-template-columns:236px minmax(0,1fr);gap:20px;max-width:1120px;
+      margin:0 auto;padding:18px 18px 40px}
+    .sidenav{display:flex;flex-direction:column;gap:4px;position:sticky;top:78px;align-self:start}
+    .sidebtn{display:flex;align-items:center;gap:10px;min-height:46px;padding:0 12px;border-radius:10px;
+      color:var(--text2);font-weight:700;font-size:.9rem;text-align:left}
+    .sidebtn svg{width:20px;height:20px;flex:0 0 auto}
+    .sidebtn[aria-current="page"]{background:var(--green-dim);color:var(--green)}
+    .sidebtn:hover{background:var(--bg3);color:var(--text)}
+  }
+
+  /* ── cards ── */
+  .card{background:var(--bg2);border:1px solid var(--border);border-radius:var(--r);
+    padding:16px;margin-bottom:12px;min-width:0}
+  .card h2{font-size:1rem;font-weight:800;margin-bottom:2px}
+  .card h3{font-size:.85rem;font-weight:800;margin-bottom:8px;color:var(--text2);
+    text-transform:uppercase;letter-spacing:.6px}
+  .sectionhead{display:flex;align-items:center;justify-content:space-between;gap:10px;margin:2px 0 10px}
+  .sectionhead h1{font-size:1.15rem;font-weight:800;letter-spacing:.1px;min-width:0;overflow-wrap:anywhere}
+  .sectionhead .tiny{text-align:right;min-width:0;overflow-wrap:anywhere}
+
+  .btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;min-height:var(--tap);
+    padding:0 18px;border-radius:10px;font-weight:800;font-size:.92rem;width:100%;
+    background:var(--green);color:#04210f;transition:filter .15s,background .15s}
+  .btn:disabled{opacity:.6;cursor:not-allowed}
+  .btn:not(:disabled):active{filter:brightness(.94)}
+  .btn.secondary{background:var(--bg4);color:var(--text);border:1px solid var(--border2)}
+  .btn.ghost{background:transparent;color:var(--text2);border:1px solid var(--border)}
+  .btn.danger{background:transparent;color:var(--red);border:1px solid rgba(224,85,85,.4)}
+  .btn.small{min-height:40px;font-size:.84rem;padding:0 14px;width:auto}
+  .btn-row{display:flex;gap:8px;flex-wrap:wrap}
+  .btn-row .btn{width:auto;flex:1 1 140px}
+
+  /* ── forms ── */
+  label{display:block;font-size:.8rem;font-weight:700;color:var(--text2);margin:10px 0 5px}
+  input,select,textarea{
+    font-family:inherit;font-size:1rem;color:var(--text);background:var(--bg3);
+    border:1px solid var(--border);border-radius:9px;padding:12px;width:100%;min-height:var(--tap)
+  }
+  input:focus,select:focus{outline:2px solid var(--green-dim);border-color:var(--green)}
+  input[type=file]{padding:10px;font-size:.85rem}
+  .field-hint{color:var(--text3);font-size:.75rem;margin-top:4px}
+
+  /* ── status + chips ── */
+  .pill{display:inline-flex;align-items:center;gap:6px;padding:4px 10px;border-radius:999px;
+    font-size:.72rem;font-weight:800;letter-spacing:.2px;white-space:nowrap}
+  .pill.green{background:rgba(46,204,113,.14);color:var(--green)}
+  .pill.amber{background:rgba(240,160,32,.14);color:var(--amber)}
+  .pill.red{background:rgba(224,85,85,.14);color:var(--red)}
+  .pill.blue{background:rgba(91,155,255,.14);color:var(--blue)}
+  .pill.grey{background:var(--bg4);color:var(--text2)}
+  .dot{width:7px;height:7px;border-radius:50%;background:currentColor;flex:0 0 auto}
+
+  /* ── availability ── */
+  .toggle-wrap{display:flex;align-items:center;justify-content:space-between;gap:14px;
+    background:var(--bg3);border:1px solid var(--border);border-radius:12px;padding:14px}
+  .toggle-label{font-weight:800;font-size:.98rem}
+  .toggle-sub{color:var(--text2);font-size:.78rem;margin-top:2px}
+  .toggle{position:relative;width:60px;height:34px;flex:0 0 auto}
+  .toggle input{position:absolute;inset:0;width:100%;height:100%;opacity:0;margin:0;cursor:pointer;z-index:2;min-height:0}
+  .slider{position:absolute;inset:0;background:var(--bg);border:2px solid var(--border2);
+    border-radius:30px;transition:.2s;pointer-events:none}
+  .slider:before{content:'';position:absolute;width:24px;height:24px;left:2px;top:2px;
+    background:var(--text3);border-radius:50%;transition:.2s}
+  .toggle input:checked + .slider{background:var(--green-dim);border-color:var(--green)}
+  .toggle input:checked + .slider:before{transform:translateX(26px);background:var(--green)}
+  .toggle input:focus-visible + .slider{outline:2px solid var(--green-2);outline-offset:2px}
+
+  /* ── metrics ── */
+  .metrics{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+  @media(min-width:640px){.metrics{grid-template-columns:repeat(5,minmax(0,1fr))}}
+  .metric{background:var(--bg2);border:1px solid var(--border);border-radius:12px;padding:12px;min-width:0}
+  .metric .n{font-size:1.5rem;font-weight:800;line-height:1.15;font-variant-numeric:tabular-nums}
+  .metric .l{font-size:.74rem;color:var(--text2);margin-top:2px;overflow-wrap:anywhere}
+  .metric .u{font-size:.68rem;color:var(--amber);margin-top:4px}
+
+  /* ── job cards ── */
+  .job{border:1px solid var(--border);border-radius:var(--r);background:var(--bg2);
+    padding:14px;margin-bottom:10px;min-width:0}
+  .job .top{display:flex;justify-content:space-between;align-items:flex-start;gap:10px;margin-bottom:8px}
+  .job .top > div{min-width:0}
+  .job .ref{font-weight:800;font-size:.95rem;letter-spacing:.2px}
+  .route{display:grid;grid-template-columns:14px minmax(0,1fr);gap:0 8px;margin:8px 0;min-width:0}
+  .route .rail{display:flex;flex-direction:column;align-items:center;padding-top:5px}
+  .route .pin{width:8px;height:8px;border-radius:50%;border:2px solid var(--green);flex:0 0 auto}
+  .route .pin.end{border-color:var(--amber)}
+  .route .line{width:2px;flex:1;background:var(--border2);margin:3px 0}
+  .route .leg{font-size:.86rem;padding:2px 0;overflow-wrap:anywhere}
+  .route .leg small{display:block;color:var(--text3);font-size:.7rem;text-transform:uppercase;letter-spacing:.5px}
+  .kv{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;margin:10px 0}
+  .kv div{min-width:0}
+  .kv .k{font-size:.68rem;color:var(--text3);text-transform:uppercase;letter-spacing:.5px}
+  .kv .v{font-size:.87rem;font-weight:700;overflow-wrap:anywhere}
+  .fee{display:flex;align-items:baseline;gap:8px;margin-top:6px}
+  .fee .amt{font-size:1.05rem;font-weight:800;color:var(--green-2)}
+  .fee .amt.unset{font-size:.85rem;color:var(--amber);font-weight:700}
+  .notice{background:rgba(240,160,32,.08);border:1px solid rgba(240,160,32,.28);
+    color:#f6d28f;border-radius:9px;padding:10px 12px;font-size:.82rem;margin:10px 0;overflow-wrap:anywhere}
+  .notice.err{background:rgba(224,85,85,.08);border-color:rgba(224,85,85,.32);color:#ffb3b3}
+  .notice.ok{background:rgba(46,204,113,.08);border-color:rgba(46,204,113,.3);color:#a8f0c6}
+  .contact{display:flex;align-items:center;justify-content:space-between;gap:10px;
+    background:var(--bg3);border-radius:9px;padding:10px 12px;margin:10px 0;min-width:0}
+  .contact .nm{font-weight:700;font-size:.88rem;overflow-wrap:anywhere}
+  .contact a{color:var(--green);font-weight:800;font-size:.85rem;text-decoration:none;
+    min-height:40px;display:inline-flex;align-items:center;padding:0 6px;white-space:nowrap}
+
+  /* ── modal sheet ── */
+  .scrim{position:fixed;inset:0;background:rgba(0,0,0,.62);z-index:60;display:flex;
+    align-items:flex-end;justify-content:center;padding:0}
+  @media(min-width:640px){.scrim{align-items:center;padding:24px}}
+  .sheet{background:var(--bg2);border:1px solid var(--border);border-radius:16px 16px 0 0;
+    width:100%;max-width:520px;padding:18px 16px calc(18px + env(safe-area-inset-bottom));
+    max-height:88vh;overflow-y:auto}
+  @media(min-width:640px){.sheet{border-radius:16px}}
+  .sheet h2{font-size:1.05rem;font-weight:800;margin-bottom:4px}
+  .sheet .btn-row{margin-top:14px}
+
+  /* ── misc ── */
+  .empty{text-align:center;padding:34px 14px;color:var(--text2);font-size:.88rem}
+  .empty .big{font-size:1.6rem;margin-bottom:8px}
+  .skel{height:88px;border-radius:12px;margin-bottom:10px;
+    background:linear-gradient(90deg,var(--bg2) 0%,var(--bg3) 50%,var(--bg2) 100%);
+    background-size:200% 100%;animation:shimmer 1.3s infinite}
+  @keyframes shimmer{0%{background-position:200% 0}100%{background-position:-200% 0}}
+  .seg{display:flex;background:var(--bg3);border:1px solid var(--border);border-radius:10px;
+    padding:4px;margin-bottom:12px}
+  .seg button{flex:1;min-height:40px;border-radius:7px;font-weight:800;font-size:.82rem;color:var(--text2)}
+  .seg button[aria-pressed="true"]{background:var(--bg2);color:var(--text);box-shadow:0 1px 0 rgba(0,0,0,.3)}
+  .spin{display:inline-block;width:16px;height:16px;border:2px solid currentColor;
+    border-right-color:transparent;border-radius:50%;animation:spin .8s linear infinite;vertical-align:-3px}
   @keyframes spin{to{transform:rotate(360deg)}}
-  #loginSection{margin-top:10vh}
+  #authScreen{margin-top:8vh;max-width:420px;margin-left:auto;margin-right:auto}
+  .auth-brand{display:flex;flex-direction:column;align-items:center;gap:8px;margin-bottom:18px;text-align:center}
+  .auth-brand .mark{width:52px;height:52px;border-radius:14px;background:var(--green-dim);
+    display:grid;place-items:center;color:var(--green)}
+  .auth-brand h1{font-size:1.2rem;font-weight:800}
+  .auth-brand p{color:var(--text2);font-size:.84rem}
+  .signout{width:100%;margin-top:4px}
+  .plainlist{list-style:none}
+  .plainlist li{display:flex;justify-content:space-between;gap:12px;padding:10px 0;
+    border-bottom:1px solid var(--border);font-size:.87rem;min-width:0}
+  .plainlist li:last-child{border-bottom:none}
+  .plainlist .k{color:var(--text2);flex:0 0 auto}
+  .plainlist .v{font-weight:700;text-align:right;overflow-wrap:anywhere;min-width:0}
+  .toast{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(var(--navb) + 18px);
+    z-index:70;max-width:calc(100vw - 28px);background:var(--bg4);border:1px solid var(--border2);
+    color:var(--text);padding:11px 16px;border-radius:10px;font-size:.84rem;font-weight:600;
+    box-shadow:0 8px 24px rgba(0,0,0,.45)}
+  @media(min-width:900px){.toast{bottom:24px}}
 </style>
 </head>
 <body>
 
-<header>
-  <h1>🚛 AgriBridge Transporter</h1>
-  <div id="headerStatus"></div>
+<header class="topbar" id="topbar" hidden>
+  <div class="brand">
+    <span class="brand-mark" aria-hidden="true">
+      <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 17h2l2-8h7l3 4h4v4h-2"/><circle cx="7.5" cy="17.5" r="2"/><circle cx="17.5" cy="17.5" r="2"/></svg>
+    </span>
+    <div style="min-width:0">
+      <div class="brand-name">AgriBridge Transport</div>
+      <div class="brand-sub" id="brandSub">Driver portal</div>
+    </div>
+  </div>
+  <div class="who" id="whoami"></div>
 </header>
 
-<div class="wrap">
-
-  <!-- LOGIN -->
-  <div id="loginSection" class="card">
-    <h2>Sign In</h2>
-    <p>Use your AgriBridge transporter account to sign in.</p>
-    <label>Email</label>
-    <input type="email" id="email" placeholder="your@email.com" autocomplete="email">
-    <label>Password</label>
+<!-- Sign in -->
+<section class="wrap" id="authScreen">
+  <div class="auth-brand">
+    <span class="mark" aria-hidden="true">
+      <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 17h2l2-8h7l3 4h4v4h-2"/><circle cx="7.5" cy="17.5" r="2"/><circle cx="17.5" cy="17.5" r="2"/></svg>
+    </span>
+    <h1>Transporter sign in</h1>
+    <p>Use the account an AgriBridge administrator created for you.</p>
+  </div>
+  <div class="card">
+    <label for="email">Email</label>
+    <input type="email" id="email" placeholder="your@email.com" autocomplete="username" inputmode="email">
+    <label for="password">Password</label>
     <input type="password" id="password" placeholder="Password" autocomplete="current-password">
-    <button class="btn-avail" onclick="doLogin()" style="margin-top:4px">Sign In</button>
-    <div class="err" id="loginErr"></div>
+    <div style="height:12px"></div>
+    <button class="btn" id="signInBtn" data-action="login">Sign in</button>
+    <div id="loginErr" class="notice err" hidden></div>
+    <p class="tiny" style="margin-top:12px">No transporter account yet? An administrator has to create it from the admin console.</p>
   </div>
+</section>
 
-  <!-- DASHBOARD (hidden until logged in) -->
-  <div id="dashboard" class="hidden">
+<!-- App -->
+<div id="app" hidden>
+  <div class="shell">
+    <nav class="sidenav" id="sidenav" aria-label="Portal sections">
+      <button class="sidebtn" data-tab="home" aria-current="page">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 10.5 12 3l9 7.5"/><path d="M5 9.5V21h14V9.5"/><path d="M9.5 21v-6h5v6"/></svg>
+        Home
+      </button>
+      <button class="sidebtn" data-tab="jobs">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="7" width="18" height="13" rx="2"/><path d="M8 7V5a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><path d="M3 12h18"/></svg>
+        Available jobs
+      </button>
+      <button class="sidebtn" data-tab="deliveries">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 17h2l2-8h7l3 4h4v4h-2"/><circle cx="7.5" cy="17.5" r="2"/><circle cx="17.5" cy="17.5" r="2"/></svg>
+        My deliveries
+      </button>
+      <button class="sidebtn" data-tab="earnings">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="6" width="18" height="13" rx="2"/><path d="M3 10h18"/><circle cx="17" cy="15" r="1.4"/></svg>
+        Earnings
+      </button>
+      <button class="sidebtn" data-tab="profile">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="3.6"/><path d="M4.5 20a7.5 7.5 0 0 1 15 0"/></svg>
+        Profile
+      </button>
+    </nav>
 
-    <!-- Availability toggle -->
-    <div class="card">
-      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
-        <h2>My Availability</h2>
-        <span id="statusPill" class="status-pill off"><span class="dot"></span> Offline</span>
-      </div>
-      <p>Toggle this when you are ready to take deliveries. Admin can see your status in real time.</p>
-      <div class="toggle-wrap">
-        <div>
-          <div class="toggle-label" id="toggleLabel">I'm Offline</div>
-          <div class="toggle-sub" id="toggleSub">Toggle to accept jobs</div>
-        </div>
-        <label class="toggle">
-          <input type="checkbox" id="availToggle" onchange="setAvailability(this.checked)">
-          <span class="slider"></span>
-        </label>
-      </div>
-      <div class="err" id="toggleErr"></div>
-    </div>
-
-    <!-- Profile -->
-    <div class="card">
-      <h2>My Profile</h2>
-      <p>Contact admin to update your details or vehicle information.</p>
-      <div id="profileRows"><div class="muted">Loading…</div></div>
-    </div>
-
-    <!-- Info -->
-    <div class="card">
-      <h2>How it works</h2>
-      <div style="font-size:.88rem;color:var(--text2);line-height:1.7">
-        <p>1. <strong style="color:var(--text)">Mark yourself available</strong> when your vehicle is free.</p>
-        <p>2. Admin matches you to nearby orders and contacts you via SMS.</p>
-        <p>3. Collect the produce from the farmer and deliver to the buyer.</p>
-        <p>4. Mark yourself offline when your vehicle is busy or unavailable.</p>
-      </div>
-    </div>
-
-    <button class="btn-avail off" onclick="doLogout()" style="width:auto;padding:10px 20px;font-size:.88rem">Sign Out</button>
+    <main class="main" id="view" aria-live="polite"></main>
   </div>
-
 </div>
 
+<nav class="bottomnav" id="bottomnav" aria-label="Portal sections" hidden>
+  <button class="navbtn" data-tab="home" aria-current="page">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 10.5 12 3l9 7.5"/><path d="M5 9.5V21h14V9.5"/><path d="M9.5 21v-6h5v6"/></svg>
+    Home
+  </button>
+  <button class="navbtn" data-tab="jobs">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="7" width="18" height="13" rx="2"/><path d="M8 7V5a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><path d="M3 12h18"/></svg>
+    Jobs<span class="badge" id="jobsBadge" hidden></span>
+  </button>
+  <button class="navbtn" data-tab="deliveries">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 17h2l2-8h7l3 4h4v4h-2"/><circle cx="7.5" cy="17.5" r="2"/><circle cx="17.5" cy="17.5" r="2"/></svg>
+    Deliveries<span class="badge" id="delivBadge" hidden></span>
+  </button>
+  <button class="navbtn" data-tab="earnings">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="6" width="18" height="13" rx="2"/><path d="M3 10h18"/><circle cx="17" cy="15" r="1.4"/></svg>
+    Earnings
+  </button>
+  <button class="navbtn" data-tab="profile">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="3.6"/><path d="M4.5 20a7.5 7.5 0 0 1 15 0"/></svg>
+    Profile
+  </button>
+</nav>
+
 <script>
-  var API = 'https://agribridge-1-og7a.onrender.com';
+(function () {
+  'use strict';
+
+  var API = (location.hostname === 'localhost' || location.hostname === '127.0.0.1')
+    ? 'http://localhost:5000' : 'https://agribridge-1-og7a.onrender.com';
   var SUPA_URL = 'https://lvloaweijidgcuezdnmu.supabase.co';
   var SUPA_KEY = 'sb_publishable_lzjlixcVLCUVg9MDy5adFw_pgxTz03y';
-  var session = null; // Supabase session object
+  var SESSION_KEY = 'ab_transporter_session';
 
-  // ── Supabase Auth helpers ────────────────────────────────────────────────────
-  async function supaFetch(path, opts){
-    opts = opts || {};
-    opts.headers = Object.assign({'Content-Type':'application/json','apikey':SUPA_KEY}, opts.headers||{});
-    if(session && session.access_token){
-      opts.headers['Authorization'] = 'Bearer ' + session.access_token;
-    }
-    var res = await fetch(SUPA_URL + path, opts);
-    var body = await res.json().catch(function(){ return {}; });
-    return { ok: res.ok, status: res.status, data: body };
+  var session = null;
+  var refreshInFlight = null;
+  var state = {
+    tab: 'home',
+    me: null,
+    profile: null,
+    availBusy: false,
+    dashboard: null,
+    jobs: null,
+    deliveries: null,
+    earnings: null,
+    delivFilter: 'active',
+    loading: {},
+    error: {},
+    linked: true
+  };
+
+  // ── helpers ────────────────────────────────────────────────────────────────
+  function h(s) {
+    return String(s == null ? '' : s).replace(/[<>&"']/g, function (c) {
+      return { '<': '&lt;', '>': '&gt;', '&': '&amp;', '"': '&quot;', "'": '&#39;' }[c];
+    });
+  }
+  function ugx(n) {
+    var s = String(Math.round(Number(n)));
+    return 'UGX ' + s.replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+  }
+  function feeLabel(f) {
+    if (f.fee_ugx == null) return { cls: 'unset', text: 'Fee not set yet — an administrator sets it' };
+    return { cls: '', text: ugx(f.fee_ugx) };
+  }
+  var STATUS = {
+    scheduled: ['Assigned', 'blue'],
+    picked_up: ['Picked up', 'blue'],
+    in_transit: ['In transit', 'amber'],
+    at_checkpoint: ['Awaiting confirmation', 'amber'],
+    delivered: ['Delivered', 'green'],
+    failed: ['Failed', 'red']
+  };
+  var NEXT_LABEL = {
+    picked_up: 'Mark as picked up',
+    in_transit: 'Start transit',
+    at_checkpoint: 'Arrived at checkpoint'
+  };
+  function pill(status) {
+    var s = STATUS[status] || [status || 'Unknown', 'grey'];
+    return '<span class="pill ' + s[1] + '"><span class="dot"></span>' + h(s[0]) + '</span>';
+  }
+  function fmtDate(iso) {
+    if (!iso) return '—';
+    var d = new Date(iso);
+    if (isNaN(d.getTime())) return '—';
+    return d.toLocaleDateString(undefined, { day: 'numeric', month: 'short' }) + ' · ' +
+      d.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' });
+  }
+  function toast(msg) {
+    var el = document.createElement('div');
+    el.className = 'toast';
+    el.setAttribute('role', 'status');
+    el.textContent = msg;
+    document.body.appendChild(el);
+    setTimeout(function () { el.remove(); }, 3800);
   }
 
-  async function apiFetch(path, opts){
-    opts = opts || {};
-    opts.headers = Object.assign({'Content-Type':'application/json'}, opts.headers||{});
-    if(session && session.access_token){
-      opts.headers['Authorization'] = 'Bearer ' + session.access_token;
-    }
-    var res = await fetch(API + path, opts);
-    var body = await res.json().catch(function(){ return {}; });
-    return { ok: res.ok, status: res.status, data: body };
+  // ── session ────────────────────────────────────────────────────────────────
+  function saveSession() {
+    try {
+      if (session) sessionStorage.setItem(SESSION_KEY, JSON.stringify(session));
+      else sessionStorage.removeItem(SESSION_KEY);
+    } catch (e) { /* private mode: keep the session in memory only */ }
   }
 
-  // ── Login ────────────────────────────────────────────────────────────────────
-  async function doLogin(){
+  function signOut(message) {
+    session = null;
+    saveSession();
+    state.me = null; state.dashboard = null; state.jobs = null;
+    state.deliveries = null; state.earnings = null; state.profile = null;
+    state.linked = true;
+    document.getElementById('app').hidden = true;
+    document.getElementById('bottomnav').hidden = true;
+    document.getElementById('sidenav').hidden = false;
+    document.getElementById('topbar').hidden = true;
+    document.getElementById('authScreen').hidden = false;
+    document.getElementById('password').value = '';
+    var err = document.getElementById('loginErr');
+    if (message) { err.textContent = message; err.hidden = false; }
+    else { err.hidden = true; }
+  }
+
+  function refreshSession() {
+    if (!session || !session.refresh_token) return Promise.resolve(false);
+    if (refreshInFlight) return refreshInFlight;
+    refreshInFlight = fetch(SUPA_URL + '/auth/v1/token?grant_type=refresh_token', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', apikey: SUPA_KEY },
+      body: JSON.stringify({ refresh_token: session.refresh_token })
+    }).then(function (res) {
+      return res.json().catch(function () { return {}; }).then(function (body) {
+        if (!res.ok || !body.access_token) return false;
+        session = Object.assign({}, session, body);
+        saveSession();
+        return true;
+      });
+    }).catch(function () { return false; }).then(function (ok) {
+      refreshInFlight = null;
+      return ok;
+    });
+    return refreshInFlight;
+  }
+
+  // Single API helper: refreshes an expired token once, and signs out loudly
+  // rather than showing stale data when the session is really gone.
+  function api(path, opts, retried) {
+    opts = opts || {};
+    var headers = Object.assign({}, opts.headers || {});
+    if (session && session.access_token) headers['Authorization'] = 'Bearer ' + session.access_token;
+    if (!(opts.body instanceof FormData)) headers['Content-Type'] = 'application/json';
+    return fetch(API + path, Object.assign({}, opts, { headers: headers }))
+      .then(function (res) {
+        return res.json().catch(function () { return {}; }).then(function (body) {
+          if (res.status === 401 && !retried) {
+            return refreshSession().then(function (ok) {
+              if (ok) return api(path, opts, true);
+              signOut('Your session expired. Sign in again.');
+              return { ok: false, status: 401, data: body };
+            });
+          }
+          return { ok: res.ok, status: res.status, data: body };
+        });
+      })
+      .catch(function () {
+        return { ok: false, status: 0, data: { error: 'Could not reach the server. Check your internet and try again.' } };
+      });
+  }
+
+  function login() {
     var email = document.getElementById('email').value.trim();
     var password = document.getElementById('password').value;
-    var errEl = document.getElementById('loginErr');
-    errEl.textContent = '';
-    if(!email || !password){ errEl.textContent = 'Enter email and password.'; return; }
-    try {
-      var r = await supaFetch('/auth/v1/token?grant_type=password', {
-        method: 'POST',
-        body: JSON.stringify({ email: email, password: password })
-      });
-      if(!r.ok || !r.data.access_token){
-        errEl.textContent = (r.data && r.data.error_description) || 'Login failed. Check your credentials.';
-        return;
-      }
-      session = r.data; // {access_token, refresh_token, user, …}
-      sessionStorage.setItem('ab_transporter_session', JSON.stringify(session));
-      showDashboard();
-    } catch(e) {
-      errEl.textContent = 'Could not reach the server. Try again.';
-    }
-  }
-
-  function doLogout(){
-    session = null;
-    sessionStorage.removeItem('ab_transporter_session');
-    document.getElementById('dashboard').classList.add('hidden');
-    document.getElementById('loginSection').classList.remove('hidden');
-    document.getElementById('headerStatus').innerHTML = '';
-  }
-
-  // ── Dashboard ────────────────────────────────────────────────────────────────
-  async function showDashboard(){
-    document.getElementById('loginSection').classList.add('hidden');
-    document.getElementById('dashboard').classList.remove('hidden');
-    await loadProfile();
-  }
-
-  async function loadProfile(){
-    try {
-      var r = await apiFetch('/api/transporter/me');
-      if(!r.ok){
-        if(r.status === 404){
-          document.getElementById('profileRows').innerHTML =
-            '<div class="muted">⚠ Your account is not linked to a transporter profile yet. Contact admin to set this up.</div>';
+    var err = document.getElementById('loginErr');
+    err.hidden = true;
+    if (!email || !password) { err.textContent = 'Enter your email and password.'; err.hidden = false; return; }
+    var btn = document.getElementById('signInBtn');
+    if (btn.disabled) return;
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spin"></span> Signing in…';
+    fetch(SUPA_URL + '/auth/v1/token?grant_type=password', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', apikey: SUPA_KEY },
+      body: JSON.stringify({ email: email, password: password })
+    }).then(function (res) {
+      return res.json().catch(function () { return {}; }).then(function (body) {
+        if (!res.ok || !body.access_token) {
+          err.textContent = (body && (body.error_description || body.msg || body.error)) || 'Sign in failed. Check your details.';
+          err.hidden = false;
           return;
         }
-        document.getElementById('profileRows').innerHTML = '<div class="muted">Could not load profile.</div>';
-        return;
-      }
-      var p = r.data;
-      var avail = p.is_available || false;
-      document.getElementById('availToggle').checked = avail;
-      updateToggleUI(avail);
-
-      var fields = [
-        ['Name', p.full_name],
-        ['Phone', p.phone],
-        ['Vehicle', p.vehicle_type],
-        ['Plate', p.plate_number],
-        ['District', p.district],
-        ['Capacity', p.capacity_kg ? p.capacity_kg + ' kg' : '—'],
-        ['Status', p.status || 'active'],
-        ['Notes', p.notes],
-      ];
-      document.getElementById('profileRows').innerHTML = fields.map(function(f){
-        return '<div class="profile-row"><span class="lbl">'+h(f[0])+'</span><span>'+h(f[1]||'—')+'</span></div>';
-      }).join('');
-
-      var name = p.full_name || 'Transporter';
-      document.getElementById('headerStatus').innerHTML = '<span class="muted" style="font-size:.82rem">'+h(name)+'</span>';
-    } catch(e) {
-      document.getElementById('profileRows').innerHTML = '<div class="muted">Error loading profile.</div>';
-    }
-  }
-
-  async function setAvailability(isAvailable){
-    var errEl = document.getElementById('toggleErr');
-    errEl.textContent = '';
-    updateToggleUI(isAvailable); // optimistic
-    try {
-      var r = await apiFetch('/api/transporter/availability', {
-        method: 'POST',
-        body: JSON.stringify({ is_available: isAvailable })
+        session = body;
+        saveSession();
+        boot();
       });
-      if(!r.ok){
-        errEl.textContent = (r.data && r.data.error) || 'Could not update. Try again.';
-        // revert
-        document.getElementById('availToggle').checked = !isAvailable;
-        updateToggleUI(!isAvailable);
+    }).catch(function () {
+      err.textContent = 'Could not reach the server. Check your internet and try again.';
+      err.hidden = false;
+    }).then(function () {
+      btn.disabled = false;
+      btn.textContent = 'Sign in';
+    });
+  }
+
+  // ── boot + navigation ──────────────────────────────────────────────────────
+  function boot() {
+    document.getElementById('authScreen').hidden = true;
+    document.getElementById('app').hidden = false;
+    document.getElementById('topbar').hidden = false;
+    document.getElementById('bottomnav').hidden = false;
+    state.linked = true;
+    state.me = null; state.dashboard = null; state.profile = null;
+    loadMe().then(function () {
+      if (!state.linked) { render(); return; }
+      render();
+      loadTab(state.tab);
+    });
+  }
+
+  function loadMe() {
+    return api('/api/transporter/dashboard').then(function (r) {
+      if (r.status === 404 && r.data && r.data.code === 'transporter_not_linked') {
+        state.linked = false;
+        render();
         return;
       }
-    } catch(e) {
-      errEl.textContent = 'Connection error. Check internet and retry.';
-      document.getElementById('availToggle').checked = !isAvailable;
-      updateToggleUI(!isAvailable);
-    }
+      if (r.status === 401) return;
+      if (!r.ok) {
+        state.linked = true;
+        state.error.dashboard = (r.data && r.data.error) || 'Could not load your account.';
+        render();
+        return;
+      }
+      state.linked = true;
+      state.dashboard = r.data;
+      state.me = r.data.transporter || null;
+      state.error.dashboard = null;
+      paintWho();
+      paintBadges();
+    });
   }
 
-  function updateToggleUI(avail){
-    var pill = document.getElementById('statusPill');
-    var lbl = document.getElementById('toggleLabel');
-    var sub = document.getElementById('toggleSub');
-    if(avail){
-      pill.className = 'status-pill on';
-      pill.innerHTML = '<span class="dot"></span> Available';
-      lbl.textContent = "I'm Available";
-      sub.textContent = 'Admin can assign you delivery jobs';
-    } else {
-      pill.className = 'status-pill off';
-      pill.innerHTML = '<span class="dot"></span> Offline';
-      lbl.textContent = "I'm Offline";
-      sub.textContent = 'Toggle to accept jobs';
-    }
+  function paintWho() {
+    var me = state.me || {};
+    document.getElementById('whoami').innerHTML = me.name
+      ? '<b>' + h(me.name) + '</b><br>' + h(me.vehicle_type ? (me.vehicle_type + ' · ' + (me.district || '—')) : (me.district || ''))
+      : '';
   }
 
-  function h(s){ return String(s==null?'':s).replace(/[<>&"]/g,function(c){return {'<':'&lt;','>':'&gt;','&':'&amp;','"':'&quot;'}[c];}); }
+  function paintBadges() {
+    var m = (state.dashboard && state.dashboard.metrics) || {};
+    var jobs = document.getElementById('jobsBadge');
+    if (m.open_jobs == null) jobs.hidden = true;
+    else { jobs.hidden = m.open_jobs === 0; jobs.textContent = m.open_jobs > 99 ? '99+' : String(m.open_jobs); }
+    var del = document.getElementById('delivBadge');
+    var awaiting = m.awaiting_confirmation;
+    if (awaiting == null || awaiting === 0) del.hidden = true;
+    else { del.hidden = false; del.textContent = awaiting > 99 ? '99+' : String(awaiting); }
+  }
 
-  // ── Auto-restore session ─────────────────────────────────────────────────────
-  (function init(){
-    var saved = sessionStorage.getItem('ab_transporter_session');
-    if(saved){
-      try {
-        session = JSON.parse(saved);
-        if(session && session.access_token){ showDashboard(); return; }
-      } catch(e){}
+  function go(tab) {
+    if (state.tab === tab) { loadTab(tab, true); return; }
+    state.tab = tab;
+    render();
+    loadTab(tab);
+  }
+
+  function loadTab(tab, force) {
+    if (tab === 'home') {
+      var needMe = force || !state.dashboard;
+      return (needMe ? loadMe() : Promise.resolve()).then(function () {
+        // The home "next job" card reads the same list as My deliveries, so the
+        // two can never disagree about what is currently being driven.
+        if (!state.deliveries || force) return loadDeliveries(force);
+        render();
+      });
     }
-  })();
+    if (tab === 'jobs') return loadJobs(force);
+    if (tab === 'deliveries') return loadDeliveries(force);
+    if (tab === 'earnings') return loadEarnings(force);
+    if (tab === 'profile') { render(); return loadProfile(force); }
+  }
+
+  function loadProfile(force) {
+    if (state.profile && !force) return Promise.resolve();
+    return api('/api/transporter/me').then(function (r) {
+      if (r.ok) state.profile = r.data;
+      render();
+    });
+  }
+
+  function setLoading(key, on) {
+    state.loading[key] = on;
+    render();
+  }
+
+  function loadJobs(force) {
+    if (state.jobs && !force) { render(); return Promise.resolve(); }
+    setLoading('jobs', true);
+    return api('/api/transporter/jobs').then(function (r) {
+      if (r.status === 404 && r.data && r.data.code === 'transporter_not_linked') { state.linked = false; render(); return; }
+      if (r.ok) { state.jobs = r.data.jobs || []; state.error.jobs = null; }
+      else state.error.jobs = (r.data && r.data.error) || 'Could not load open jobs.';
+      state.loading.jobs = false;
+      render();
+    });
+  }
+
+  function loadDeliveries(force) {
+    if (state.deliveries && !force) { render(); return Promise.resolve(); }
+    setLoading('deliveries', true);
+    return api('/api/transporter/deliveries').then(function (r) {
+      if (r.status === 404 && r.data && r.data.code === 'transporter_not_linked') { state.linked = false; render(); return; }
+      if (r.ok) {
+        // The table column is `id`; the portal calls it delivery_id everywhere so
+        // a job card is identical whether it came from the open list or this one.
+        // `deadline` is the delivery's own estimated_arrival, renamed here.
+        state.deliveries = (r.data.deliveries || []).map(function (d) {
+          return Object.assign({}, d, {
+            delivery_id: d.id,
+            deadline: d.deadline || d.estimated_arrival
+          });
+        });
+        state.error.deliveries = null;
+      }
+      else state.error.deliveries = (r.data && r.data.error) || 'Could not load your deliveries.';
+      state.loading.deliveries = false;
+      render();
+    });
+  }
+
+  function loadEarnings(force) {
+    if (state.earnings && !force) { render(); return Promise.resolve(); }
+    setLoading('earnings', true);
+    return api('/api/transporter/earnings').then(function (r) {
+      if (r.ok) { state.earnings = r.data; state.error.earnings = null; }
+      else state.error.earnings = (r.data && r.data.error) || 'Could not load earnings.';
+      state.loading.earnings = false;
+      render();
+    });
+  }
+
+  // ── render ─────────────────────────────────────────────────────────────────
+  function render() {
+    var view = document.getElementById('view');
+    var linked = state.linked !== false;
+    document.getElementById('bottomnav').hidden = !linked;
+    document.getElementById('sidenav').hidden = !linked;
+    if (!linked) {
+      view.innerHTML = '<div class="wrap"><div class="card" style="margin-top:16px">' +
+        '<h2>Account not linked</h2>' +
+        '<p class="muted" style="margin:8px 0 14px">This login is not linked to a transporter account. ' +
+        'An AgriBridge administrator has to create one for you before jobs can be shown here.</p>' +
+        '<button class="btn secondary" data-action="logout">Sign out</button></div></div>';
+      return;
+    }
+    var html = '';
+    if (state.error.dashboard) html += '<div class="notice err">' + h(state.error.dashboard) + '</div>';
+    if (state.tab === 'home') html += viewHome();
+    else if (state.tab === 'jobs') html += viewJobs();
+    else if (state.tab === 'deliveries') html += viewDeliveries();
+    else if (state.tab === 'earnings') html += viewEarnings();
+    else if (state.tab === 'profile') html += viewProfile();
+    view.innerHTML = '<div class="wrap">' + html + '</div>';
+    syncNav();
+  }
+
+  function syncNav() {
+    document.querySelectorAll('[data-tab]').forEach(function (b) {
+      if (b.getAttribute('data-tab') === state.tab) b.setAttribute('aria-current', 'page');
+      else b.removeAttribute('aria-current');
+    });
+  }
+
+  function viewHome() {
+    var d = state.dashboard;
+    if (!d) return '<div class="skel"></div><div class="skel"></div><div class="skel"></div>';
+    var m = d.metrics || {};
+    var t = d.transporter || {};
+    var unverified = d.counts_unverified || [];
+    function metric(key, label) {
+      var v = m[key];
+      if (v == null) {
+        return '<div class="metric"><div class="n">—</div><div class="l">' + h(label) +
+          '</div><div class="u">Could not be measured</div></div>';
+      }
+      return '<div class="metric"><div class="n">' + h(v) + '</div><div class="l">' + h(label) + '</div></div>';
+    }
+    var avail = !!t.is_available;
+    var next = (state.deliveries || []).filter(function (x) {
+      return ['scheduled', 'picked_up', 'in_transit', 'at_checkpoint'].indexOf(x.status) >= 0;
+    })[0];
+    return '' +
+      '<div class="sectionhead"><h1>Hello, ' + h((t.name || 'driver').split(' ')[0]) + '</h1>' +
+      '<span class="tiny">' + (t.vehicle_type ? h(t.vehicle_type) : '') + '</span></div>' +
+
+      '<div class="card">' +
+        '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">' +
+          '<h2>Availability</h2>' +
+          '<span class="pill ' + (avail ? 'green' : 'grey') + '"><span class="dot"></span>' + (avail ? 'Available' : 'Offline') + '</span>' +
+        '</div>' +
+        '<div class="toggle-wrap">' +
+          '<div><div class="toggle-label">' + (avail ? "I'm available" : "I'm offline") + '</div>' +
+          '<div class="toggle-sub">' + (avail ? 'Admins can assign you jobs' : 'Turn on to receive jobs') + '</div></div>' +
+          '<label class="toggle"><input type="checkbox" id="availToggle" ' + (avail ? 'checked' : '') +
+            ' aria-label="Available for jobs" data-action="availability"><span class="slider"></span></label>' +
+        '</div>' +
+        '<div id="toggleErr" class="notice err" hidden></div>' +
+        (t.availability_updated_at ? '<p class="tiny" style="margin-top:8px">Last changed ' + h(fmtDate(t.availability_updated_at)) + '</p>' : '') +
+      '</div>' +
+
+      '<div class="metrics">' +
+        metric('open_jobs', 'Open jobs') +
+        metric('assigned', 'Assigned to you') +
+        metric('active', 'In progress') +
+        metric('completed', 'Completed') +
+        metric('awaiting_confirmation', 'Awaiting confirmation') +
+      '</div>' +
+      (unverified.length ? '<div class="notice">Some counts could not be measured just now (' +
+        h(unverified.join(', ').replace(/_/g, ' ')) + '). They are shown as — rather than 0.</div>' : '') +
+
+      (next ? '<div class="card" style="margin-top:12px"><h3>Next job</h3>' + jobCard(next, { compact: true }) + '</div>' :
+        '<div class="card" style="margin-top:12px"><h3>No active job</h3>' +
+        '<p class="muted">When an administrator assigns you a delivery it appears under My deliveries.</p>' +
+        '<div style="height:10px"></div><button class="btn secondary" data-goto="jobs">Browse open jobs</button></div>') +
+
+      '<div class="card"><h3>How it works</h3>' +
+        '<p class="muted" style="font-size:.84rem;line-height:1.7">' +
+        '1. Turn availability on when your vehicle is free.<br>' +
+        '2. Claim an open job, or accept one an administrator assigns.<br>' +
+        '3. Update the status as you collect and move the goods.<br>' +
+        '4. At the door, enter the recipient code and take a photograph.<br>' +
+        '5. An administrator confirms the delivery. Only then is it complete.' +
+        '</p>' +
+        '<p class="tiny" style="margin-top:10px">AgriBridge does not yet record transporter payments. ' +
+        'The Earnings page shows agreed fees and says so plainly.</p>' +
+      '</div>';
+  }
+
+  function viewJobs() {
+    var head = '<div class="sectionhead"><h1>Available jobs</h1>' +
+      '<button class="btn ghost small" data-action="refresh-jobs">Refresh</button></div>';
+    if (state.loading.jobs && !state.jobs) return head + '<div class="skel"></div><div class="skel"></div>';
+    if (state.error.jobs) return head + '<div class="notice err">' + h(state.error.jobs) + '</div>';
+    var jobs = state.jobs || [];
+    if (!jobs.length) {
+      return head + '<div class="empty">' +
+        '<svg width="34" height="34" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="display:block;margin:0 auto 10px;color:var(--text3)"><rect x="3" y="7" width="18" height="13" rx="2"/><path d="M8 7V5a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><path d="M3 12h18"/></svg>' +
+        'No open jobs right now.<br>' +
+        '<span class="tiny">New jobs appear here when an administrator schedules one.</span></div>' +
+        '<button class="btn secondary" data-action="refresh-jobs">Refresh</button>';
+    }
+    return head + jobs.map(function (j) { return jobCard(j, { claim: true }); }).join('');
+  }
+
+  function jobCard(j, opts) {
+    opts = opts || {};
+    var fee = feeLabel(j);
+    var contact = '';
+    if (j.contact_name || j.contact_phone) {
+      contact = '<div class="contact"><div><div class="tiny">Farmer contact</div><div class="nm">' +
+        h(j.contact_name || 'Not recorded') + '</div></div>' +
+        (j.contact_phone ? '<a href="tel:' + h(j.contact_phone.replace(/[^+0-9]/g, '')) + '">Call</a>' : '') +
+        '</div>';
+    }
+    var actions = '';
+    if (opts.claim) {
+      actions = '<div class="btn-row" style="margin-top:12px">' +
+        '<button class="btn" data-action="claim" data-id="' + h(j.delivery_id) + '">Claim this job</button></div>';
+    } else if (j.next_statuses && j.next_statuses.length) {
+      actions = '<div class="btn-row" style="margin-top:12px">' +
+        j.next_statuses.map(function (s) {
+          return '<button class="btn secondary" data-action="status" data-id="' + h(j.delivery_id) +
+            '" data-status="' + h(s) + '">' + h(NEXT_LABEL[s] || s) + '</button>';
+        }).join('') + '</div>';
+    }
+    var proof = '';
+    if (j.status === 'at_checkpoint' && !j.proof_submitted_at) {
+      proof = '<button class="btn" style="margin-top:10px" data-action="open-proof" data-id="' +
+        h(j.delivery_id) + '">Enter recipient code &amp; photo</button>';
+    } else if (j.status === 'at_checkpoint' && j.proof_submitted_at && j.proof_code_matches) {
+      proof = '<div class="notice ok" style="margin-bottom:0">Proof submitted. Waiting for an administrator to confirm the delivery.</div>';
+    } else if (j.status === 'at_checkpoint' && j.proof_submitted_at) {
+      proof = '<div class="notice err" style="margin-bottom:0">The last code did not match. An administrator has to review this delivery.</div>';
+    }
+    var offer = '';
+    var live = ['scheduled', 'picked_up', 'in_transit', 'at_checkpoint'].indexOf(j.status) >= 0;
+    // opts.claim means the job is still open, so there is nothing to negotiate
+    // until it is this driver's; the offer endpoint refuses it for the same reason.
+    if (!opts.compact && !opts.claim && live) {
+      if (j.offer_status === 'proposed') {
+        offer = '<p class="tiny" style="margin-top:8px">Your fee offer is awaiting an administrator\'s decision.</p>';
+      } else {
+        if (j.offer_status === 'rejected') offer = '<p class="tiny" style="margin-top:8px">Your last fee offer was declined.</p>';
+        offer += '<button class="btn ghost small" style="margin-top:8px" data-action="offer" data-id="' +
+          h(j.delivery_id) + '" data-current="' + (j.fee_ugx == null ? '' : h(j.fee_ugx)) +
+          '">Propose a different fee</button>';
+      }
+    }
+    return '<div class="job">' +
+      '<div class="top"><div><div class="ref">' + h(j.order_ref ? ('Order ' + j.order_ref) : 'Delivery') + '</div>' +
+        '<div class="tiny">' + h(j.cargo || 'Cargo not recorded') + (j.quantity_kg ? ' · ' + h(j.quantity_kg) + ' kg' : '') + '</div></div>' +
+        (opts.claim ? '<span class="pill green"><span class="dot"></span>Open</span>' : pill(j.status)) + '</div>' +
+      '<div class="route"><div class="rail"><span class="pin"></span><span class="line"></span><span class="pin end"></span></div>' +
+        '<div><div class="leg"><small>Pick up</small>' + h(j.pickup_location || 'Not recorded') + '</div>' +
+        '<div class="leg"><small>Deliver to</small>' + h(j.delivery_location || 'Not recorded') + '</div></div></div>' +
+      (j.deadline ? '<p class="tiny">Expected ' + h(fmtDate(j.deadline)) + '</p>' : '') +
+      '<div class="fee"><span class="amt ' + fee.cls + '">' + h(fee.text) + '</span></div>' +
+      contact + actions + proof + offer +
+      '</div>';
+  }
+
+  function viewDeliveries() {
+    var head = '<div class="sectionhead"><h1>My deliveries</h1>' +
+      '<button class="btn ghost small" data-action="refresh-deliveries">Refresh</button></div>';
+    if (state.loading.deliveries && !state.deliveries) return head + '<div class="skel"></div><div class="skel"></div>';
+    if (state.error.deliveries) return head + '<div class="notice err">' + h(state.error.deliveries) + '</div>';
+    var all = state.deliveries || [];
+    var active = all.filter(function (d) { return ['scheduled', 'picked_up', 'in_transit', 'at_checkpoint'].indexOf(d.status) >= 0; });
+    var done = all.filter(function (d) { return d.status === 'delivered' || d.status === 'failed'; });
+    var list = state.delivFilter === 'active' ? active : done;
+    var seg = '<div class="seg" role="group" aria-label="Filter deliveries">' +
+      '<button data-action="filter" data-filter="active" aria-pressed="' + (state.delivFilter === 'active') + '">Active (' + active.length + ')</button>' +
+      '<button data-action="filter" data-filter="done" aria-pressed="' + (state.delivFilter === 'done') + '">Finished (' + done.length + ')</button>' +
+      '</div>';
+    if (!list.length) {
+      return head + seg + '<div class="empty">' +
+        '<svg width="34" height="34" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="display:block;margin:0 auto 10px;color:var(--text3)"><path d="M3 17h2l2-8h7l3 4h4v4h-2"/><circle cx="7.5" cy="17.5" r="2"/><circle cx="17.5" cy="17.5" r="2"/></svg>' +
+        'Nothing here yet.<br>' +
+        '<span class="tiny">' + (state.delivFilter === 'active'
+          ? 'Claim a job to see it here.' : 'Delivered and failed jobs appear here.') + '</span></div>';
+    }
+    return head + seg + list.map(function (d) { return jobCard(d, {}); }).join('');
+  }
+
+  function viewEarnings() {
+    var head = '<div class="sectionhead"><h1>Earnings</h1>' +
+      '<button class="btn ghost small" data-action="refresh-earnings">Refresh</button></div>';
+    if (state.loading.earnings && !state.earnings) return head + '<div class="skel"></div><div class="skel"></div>';
+    if (state.error.earnings) return head + '<div class="notice err">' + h(state.error.earnings) + '</div>';
+    var e = state.earnings;
+    if (!e) return head;
+    function money(v) { return v == null ? '—' : ugx(v); }
+    return head +
+      '<div class="metrics" style="grid-template-columns:repeat(2,minmax(0,1fr))">' +
+        '<div class="metric"><div class="n" style="font-size:1.15rem">' + money(e.fee_completed_total_ugx) + '</div>' +
+          '<div class="l">Agreed on completed jobs</div></div>' +
+        '<div class="metric"><div class="n" style="font-size:1.15rem">' + money(e.fee_agreed_total_ugx) + '</div>' +
+          '<div class="l">Agreed across all jobs</div></div>' +
+      '</div>' +
+      '<div class="notice">' + h(e.payment_note || 'Payment records are not available yet.') + '</div>' +
+      '<div class="card"><h3>Jobs</h3>' +
+        (e.jobs && e.jobs.length ? '<ul class="plainlist">' + e.jobs.map(function (j) {
+          return '<li><span class="k">' + h((STATUS[j.status] || [j.status || '—'])[0]) + '</span>' +
+            '<span class="v">' + (j.fee_ugx == null ? '<span class="muted">Fee not set</span>' : ugx(j.fee_ugx)) +
+            (j.admin_confirmed ? '<br><span class="tiny" style="color:var(--green)">Admin confirmed</span>' : '') +
+            '</span></li>';
+        }).join('') + '</ul>' : '<p class="muted">No jobs yet.</p>') +
+      '</div>' +
+      '<p class="tiny">A completed delivery is not proof that a fee has been paid. ' +
+      'AgriBridge has no transporter payment records yet, so there is no balance to withdraw.</p>';
+  }
+
+  function viewProfile() {
+    var t = state.profile || state.me || {};
+    var name = t.full_name || t.name;
+    return '<div class="sectionhead"><h1>Profile</h1></div>' +
+      '<div class="card"><h3>Account</h3><ul class="plainlist">' +
+        '<li><span class="k">Name</span><span class="v">' + h(name || '—') + '</span></li>' +
+        '<li><span class="k">Vehicle</span><span class="v">' + h(t.vehicle_type || '—') + '</span></li>' +
+        '<li><span class="k">Plate</span><span class="v">' + h(t.plate_number || '—') + '</span></li>' +
+        '<li><span class="k">Capacity</span><span class="v">' + (t.capacity_kg ? h(t.capacity_kg) + ' kg' : '—') + '</span></li>' +
+        '<li><span class="k">Status</span><span class="v">' + h(t.status || '—') + '</span></li>' +
+      '</ul>' +
+      '<p class="tiny" style="margin-top:10px">Vehicle, plate, capacity and account status are set by an administrator. ' +
+      'Contact them if any of these are wrong.</p></div>' +
+      '<div class="card"><h3>Contact &amp; service area</h3>' +
+        '<form id="profileForm" data-action="save-profile">' +
+          '<label for="p_phone">Phone</label>' +
+          '<input id="p_phone" name="phone" type="tel" inputmode="tel" value="' + h(t.phone || '') + '" autocomplete="tel">' +
+          '<label for="p_email">Email</label>' +
+          '<input id="p_email" name="email" type="email" inputmode="email" value="' + h(t.email || '') + '" placeholder="Not recorded" autocomplete="email">' +
+          '<label for="p_district">District</label>' +
+          '<input id="p_district" name="district" type="text" value="' + h(t.district || '') + '">' +
+          '<div style="height:12px"></div>' +
+          '<button class="btn" type="submit">Save changes</button>' +
+        '</form>' +
+        '<div id="profileMsg" class="notice" hidden></div>' +
+      '</div>' +
+      '<button class="btn secondary signout" data-action="logout">Sign out</button>';
+  }
+
+  // ── actions ────────────────────────────────────────────────────────────────
+  function busy(btn) {
+    if (!btn || btn.dataset.busy === '1') return false;
+    btn.dataset.busy = '1';
+    btn.disabled = true;
+    return true;
+  }
+  function idle(btn, label) {
+    if (!btn) return;
+    btn.dataset.busy = '0';
+    btn.disabled = false;
+    if (label) btn.textContent = label;
+  }
+
+  function setAvailability(input) {
+    // One save at a time. A second toggle flipped mid-request would race the
+    // first and leave the switch showing whichever reply arrived last.
+    if (state.availBusy) {
+      input.checked = !input.checked;
+      return;
+    }
+    var wanted = input.checked;
+    var previous = !wanted;
+    state.availBusy = true;
+    input.disabled = true;
+    api('/api/transporter/availability', {
+      method: 'POST',
+      body: JSON.stringify({ is_available: wanted })
+    }).then(function (r) {
+      state.availBusy = false;
+      if (state.me) state.me.is_available = r.ok ? wanted : previous;
+      loadMe().then(function () {
+        render();
+        if (!r.ok) {
+          var err = document.getElementById('toggleErr');
+          if (err) {
+            err.textContent = (r.data && r.data.error) ||
+              'Could not update availability. It was not changed.';
+            err.hidden = false;
+          }
+        } else {
+          toast(wanted ? 'You are now available' : 'You are now offline');
+        }
+      });
+    });
+  }
+
+  var pendingClaim = null;
+
+  function confirmClaim(id) {
+    var job = (state.jobs || []).filter(function (j) { return j.delivery_id === id; })[0];
+    if (!job) return;
+    pendingClaim = id;
+    var fee = feeLabel(job);
+    openSheet(
+      '<h2>Claim this job?</h2>' +
+      '<p class="muted" style="margin:6px 0 10px">' + h(job.pickup_location || 'Pick up') + ' → ' +
+        h(job.delivery_location || 'Deliver') + '</p>' +
+      '<p style="margin-bottom:6px"><span class="fee"><span class="amt ' + fee.cls + '">' + h(fee.text) + '</span></span></p>' +
+      (job.quantity_kg ? '<p class="tiny">' + h(job.quantity_kg) + ' kg · ' + h(job.cargo || 'cargo') + '</p>' : '') +
+      '<div class="btn-row"><button class="btn secondary" data-action="close-sheet">Cancel</button>' +
+      '<button class="btn" data-action="claim-confirm">Claim job</button></div>',
+      'Claim'
+    );
+  }
+
+  function claimJob(btn) {
+    if (!pendingClaim || !busy(btn)) return;
+    var id = pendingClaim;
+    btn.innerHTML = '<span class="spin"></span> Claiming…';
+    api('/api/transporter/jobs/' + encodeURIComponent(id) + '/claim', { method: 'POST', body: '{}' })
+      .then(function (r) {
+        if (r.ok) {
+          closeSheet();
+          pendingClaim = null;
+          toast('Job claimed. It is now in My deliveries.');
+          state.jobs = null;
+          state.deliveries = null;
+          state.dashboard = null;
+          go('deliveries');
+          loadMe();
+          return;
+        }
+        if (r.status === 409) {
+          closeSheet();
+          pendingClaim = null;
+          toast('That job was taken or is no longer open. The list has been refreshed.');
+          loadJobs(true);
+          state.dashboard = null;
+          loadMe();
+          return;
+        }
+        idle(btn, 'Try again');
+        showSheetError((r.data && r.data.error) || 'Could not claim this job. Nothing changed.');
+      });
+  }
+
+  function advance(btn, id, status) {
+    if (!busy(btn)) return;
+    var original = btn.textContent;
+    btn.innerHTML = '<span class="spin"></span> Saving…';
+    api('/api/transporter/deliveries/' + encodeURIComponent(id) + '/status', {
+      method: 'POST', body: JSON.stringify({ status: status })
+    }).then(function (r) {
+      if (r.ok) {
+        toast('Status updated.');
+        state.deliveries = null;
+        state.dashboard = null;
+        loadDeliveries(true);
+        loadMe();
+        return;
+      }
+      idle(btn, original);
+      if (r.status === 409) {
+        toast('This job moved on — showing its real current status.');
+        state.deliveries = null;
+        loadDeliveries(true);
+        return;
+      }
+      toast((r.data && r.data.error) || 'Could not save the status. Nothing changed.');
+    });
+  }
+
+  function openProof(id) {
+    openSheet(
+      '<h2>Proof of delivery</h2>' +
+      '<p class="muted" style="margin:6px 0 10px">Ask the recipient for the 6-digit code an administrator gave them, ' +
+        'then take a photograph of the handover.</p>' +
+      '<form id="proofForm" data-action="submit-proof" data-id="' + h(id) + '">' +
+        '<label for="proofCode">Recipient code</label>' +
+        '<input id="proofCode" name="code" inputmode="numeric" pattern="[0-9]{6}" maxlength="6" ' +
+          'autocomplete="one-time-code" placeholder="6 digits" required>' +
+        '<label for="proofPhoto">Photograph</label>' +
+        '<input id="proofPhoto" name="photo" type="file" accept="image/jpeg,image/png,image/webp" ' +
+          'capture="environment" required>' +
+        '<p class="field-hint">JPG, PNG or WebP, up to 8 MB. The photo is stored privately and shown only to administrators.</p>' +
+        '<div class="btn-row"><button type="button" class="btn secondary" data-action="close-sheet">Cancel</button>' +
+        '<button type="submit" class="btn">Submit proof</button></div>' +
+      '</form>' +
+      '<div id="proofMsg" class="notice" hidden></div>',
+      'Proof of delivery'
+    );
+  }
+
+  function openOffer(id, current) {
+    var prefill = current && isFinite(Number(current)) ? String(Math.round(Number(current))) : '';
+    openSheet(
+      '<h2>Propose a fee</h2>' +
+      '<p class="muted" style="margin:6px 0 10px">Say what you are asking for this run, in UGX. ' +
+        'This is a proposal: an administrator has to accept it before it becomes the agreed fee.</p>' +
+      (prefill ? '<p class="tiny" style="margin-bottom:8px">Currently recorded fee: ' +
+        h(ugx(prefill)) + '</p>' : '') +
+      '<form id="offerForm" data-action="submit-offer" data-id="' + h(id) + '">' +
+        '<label for="offerAmount">Your fee (UGX)</label>' +
+        '<input id="offerAmount" name="amount_ugx" type="number" inputmode="numeric" ' +
+          'min="1000" max="20000000" step="500" placeholder="e.g. 120000" ' +
+          'value="' + h(prefill) + '" required>' +
+        '<p class="field-hint">Between 1,000 and 20,000,000 UGX. The buyer is not told this figure; ' +
+          'an administrator decides what the customer is charged.</p>' +
+        '<div class="btn-row"><button type="button" class="btn secondary" data-action="close-sheet">Cancel</button>' +
+        '<button type="submit" class="btn">Send proposal</button></div>' +
+      '</form>' +
+      '<div id="offerMsg" class="notice" hidden></div>',
+      'Propose a fee'
+    );
+  }
+
+  function submitOffer(form) {
+    var btn = form.querySelector('button[type=submit]');
+    if (!busy(btn)) return;
+    var id = form.getAttribute('data-id');
+    var raw = form.querySelector('#offerAmount').value;
+    var amount = Number(raw);
+    if (!raw || !isFinite(amount) || Math.round(amount) !== amount) {
+      showOfferError('Enter the amount in whole UGX.');
+      return;
+    }
+    if (amount < 1000 || amount > 20000000) {
+      showOfferError('That amount is outside the range the portal accepts (1,000 - 20,000,000 UGX).');
+      return;
+    }
+    btn.innerHTML = '<span class="spin"></span> Sending…';
+    api('/api/transporter/deliveries/' + encodeURIComponent(id) + '/offer', {
+      method: 'POST', body: JSON.stringify({ amount_ugx: amount })
+    }).then(function (r) {
+      if (r.ok) {
+        closeSheet();
+        toast('Proposal sent. An administrator has to accept it before it becomes the fee.');
+        state.deliveries = null;
+        state.dashboard = null;
+        loadDeliveries(true);
+        loadMe();
+        return;
+      }
+      idle(btn, 'Send proposal');
+      if (r.status === 409) {
+        closeSheet();
+        toast((r.data && r.data.error) || 'You already have an offer awaiting a decision.');
+        state.deliveries = null;
+        loadDeliveries(true);
+        return;
+      }
+      showOfferError((r.data && r.data.error) || 'Could not send the proposal. Nothing changed.');
+    });
+  }
+
+  function showOfferError(msg) {
+    var el = document.getElementById('offerMsg');
+    if (!el) return;
+    el.textContent = msg;
+    el.className = 'notice err';
+    el.hidden = false;
+  }
+
+  function submitProof(form) {
+    var btn = form.querySelector('button[type=submit]');
+    if (!busy(btn)) return;
+    var id = form.getAttribute('data-id');
+    var fd = new FormData();
+    fd.append('code', (form.querySelector('#proofCode').value || '').trim());
+    var file = form.querySelector('#proofPhoto').files[0];
+    if (!file) {
+      idle(btn, 'Submit proof');
+      showProofError('Choose the photograph first.');
+      return;
+    }
+    fd.append('photo', file);
+    btn.innerHTML = '<span class="spin"></span> Uploading…';
+    api('/api/transporter/deliveries/' + encodeURIComponent(id) + '/proof', {
+      method: 'POST', body: fd
+    }).then(function (r) {
+      if (r.ok && r.data && r.data.code_matched) {
+        closeSheet();
+        toast('Proof submitted. An administrator will confirm the delivery.');
+        state.deliveries = null;
+        state.dashboard = null;
+        loadDeliveries(true);
+        loadMe();
+        return;
+      }
+      idle(btn, 'Submit proof');
+      var msg = (r.data && r.data.error) || 'Could not submit the proof. Nothing was saved.';
+      if (r.data && r.data.attempts_remaining != null) {
+        msg += ' Attempts left: ' + r.data.attempts_remaining + '.';
+      }
+      showProofError(msg);
+    });
+  }
+
+  function showProofError(msg) {
+    var el = document.getElementById('proofMsg');
+    if (!el) return;
+    el.textContent = msg;
+    el.className = 'notice err';
+    el.hidden = false;
+  }
+
+  function saveProfile(form) {
+    var btn = form.querySelector('button[type=submit]');
+    if (!busy(btn)) return;
+    var phone = form.querySelector('#p_phone').value.trim();
+    var district = form.querySelector('#p_district').value.trim();
+    var email = form.querySelector('#p_email').value.trim();
+    // The API rejects an empty phone (a driver must be reachable), so an unset
+    // phone is left out of the patch rather than failing the whole save.
+    var body = { district: district };
+    if (phone) body.phone = phone;
+    if (email) body.email = email;
+    btn.innerHTML = '<span class="spin"></span> Saving…';
+    api('/api/transporter/profile', { method: 'PATCH', body: JSON.stringify(body) })
+      .then(function (r) {
+        idle(btn, 'Save changes');
+        var msg = document.getElementById('profileMsg');
+        if (!msg) return;
+        if (r.ok) {
+          state.profile = Object.assign({}, state.profile || state.me || {}, body);
+          msg.hidden = true;
+          toast('Your details were saved.');
+          loadProfile(true);
+          return;
+        }
+        msg.className = 'notice err';
+        msg.textContent = (r.data && r.data.error) || 'Could not save your details. Nothing changed.';
+        msg.hidden = false;
+      });
+  }
+
+  // ── sheet ──────────────────────────────────────────────────────────────────
+  function openSheet(html, label) {
+    closeSheet();
+    var scrim = document.createElement('div');
+    scrim.className = 'scrim';
+    scrim.id = 'sheetScrim';
+    scrim.innerHTML = '<div class="sheet" role="dialog" aria-modal="true" aria-label="' + h(label || 'Dialog') + '">' + html + '</div>';
+    document.body.appendChild(scrim);
+    var first = scrim.querySelector('input,select,button');
+    if (first) first.focus();
+  }
+  function closeSheet() {
+    var el = document.getElementById('sheetScrim');
+    if (el) el.remove();
+    pendingClaim = null;
+  }
+  function showSheetError(msg) {
+    var sheet = document.querySelector('#sheetScrim .sheet');
+    if (!sheet) return;
+    var el = document.createElement('div');
+    el.className = 'notice err';
+    el.textContent = msg;
+    sheet.appendChild(el);
+  }
+
+  // ── events ─────────────────────────────────────────────────────────────────
+  document.addEventListener('click', function (e) {
+    var tab = e.target.closest('[data-tab]');
+    if (tab) { go(tab.getAttribute('data-tab')); return; }
+    var goto = e.target.closest('[data-goto]');
+    if (goto) { go(goto.getAttribute('data-goto')); return; }
+    var el = e.target.closest('[data-action]');
+    if (!el) return;
+    var action = el.getAttribute('data-action');
+    if (action === 'login') login();
+    else if (action === 'logout') signOut('');
+    else if (action === 'refresh-jobs') { state.jobs = null; state.error.jobs = null; loadJobs(true); }
+    else if (action === 'refresh-deliveries') { state.deliveries = null; state.error.deliveries = null; loadDeliveries(true); }
+    else if (action === 'refresh-earnings') { state.earnings = null; state.error.earnings = null; loadEarnings(true); }
+    else if (action === 'filter') { state.delivFilter = el.getAttribute('data-filter'); render(); }
+    else if (action === 'claim') confirmClaim(el.getAttribute('data-id'));
+    else if (action === 'claim-confirm') claimJob(el);
+    else if (action === 'status') advance(el, el.getAttribute('data-id'), el.getAttribute('data-status'));
+    else if (action === 'open-proof') openProof(el.getAttribute('data-id'));
+    else if (action === 'offer') openOffer(el.getAttribute('data-id'), el.getAttribute('data-current'));
+    else if (action === 'close-sheet') closeSheet();
+  });
+
+  document.addEventListener('change', function (e) {
+    if (e.target.matches('input[data-action="availability"]')) setAvailability(e.target);
+  });
+
+  document.addEventListener('submit', function (e) {
+    var form = e.target.closest('form[data-action]');
+    if (!form) return;
+    e.preventDefault();
+    if (form.getAttribute('data-action') === 'submit-proof') submitProof(form);
+    else if (form.getAttribute('data-action') === 'submit-offer') submitOffer(form);
+    else if (form.getAttribute('data-action') === 'save-profile') saveProfile(form);
+  });
+
+  document.addEventListener('keydown', function (e) {
+    if (e.key === 'Escape') closeSheet();
+  });
+
+  // ── start ──────────────────────────────────────────────────────────────────
+  var saved = null;
+  try { saved = JSON.parse(sessionStorage.getItem(SESSION_KEY) || 'null'); } catch (e) { saved = null; }
+  if (saved && saved.access_token) {
+    session = saved;
+    boot();
+  }
+})();
 </script>
 </body>
 </html>
