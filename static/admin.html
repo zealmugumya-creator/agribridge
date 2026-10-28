@@ -1413,12 +1413,85 @@
   }
   function renderDeliveries(rows){
     if(!rows.length){ panelMsg('No deliveries yet.'); return; }
-    var body=rows.map(function(d){var st=d.status||'scheduled';
+    var body=rows.map(function(d){
+      var st=d.status||'scheduled';
       var route=h(d.pickup_location||'—')+' → '+h(d.delivery_location||'—');
-      var driver=d.driver_name?h(d.driver_name)+(d.driver_phone?' · '+h(d.driver_phone):''):'—';
-      return '<tr><td>'+h(d.tracking_code||(d.id||'').slice(0,8))+'</td><td>'+route+'</td><td>'+driver+'</td><td><span class="badge '+st+'">'+h(st.replace(/_/g,' '))+'</span></td><td>'+h(d.estimated_arrival||'—')+'</td><td>'+actionsCell('deliveries',d.id)+'</td></tr>';
+      var driver=d.driver_name?h(d.driver_name)+(d.driver_phone?' · '+h(d.driver_phone):''):
+                 (d.transporter_id?'<span class="badge available">assigned</span>':'—');
+      // A fee is only ever what the record holds. A null fee is printed as unset,
+      // never as 0, because 0 would read as "free" to everyone looking at it.
+      var fee=(d.transport_fee_ugx==null)?'<span class="muted">unset</span>':fmt(d.transport_fee_ugx)+(d.fee_basis?' <span class="muted">('+h(d.fee_basis)+')</span>':'');
+      var proof='—';
+      if(d.proof_verified_at) proof='<span class="badge paid">confirmed</span>';
+      else if(d.proof_submitted_at) proof=d.proof_code_matches?'<span class="badge active">code ok</span>':'<span class="badge cancelled">code wrong</span>';
+      else if(d.proof_code_issued_at) proof='<span class="muted">awaiting driver</span>';
+      var offer='';
+      if(d.offer_status==='proposed'){
+        var offerAmt=d.transporter_offer_ugx==null?'':' '+fmt(d.transporter_offer_ugx);
+        offer='<div class="rowbtns" style="margin-top:4px"><button class="btn sm" onclick="deliveryOffer(\''+h(d.id)+'\',\'accept\')">Accept'+offerAmt+'</button>'+
+              '<button class="btn sm red" onclick="deliveryOffer(\''+h(d.id)+'\',\'reject\')">Decline</button></div>';
+      }
+      var actions='<div class="rowbtns">'+
+        '<button class="btn sm ghost" onclick="deliveryFee(\''+h(d.id)+'\','+(d.transport_fee_ugx==null?'null':Number(d.transport_fee_ugx))+')">Fee</button>'+
+        '<button class="btn sm ghost" onclick="deliveryCode(\''+h(d.id)+'\')">Code</button>'+
+        '<button class="btn sm ghost" onclick="deliveryProof(\''+h(d.id)+'\')">Proof</button>'+
+        '</div>'+offer+actionsCell('deliveries',d.id);
+      return '<tr><td>'+h(d.tracking_code||(d.id||'').slice(0,8))+'</td><td>'+route+'</td><td>'+driver+'</td><td>'+fee+'</td><td><span class="badge '+st+'">'+h(st.replace(/_/g,' '))+'</span></td><td>'+proof+'</td><td>'+h(d.estimated_arrival||'—')+'</td><td>'+actions+'</td></tr>';
     }).join('');
-    setPanel('<table><thead><tr><th>Tracking</th><th>Route</th><th>Driver</th><th>Status</th><th>ETA</th><th></th></tr></thead><tbody>'+body+'</tbody></table>');
+    setPanel('<table><thead><tr><th>Tracking</th><th>Route</th><th>Driver</th><th>Fee</th><th>Status</th><th>Proof</th><th>ETA</th><th></th></tr></thead><tbody>'+body+'</tbody></table>');
+  }
+
+  // ── Transport fee, recipient code and proof ───────────────────────────
+  async function deliveryFee(id,current){
+    var raw=prompt('Agreed transport fee in UGX for this delivery:', current==null?'':String(current));
+    if(raw===null) return;
+    var amount=Number(String(raw).replace(/[^0-9.]/g,''));
+    if(!isFinite(amount)||amount<0){ alert('Enter a whole amount in UGX.'); return; }
+    var basis=(prompt("Basis: 'admin_set', 'calculated' or 'negotiated'", 'admin_set')||'').trim();
+    if(['admin_set','calculated','negotiated'].indexOf(basis)<0){ alert('Basis must be admin_set, calculated or negotiated.'); return; }
+    var disclose=confirm('Show this fee to the buyer?\nOK = yes, Cancel = keep it internal.');
+    try{
+      var r=await api('/api/admin/deliveries/'+encodeURIComponent(id)+'/fee',{method:'POST',body:JSON.stringify({amount_ugx:amount,basis:basis,disclose_to_buyer:disclose})});
+      if(r&&r.ok){ alert('Fee recorded: '+fmt(r.transport_fee_ugx)); await load('deliveries',false,true); }
+      else alert('Error: '+((r&&r.error)||'unknown'));
+    }catch(e){ alert('Could not save the fee: '+errText(e)); }
+    renderCurrent();
+  }
+  async function deliveryCode(id){
+    if(!confirm('Issue a new recipient code for this delivery?\nAny earlier code stops working.')) return;
+    try{
+      var r=await api('/api/admin/deliveries/'+encodeURIComponent(id)+'/proof-code',{method:'POST',body:'{}'});
+      if(r&&r.ok){
+        prompt('Give this code to the recipient only. It cannot be shown again.', r.code);
+        await load('deliveries',false,true);
+      } else alert('Error: '+((r&&r.error)||'unknown'));
+    }catch(e){ alert('Could not issue a code: '+errText(e)); }
+    renderCurrent();
+  }
+  async function deliveryProof(id){
+    try{
+      var r=await api('/api/admin/deliveries/'+encodeURIComponent(id)+'/proof');
+      var lines=[];
+      lines.push('Code issued: '+(r.code_issued_at||'no'));
+      lines.push('Submitted: '+(r.submitted_at||'no'));
+      lines.push('Code matched: '+(r.code_matched===true?'yes':r.code_matched===false?'no':'—'));
+      lines.push('Attempts used: '+(r.attempts_used==null?'—':r.attempts_used));
+      if(r.verified_at) lines.push('Confirmed by '+r.verified_by+' at '+r.verified_at);
+      if(r.submitted_at) lines.push('', 'The photo opens in a new tab for 5 minutes.');
+      if(r.photo_error) lines.push(r.photo_error);
+      alert(lines.join('\n'));
+      if(r.photo_url) window.open(r.photo_url,'_blank','noopener');
+    }catch(e){ alert('Could not read the proof: '+errText(e)); }
+  }
+  async function deliveryOffer(id,decision){
+    var label=decision==='accept'?'Accept this offer as the agreed fee?':'Decline this offer?';
+    if(!confirm(label)) return;
+    try{
+      var r=await api('/api/admin/deliveries/'+encodeURIComponent(id)+'/offer',{method:'POST',body:JSON.stringify({decision:decision})});
+      if(r&&r.ok){ await load('deliveries',false,true); }
+      else alert('Error: '+((r&&r.error)||'unknown'));
+    }catch(e){ alert('Could not record the decision: '+errText(e)); }
+    renderCurrent();
   }
   function renderSupplies(rows){
     if(!rows.length){ panelMsg('No supply products.'); return; }
