@@ -194,13 +194,28 @@ def test_transporter_location_does_not_touch_completed_deliveries(client, as_use
     assert [c for c in calls['update'] if c[0] == 'deliveries'] == []
 
 
-def test_transporter_location_reports_a_failed_write(client, as_user, monkeypatch):
+def test_transporter_location_is_honestly_unsupported(client, as_user, monkeypatch):
+    """This route cannot work, and must stop telling drivers to retry.
+
+    It PATCHes deliveries.transporter_lat / transporter_lng and
+    transporters.last_lat / last_lng. No migration creates those columns
+    (base-schema.sql:85-98 and migrations/0008 define neither), so every write in
+    the route is refused and has always been. The old version of this test simply
+    asserted 503, which is why it stayed green while the feature was dead — the
+    assertion was recording the failure, not checking the behaviour. It now pins
+    the 501, the code the portal keys its messaging on, and the absence of a
+    "retry" instruction that would send a driver on a loop.
+    """
     _transporter_location_stubs(monkeypatch, [{'id': 'd1'}], delivery_ok=False)
     r = client.post('/api/transporter/location', json={'lat': 0.31, 'lng': 32.58})
-    assert r.status_code == 503
+    assert r.status_code == 501
+    body = r.get_json()
+    assert body['code'] == 'live_location_not_supported'
+    assert 'retry' not in body['error'].lower()
+    assert 'nothing was saved' in body['error'].lower()
 
 
-def test_transporter_location_rejects_bad_coordinates(client, as_user):
+def test_transporter_location_reports_missing_coordinates(client, as_user):
     assert client.post('/api/transporter/location', json={'lat': 91, 'lng': 32}).status_code == 400
 
 

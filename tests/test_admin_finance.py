@@ -303,9 +303,42 @@ def test_assign_transporter_writes_real_delivery_columns(client, monkeypatch):
     assert delivery['driver_name'] == 'Driver One'
     assert delivery['driver_phone'] == '+256700000000'
     assert delivery['status'] == 'scheduled'
-    assert 'transporter_id' not in delivery
+    # This used to assert `'transporter_id' not in delivery`, because before 0020
+    # the column did not exist and writing it would have failed the whole insert.
+    # 0020 created it, and an assignment that does not record it is invisible to
+    # the transporter's own portal — so the linkage is now the point of the write.
+    assert delivery['transporter_id'] == 't1'
+    assert delivery['assigned_by'] == 'admin'
+    assert delivery['assigned_at']
     assert any(c[0] == 'orders' and c[1].get('status') == 'in_transit'
                for c in calls['update'])
+
+
+def test_admin_cannot_quietly_move_a_live_job_from_its_driver(client, monkeypatch):
+    _stub_notifications(monkeypatch)
+    held = {'deliveries': [{'id': 'd1', 'transporter_id': 't1', 'status': 'in_transit'}]}
+    updates = []
+
+    def fake_get(table, filters=None, limit=100):
+        if table == 'transporters':
+            return [{'id': 't2', 'full_name': 'Driver Two', 'phone': '0700000002'}]
+        return held.get(table, [])
+
+    monkeypatch.setattr(app_mod, 'supa_get', fake_get)
+    monkeypatch.setattr(app_mod, 'supa_update',
+                        lambda table, data, eq_col, eq_val: updates.append(table) or True)
+
+    r = client.post('/api/admin/orders/o1/assign-transporter',
+                    json={'transporter_id': 't2'}, headers=_admin_headers())
+    assert r.status_code == 409
+    assert r.get_json()['code'] == 'delivery_already_assigned'
+    assert not updates, 'a refused reassignment must not write anything'
+
+    forced = client.post('/api/admin/orders/o1/assign-transporter',
+                         json={'transporter_id': 't2', 'force': True},
+                         headers=_admin_headers())
+    assert forced.status_code == 200
+    assert 'deliveries' in updates
 
 
 def test_assign_transporter_failure_is_not_reported_as_success(client, monkeypatch):

@@ -9,6 +9,7 @@
 
 import base64
 import datetime
+import hashlib
 import hmac
 import json as _json
 import os
@@ -3493,11 +3494,609 @@ def transporter_update_location():
     }, 'id', transporter_id)
 
     if not transporter_ok or (active and delivery_updates == 0):
-        log.error('transporter.location_not_saved', transporter_id=transporter_id,
+        # This branch is not a transient failure, so it must not ask for a retry.
+        # deliveries.transporter_lat / transporter_lng and
+        # transporters.last_lat / last_lng are written here and created nowhere:
+        # base-schema.sql:85-98 and migrations/0008 define no such columns, so
+        # every PATCH in this function is refused by Postgres and this route has
+        # never stored a position. docs/TRANSPORTER_PORTAL_AUDIT.md §6 records it
+        # as dead code whose test passes because the feature fails. Reporting 503
+        # "Retry." told the driver their phone was at fault for a schema gap, and
+        # the portal must not imply live tracking exists (brief §7). Making the
+        # columns real is a deliberate migration plus a privacy decision, not a
+        # bug fix to slip in here.
+        log.error('transporter.location_unsupported', transporter_id=transporter_id,
                   active_deliveries=len(active), saved=delivery_updates)
-        return jsonify({'error': 'Location could not be saved. Retry.'}), 503
+        return jsonify({
+            'error': 'AgriBridge does not record live vehicle positions yet. '
+                     'Your delivery status updates still work; nothing was saved here.',
+            'code': 'live_location_not_supported'}), 501
 
     return jsonify({'ok': True, 'deliveries_updated': delivery_updates}), 200
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# TRANSPORTER PORTAL — jobs, claim, delivery progress, offers, earnings
+#
+# Every route here resolves the caller from their verified Supabase session and
+# then from their OWN transporters row. A transporter id is never read from the
+# request body, which is the rule brief §13 states as "do not trust a transporter
+# ID supplied by the browser". These routes exist because 0020 gave deliveries a
+# transporter_id to point at; before it, /api/transporter/location could only
+# fail and no portal screen could name a job's owner.
+# ══════════════════════════════════════════════════════════════════════════════
+
+_UUID_RE = re.compile(r'^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}'
+                      r'-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$')
+
+# Transitions a driver may perform themselves. 'delivered' and 'failed' are
+# deliberately absent: the owner's rule for this portal is recipient code +
+# photograph + admin confirmation, and admin_confirm_delivery already owns that
+# step, so the portal must not offer a second way to finish a job.
+_NEXT_DRIVER_STATUS = {
+    'scheduled': ('picked_up',),
+    'picked_up': ('in_transit',),
+    'in_transit': ('at_checkpoint',),
+    'at_checkpoint': (),
+    'delivered': (),
+    'failed': (),
+}
+
+# Statuses in which a job is still being worked — the same predicate as 0020's
+# deliveries_one_live_assignment_idx, so a driver holding a live job is never
+# shown as free to take another.
+_LIVE_STATUSES = ('scheduled', 'picked_up', 'in_transit', 'at_checkpoint')
+
+# Columns a transporter may change about their own account. vehicle_type,
+# capacity_kg and plate_number are NOT here — they are the safety claims 0022
+# removed from client reach, and an admin has to record them for a reason.
+_PROFILE_FIELDS = ('phone', 'email', 'district')
+
+
+def _transporter_identity():
+    """Resolve the caller's verified uid to their own transporters row.
+
+    Returns (uid, row, None), or (None, None, error_response). The 404 is a real
+    state, not a failure to handle: a farmer or buyer logging in with a session
+    that has no transporter row must be told their account is not linked, which
+    is different from "no jobs".
+    """
+    uid, err = verify_supabase_user()
+    if err:
+        return None, None, err
+    rows = supa_get('transporters', {
+        'supabase_uid': f'eq.{uid}',
+        'select': 'id,full_name,phone,email,vehicle_type,plate_number,district,'
+                  'capacity_kg,status,is_available,availability_updated_at',
+    }, limit=1)
+    if not rows:
+        return None, None, (jsonify({
+            'error': 'This login is not linked to a transporter account. '
+                     'An administrator has to create it from the Transporters section.',
+            'code': 'transporter_not_linked'}), 404)
+    return uid, rows[0], None
+
+
+def _job_rows(filters, limit=50):
+    """Fetch deliveries and join the order fields a job card actually shows.
+
+    Only columns that exist are selected (base-schema.sql:85-98 for deliveries,
+    :64-83 for orders). Contact details are left out here; the assigned-view
+    helper adds them, because brief §5 forbids exposing farmer or buyer details
+    before the transporter holds the job.
+    """
+    rows = supa_get('deliveries', filters, limit=limit) or []
+    order_ids = [r['order_id'] for r in rows
+                 if r.get('order_id') and _UUID_RE.match(str(r['order_id']))]
+    orders = {}
+    if order_ids:
+        orows = supa_get('orders', {
+            'id': f'in.({",".join(order_ids)})',
+            'select': 'id,quantity_kg,price_per_kg,total_amount,item_category,'
+                      'delivery_type,delivery_address,status,payment_status,created_at',
+        }, limit=len(order_ids)) or []
+        orders = {o['id']: o for o in orows}
+    return rows, orders
+
+
+def _fee_view(d):
+    """State a transport fee honestly, or state that there is none.
+
+    A null fee must not render as 0 or as an estimate. The owner's rule is that
+    admin sets the figure and the driver sees the figure that is theirs, so an
+    unrecorded fee is reported as unrecorded and the UI says so.
+    """
+    fee = d.get('transport_fee_ugx')
+    if fee is None:
+        return {'fee_ugx': None, 'fee_state': 'not_set',
+                'label': 'Fee not recorded yet — an administrator sets it'}
+    return {'fee_ugx': fee, 'fee_state': 'agreed',
+            'label': 'Agreed transport fee',
+            'basis': d.get('fee_basis'),
+            'disclosed_to_buyer': bool(d.get('fee_disclosed_to_buyer'))}
+
+
+@app.route('/api/transporter/jobs', methods=['GET'])
+@rate_limit(max_req=60, window=60)
+def transporter_jobs():
+    """Open jobs this transporter could claim: unassigned and still scheduled."""
+    _, t, err = _transporter_identity()
+    if err:
+        return err
+    rows, orders = _job_rows({
+        'transporter_id': 'is.null',
+        'status': 'eq.scheduled',
+        'order': 'created_at.asc',
+        'select': 'id,order_id,pickup_location,delivery_location,estimated_arrival,'
+                  'tracking_code,notes,transport_fee_ugx,fee_basis,created_at',
+    }, limit=50)
+    jobs = []
+    for d in rows:
+        o = orders.get(d.get('order_id')) or {}
+        jobs.append({
+            'delivery_id': d.get('id'),
+            'order_id': d.get('order_id'),
+            'order_ref': str(d.get('order_id') or '')[:8],
+            'pickup_location': d.get('pickup_location'),
+            'delivery_location': d.get('delivery_location') or o.get('delivery_address'),
+            'cargo': o.get('item_category') or 'Not recorded',
+            'quantity_kg': o.get('quantity_kg'),
+            'vehicle_type': t.get('vehicle_type'),
+            'deadline': d.get('estimated_arrival'),
+            'notes': d.get('notes'),
+            'tracking_code': d.get('tracking_code'),
+            **_fee_view(d),
+        })
+    return jsonify({'jobs': jobs, 'count': len(jobs)}), 200
+
+
+@app.route('/api/transporter/jobs/<delivery_id>/claim', methods=['POST'])
+@rate_limit(max_req=10, window=60)
+def transporter_claim_job(delivery_id):
+    """Take an open job. Exclusivity is decided in Postgres, not here.
+
+    The body is ignored on purpose: the fee comes from the record and the
+    transporter id comes from the session, so a client cannot claim a job for
+    somebody else or name its own price. claim_delivery() locks the row and
+    updates it only while transporter_id is still null, so the loser of a race
+    gets already_claimed and can refresh rather than believe it won.
+    """
+    uid, t, err = _transporter_identity()
+    if err:
+        return err
+    if t.get('status') != 'active':
+        return jsonify({'error': 'Your transporter account is not active. An '
+                                 'administrator must reactivate it.',
+                        'code': 'account_inactive'}), 403
+    if not _UUID_RE.match(str(delivery_id)):
+        return jsonify({'error': 'Unknown job'}), 404
+
+    res = SUPA.rpc('claim_delivery', {'p_delivery_id': delivery_id,
+                                      'p_transporter_id': t['id']})
+    if not res.ok:
+        log.error('transporter.claim_error', status=res.status)
+        return jsonify({'error': 'Could not record your claim. Nothing changed — try again.',
+                        'code': 'claim_unavailable'}), 503
+    outcome = res.data if isinstance(res.data, dict) else {}
+    if outcome.get('claimable'):
+        _log_system_event('transporter_job_claimed', {
+            'delivery_id': delivery_id, 'transporter_id': t['id'],
+        }, severity='info')
+        return jsonify({'ok': True, 'delivery_id': delivery_id}), 200
+    reason = outcome.get('reason') or 'claim_failed'
+    if reason in ('already_claimed', 'not_open'):
+        return jsonify({'ok': False, 'reason': reason,
+                        'error': 'This job is no longer open. The list has been '
+                                 'refreshed for you.'}), 409
+    if reason == 'transporter_not_found':
+        # The id came from the session lookup above, so this only happens if the
+        # row disappeared between the two reads. Report it, never paper over it.
+        log.error('transporter.claim_identity_lost', uid_present=bool(uid))
+    return jsonify({'ok': False, 'reason': reason}), 409
+
+
+@app.route('/api/transporter/deliveries', methods=['GET'])
+@rate_limit(max_req=60, window=60)
+def transporter_deliveries():
+    """This transporter's own jobs, with the contacts a driver needs on the road."""
+    _, t, err = _transporter_identity()
+    if err:
+        return err
+    rows, orders = _job_rows({
+        'transporter_id': f'eq.{t["id"]}',
+        'order': 'status.asc,estimated_arrival.asc',
+        'select': 'id,order_id,status,pickup_location,delivery_location,'
+                  'estimated_arrival,actual_arrival,tracking_code,notes,'
+                  'transport_fee_ugx,fee_basis,fee_disclosed_to_buyer,offer_status,'
+                  'transporter_offer_ugx,proof_code_matches,proof_submitted_at,'
+                  'proof_verified_at,assigned_at,assigned_by',
+    }, limit=100)
+
+    # Counterparty contacts are revealed only for jobs the caller already holds,
+    # which is what RLS just confirmed by returning these rows at all.
+    farmer_ids = {o.get('farmer_id') for o in orders.values() if o.get('farmer_id')}
+    people = {}
+    if farmer_ids:
+        frows = supa_get('farmers', {
+            'id': f"in.({','.join(sorted(farmer_ids))})",
+            'select': 'id,full_name,phone,district',
+        }, limit=len(farmer_ids)) or []
+        people = {f['id']: f for f in frows}
+
+    out = []
+    for d in rows:
+        o = orders.get(d.get('order_id')) or {}
+        farmer = people.get(o.get('farmer_id')) or {}
+        out.append({
+            **d,
+            'order_ref': str(d.get('order_id') or '')[:8],
+            'cargo': o.get('item_category') or 'Not recorded',
+            'quantity_kg': o.get('quantity_kg'),
+            'order_status': o.get('status'),
+            'contact_name': farmer.get('full_name'),
+            'contact_phone': farmer.get('phone'),
+            'next_statuses': _NEXT_DRIVER_STATUS.get(d.get('status'), ()),
+            **_fee_view(d),
+        })
+    return jsonify({'deliveries': out, 'count': len(out)}), 200
+
+
+@app.route('/api/transporter/deliveries/<delivery_id>/status', methods=['POST'])
+@rate_limit(max_req=30, window=60)
+def transporter_advance_delivery(delivery_id):
+    """Advance one step, once. Ownership and the old value are both in the WHERE.
+
+    update_checked writes only while the row still reads (this delivery, this
+    transporter, this status). Zero rows back therefore means somebody else
+    moved it first — a double tap, a second device, or an admin — and the caller
+    gets 409 with the real current status instead of a second identical event.
+    """
+    _, t, err = _transporter_identity()
+    if err:
+        return err
+    if not _UUID_RE.match(str(delivery_id)):
+        return jsonify({'error': 'Unknown delivery'}), 404
+    data = request.get_json(force=True, silent=True) or {}
+    wanted = str(data.get('status', '')).strip()
+
+    mine = supa_get('deliveries', {
+        'id': f'eq.{delivery_id}', 'transporter_id': f'eq.{t["id"]}',
+        'select': 'id,status,order_id',
+    }, limit=1)
+    if not mine:
+        return jsonify({'error': 'This delivery is not yours.'}), 403
+    current = mine[0].get('status')
+
+    if wanted not in _NEXT_DRIVER_STATUS.get(current, ()):
+        allowed = list(_NEXT_DRIVER_STATUS.get(current, ()))
+        return jsonify({
+            'error': f"'{wanted}' is not a step you can take from '{current}'.",
+            'code': 'illegal_transition', 'current_status': current,
+            'allowed': allowed,
+            'note': 'Completing a delivery needs the recipient code, a photo and '
+                    'an administrator confirming it — those are not driver steps.'
+                    if not allowed else ''}), 409
+
+    res = SUPA.update_checked('deliveries',
+                              {'status': wanted,
+                               'updated_at': datetime.datetime.utcnow().isoformat()},
+                              {'id': f'eq.{delivery_id}',
+                               'transporter_id': f'eq.{t["id"]}',
+                               'status': f'eq.{current}'})
+    if not res.ok:
+        log.error('transporter.status_update_failed', status=res.status)
+        return jsonify({'error': 'Could not save the new status. Nothing changed.'}), 503
+    if not res.data:
+        fresh = supa_get('deliveries', {'id': f'eq.{delivery_id}', 'select': 'status'}, limit=1)
+        return jsonify({'ok': False, 'reason': 'changed_elsewhere',
+                        'current_status': (fresh or [{}])[0].get('status'),
+                        'error': 'This job moved on while you were tapping. '
+                                 'The status shown now is the real one.'}), 409
+    _log_system_event('transporter_delivery_status', {
+        'delivery_id': delivery_id, 'from': current, 'to': wanted,
+        'transporter_id': t['id'],
+    }, severity='info')
+    return jsonify({'ok': True, 'status': wanted}), 200
+
+
+@app.route('/api/transporter/deliveries/<delivery_id>/offer', methods=['POST'])
+@rate_limit(max_req=10, window=60)
+def transporter_counter_offer(delivery_id):
+    """Propose a different fee for a job the caller holds. A proposal, not money.
+
+    The figure never touches transport_fee_ugx: only an admin accepting it turns
+    a proposal into an agreed fee, so nothing on this path can make the Finance
+    view owe a transporter an amount nobody approved.
+    """
+    _, t, err = _transporter_identity()
+    if err:
+        return err
+    if not _UUID_RE.match(str(delivery_id)):
+        return jsonify({'error': 'Unknown delivery'}), 404
+    data = request.get_json(force=True, silent=True) or {}
+    raw = data.get('amount_ugx', data.get('offer_ugx'))
+    try:
+        amount = round(float(raw))
+    except (TypeError, ValueError):
+        return jsonify({'error': 'Enter the amount you are asking for, in UGX.'}), 400
+    if not (1000 <= amount <= 20000000):
+        return jsonify({'error': 'That amount is outside the range the portal '
+                                 'accepts (1,000 - 20,000,000 UGX).'}), 400
+
+    mine = supa_get('deliveries', {
+        'id': f'eq.{delivery_id}', 'transporter_id': f'eq.{t["id"]}',
+        'select': 'id,offer_status,status',
+    }, limit=1)
+    if not mine:
+        return jsonify({'error': 'This delivery is not yours.'}), 403
+    if mine[0].get('offer_status') == 'proposed':
+        return jsonify({'error': 'You already have an offer awaiting a decision.',
+                        'code': 'offer_pending'}), 409
+
+    now = datetime.datetime.utcnow().isoformat()
+    res = SUPA.update_checked('deliveries',
+                              {'transporter_offer_ugx': amount, 'offer_status': 'proposed',
+                               'offer_at': now, 'offer_decided_at': None,
+                               'updated_at': now},
+                              {'id': f'eq.{delivery_id}',
+                               'transporter_id': f'eq.{t["id"]}'})
+    if not res.ok or not res.data:
+        return jsonify({'error': 'Could not record your offer. Nothing changed.'}), 503
+    return jsonify({'ok': True, 'offer_ugx': amount, 'offer_status': 'proposed',
+                    'note': 'An administrator has to accept this before it becomes '
+                            'the agreed fee.'}), 200
+
+
+_PROOF_BUCKET = 'proof_of_delivery'
+_PROOF_PHOTO_LIMIT = 8 * 1024 * 1024
+_PROOF_PHOTO_TYPES = {
+    'image/jpeg': 'jpg',
+    'image/png': 'png',
+    'image/webp': 'webp',
+}
+
+
+@app.route('/api/transporter/deliveries/<delivery_id>/proof', methods=['POST'])
+@rate_limit(max_req=6, window=300)
+def transporter_submit_proof(delivery_id):
+    """Record the recipient code and one photograph at the door.
+
+    This is not completion. The owner's rule is code + photograph + an admin
+    confirming it, so a successful submission moves a job to "waiting for
+    confirmation" and nothing else. The code is compared inside Postgres
+    (0023), where the attempt counter and the row lock live; a wrong code is
+    stored as evidence with matches = false, never reported as success.
+    """
+    _, t, err = _transporter_identity()
+    if err:
+        return err
+    if not _UUID_RE.match(str(delivery_id)):
+        return jsonify({'error': 'Unknown delivery'}), 404
+
+    code = str(request.form.get('code', '')).strip()
+    if not re.fullmatch(r'\d{6}', code):
+        return jsonify({'error': 'Enter the 6-digit code the recipient was given.',
+                        'code': 'code_format'}), 400
+
+    uploaded = request.files.get('photo')
+    if not uploaded or not uploaded.filename:
+        return jsonify({'error': 'A photograph of the handover is required.',
+                        'code': 'photo_required'}), 400
+    content_type = (uploaded.mimetype or '').lower().strip()
+    extension = _PROOF_PHOTO_TYPES.get(content_type)
+    if not extension:
+        return jsonify({'error': 'The photograph must be a JPG, PNG or WebP file.'}), 415
+    blob = uploaded.stream.read(_PROOF_PHOTO_LIMIT + 1)
+    if not blob:
+        return jsonify({'error': 'The photograph is empty.'}), 400
+    if len(blob) > _PROOF_PHOTO_LIMIT:
+        return jsonify({'error': 'The photograph must be at most 8 MB.'}), 413
+    if not _looks_like_declared_media(content_type, blob):
+        return jsonify({'error': 'The file content does not match its media type.'}), 415
+
+    object_path = f"deliveries/{delivery_id}/{uuid.uuid4().hex}.{extension}"
+    stored = SUPA.upload_private_media(_PROOF_BUCKET, object_path, blob, content_type)
+    if not stored.ok:
+        log.error('transporter.proof_upload_failed', status=stored.status,
+                  error=stored.error)
+        return jsonify({'error': 'The photograph could not be stored, so nothing was '
+                                 'recorded. Try again.',
+                        'code': 'proof_storage_unavailable'}), 503
+
+    code_hash = hashlib.sha256(code.encode('utf-8')).hexdigest()
+    res = SUPA.rpc('submit_delivery_proof', {
+        'p_delivery_id': delivery_id,
+        'p_transporter_id': t['id'],
+        'p_code_hash': code_hash,
+        'p_photo_path': object_path,
+    })
+    if not res.ok:
+        log.error('transporter.proof_rpc_failed', status=res.status)
+        SUPA.delete_object(_PROOF_BUCKET, object_path)
+        return jsonify({'error': 'Could not record the proof. Nothing was saved — try again.',
+                        'code': 'proof_unavailable'}), 503
+
+    outcome = res.data if isinstance(res.data, dict) else {}
+    if not outcome.get('ok'):
+        # The function recorded nothing, so the object would be orphaned.
+        SUPA.delete_object(_PROOF_BUCKET, object_path)
+        reason = outcome.get('reason') or 'refused'
+        if reason == 'not_yours':
+            return jsonify({'error': 'This delivery is not yours.'}), 403
+        if reason == 'delivery_not_found':
+            return jsonify({'error': 'Unknown delivery'}), 404
+        if reason == 'code_not_issued':
+            return jsonify({'error': 'No recipient code has been issued for this job yet. '
+                                     'Ask an administrator to issue one.',
+                            'code': 'code_not_issued'}), 409
+        if reason == 'closed':
+            return jsonify({'error': 'This delivery is already closed.',
+                            'code': 'delivery_closed',
+                            'current_status': outcome.get('status')}), 409
+        if reason == 'locked_out':
+            return jsonify({'error': 'Too many wrong codes for this job. An administrator '
+                                     'has to issue a new one before it can be completed.',
+                            'code': 'code_locked'}), 429
+        return jsonify({'error': 'The proof was refused. Nothing was saved.',
+                        'code': reason}), 409
+
+    matched = bool(outcome.get('code_matched'))
+    _log_system_event('delivery_proof_submitted', {
+        'delivery_id': delivery_id, 'transporter_id': t['id'],
+        'code_matched': matched,
+        'attempts_remaining': outcome.get('attempts_remaining'),
+    }, severity='info' if matched else 'warning')
+    if not matched:
+        return jsonify({
+            'ok': True, 'submitted': True, 'code_matched': False,
+            'attempts_remaining': outcome.get('attempts_remaining'),
+            'error': 'The code did not match. The photograph was kept for the '
+                     'administrator, but this delivery cannot be confirmed until '
+                     'the correct code is entered.',
+        }), 200
+    return jsonify({
+        'ok': True, 'submitted': True, 'code_matched': True,
+        'submitted_at': outcome.get('submitted_at'),
+        'note': 'Waiting for an administrator to confirm the delivery.',
+    }), 200
+
+
+@app.route('/api/transporter/earnings', methods=['GET'])
+@rate_limit(max_req=60, window=60)
+def transporter_earnings():
+    """Transport fees the record actually shows, and one thing it does not.
+
+    There is no transport payment ledger in this database: payouts is farmer-only
+    (base-schema.sql:110-124, 0016) and nothing credits a transporter. So this
+    reports what is true — the fee agreed on each of the caller's own jobs, split
+    by delivery state — and says plainly that a payment record does not exist.
+    A completed delivery is not evidence of payment, which is exactly the mistake
+    brief §8 forbids, so no "withdrawable balance" is computed here at all.
+    """
+    _, t, err = _transporter_identity()
+    if err:
+        return err
+    rows = supa_get('deliveries', {
+        'transporter_id': f'eq.{t["id"]}',
+        'select': 'id,status,transport_fee_ugx,fee_basis,fee_disclosed_to_buyer,'
+                  'offer_status,proof_verified_at,assigned_at',
+        'order': 'assigned_at.desc',
+    }, limit=500) or []
+
+    def _sum(pred):
+        total = 0
+        any_row = False
+        for d in rows:
+            if pred(d):
+                any_row = True
+                total += float(d.get('transport_fee_ugx') or 0)
+        return (total if any_row else None)
+
+    completed = [d for d in rows if d.get('status') == 'delivered']
+    live = [d for d in rows if d.get('status') in _LIVE_STATUSES]
+    return jsonify({
+        'currency': 'UGX',
+        'jobs_total': len(rows),
+        'jobs_completed': len(completed),
+        'jobs_in_progress': len(live),
+        'fee_agreed_total_ugx': _sum(lambda d: d.get('transport_fee_ugx') is not None),
+        'fee_completed_total_ugx': _sum(lambda d: d.get('transport_fee_ugx') is not None
+                                        and d.get('status') == 'delivered'),
+        'offers_awaiting_decision': sum(1 for d in rows if d.get('offer_status') == 'proposed'),
+        'payment_tracking': 'not_available',
+        'payment_note': 'AgriBridge has no transport payment records yet, so '
+                        'nothing here is a balance you can withdraw. A fee being '
+                        'agreed does not mean it has been paid.',
+        'jobs': [{'delivery_id': d.get('id'), 'status': d.get('status'),
+                  'fee_ugx': d.get('transport_fee_ugx'), 'basis': d.get('fee_basis'),
+                  'offer_status': d.get('offer_status'),
+                  'admin_confirmed': bool(d.get('proof_verified_at'))} for d in rows[:100]],
+    }), 200
+
+
+@app.route('/api/transporter/profile', methods=['PATCH'])
+@rate_limit(max_req=10, window=60)
+def transporter_update_profile():
+    """Edit contact and service-area fields, and only those.
+
+    0022 removed the client's ability to write this row at all, so this endpoint
+    is the only self-service path. vehicle_type, capacity_kg and plate_number are
+    refused by name rather than silently ignored, because a driver relabelling a
+    motorcycle as a lorry is a load-safety claim, not a preference.
+    """
+    _, t, err = _transporter_identity()
+    if err:
+        return err
+    data = request.get_json(force=True, silent=True) or {}
+    blocked = [k for k in ('vehicle_type', 'capacity_kg', 'plate_number', 'status',
+                           'is_available', 'supabase_uid', 'notes') if k in data]
+    if blocked:
+        return jsonify({'error': 'An administrator must change: '
+                                 + ', '.join(sorted(blocked)),
+                        'code': 'field_requires_admin', 'fields': sorted(blocked)}), 403
+    patch = {}
+    for col in _PROFILE_FIELDS:
+        if col not in data:
+            continue
+        val = str(data.get(col) or '').strip()
+        if col == 'phone' and not re.fullmatch(r'\+?2567\d{8}|\+?07\d{8}', val.replace(' ', '')):
+            # No worked example here. tests/test_business_config.py scans every
+            # user-facing file for a Ugandan mobile number that is not the
+            # business line, and a plausible placeholder like 07xx would match it
+            # and read to a driver like a number to call.
+            return jsonify({'error': 'Enter a Ugandan mobile number: 10 digits '
+                                     'starting 07, or 12 starting +2567.'}), 400
+        if col == 'email' and val and '@' not in val:
+            return jsonify({'error': 'Enter a valid email address.'}), 400
+        patch[col] = val or None
+    if not patch:
+        return jsonify({'error': 'Nothing to update.'}), 400
+    res = SUPA.update_checked('transporters', patch, {'id': f'eq.{t["id"]}'})
+    if not res.ok or not res.data:
+        log.error('transporter.profile_update_failed', status=res.status)
+        return jsonify({'error': 'Could not save your details. Nothing changed.'}), 503
+    return jsonify({'ok': True, 'updated': sorted(patch)}), 200
+
+
+@app.route('/api/transporter/dashboard', methods=['GET'])
+@rate_limit(max_req=60, window=60)
+def transporter_dashboard():
+    """The five home numbers, each counted, none counted twice.
+
+    Uses supa_count (limit=0 + Prefer: count=exact) rather than downloading rows,
+    and reports null on a failed count. A card that cannot be measured shows
+    "unavailable", never 0 — brief §4 allows only metrics the backend supports,
+    and a zero is a claim.
+    """
+    _, t, err = _transporter_identity()
+    if err:
+        return err
+    base = {'transporter_id': f'eq.{t["id"]}'}
+    counts = {}
+    for key, filt in (
+        ('open_jobs', {'transporter_id': 'is.null', 'status': 'eq.scheduled'}),
+        ('assigned', {**base, 'status': 'eq.scheduled'}),
+        ('active', {**base, 'status': 'in.(picked_up,in_transit,at_checkpoint)'}),
+        ('completed', {**base, 'status': 'eq.delivered'}),
+        ('awaiting_confirmation', {**base, 'status': 'eq.at_checkpoint'}),
+    ):
+        n, _e = supa_count('deliveries', filt)
+        counts[key] = n
+    # 'assigned' and 'awaiting_confirmation' deliberately overlap: a job is
+    # counted once per card and the cards are defined so a reader can see which
+    # subset each is, rather than summing them into a made-up total.
+    pending_pay, _ = supa_count('deliveries', {**base, 'status': 'eq.delivered',
+                                               'transport_fee_ugx': 'not.is.null'})
+    return jsonify({
+        'transporter': {'id': t['id'], 'name': t.get('full_name'),
+                        'district': t.get('district'), 'vehicle_type': t.get('vehicle_type'),
+                        'status': t.get('status'),
+                        'is_available': bool(t.get('is_available')),
+                        'availability_updated_at': t.get('availability_updated_at')},
+        'metrics': {**counts, 'completed_with_fee': pending_pay},
+        'counts_unverified': [k for k, v in {**counts, 'completed_with_fee': pending_pay}.items()
+                              if v is None],
+    }), 200
 
 
 @app.route('/api/admin/active-deliveries', methods=['GET'])
@@ -3897,17 +4496,38 @@ def admin_assign_transporter(order_id):
     if not t_rows:
         return jsonify({'error': 'Transporter not found'}), 404
     t = t_rows[0]
-    # deliveries has driver_name/driver_phone, not transporter_id, and its status
-    # check does not include 'assigned'. Persist the real columns and fail loudly
-    # if the assignment cannot be saved; never report a phantom success.
-    existing = supa_get('deliveries', {'order_id': f'eq.{order_id}'}, limit=1)
+    # driver_name/driver_phone are what deliveries has always had, so they are
+    # still written — the admin logistics views read them. From 0020 the real
+    # linkage is transporter_id, and without it an admin-assigned job is
+    # invisible to the transporter's own portal, which is the whole point of the
+    # column. assigned_by records who moved it, because 'claim' and 'admin' need
+    # to be told apart in an audit.
     now = datetime.datetime.utcnow().isoformat()
     delivery_fields = {
         'driver_name': t.get('full_name') or '',
         'driver_phone': t.get('phone') or '',
+        'transporter_id': transporter_id,
+        'assigned_at': now,
+        'assigned_by': 'admin',
         'updated_at': now,
     }
+    existing = supa_get('deliveries', {'order_id': f'eq.{order_id}'}, limit=1)
     if existing:
+        # Writing transporter_id makes this route able to move a job out from
+        # under a driver who is already on the way with it. That is sometimes
+        # correct — a breakdown, a no-show — but it must be a decision, not a
+        # side effect of re-picking a name in the dropdown.
+        holder = existing[0].get('transporter_id')
+        if (holder and holder != transporter_id
+                and existing[0].get('status') in _LIVE_STATUSES
+                and not data.get('force')):
+            return jsonify({
+                'error': 'A transporter already holds this job and it is still live. '
+                         'Reassigning releases them from it.',
+                'code': 'delivery_already_assigned',
+                'current_transporter_id': holder,
+                'current_status': existing[0].get('status'),
+                'retry_with': 'force=true'}), 409
         saved = supa_update('deliveries', delivery_fields, 'order_id', order_id)
     else:
         delivery_fields.update({
@@ -3974,6 +4594,372 @@ def admin_assign_transporter(order_id):
     return jsonify({'ok': True}), 200
 
 
+# ── Transport: fees, rates and the proof an admin confirms ───────────────────
+def _admin_actor(payload):
+    """The admin token's subject, recorded as text.
+
+    0020 declares proof_verified_by as text rather than uuid because this value
+    is 'admin' on the legacy admin JWT — a uuid column would make recording who
+    confirmed a delivery fail on the one identity the console actually issues.
+    """
+    actor = (payload or {}).get('sub') or (payload or {}).get('email') or 'admin'
+    return str(actor)[:120]
+
+
+def _delivery_or_404(delivery_id, select):
+    if not _UUID_RE.match(str(delivery_id)):
+        return None, (jsonify({'error': 'Unknown delivery'}), 404)
+    rows = supa_get('deliveries', {'id': f'eq.{delivery_id}', 'select': select}, limit=1)
+    if not rows:
+        return None, (jsonify({'error': 'Delivery not found'}), 404)
+    return rows[0], None
+
+
+@app.route('/api/admin/deliveries/<delivery_id>/proof-code', methods=['POST'])
+@rate_limit(max_req=10, window=60)
+def admin_issue_proof_code(delivery_id):
+    """Issue the recipient code for one delivery, shown exactly once.
+
+    The code is generated here with `secrets`, hashed here, and only the hash is
+    stored. It is returned to the admin once so it can be passed to the
+    recipient; nothing in the codebase can read it back afterwards.
+    """
+    payload, err = verify_token(required_role='admin')
+    if err:
+        return err
+    d, not_found = _delivery_or_404(
+        delivery_id, 'id,order_id,status,transporter_id,proof_submitted_at')
+    if not_found:
+        return not_found
+    if d.get('status') in ('delivered', 'failed'):
+        return jsonify({'error': 'This delivery is already closed, so a code would '
+                                 'serve no purpose.',
+                        'code': 'delivery_closed'}), 409
+
+    code = f'{secrets.randbelow(1000000):06d}'
+    now = datetime.datetime.utcnow().isoformat()
+    res = SUPA.update_checked('deliveries', {
+        'proof_code_hash': hashlib.sha256(code.encode('utf-8')).hexdigest(),
+        'proof_code_issued_at': now,
+        'proof_code_attempts': 0,
+        'proof_code_matches': None,
+        'updated_at': now,
+    }, {'id': f'eq.{delivery_id}'})
+    if not res.ok or not res.data:
+        log.error('admin.proof_code_failed', status=res.status)
+        return jsonify({'error': 'Could not issue a code. Nothing changed.'}), 503
+
+    # The code itself is never logged or stored in system_events.
+    _log_system_event('delivery_proof_code_issued', {
+        'delivery_id': delivery_id, 'order_id': d.get('order_id'),
+        'transporter_assigned': bool(d.get('transporter_id')),
+    }, severity='info')
+    return jsonify({
+        'ok': True, 'delivery_id': delivery_id, 'code': code, 'issued_at': now,
+        'note': 'Give this code to the recipient only. The driver enters it at '
+                'the door, and it cannot be shown again.',
+        'transporter_assigned': bool(d.get('transporter_id')),
+    }), 200
+
+
+@app.route('/api/admin/deliveries/<delivery_id>/proof', methods=['GET'])
+@rate_limit(max_req=30, window=60)
+def admin_delivery_proof(delivery_id):
+    """Everything recorded about the proof, plus a short-lived photo URL.
+
+    proof_code_hash is never selected, so this endpoint cannot be used to learn
+    or replay the recipient's code.
+    """
+    payload, err = verify_token(required_role='admin')
+    if err:
+        return err
+    d, not_found = _delivery_or_404(
+        delivery_id,
+        'id,order_id,status,transporter_id,proof_code_issued_at,proof_submitted_at,'
+        'proof_code_matches,proof_code_attempts,proof_photo_path,proof_verified_by,'
+        'proof_verified_at')
+    if not_found:
+        return not_found
+
+    photo_url, photo_error = None, None
+    if d.get('proof_photo_path'):
+        signed = SUPA.create_signed_url(_PROOF_BUCKET, d['proof_photo_path'], 300)
+        if signed.ok:
+            photo_url = signed.data['url']
+        else:
+            photo_error = 'The photograph exists but could not be opened right now.'
+            log.error('admin.proof_sign_failed', status=signed.status, error=signed.error)
+
+    return jsonify({
+        'delivery_id': d.get('id'),
+        'order_id': d.get('order_id'),
+        'status': d.get('status'),
+        'transporter_id': d.get('transporter_id'),
+        'code_issued_at': d.get('proof_code_issued_at'),
+        'submitted_at': d.get('proof_submitted_at'),
+        'code_matched': d.get('proof_code_matches'),
+        'attempts_used': d.get('proof_code_attempts'),
+        'photo_available': bool(photo_url),
+        'photo_url': photo_url,
+        'photo_error': photo_error,
+        'verified_by': d.get('proof_verified_by'),
+        'verified_at': d.get('proof_verified_at'),
+        'can_confirm': bool(d.get('proof_verified_at'))
+                        if d.get('proof_code_issued_at') else None,
+    }), 200
+
+
+@app.route('/api/admin/deliveries/<delivery_id>/proof/reject', methods=['POST'])
+@rate_limit(max_req=10, window=60)
+def admin_reject_proof(delivery_id):
+    """Send a proof back so the driver can try again with the same code.
+
+    Clearing the submission does not delete the photograph from storage: the
+    admin may still need it if the job is disputed, and storage is cheap next to
+    losing evidence somebody was standing in front of.
+    """
+    payload, err = verify_token(required_role='admin')
+    if err:
+        return err
+    data = request.get_json(force=True, silent=True) or {}
+    reason = str(data.get('reason', '')).strip()[:300]
+    d, not_found = _delivery_or_404(delivery_id, 'id,proof_submitted_at,proof_verified_at')
+    if not_found:
+        return not_found
+    if d.get('proof_verified_at'):
+        return jsonify({'error': 'This delivery has already been confirmed. A confirmed '
+                                 'delivery cannot be un-confirmed from here.',
+                        'code': 'already_confirmed'}), 409
+    if not d.get('proof_submitted_at'):
+        return jsonify({'error': 'There is no submitted proof to send back.',
+                        'code': 'nothing_submitted'}), 409
+
+    now = datetime.datetime.utcnow().isoformat()
+    res = SUPA.update_checked('deliveries', {
+        'proof_submitted_at': None,
+        'proof_code_matches': None,
+        'proof_code_attempts': 0,
+        'updated_at': now,
+    }, {'id': f'eq.{delivery_id}', 'proof_submitted_at': 'not.is.null'})
+    if not res.ok or not res.data:
+        return jsonify({'error': 'The proof changed while you were reviewing it. '
+                                 'Reload and check again.',
+                        'code': 'proof_changed'}), 409
+    _log_system_event('delivery_proof_rejected',
+                      {'delivery_id': delivery_id, 'reason': reason},
+                      severity='warning')
+    return jsonify({'ok': True, 'note': 'The driver can submit again with the same code.'}), 200
+
+
+@app.route('/api/admin/deliveries/<delivery_id>/offer', methods=['POST'])
+@rate_limit(max_req=20, window=60)
+def admin_decide_offer(delivery_id):
+    """Accept or reject the driver's counter-offer. Accepting is what sets a fee."""
+    payload, err = verify_token(required_role='admin')
+    if err:
+        return err
+    data = request.get_json(force=True, silent=True) or {}
+    decision = str(data.get('decision', '')).strip().lower()
+    if decision not in ('accept', 'reject'):
+        return jsonify({'error': "decision must be 'accept' or 'reject'"}), 400
+    d, not_found = _delivery_or_404(
+        delivery_id, 'id,order_id,offer_status,transporter_offer_ugx,transport_fee_ugx')
+    if not_found:
+        return not_found
+    if d.get('offer_status') != 'proposed':
+        return jsonify({'error': 'There is no open offer on this delivery.',
+                        'code': 'no_open_offer',
+                        'offer_status': d.get('offer_status')}), 409
+
+    now = datetime.datetime.utcnow().isoformat()
+    fields = {'offer_status': 'accepted' if decision == 'accept' else 'rejected',
+              'offer_decided_at': now, 'updated_at': now}
+    if decision == 'accept':
+        try:
+            amount = float(d.get('transporter_offer_ugx'))
+        except (TypeError, ValueError):
+            amount = -1
+        if amount < 0:
+            return jsonify({'error': 'The stored offer has no amount, so it cannot be '
+                                    'accepted. Set the fee directly instead.',
+                            'code': 'offer_amount_missing'}), 409
+        fields.update({'transport_fee_ugx': amount, 'fee_basis': 'negotiated',
+                       'fee_quoted_at': now})
+
+    res = SUPA.update_checked('deliveries', fields,
+                              {'id': f'eq.{delivery_id}', 'offer_status': 'eq.proposed'})
+    if not res.ok:
+        return jsonify({'error': 'Could not record the decision. Nothing changed.'}), 503
+    if not res.data:
+        return jsonify({'error': 'The offer changed while you were deciding. Reload.',
+                        'code': 'offer_changed'}), 409
+    _log_system_event('delivery_offer_decided', {
+        'delivery_id': delivery_id, 'decision': decision,
+        'offer_ugx': d.get('transporter_offer_ugx'),
+    }, severity='info')
+    return jsonify({'ok': True, 'decision': decision,
+                    'transport_fee_ugx': fields.get('transport_fee_ugx',
+                                                    d.get('transport_fee_ugx')),
+                    'fee_basis': fields.get('fee_basis')}), 200
+
+
+@app.route('/api/admin/deliveries/<delivery_id>/fee', methods=['POST'])
+@rate_limit(max_req=20, window=60)
+def admin_set_transport_fee(delivery_id):
+    """Set the agreed transport fee. This is the only path that writes one."""
+    payload, err = verify_token(required_role='admin')
+    if err:
+        return err
+    data = request.get_json(force=True, silent=True) or {}
+    try:
+        amount = round(float(data.get('amount_ugx')))
+    except (TypeError, ValueError):
+        return jsonify({'error': 'Enter the agreed fee in UGX.'}), 400
+    if not (0 <= amount <= 50000000):
+        return jsonify({'error': 'That fee is outside the range the console accepts '
+                                 '(0 - 50,000,000 UGX).'}), 400
+    basis = str(data.get('basis') or 'admin_set').strip()
+    if basis not in ('admin_set', 'calculated', 'negotiated'):
+        return jsonify({'error': "basis must be 'admin_set', 'calculated' or 'negotiated'"}), 400
+    quote_inputs = data.get('quote_inputs')
+    if quote_inputs is not None and not isinstance(quote_inputs, dict):
+        return jsonify({'error': 'quote_inputs must be an object.'}), 400
+
+    d, not_found = _delivery_or_404(delivery_id, 'id,order_id,transport_fee_ugx')
+    if not_found:
+        return not_found
+
+    now = datetime.datetime.utcnow().isoformat()
+    fields = {'transport_fee_ugx': amount, 'fee_basis': basis,
+              'fee_quoted_at': now, 'updated_at': now}
+    if isinstance(quote_inputs, dict):
+        fields['fee_quote_inputs'] = quote_inputs
+    if isinstance(data.get('disclose_to_buyer'), bool):
+        fields['fee_disclosed_to_buyer'] = data['disclose_to_buyer']
+
+    res = SUPA.update_checked('deliveries', fields, {'id': f'eq.{delivery_id}'})
+    if not res.ok or not res.data:
+        log.error('admin.transport_fee_failed', status=res.status)
+        return jsonify({'error': 'Could not save the fee. Nothing changed.'}), 503
+    _log_system_event('delivery_transport_fee_set', {
+        'delivery_id': delivery_id, 'amount_ugx': amount, 'basis': basis,
+        'previous_ugx': d.get('transport_fee_ugx'),
+    }, severity='info')
+    return jsonify({'ok': True, 'transport_fee_ugx': amount, 'fee_basis': basis,
+                    'disclosed_to_buyer': fields.get('fee_disclosed_to_buyer')}), 200
+
+
+@app.route('/api/admin/transport-quote', methods=['POST'])
+@rate_limit(max_req=30, window=60)
+def admin_transport_quote():
+    """Quote from stored rates, or say plainly that no rates exist.
+
+    The arithmetic happens in Postgres (0020 transport_quote) so the browser and
+    the fee writer cannot disagree about it, and 'not_configured' travels to the
+    admin unchanged instead of becoming a zero.
+    """
+    payload, err = verify_token(required_role='admin')
+    if err:
+        return err
+    data = request.get_json(force=True, silent=True) or {}
+    vehicle_type = str(data.get('vehicle_type', '')).strip()
+    if not vehicle_type:
+        return jsonify({'error': 'vehicle_type required'}), 400
+    def _num(name):
+        try:
+            return float(data.get(name) or 0)
+        except (TypeError, ValueError):
+            return None
+    distance = _num('distance_km')
+    weight = _num('weight_kg')
+    if distance is None or weight is None or distance < 0 or weight < 0:
+        return jsonify({'error': 'distance_km and weight_kg must be numbers.'}), 400
+
+    res = SUPA.rpc('transport_quote', {
+        'p_vehicle_type': vehicle_type,
+        'p_distance_km': distance,
+        'p_weight_kg': weight,
+        'p_night': bool(data.get('night')),
+    })
+    if not res.ok:
+        log.error('admin.transport_quote_failed', status=res.status)
+        return jsonify({'error': 'The quote service is unavailable. No figure was produced.',
+                        'code': 'quote_unavailable'}), 503
+    return jsonify(res.data or {}), 200
+
+
+@app.route('/api/admin/transport-rates', methods=['GET'])
+@rate_limit(max_req=30, window=60)
+def admin_transport_rates():
+    """The rate table as stored. Empty means nothing can be quoted yet."""
+    payload, err = verify_token(required_role='admin')
+    if err:
+        return err
+    rows = supa_get('transport_rate_config', {'order': 'vehicle_type.asc'}, limit=100)
+    if rows is None:
+        return jsonify({'error': 'Could not read the rate table.', 'code': 'rates_unavailable'}), 503
+    return jsonify({
+        'currency': 'UGX', 'rates': rows, 'count': len(rows),
+        'note': 'An empty list means no fee can be quoted. Nothing is assumed.',
+    }), 200
+
+
+@app.route('/api/admin/transport-rates/<vehicle_type>', methods=['PUT'])
+@rate_limit(max_req=20, window=60)
+def admin_set_transport_rate(vehicle_type):
+    """Record one vehicle type's rate. Figures come from the operator, not us."""
+    payload, err = verify_token(required_role='admin')
+    if err:
+        return err
+    key = str(vehicle_type or '').strip().lower()
+    if not re.fullmatch(r'[a-z0-9_-]{2,32}', key):
+        return jsonify({'error': 'vehicle_type must be 2-32 characters: a-z, 0-9, _ or -'}), 400
+    data = request.get_json(force=True, silent=True) or {}
+
+    def _money(name):
+        raw = data.get(name)
+        if raw is None:
+            return None
+        try:
+            val = float(raw)
+        except (TypeError, ValueError):
+            return None
+        return val if val >= 0 else None
+
+    base = _money('base_fee_ugx')
+    per_km = _money('ugx_per_km')
+    per_kg = _money('ugx_per_kg')
+    if base is None or per_km is None or per_kg is None:
+        return jsonify({'error': 'base_fee_ugx, ugx_per_km and ugx_per_kg must all be '
+                                 'non-negative numbers.'}), 400
+    pct = data.get('night_surcharge_pct', 0)
+    try:
+        pct = float(pct or 0)
+    except (TypeError, ValueError):
+        return jsonify({'error': 'night_surcharge_pct must be a number between 0 and 100.'}), 400
+    if not (0 <= pct <= 100):
+        return jsonify({'error': 'night_surcharge_pct must be between 0 and 100.'}), 400
+
+    res = SUPA.upsert('transport_rate_config', {
+        'vehicle_type': key,
+        'base_fee_ugx': base,
+        'ugx_per_km': per_km,
+        'ugx_per_kg': per_kg,
+        'night_surcharge_pct': pct,
+        'note': str(data.get('note') or '').strip()[:300] or None,
+        'updated_by': _admin_actor(payload),
+        'updated_at': datetime.datetime.utcnow().isoformat(),
+    }, on_conflict='vehicle_type')
+    if not res.ok:
+        log.error('admin.transport_rate_failed', status=res.status)
+        return jsonify({'error': 'Could not save the rate. Nothing changed.'}), 503
+    _log_system_event('transport_rate_updated', {
+        'vehicle_type': key, 'base_fee_ugx': base,
+        'ugx_per_km': per_km, 'ugx_per_kg': per_kg, 'night_surcharge_pct': pct,
+    }, severity='info')
+    return jsonify({'ok': True, 'vehicle_type': key, 'currency': 'UGX'}), 200
+
+
 @app.route('/api/admin/orders/<order_id>/confirm-delivery', methods=['POST'])
 def admin_confirm_delivery(order_id):
     """Confirm delivery and record payment honestly.
@@ -4000,6 +4986,31 @@ def admin_confirm_delivery(order_id):
     order = rows[0]
     pay_ref = str(order.get('payment_ref') or '').strip()
 
+    # The owner's rule for this portal is recipient code + photograph + this
+    # confirmation. Once a code has been issued for the job, confirming on no
+    # evidence would record a delivery nobody proved happened — so the gate runs
+    # before set_order_status, and a refusal changes nothing at all.
+    delivery_rows = supa_get('deliveries', {
+        'order_id': f'eq.{order_id}',
+        'select': 'id,proof_code_issued_at,proof_submitted_at,proof_code_matches',
+    }, limit=1) or []
+    proof_attested = False
+    if delivery_rows and delivery_rows[0].get('proof_code_issued_at'):
+        if not delivery_rows[0].get('proof_submitted_at'):
+            return jsonify({
+                'error': 'No proof of delivery has been submitted for this job. '
+                         'The driver has to enter the recipient code and upload a '
+                         'photograph before it can be confirmed.',
+                'code': 'proof_missing',
+                'delivery_id': delivery_rows[0].get('id')}), 409
+        if delivery_rows[0].get('proof_code_matches') is not True:
+            return jsonify({
+                'error': 'The recipient code on the submitted proof did not match. '
+                         'Send the proof back to the driver or issue a new code.',
+                'code': 'proof_code_mismatch',
+                'delivery_id': delivery_rows[0].get('id')}), 409
+        proof_attested = True
+
     res = SUPA.rpc('set_order_status', {'p_order_id': order_id, 'p_new_status': 'delivered'})
     if not res.ok:
         message = res.error or 'Delivery status update failed'
@@ -4009,9 +5020,11 @@ def admin_confirm_delivery(order_id):
         return jsonify({'error': message, 'code': 'delivery_status_failed'}), code_status
 
     # deliveries records completion in actual_arrival; orders has no delivered_at.
-    delivery_ok = supa_update(
-        'deliveries', {'status': 'delivered', 'actual_arrival': now, 'updated_at': now},
-        'order_id', order_id)
+    delivery_update = {'status': 'delivered', 'actual_arrival': now, 'updated_at': now}
+    if proof_attested:
+        delivery_update['proof_verified_by'] = _admin_actor(payload)
+        delivery_update['proof_verified_at'] = now
+    delivery_ok = supa_update('deliveries', delivery_update, 'order_id', order_id)
     if not delivery_ok:
         log.error('delivery.confirm_failed', order_id=order_id, delivery_updated=False)
         return jsonify({'error': 'Delivery confirmation was incomplete. Retry once the backend is reachable.',
@@ -4456,11 +5469,20 @@ def mark_notification_read(notif_id):
     uid, err = verify_supabase_user()
     if err:
         return err
-    # Only mark rows that belong to this user
-    supa_update('notification_outbox', {
+    # Scoped by recipient, which is what the comment above has always claimed.
+    # Patching by id alone let any signed-in user mark someone else's
+    # notification read by walking ids — harmless-looking, but it silently
+    # empties another person's alert list. Zero rows back means it was never
+    # theirs (or never in their in_app feed), so say 404 rather than ok:true.
+    res = SUPA.update_checked('notification_outbox', {
         'status': 'sent',
         'updated_at': datetime.datetime.utcnow().isoformat(),
-    }, 'id', notif_id)
+    }, {'id': f'eq.{notif_id}', 'recipient': f'eq.{uid}', 'channel': 'eq.in_app'})
+    if not res.ok:
+        log.error('notification.mark_read_failed', status=res.status)
+        return jsonify({'error': 'Could not update the notification. Retry.'}), 503
+    if not res.data:
+        return jsonify({'error': 'Notification not found'}), 404
     return jsonify({'ok': True}), 200
 
 

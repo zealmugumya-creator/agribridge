@@ -283,6 +283,79 @@ class SupabaseClient:
             log.error("supabase.storage_upload_failed", error=type(exc).__name__)
             return RpcResult(ok=False, error=type(exc).__name__)
 
+    def upload_private_media(self, bucket: str, object_path: str, content: bytes,
+                             content_type: str) -> RpcResult:
+        """Store an object in a PRIVATE bucket and return only its path.
+
+        No public URL is produced, by design: a proof-of-delivery photograph
+        shows somebody's property and address, so it is read through a
+        short-lived signed URL issued after the API has checked who is asking.
+        The bucket is created by migration 0021 and is never created here —
+        a bucket born in this method would not carry 0021's private defaults.
+        """
+        if not self.configured:
+            return RpcResult(ok=False, error="supabase not configured")
+        if not self.storage_bucket_exists(bucket):
+            return RpcResult(ok=False, status=404,
+                             error=f"storage bucket '{bucket}' is not available")
+        safe_path = quote(object_path.lstrip("/"), safe="/")
+        headers = self._headers()
+        headers["Content-Type"] = content_type
+        headers["x-upsert"] = "false"
+        try:
+            resp = requests.post(
+                f"{self._url}/storage/v1/object/{bucket}/{safe_path}",
+                data=content, headers=headers, timeout=30,
+            )
+            if not resp.ok:
+                return RpcResult(ok=False, status=resp.status_code,
+                                 error="storage upload failed")
+            return RpcResult(ok=True, data={"bucket": bucket, "path": safe_path},
+                             status=resp.status_code)
+        except requests.RequestException as exc:
+            log.error("supabase.private_upload_failed", error=type(exc).__name__)
+            return RpcResult(ok=False, error=type(exc).__name__)
+
+    def create_signed_url(self, bucket: str, object_path: str,
+                          expires_in: int = 300) -> RpcResult:
+        """Mint a short-lived read URL for a private object."""
+        if not self.configured:
+            return RpcResult(ok=False, error="supabase not configured")
+        safe_path = quote(object_path.lstrip("/"), safe="/")
+        try:
+            resp = requests.post(
+                f"{self._url}/storage/v1/object/sign/{bucket}/{safe_path}",
+                json={"expiresIn": int(expires_in)},
+                headers=self._headers(), timeout=_TIMEOUT,
+            )
+            if not resp.ok:
+                return RpcResult(ok=False, status=resp.status_code,
+                                 error="storage sign failed")
+            signed = (resp.json() or {}).get("signedURL") or ""
+            if not signed:
+                return RpcResult(ok=False, status=resp.status_code,
+                                 error="storage sign returned no url")
+            if signed.startswith("/"):
+                signed = f"{self._url}/storage/v1{signed}"
+            return RpcResult(ok=True, data={"url": signed, "expires_in": int(expires_in)},
+                             status=resp.status_code)
+        except (requests.RequestException, ValueError) as exc:
+            log.error("supabase.sign_failed", error=type(exc).__name__)
+            return RpcResult(ok=False, error=type(exc).__name__)
+
+    def delete_object(self, bucket: str, object_path: str) -> bool:
+        """Delete one stored object. Used to clean up a refused submission."""
+        if not self.configured:
+            return False
+        safe_path = quote(object_path.lstrip("/"), safe="/")
+        try:
+            resp = requests.delete(f"{self._url}/storage/v1/object/{bucket}/{safe_path}",
+                                   headers=self._headers(), timeout=_TIMEOUT)
+            return resp.status_code < 300
+        except requests.RequestException as exc:
+            log.error("supabase.storage_delete_failed", error=type(exc).__name__)
+            return False
+
     # ── RPC calls (server-side Postgres functions from the migrations) ────────
     def rpc(self, fn: str, args: dict[str, Any]) -> RpcResult:
         if not self.configured:
