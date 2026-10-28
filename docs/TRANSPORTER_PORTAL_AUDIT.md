@@ -470,6 +470,38 @@ and refuses to link one login to a second driver (`409 login_already_linked`).
 | The new API is live | `GET /api/transporter/dashboard` → **401 `{"error":"Missing token"}`**. The route did not exist at `4214074` (`grep` on that blob: 0), so this is new code answering, not a cached 404 |
 | The admin transport routes are live | `GET /api/admin/transport-rates` → 401; `POST /api/admin/transport-quote` → 405 on GET (route exists, method not allowed) |
 | Existing pages unaffected | `/` → 200, `/admin` → 200, `/logistics` → 200 |
+| GitHub Actions on `a26f5cd` (docs) | `CI` → success |
+| GitHub Actions on `74155ca` (admin link) | `CI` → **failure** — see below. `Deploy public web app` → success |
+| GitHub Actions on `b18cfad` (test fix) | `CI` → **success**, **532 passed**, ruff clean — read from the job log, not inferred |
+
+#### The CI failure on `74155ca`, and what it was
+
+`CI` failed in "Unit + integration + browser tests" with **1 failed, 531
+passed**:
+
+```
+FAILED tests/e2e/test_farmer_ui.py::test_farmer_nav_is_five_named_tabs_and_sell_is_the_lead_action
+TypeError: 'NoneType' object is not subscriptable   (line 366: sell.bounding_box()["y"])
+```
+
+The cause is a race in the browser fixture, not a regression from the admin
+change: `_signin` waited only for `#roleHomePanel .fh-sell` to **exist in the
+DOM**, but the role home panel is filled asynchronously and the page is swapped
+in after that. When the test measured it before the swap, the node had no box —
+Playwright answers `bounding_box()` with `None`, and `inner_text()` still returns
+text for a hidden node, which is why the checks above it passed. It passed on
+this machine and on CI at `a26f5cd` purely on timing.
+
+Fix (`b18cfad`): the fixture now waits for the card to be **visible**
+(`locator.wait_for(state="visible")`), and the assertion asserts the box exists
+with a sentence that names the reason, instead of raising `TypeError`. No
+assertion was removed or loosened; the layout requirements (sell card above the
+stats, wider than a stat tile, ≥44 px) are unchanged. Verified by running the
+farmer module three times (21 passed each) and the full suite locally (532
+passed), then by the green CI run above.
+
+This commit touches only `tests/`, so no `static/` asset was redeployed and the
+live bundle is unchanged by the fix.
 
 **Still required before a driver can use it:** migrations 0020–0023 applied to
 Supabase, then a `transporters` row with its **Login UID** filled in. Until
