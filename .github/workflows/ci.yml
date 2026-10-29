@@ -93,24 +93,27 @@ jobs:
           node-version: "20"
       - run: npm install
         working-directory: tests/sql
-      - run: npm test
+      - name: Run the SQL tests, keeping the output of the file that fails
         working-directory: tests/sql
-      - name: Publish which migration test failed
-        if: failure()
-        working-directory: tests/sql
-        # Action logs are only readable by someone signed in to the repo, so a
-        # red SQL job tells an unauthenticated caller nothing. Annotations are
-        # served by the public commits API, which is how this failure gets
-        # diagnosed at all. Each file builds its own in-process PGlite, so
-        # re-running them here in alphabetical order is safe.
+        # Each file builds its own in-process PGlite, so they run one at a time
+        # in a fixed order. The output of each is kept: action logs are only
+        # readable by someone signed in to the repo, so a red job otherwise
+        # tells an unauthenticated caller nothing. This caught the 2026-10-29
+        # run, where `npm test` failed but every file passed on a later re-run
+        # and the reason was already gone.
         run: |
-          echo "node $(node -v), pglite $(node -p "require('@electric-sql/pglite/package.json').version")"
-          for f in *.test.mjs; do
-            if ! node "$f" >"$RUNNER_TEMP/out.log" 2>&1; then
-              detail="$(tr '\r\n' '  ' <"$RUNNER_TEMP/out.log" | tail -c 700)"
-              echo "::error::SQL test $f failed: $detail"
+          set -o pipefail
+          failed=0
+          for f in legal_consent ledger security_lockdown category_orders settlements \
+                   pesapal farmer_ratings order_write_lockdown transport_assignment proof_bucket; do
+            log="$RUNNER_TEMP/sql-$f.log"
+            if ! node "$f.test.mjs" 2>&1 | tee "$log"; then
+              detail="$(tr '\r\n' '  ' <"$log" | tail -c 700)"
+              echo "::error::SQL test $f.test.mjs failed: $detail"
+              failed=1
             fi
           done
+          exit "$failed"
 
   # NOTE: SQL tests for migrations 0001-0006 and Android .aab builds need live credentials
   # (Supabase DB, Android SDK/signing) and are documented as external steps in
