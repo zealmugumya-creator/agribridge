@@ -8,6 +8,7 @@ on:
     paths:
       - 'static/**'
       - 'wrangler.jsonc'
+      - 'scripts/verify_deploy.py'
       - '.github/workflows/deploy-cloudflare.yml'
   workflow_dispatch:
 
@@ -64,3 +65,12 @@ jobs:
             } >> "$GITHUB_STEP_SUMMARY"
             exit "$status"
           fi
+      - name: Verify the live bundle is this commit
+        # A green deploy only proves wrangler exited 0. On 2026-10-27 a stale
+        # clone published an old bundle under a green run, and the mismatch was
+        # found hours later by hashing the live page by hand. This fetches every
+        # published page back from the live host and fails the run when the
+        # bytes served are not the bytes in the checkout. Retries cover the few
+        # seconds Cloudflare needs to settle; the script reports both hashes.
+        run: |
+          python3 scripts/verify_deploy.py --base https://agribrige.com static/*.html
