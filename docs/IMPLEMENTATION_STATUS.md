@@ -962,16 +962,29 @@ closing, and the absence of decorative emoji in action labels.
   only through fixtures. The console's own Performance view now reports the real
   authenticated timings on the owner's screen, per request, including the network.
 
-### A separate defect found while reading, not fixed here
+### Service-worker double notification: fixed 2026-10-29
 
-`static/sw.js` registers **two `push` listeners and two `notificationclick`
-listeners** (lines 30–47 are the current pair, 70–95 an older copy left appended).
-Both `push` handlers call `showNotification()` with different tags
-(`agribridge` and `agribridge-notif`), so one Web Push should surface as **two
-system notifications**, and the older block points `badge` at `/icon-96.png`,
-which does not exist in `static/`. This is verified in source only — no push was
-sent. It is outside the admin brief, so it is reported here rather than bundled
-into this change.
+`static/sw.js` registered **two `push` listeners and two `notificationclick`
+listeners** — lines 30–47 the current pair, the older copy still appended below
+it. A service worker delivers an event to every listener for it, so one Web Push
+called `showNotification()` twice with different tags (`agribridge`,
+`agribridge-notif`): two system notifications for one message. A tap then ran
+both click handlers, one of which posted `PUSH_NAV`, a message type no page has
+ever listened for. The dead block also pointed `badge` at `/icon-96.png`, which
+does not exist in `static/` (verified: the live URL answers 404).
+
+The dead block is removed and `tests/test_service_worker.py` now pins what the
+worker must keep doing: exactly one handler per event, exactly one
+`showNotification()` call site, no `fetch` handler and no `caches.open`, every
+icon path it names published in `static/`, and every message it posts on tap one
+the page actually handles. Proof the guard bites: the old file measures
+2 push listeners, 2 click listeners and 2 `showNotification` calls, so the new
+tests fail against it.
+
+**Evidence label:** the defect was verified in source (both before and after);
+no push has been delivered from this workspace, so the two-notification symptom
+itself is still **unobserved on a device**. The fix is live in the published
+`sw.js` — see the deploy check recorded with the release.
 
 ---
 
