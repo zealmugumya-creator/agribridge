@@ -272,6 +272,7 @@
       </div>
       <div class="navgrp"><h4>Delivery &amp; services</h4>
         <span class="tab" data-tab="deliveries" role="button" tabindex="0" onclick="showTab('deliveries',this)"><svg class="i"><use href="#i-truck"/></svg><span class="lbl">Deliveries</span></span>
+        <span class="tab" data-tab="pricing" role="button" tabindex="0" onclick="showTab('pricing',this)"><svg class="i"><use href="#i-coins"/></svg><span class="lbl">Transport pricing</span></span>
         <span class="tab" data-tab="cold_storage" role="button" tabindex="0" onclick="showTab('cold_storage',this)"><svg class="i"><use href="#i-snow"/></svg><span class="lbl">Cold storage</span><span class="cnt" id="cnt_cold_storage"></span></span>
         <span class="tab" data-tab="cold_transport" role="button" tabindex="0" onclick="showTab('cold_transport',this)"><svg class="i"><use href="#i-snow"/></svg><span class="lbl">Refrigerated transport</span><span class="cnt" id="cnt_cold_transport"></span></span>
         <span class="tab" data-tab="loans" role="button" tabindex="0" onclick="showTab('loans',this)"><svg class="i"><use href="#i-coins"/></svg><span class="lbl">Loan requests</span><span class="cnt" id="cnt_loans"></span></span>
@@ -608,6 +609,7 @@
     if(currentTab==='overview'){ loadStats().then(renderOverview); return; }
     if(currentTab==='health'){ renderHealth(); return; }
     if(currentTab==='finance'){ FIN.cache[FIN.view]=null; loadFinance(FIN.view); return; }
+    if(currentTab==='pricing'){ loadPricing(true); return; }
     load(currentTab, false, true);
   }
   function openNav(){ document.body.classList.add('nav-open'); }
@@ -925,6 +927,7 @@
     farmers:['Users','Farmer and buyer accounts'],
     transporters:['Transporters','Onboarded vehicle owners'],
     deliveries:['Deliveries','Movement of paid orders'],
+    pricing:['Transport pricing','Your rates, and the quote they produce'],
     cold_storage:['Cold storage','Storage bookings'],
     cold_transport:['Refrigerated transport','Chilled haulage bookings'],
     loans:['Loan requests','Input and equipment loan applications'],
@@ -1179,9 +1182,9 @@
     var overview=(t==='overview'||t==='health');
     document.getElementById('overview').classList.toggle('hidden',!overview);
     document.getElementById('sectionCard').classList.toggle('hidden',overview);
-    var noAdd=['orders','requests','offers','cold_storage','cold_transport','loans','errors','scans','activity','inbox','finance','matching','health'];
+    var noAdd=['orders','requests','offers','cold_storage','cold_transport','loans','errors','scans','activity','inbox','finance','matching','health','pricing'];
     document.getElementById('addBtn').style.display=noAdd.indexOf(t)>-1?'none':'inline-block';
-    var tb=document.querySelector('.toolbar'); if(tb) tb.style.display=(t==='finance')?'none':'flex';
+    var tb=document.querySelector('.toolbar'); if(tb) tb.style.display=(t==='finance'||t==='pricing')?'none':'flex';
     var tt=TITLES[t]||[t,''];
     document.getElementById('pageTitle').textContent=tt[0];
     document.getElementById('pageSub').textContent=tt[1]||'';
@@ -1189,6 +1192,7 @@
     if(t==='overview'){ renderOverview(); ensure('orders'); return; }
     if(t==='health'){ renderHealth(); return; }
     if(t==='finance'){ if(!FIN.cache[FIN.view]&&!FIN.errors[FIN.view]) loadFinance(FIN.view); else renderFinance(); return; }
+    if(t==='pricing'){ loadPricing(); return; }
     renderCurrent();
     ensure(t).then(function(){ if(currentTab===t) renderCurrent(); });
   }
@@ -1205,6 +1209,7 @@
     if(currentTab==='overview'){ renderOverview(); return; }
     if(currentTab==='health'){ renderHealth(); return; }
     if(currentTab==='finance'){ renderFinance(); return; }
+    if(currentTab==='pricing'){ renderPricing(); return; }
     var tab=currentTab;
     if(DATA_ERR[tab]){
       setPanel('<div class="state err">'+icon('warn')+'Could not load '+h(TITLES[tab]?TITLES[tab][0]:tab)+
@@ -1496,6 +1501,202 @@
     }catch(e){ alert('Could not record the decision: '+errText(e)); }
     renderCurrent();
   }
+  // ── Transport pricing ─────────────────────────────────────────────────
+  // The arithmetic is the database's (0020 transport_quote); this screen only
+  // shows it. With no rate saved the server answers status "not_configured",
+  // and that sentence is printed unchanged — a missing rate must never be
+  // rendered as a price of zero.
+  var PRICING={rates:null,err:null,quote:null,deliveries:null};
+  var PRICING_VEHICLES=['pickup','lorry','motorcycle','minibus','van','tractor'];
+
+  async function loadPricing(force){
+    if(!force && PRICING.rates){ renderPricing(); return; }
+    PRICING.err=null;
+    if(!PRICING.rates) renderPricing();
+    try{
+      var r=await api('/api/admin/transport-rates');
+      if(r && r.error) throw new Error(r.error);
+      PRICING.rates=Array.isArray(r && r.rates)?r.rates:[];
+    }catch(e){ PRICING.rates=null; PRICING.err=e; }
+    renderPricing();
+  }
+
+  function pricingNum(id){
+    var el=document.getElementById(id); if(!el) return null;
+    var raw=String(el.value||'').trim();
+    if(raw==='') return null;
+    var n=Number(raw.replace(/[^0-9.]/g,''));
+    return isFinite(n)?n:null;
+  }
+
+  function renderPricing(){
+    if(PRICING.err){
+      setPanel('<div class="state err">'+icon('warn')+'Could not read the transport rate table — '+
+        h(errText(PRICING.err))+'.<br><button class="btn sm ghost" onclick="loadPricing(true)">Try again</button></div>');
+      return;
+    }
+    if(PRICING.rates===null){
+      setPanel('<div class="sk" style="width:100%"></div><div class="sk" style="width:92%;margin-top:9px"></div><div class="sk" style="width:78%;margin-top:9px"></div>');
+      return;
+    }
+    var rates=PRICING.rates, table;
+    if(!rates.length){
+      table='<div class="state">No vehicle rate is configured, so no quote can be produced yet. '+
+        'A quote stays “not configured” until you save your own figures below — nothing is assumed.</div>';
+    }else{
+      var body=rates.map(function(r){
+        return '<tr><td>'+h(r.vehicle_type)+'</td><td>'+fmt(r.base_fee_ugx)+'</td><td>'+fmt(r.ugx_per_km)+'</td><td>'+
+          fmt(r.ugx_per_kg)+'</td><td>'+(r.night_surcharge_pct==null?'—':h(r.night_surcharge_pct)+'%')+'</td><td>'+
+          h(r.updated_at||'—')+'</td><td><button class="btn sm ghost" onclick="pricingEdit(\''+h(r.vehicle_type)+'\')">Edit</button></td></tr>';
+      }).join('');
+      table='<table><thead><tr><th>Vehicle</th><th>Base fee</th><th>Per km</th><th>Per kg</th><th>Night</th><th>Updated</th><th></th></tr></thead><tbody>'+body+'</tbody></table>';
+    }
+    var suggest=PRICING_VEHICLES.map(function(v){ return '<option value="'+v+'"></option>'; }).join('');
+    var html='<div class="card"><h3>'+icon('coins')+' Rates you charge<small>UGX</small></h3>'+
+      '<p class="muted" style="font-size:.8rem;margin:0 0 10px">These figures are yours. A quote is the base fee, plus distance × per-km rate, '+
+      'plus load × per-kg rate; the night surcharge is applied to that subtotal when it is selected.</p>'+
+      table+
+      '<label for="p_vehicle">Vehicle type</label>'+
+      '<input id="p_vehicle" list="p_vehicle_list" placeholder="pickup, lorry, motorcycle…" autocomplete="off">'+
+      '<datalist id="p_vehicle_list">'+suggest+'</datalist>'+
+      '<label for="p_base">Base fee (UGX)</label><input id="p_base" type="number" min="0" step="1000">'+
+      '<label for="p_km">Charge per km (UGX)</label><input id="p_km" type="number" min="0" step="100">'+
+      '<label for="p_kg">Charge per kg (UGX)</label><input id="p_kg" type="number" min="0" step="10">'+
+      '<label for="p_night">Night surcharge (%)</label><input id="p_night" type="number" min="0" max="100" step="1" placeholder="0">'+
+      '<label for="p_note">Note (optional)</label><input id="p_note" type="text" maxlength="300" placeholder="e.g. agreed with Mukono drivers">'+
+      '<div class="rowbtns" style="margin-top:10px"><button class="btn sm" onclick="pricingSaveRate()">Save rate</button></div>'+
+      '<p class="muted" style="font-size:.74rem;margin-top:8px">Saving replaces that vehicle type’s figures. Deliveries already quoted keep the fee recorded on them.</p>'+
+      '</div>';
+
+    html+='<div class="card"><h3>'+icon('money')+' Quote a delivery<small>calculated by the database</small></h3>';
+    if(!rates.length){
+      html+='<div class="state">A quote needs at least one saved rate. Nothing is estimated without one.</div></div>';
+      setPanel(html); return;
+    }
+    var opts=rates.map(function(r){ return '<option value="'+h(r.vehicle_type)+'">'+h(r.vehicle_type)+'</option>'; }).join('');
+    html+='<label for="q_vehicle">Vehicle type</label><select id="q_vehicle">'+opts+'</select>'+
+      '<label for="q_km">Distance (km)</label><input id="q_km" type="number" min="0" step="0.1" placeholder="e.g. 120">'+
+      '<label for="q_kg">Load (kg)</label><input id="q_kg" type="number" min="0" step="1" placeholder="e.g. 800">'+
+      '<label style="display:flex;align-items:center;gap:8px;margin-top:12px"><input id="q_night" type="checkbox" style="width:auto;margin:0"> Night surcharge applies</label>'+
+      '<div class="rowbtns" style="margin-top:10px"><button class="btn sm" onclick="pricingQuote()">Calculate</button></div>'+
+      '<div id="q_result" style="margin-top:12px">'+(PRICING.quote?quoteHtml():'')+'</div></div>';
+    setPanel(html);
+  }
+
+  function deliveryOptions(){
+    var rows=PRICING.deliveries;
+    if(rows===null) return '<option value="">Loading deliveries…</option>';
+    if(!rows.length) return '<option value="">No deliveries exist yet</option>';
+    return rows.map(function(d){
+      var label=(d.tracking_code||String(d.id).slice(0,8))+' · '+(d.pickup_location||'?')+' → '+
+        (d.delivery_location||'?')+' · '+(d.transport_fee_ugx==null?'fee unset':fmt(d.transport_fee_ugx));
+      return '<option value="'+h(d.id)+'">'+h(label)+'</option>';
+    }).join('');
+  }
+
+  function quoteHtml(){
+    var q=PRICING.quote;
+    if(!q) return '';
+    if(q.status!=='ok'){
+      return '<div class="fin-note">'+h(q.message||'The server could not produce a quote for this vehicle type.')+'</div>';
+    }
+    var rows=[['Base fee',q.base_fee],['Distance component',q.distance_component],
+              ['Weight component',q.weight_component],['Night surcharge',q.night_surcharge]];
+    var body=rows.map(function(r){ return '<tr><td>'+r[0]+'</td><td>'+fmt(r[1])+'</td></tr>'; }).join('');
+    return '<table><thead><tr><th>Component</th><th>Amount</th></tr></thead><tbody>'+body+
+      '<tr><td><b>Total</b></td><td><b>'+fmt(q.total)+'</b></td></tr></tbody></table>'+
+      '<label for="q_delivery">Record it as the agreed fee on a delivery</label>'+
+      '<select id="q_delivery">'+deliveryOptions()+'</select>'+
+      '<label style="display:flex;align-items:center;gap:8px;margin-top:10px"><input id="q_disclose" type="checkbox" style="width:auto;margin:0"> Show this figure to the buyer</label>'+
+      '<div class="rowbtns" style="margin-top:10px"><button class="btn sm" onclick="pricingApplyFee()">Record as agreed fee</button></div>'+
+      '<p class="muted" style="font-size:.74rem;margin-top:8px">Recording a fee pays nobody. The transporter may still propose a different figure in their portal, and only your acceptance changes the agreed amount.</p>';
+  }
+
+  async function pricingQuote(){
+    var box=document.getElementById('q_result'); if(!box) return;
+    var vehicle=(document.getElementById('q_vehicle')||{}).value||'';
+    var km=pricingNum('q_km'), kg=pricingNum('q_kg');
+    if(km===null||kg===null){
+      box.innerHTML='<div class="state err">Enter the distance in km and the load in kg.</div>';
+      return;
+    }
+    box.innerHTML='<div class="sk" style="width:100%"></div>';
+    try{
+      PRICING.quote=await api('/api/admin/transport-quote',{method:'POST',body:JSON.stringify({
+        vehicle_type:vehicle, distance_km:km, weight_kg:kg,
+        night:!!(document.getElementById('q_night')||{}).checked })});
+    }catch(e){
+      PRICING.quote=null;
+      box.innerHTML='<div class="state err">'+h(errText(e))+'</div>';
+      return;
+    }
+    box.innerHTML=quoteHtml();
+    if(PRICING.quote && PRICING.quote.status==='ok') loadPricingDeliveries();
+  }
+
+  async function loadPricingDeliveries(force){
+    if(PRICING.deliveries && !force) return;
+    try{
+      var rows=await api('/api/admin/deliveries');
+      PRICING.deliveries=Array.isArray(rows)?rows:[];
+    }catch(e){ PRICING.deliveries=[]; }
+    var sel=document.getElementById('q_delivery');
+    if(sel) sel.innerHTML=deliveryOptions();
+  }
+
+  async function pricingApplyFee(){
+    var q=PRICING.quote, sel=document.getElementById('q_delivery');
+    if(!q || q.status!=='ok' || q.total==null){ alert('Calculate a quote first.'); return; }
+    if(!sel || !sel.value){ alert('Choose the delivery this quote belongs to.'); return; }
+    var disclose=!!(document.getElementById('q_disclose')||{}).checked;
+    if(!confirm('Record '+fmt(q.total)+' as the agreed transport fee?\nThis does not pay the transporter.')) return;
+    var inputs=Object.assign({}, q.inputs||{});
+    if(q.rates_snapshot) inputs.rates_snapshot=q.rates_snapshot;
+    try{
+      var r=await api('/api/admin/deliveries/'+encodeURIComponent(sel.value)+'/fee',{method:'POST',body:JSON.stringify({
+        amount_ugx:q.total, basis:'calculated', disclose_to_buyer:disclose, quote_inputs:inputs })});
+      if(r && r.ok){
+        alert('Fee recorded: '+fmt(r.transport_fee_ugx));
+        await load('deliveries',false,true);
+        await loadPricingDeliveries(true);
+      } else alert('Error: '+((r&&r.error)||'unknown'));
+    }catch(e){ alert('Could not record the fee: '+errText(e)); }
+  }
+
+  async function pricingSaveRate(){
+    var vehicle=String((document.getElementById('p_vehicle')||{}).value||'').trim().toLowerCase();
+    if(!/^[a-z0-9_-]{2,32}$/.test(vehicle)){
+      alert('Vehicle type must be 2–32 characters: a–z, 0–9, _ or -'); return;
+    }
+    var base=pricingNum('p_base'), km=pricingNum('p_km'), kg=pricingNum('p_kg'), night=pricingNum('p_night');
+    if(base===null||km===null||kg===null){
+      alert('Base fee, per km and per kg are all required — a quote needs all three.'); return;
+    }
+    if(night===null) night=0;
+    if(base<0||km<0||kg<0||night<0||night>100){
+      alert('Rates cannot be negative and the night surcharge must be 0–100.'); return;
+    }
+    var note=String((document.getElementById('p_note')||{}).value||'').trim();
+    if(!confirm('Save the '+vehicle+' rate?\nBase '+fmt(base)+' · '+fmt(km)+'/km · '+fmt(kg)+'/kg · night '+night+'%')) return;
+    try{
+      await api('/api/admin/transport-rates/'+encodeURIComponent(vehicle),{method:'PUT',body:JSON.stringify({
+        base_fee_ugx:base, ugx_per_km:km, ugx_per_kg:kg, night_surcharge_pct:night, note:note })});
+      await loadPricing(true);
+    }catch(e){ alert('Could not save the rate: '+errText(e)); }
+  }
+
+  function pricingEdit(vehicle){
+    var r=(PRICING.rates||[]).filter(function(x){ return String(x.vehicle_type)===String(vehicle); })[0]||{};
+    document.getElementById('p_vehicle').value=vehicle;
+    document.getElementById('p_base').value=r.base_fee_ugx==null?'':r.base_fee_ugx;
+    document.getElementById('p_km').value=r.ugx_per_km==null?'':r.ugx_per_km;
+    document.getElementById('p_kg').value=r.ugx_per_kg==null?'':r.ugx_per_kg;
+    document.getElementById('p_night').value=r.night_surcharge_pct==null?0:r.night_surcharge_pct;
+    document.getElementById('p_note').value=r.note||'';
+    var el=document.getElementById('p_vehicle');
+    if(el&&el.focus) el.focus();
+  }
+
   function renderSupplies(rows){
     if(!rows.length){ panelMsg('No supply products.'); return; }
     var catLabel={seeds:'Seeds',fertilizer:'Fertilizer',pesticide:'Pesticide',tool:'Tool',animal_supply:'Animal care'};
