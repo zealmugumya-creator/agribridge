@@ -59,6 +59,30 @@ jobs:
           name: pytest-report
           path: reports/pytest.xml
 
+      - name: Publish which tests failed
+        if: failure()
+        # Action logs are readable only by someone signed in to the repo, so a
+        # red run tells an unauthenticated caller nothing. Annotations are
+        # served by the public commits API, which is how a failure gets
+        # diagnosed at all. Same reasoning as the SQL job below.
+        run: |
+          python - <<'PY'
+          import xml.etree.ElementTree as ET
+          try:
+              root = ET.parse('reports/pytest.xml').getroot()
+          except Exception:
+              print('::error::No JUnit report was written, so no test name is available')
+              raise SystemExit(0)
+          bad = [tc for tc in root.iter('testcase')
+                 if tc.find('failure') is not None or tc.find('error') is not None]
+          for tc in bad:
+              node = tc.find('failure') if tc.find('failure') is not None else tc.find('error')
+              message = ' '.join((node.get('message') or '').split())
+              name = f"{tc.get('classname', '')}::{tc.get('name', '')}"
+              print(f"::error::{name}: {message[:600]}")
+          print(f"::notice::{len(bad)} failing test(s) reported")
+          PY
+
   sql:
     name: Migration 0007 on real PostgreSQL (PGlite)
     runs-on: ubuntu-latest
