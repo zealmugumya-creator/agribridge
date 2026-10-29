@@ -503,6 +503,16 @@ passed), then by the green CI run above.
 This commit touches only `tests/`, so no `static/` asset was redeployed and the
 live bundle is unchanged by the fix.
 
+**One further failure that is not explained.** The first local run that included
+the new service-worker tests (2026-10-29) failed
+`tests/e2e/test_farmer_ui.py::test_profile_splits_editable_from_verified_details`
+once. Its traceback was not kept, and **20 further runs passed** (12 with that
+test alone, 5 of the farmer module, 3 of the whole suite at 537 passed). It is
+recorded as unexplained rather than papered over: the backend CI job now
+publishes each failing test's name and message as a public `::error::`
+annotation (the same way the SQL job does), so a recurrence will be readable
+without a GitHub login. That test is the one to look at first if CI goes red.
+
 **Still required before a driver can use it:** migrations 0020–0023 applied to
 Supabase, then a `transporters` row with its **Login UID** filled in. Until
 then the portal's API calls return a loud error and nothing is silently
