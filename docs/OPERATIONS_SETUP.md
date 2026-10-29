@@ -467,8 +467,8 @@ disappear.
 ```bash
 pip install -r requirements-dev.txt
 ruff check app.py services/ scripts/ tests/  # lint gate (must be clean)
-pytest tests/ -q                       # 447 passed with Playwright installed
-cd tests/sql && npm install && npm test # PGlite migration suites (129 assertions)
+pytest tests/ -q                       # 558 passed with Playwright installed (2026-10-29)
+cd tests/sql && npm install && npm test # PGlite migration suites (10 files, 225 assertions)
 ```
 Playwright lives outside `requirements-dev.txt` in this environment; the E2E
 modules skip cleanly when it is absent, and fall back to the system Chrome
@@ -481,8 +481,16 @@ Playwright routes and stubs only Supabase auth/REST, so it is deterministic and
 writes nothing. `tests/e2e/test_consent_ui.py` covers consent, Google sign-in
 and the server-gated payment tiles.
 
-CI (`.github/workflows/ci.yml`) runs lint + (non-blocking) mypy + pytest on
-push/PR. **SQL-migration integration tests and Android builds are not part of
-CI yet** — they need a live DB / Android SDK and are not faked. Static-site
-publishing is still manual until the rejected `CLOUDFLARE_API_TOKEN` is replaced
-(§11); a green local suite says nothing about what the Cloudflare Worker serves.
+CI (`.github/workflows/ci.yml`) runs on push/PR: ruff, the legal-document
+`--check`, mypy (non-blocking report), pytest, and a PGlite job that runs the ten
+`tests/sql/*.test.mjs` files **one at a time**, keeping each file's output. A red
+SQL run therefore names the file in a public annotation; job logs themselves are
+private. This replaced a single `npm test` plus a re-run step after the run on
+`2efc43a` (2026-10-29) failed while every file passed when run individually on
+the same commit — the failing file was never identified and the cause is still
+unknown. A recurrence will now carry its own output.
+
+Android builds remain outside CI: they need an Android SDK that is not
+provisioned there, and are not faked. Static-site publishing is automatic — a
+push touching `static/` deploys the Worker and then hashes the live pages against
+that commit (§11), so a green deploy run does prove what was published.
