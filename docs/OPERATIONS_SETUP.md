@@ -336,6 +336,18 @@ without opening the job log (`docs/LIVE_BASELINE_AUDIT.md` §14). Do not read a
 green deploy as proof unless you also confirm the served HTML (e.g.
 `curl -s https://agribrige.com/ | grep pm-bank`).
 
+**A green run now proves what it published.** Since `b4ed800` the workflow runs
+`scripts/verify_deploy.py` after wrangler: it fetches all four published pages
+back from `https://agribrige.com`, retries while the deploy settles, and fails
+the run — with both hashes and a `::error::` annotation — when the bytes served
+are not the commit's. The advice below ("confirm the served HTML yourself") is
+what this step now does automatically; still do it by hand when the run is red.
+
+Two differences are **not** differences in the release and are ignored
+explicitly: the Cloudflare Web Analytics tag the edge injects into fresh HTML
+responses (a cached copy arrives without it — measured 129,258 vs 129,625 bytes
+for the same `admin.html`), and CRLF from a Windows checkout.
+
 **Current state (verified 2026-10-22T21:40Z): auto-deploy is working.** The
 owner replaced the rejected token with one scoped to **Specified Workers →
 `agribridge` → Individual Workers Editor** (no expiration, all IPs allowed) and
@@ -354,6 +366,12 @@ values legitimately differ. Compare content instead:
 git show HEAD:static/index.html | sha256sum
 curl -s https://agribrige.com/ | tr -d '\r' | sha256sum   # must match
 curl -s https://agribrige.com/ | grep -c splashBrowseGuest # must be > 0
+```
+
+Or let the script do it, with the same normalisation the CI step uses:
+
+```bash
+python scripts/verify_deploy.py --base https://agribrige.com static/*.html
 ```
 
 **Only one directory on this machine may name the `agribridge` Worker.** On
