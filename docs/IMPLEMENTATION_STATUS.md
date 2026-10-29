@@ -983,8 +983,15 @@ tests fail against it.
 
 **Evidence label:** the defect was verified in source (both before and after);
 no push has been delivered from this workspace, so the two-notification symptom
-itself is still **unobserved on a device**. The fix is live in the published
-`sw.js` — see the deploy check recorded with the release.
+itself is still **unobserved on a device**.
+
+Live check after the deploy of `62f629f` (read from the public URL, not
+inferred): `https://agribrige.com/sw.js` → **200, 2,376 bytes**, sha256
+`c0c84dd46dc04c5a34d03e377bcf14c4cfa55b92fc77942a36caadca56686003`, identical to
+`git show HEAD:static/sw.js` after CRLF normalisation. The published file
+contains exactly **1** `push` listener, **1** `notificationclick` listener, **1**
+`showNotification` call site and **0** references to `icon-96`; `/` still answers
+200 and `/icon-192.png` 200.
 
 ---
 
