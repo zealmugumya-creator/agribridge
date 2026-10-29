@@ -541,3 +541,80 @@ checked first, because 0020–0023 are still unapplied:
 Consequence while the migrations are unapplied: `/api/transporter/*` returns a
 loud error instead of data, and the fee/code/proof admin actions return 503
 "Nothing changed". Nothing that worked before this change starts failing.
+
+## 13. Stage 4 delivered: the Transport pricing screen
+
+### The gap, measured before touching anything
+
+`app.py` gained three pricing routes in stage 2 (§11): `GET /api/admin/transport-rates`,
+`PUT /api/admin/transport-rates/<vehicle>` and `POST /api/admin/transport-quote`.
+No screen called any of them — `grep -c` for `transport-quote` and
+`transport-rates` across `static/*.html` returned **0**. So the owner's request
+("admin sets it and it is automatically calculated … the transporter negotiates
+in their portal") had a working server and no way to reach it: no rate could be
+entered, the database could not quote, and the only fee an administrator could
+set was one typed by hand on Deliveries.
+
+The second half of that request already existed (§12, counter-offers); what was
+missing was the first half.
+
+### What the screen does
+
+A new **Transport pricing** section under Delivery & services, wired like the
+Finance section (own loader, own renderer, toolbar and "+ Add" hidden,
+`refreshTab()` refreshes rates rather than requesting a nonexistent
+`/api/admin/pricing`).
+
+| Area | Behaviour |
+| --- | --- |
+| Rates table | Vehicle, base fee, per km, per kg, night %, updated-at, Edit — one row per configured vehicle type |
+| Rate form | Vehicle type (2–32 chars, `a-z0-9_-`), base, per km, per kg, night 0–100, note; `PUT` upserts and then re-reads the table |
+| Calculator | Vehicle, distance, load, "night applies" → `POST /api/admin/transport-quote`, rendered as base / distance / weight / night / total |
+| Recording | The quote can be written to a delivery's agreed fee with `basis:'calculated'`, the inputs, the rate snapshot, and an explicit "show the buyer" checkbox |
+
+Three honesty rules are enforced in the markup, not in a comment:
+
+* **A missing rate is never a price.** With no rates saved the calculator card
+  says "A quote needs at least one saved rate. Nothing is estimated without
+  one." and the table says no quote can be produced yet.
+* **The server's `not_configured` sentence is printed unchanged** (`quoteHtml()`
+  puts `q.message` in the panel verbatim), so the operator reads why, not `UGX 0`.
+* **Recording a fee pays nobody**, and the sentence next to the button says so,
+  together with the fact that the transporter may still propose a different
+  figure and only an admin's acceptance changes the agreed amount.
+
+No arithmetic is duplicated in the browser: the total comes from
+`transport_quote` in Postgres (0020), so the screen and the fee writer cannot
+disagree.
+
+### Two harness bugs the first run found
+
+Both were in the test, not the screen, and both were fixed rather than worked
+around:
+
+* `#panel >> text=Calculate` matched **two** elements — the card subtitle
+  "calculated by the database" comes first in the DOM, so Playwright clicked the
+  `<small>` and the timeout landed on the *result* wait, not the click.
+  Replaced with `button:text-is('Calculate')`; the same for `Save rate`, where
+  the paragraph below the button also contains the word.
+* The 297,000 assertion assumed the 10 % night surcharge would apply, but the
+  quote applies it only when `#q_night` is ticked — the rate's percentage and
+  the per-quote switch are deliberately separate. The test now ticks it.
+
+### Verified / not verified (stage 4)
+
+| Claim | Basis |
+| --- | --- |
+| Inline script still parses | `node --check` on the extracted block — 100,062 bytes of JS, 0 errors |
+| The empty table invents no price | Browser (stubbed API), real `admin.html`: "No vehicle rate is configured" and "A quote needs at least one saved rate" present, `UGX 0` absent |
+| A saved rate appears and drives the calculator | Browser (stubbed): 50,000 + 120×1,500 + 800×50 + 10 % night → **297,000**, with all five rows labelled |
+| A quote is recorded as the agreed fee with its inputs | Browser (stubbed): one `POST …/fee` with `amount_ugx: 225000`, `basis: 'calculated'`, `distance_km: 100`, `weight_kg: 500`, `disclose_to_buyer: true` |
+| `not_configured` is printed verbatim | Browser (stubbed): the server's sentence appears, no `UGX`, no "Record as agreed fee" |
+| Suites | `tests/e2e/test_admin_pricing_ui.py` → **4 passed**; full `pytest -q` → **541 passed** after the final edits; `ruff check app.py services tests` clean |
+| The real arithmetic | **Not exercised by these tests.** It lives in Postgres and the stub answers instead; see the API tests for the contract and 0020 for the function |
+| Committed and deployed | Push `c52e185`; `CI` → success, `Deploy public web app` → success (public runs API) |
+| The published console is the committed file | `agribrige.com/admin` → 200, **129,258 bytes**, sha256 `9fb7cbc87c76f4…` — byte-identical to `git show c52e185:static/admin.html` |
+| The tab is in the live page | Browser, live: one `.sidebar [data-tab="pricing"]`, label "Transport pricing", `onclick="showTab('pricing',this)"`, no page errors. Not *visible* before sign-in, because the dashboard is still hidden behind the login form |
+| The pricing API is live | `POST /api/admin/transport-quote` → 401, `GET /api/admin/transport-rates` → 401 (routes exist and require a token; not 404) |
+| **The screen with real rates** | **Not measurable here.** `transport_rate_config` arrives with 0020, which is unapplied. Until it is, the screen shows either the server's 503 "Could not read the transport rate table" state (if the read fails) or the empty-table state (if it answers an empty list); in neither case does it produce a figure. Which of the two appears is an assumption until the migration is applied |
+| **Authenticated console against the real backend** | **Not exercised** — the admin password is not in this environment |
