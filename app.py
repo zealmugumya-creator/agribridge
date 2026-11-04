@@ -3310,6 +3310,62 @@ def supabase_table_hook():
     return jsonify({'ok': True}), 200
 
 
+@app.route('/api/contact', methods=['POST'])
+@rate_limit(max_req=10, window=300)
+def contact_message():
+    """Record a contact message and alert the owner, in the app itself.
+
+    The form used to POST straight into Supabase from the browser, so the only
+    alert was a manually installed Database Webhook. If the trigger or
+    SUPABASE_WEBHOOK_SECRET was missing, the message still landed in the table
+    and the owner heard nothing at all (reported 2026-11-04: a first-time
+    grower wrote in and no notification arrived). Routing it through here makes
+    the alert part of the release rather than a dashboard setting.
+
+    Anonymous by design — a visitor who has not signed up must still be able to
+    ask a question — so the limits are tight and no credential is required.
+    """
+    data = request.get_json(force=True, silent=True) or {}
+    name = str(data.get('full_name') or '').strip()[:80]
+    contact = str(data.get('contact') or '').strip()[:120]
+    role = str(data.get('role') or 'visitor').strip()[:40] or 'visitor'
+    message = str(data.get('message') or '').strip()
+    if len(name) < 2:
+        return jsonify({'ok': False, 'error': 'Please give the name we should reply to.'}), 400
+    # The field takes a phone or an email; accept either shape, reject neither
+    # being reachable. A wrong-but-reachable number is the sender's to own.
+    digits = re.sub(r'\D', '', contact)
+    if '@' in contact:
+        if not re.fullmatch(r'[^\s@]+@[^\s@]+\.[^\s@]{2,}', contact):
+            return jsonify({'ok': False, 'error': 'That email address looks incomplete.'}), 400
+    elif not (len(digits) >= 9 and digits[:2] in ('25', '07', '03')):
+        return jsonify({'ok': False,
+                        'error': 'Give an email address or a phone number we can reply to.'}), 400
+    if len(message) < 5:
+        return jsonify({'ok': False, 'error': 'Please add a message.'}), 400
+    if len(message) > 2000:
+        return jsonify({'ok': False, 'error': 'Please keep the message under 2,000 characters.'}), 400
+
+    row = {'full_name': name, 'contact': contact, 'role': role, 'message': message}
+    saved = supa_insert('contact_messages', row)
+    if not saved:
+        # 502 rather than a silent success: the SPA keeps its direct-insert
+        # fallback, and a message must never be dropped because an alert failed.
+        _log_system_event('contact_message_save_failed', {'role': role}, severity='warning')
+        return jsonify({'ok': False, 'error': 'Could not save your message. Please try again.'}), 502
+
+    uid, _err = verify_supabase_user()  # a signed-in visitor is tracked; an anonymous one is not
+    # _safe_fields keeps phones and emails out of Discord and the activity feed;
+    # the full row stays in the table and the admin Inbox.
+    fields = _safe_fields(row)
+    desc = '\n'.join(f'**{k}:** {v}' for k, v in {'table': 'contact_messages', **fields}.items())
+    _discord_notify(event_type='support.contact_message', title='✉️ New contact message',
+                    description=desc, severity='info')
+    _log_system_event('support.contact_message', {'table': 'contact_messages', **fields},
+                      severity='info', user_id=uid)
+    return jsonify({'ok': True}), 200
+
+
 @app.route('/api/admin/inbox', methods=['GET'])
 def admin_inbox():
     """Read-only view of the watched tables. No ?table => counts of the latest rows per table."""

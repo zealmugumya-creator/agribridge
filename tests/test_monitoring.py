@@ -81,3 +81,95 @@ def test_logistics_is_gated_and_links_back_to_real_admin_page():
     assert 'href="/admin.html"' in html and "/static/admin.html" not in html
     assert 'id="gate"' in html and "/api/admin/verify" in html
     assert "localStorage.getItem('ab_admin_token')" not in html   # shares admin's session instead
+
+
+# ── POST /api/contact: the owner's first-party alert path ────────────────────
+# Before this, the form wrote straight into Supabase from the browser, so the
+# only alert was a manually installed Database Webhook. With the trigger or
+# SUPABASE_WEBHOOK_SECRET absent, a message was stored and the owner heard
+# nothing (reported 2026-11-04). Each test uses its own client IP: the limiter
+# falls back to an in-process bucket when Redis is absent, as it is here.
+GOOD = {"full_name": "Grace Nakato", "contact": "0771 234567", "role": "Farmer",
+        "message": "Can I sell my tomatoes to hotels in Kampala?"}
+
+
+@pytest.fixture
+def contact(monkeypatch):
+    stored, sent, logged = [], [], []
+    monkeypatch.setattr(app_mod, "supa_insert",
+                        lambda table, data: stored.append((table, data)) or [{"id": "m1"}])
+    monkeypatch.setattr(app_mod, "verify_supabase_user", lambda: (None, None))
+    monkeypatch.setattr(app_mod, "_discord_notify", lambda **k: sent.append(k) or True)
+    monkeypatch.setattr(app_mod, "_log_system_event", lambda *a, **k: logged.append((a, k)))
+    return stored, sent, logged
+
+
+def _send(client, contact, body, ip="10.1.0.1"):
+    return client.post("/api/contact", json=body, environ_overrides={"REMOTE_ADDR": ip})
+
+
+def test_a_contact_message_is_stored_and_alerts_the_owner(client, contact):
+    stored, sent, logged = contact
+    r = _send(client, contact, GOOD)
+    assert r.status_code == 200 and r.get_json()["ok"] is True
+    assert stored[0][0] == "contact_messages"
+    assert stored[0][1]["full_name"] == "Grace Nakato"
+    assert sent[0]["event_type"] == "support.contact_message"
+    assert logged[0][0][0] == "support.contact_message"
+
+
+def test_the_alert_carries_the_question_but_no_contact_details(client, contact):
+    _stored, sent, logged = contact
+    _send(client, contact, {**GOOD, "contact": "grace@example.com"}, ip="10.1.0.2")
+    assert "hotels" in sent[0]["description"]
+    assert "grace@example.com" not in sent[0]["description"]
+    assert "grace@example.com" not in str(logged)
+
+
+def test_contact_needs_a_reachable_answer(client, contact):
+    stored, sent, _logged = contact
+    r = _send(client, contact, {**GOOD, "contact": "call me"}, ip="10.1.0.3")
+    assert r.status_code == 400
+    assert stored == [] and sent == []
+    assert "reply to" in r.get_json()["error"]
+
+
+def test_contact_accepts_an_email_or_a_phone(client, contact):
+    stored, _sent, _logged = contact
+    ok = [_send(client, contact, {**GOOD, "contact": "grace@example.com"}, ip="10.1.0.4"),
+          _send(client, contact, {**GOOD, "contact": "+256771234567"}, ip="10.1.0.5")]
+    assert [r.status_code for r in ok] == [200, 200]
+    assert len(stored) == 2
+
+
+def test_a_message_that_cannot_be_stored_is_reported_not_faked(client, contact, monkeypatch):
+    stored, sent, logged = contact
+    monkeypatch.setattr(app_mod, "supa_insert", lambda table, data: None)
+    r = _send(client, contact, GOOD, ip="10.1.0.6")
+    assert r.status_code == 502
+    assert stored == [] and sent == []
+    assert logged[0][0][0] == "contact_message_save_failed"
+
+
+def test_the_role_a_visitor_picks_is_stored_as_written(client, contact):
+    # The select offers "Hotel / Restaurant"; a whitelist would silently rewrite it.
+    stored, _sent, _logged = contact
+    _send(client, contact, {**GOOD, "role": "Hotel / Restaurant"}, ip="10.1.0.7")
+    assert stored[0][1]["role"] == "Hotel / Restaurant"
+
+
+def test_a_signed_in_sender_is_attributed_to_their_account(client, contact, monkeypatch):
+    _stored, _sent, logged = contact
+    monkeypatch.setattr(app_mod, "verify_supabase_user", lambda: ("u-9", None))
+    _send(client, contact, GOOD, ip="10.1.0.8")
+    assert logged[0][1]["user_id"] == "u-9"
+
+
+def test_the_form_uses_the_backend_and_keeps_the_old_insert_as_fallback():
+    js = (REPO / "static/index.html").read_text(encoding="utf-8")
+    start = js.index("async function sendContactMsgCore()")
+    body = js[start:start + 1800]
+    assert "USSD_API+'/api/contact'" in body, "the form still bypasses the backend"
+    assert "status === 0 || status >= 500" in body, (
+        "the direct insert must stay as a fallback, but only when the backend "
+        "is unreachable or failing - never after a validation rejection")

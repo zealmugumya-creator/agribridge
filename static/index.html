@@ -6727,8 +6727,28 @@ async function sendContactMsgCore() {
   const name=document.getElementById('cName')?.value.trim(), contact=document.getElementById('cContact')?.value.trim();
   const role=document.getElementById('cRole')?.value||'visitor', msg=document.getElementById('cMessage')?.value.trim();
   if(!name||!contact||!msg){ showToast('Please fill all fields'); return; }
-  const result=await sbInsert('contact_messages',{ full_name:name, contact, role, message:msg }, {minimal:true});
-  if(result){ showToast('Message sent! We\'ll reply within 24 hours ✅'); ['cName','cContact','cMessage'].forEach(id=>{ const el=document.getElementById(id); if(el) el.value=''; }); }
+  // /api/contact stores the message AND alerts the owner. The direct insert is
+  // only a fallback for when the backend cannot be reached: it used to be the
+  // whole path, and a message sent that way landed in the table with no
+  // notification of any kind (the owner only found out by accident).
+  var status=0, serverError='';
+  try {
+    const r = await fetch(USSD_API+'/api/contact', {
+      method:'POST',
+      headers: Object.assign({'Content-Type':'application/json'},
+                             _authToken ? {Authorization:'Bearer '+_authToken} : {}),
+      body: JSON.stringify({full_name:name, contact:contact, role:role, message:msg})
+    });
+    status = r.status;
+    const j = await r.json().catch(function(){ return {}; });
+    if (r.ok && j && j.ok) status = 200; else serverError = (j && j.error) || '';
+  } catch(e) { status = 0; }
+  var sent = (status === 200);
+  if (!sent && (status === 0 || status >= 500)) {
+    sent = await sbInsert('contact_messages',{ full_name:name, contact, role, message:msg }, {minimal:true});
+  }
+  if(sent){ showToast('Message sent! We\'ll reply within 24 hours ✅'); ['cName','cContact','cMessage'].forEach(id=>{ const el=document.getElementById(id); if(el) el.value=''; }); }
+  else if(serverError){ showToast(serverError); }
   else showToast('Saved locally. We\'ll follow up soon ✅');
 }
 
