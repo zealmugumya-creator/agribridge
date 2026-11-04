@@ -3,8 +3,10 @@
 How new activity reaches you. Two paths:
 
 1. **Backend events** (orders, payments, cold storage / transport / loan requests, signups,
-   contact messages): the Flask app sends these to Discord itself, in the same request that
-   stores the row.
+   sign-ins, contact messages): the Flask app sends these to Discord itself, in the same request
+   that stores the row. A first visit by an anonymous browser is **recorded but not announced** —
+   it has no name to attach, and an unnamed "someone arrived" is the kind of message the owner
+   objected to; it shows on the admin Activity bell instead.
 2. **Rows the web app writes straight to Supabase** (privacy and deletion requests, disease
    reports, vet bookings, reviews, fraud flags, ...): a Supabase Database Webhook posts each
    new row to `POST /api/hooks/supabase`, which forwards a safe summary (no phones, emails or
@@ -65,6 +67,64 @@ to.","ok":false}` — the route exists and refuses before writing anything. CI w
 submission, which also needs `DISCORD_WEBHOOK_SUPPORT` (or the catch-all) set in Render.
 Send one from the site and check `#support` — if it does not arrive, the Discord webhook
 variable is the first thing to look at, not the code.
+
+## 2026-11-04: who is on the site — the Activity feed and its bell
+
+The owner's question was "who entered AgriBridge, and what did they do". Three parts, each
+measured against what was actually in the code before this:
+
+- **Every event now names the person who sent it.** The events were already being written from
+  about 60 places, but only eight passed a `user_id`, so the table could not answer "what did
+  this person do" about anything else. `_request_uid()` resolves the caller from their own
+  bearer token through GoTrue — an id claimed in a request body is not believed — caches it on
+  `g` so a page load costs one auth round trip rather than one per event, and is skipped for
+  admin JWTs, which GoTrue would only 401 after a trip Render cannot spare.
+- **Arrival and sign-in are recorded.** `POST /api/activity` writes `activity.visit.first` once
+  per browser (the SPA sends it from its existing first-visit flag; a signed-in visitor is
+  attributed, an anonymous one is left anonymous rather than identified from an IP). Sign-in is
+  recorded where the backend can actually see it — `/api/legal/sync-signup`, which every session
+  start calls — as `session_started` with the verified name, role and provider, and pings
+  `#signups` at most **once a day per person** (`session_alerted` is the marker). That endpoint
+  runs on every reload, so an unthrottled alert would bury the channel. The ping carries no
+  email and no phone.
+- **The admin console says when something is new.** The Activity tab carries a count of the
+  `severity=info` events newer than the last time it was opened — `GET /api/admin/events?severity=info&since=…`,
+  once a minute, only while the tab is visible, stopped on sign-out: Render runs two sync
+  workers and a console left open in a pocket should not spend them.
+  Opening the tab is what marks the feed seen; the marker lives in `localStorage`
+  (`ab_admin_activity_seen`). Clicking a person re-reads the feed as
+  `GET /api/admin/events?user_id=<uuid>` — their own timeline.
+
+What is deliberately **not** recorded: presses. The whitelist in `_ACTIVITY_EVENTS` is one event
+long and anything else is refused with a 400 before a row is written. A feed of clicks would
+drown the timeline that answers the actual question, put a POST in front of a farmer on every
+keystroke, and grow `system_events` without end — there is no retention rule on that table yet.
+Per-press telemetry is a different product decision, not a missing feature.
+
+`user_id` and `since` are validated rather than passed through: a malformed id is a 400, not a
+filter that quietly matches nothing, because an empty timeline would read as "this person never
+did anything" and cost the owner attention for nothing.
+
+### What is verified and what is not
+
+Verified live on 2026-11-04 after `598f000`: the published `admin.html` is byte-identical to the
+repository file (133,163 bytes, sha256 `f141ac3c54a7d081`, LF-normalised — Cloudflare serves the
+clean URL, so `/admin.html` answers 307 → `/admin`), the published SPA is byte-identical
+(874,928 bytes, sha256 `b50e107d3be5bf00`) and contains the `visit.first` beacon, the live
+backend answers `POST /api/activity` with `{"error":"unknown event","ok":false}` for a press and
+401 `Missing token` for `/api/admin/events`. CI was green on `598f000` — all three check-runs
+(`Backend lint + type + tests`, `Migration 0007 on real PostgreSQL (PGlite)`, `deploy`)
+concluded `success`; the number of tests CI ran is not readable here, because `gh` is not
+authenticated on this machine and the job logs are not public through the checks API. Running
+CI's own command locally (`pytest -q`) gives 603 passed, 7 of them new browser tests that drive
+the real `admin.html` in headless Chromium.
+
+**Not verified:** that a real arrival appears in the feed. `activity.visit.first` needs a browser
+with no `ab_visited` flag to hit the site, and reading the feed back needs the admin password,
+which is not held here. Open **Activity** after a fresh visit: the badge should move and the row
+should appear. **Not verified either:** that the daily `#signups` sign-in ping arrives, which
+needs `DISCORD_WEBHOOK_SIGNUPS` (or the catch-all `DISCORD_WEBHOOK_URL`) set in Render — the code
+path is tested, delivery is not.
 
 ## Render environment variables
 
