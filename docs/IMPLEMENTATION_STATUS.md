@@ -1055,8 +1055,18 @@ returned `'+256'` as though it were a number. Now the split takes one to three
 digits, and an empty box stays empty (which the profile route reads as "leave
 that field alone", and the register form reads as "Please enter your phone
 number"). `tests/e2e/test_profile_save_ui.py::test_the_stored_number_is_shown_in_the_box_that_edits_it`
-pins it, because a silently blanked phone field is exactly how an account ends up
-with no usable number.
+pins it.
+
+What the fabricated `'+256'` actually did to the data was measured rather than
+assumed, and it corrected this section: 0008's `farmers_phone_format` CHECK
+requires `+256` followed by `3`/`7` and eight digits, so `'+256'` alone is
+**refused** (verified in PGlite: `insert … values ('+256')` → 23514, and the
+same for `0771234567` and `''`). The damage was therefore defect 1 wearing a
+smile — the write failed, the screen toasted "Profile saved ✓", and the farmer
+kept the number they had, believing it was the one they typed. A row actually
+holding `'+256'` is only possible where that CHECK is not live, which is why the
+pre-flight below asks the catalog directly instead of inferring from the
+migration files.
 
 **Measured, deliberately not fixed — the `otp_code` read leak.**
 `base-schema.sql:285` declares `revoke select (otp_code, otp_expires_at) on
@@ -1091,16 +1101,29 @@ silently.
 
 **Still unverified in production.** Whether the live `farmers` grants match what
 `base-schema.sql` declares, whether the live table has `preferred_language`, and
-whether any real account currently holds a phone of exactly `'+256'` from the
-blanked-box defect. Each needs the owner's dashboard, so the four read-only
-queries that answer them are recorded here and go with the migration:
+whether 0008's phone CHECK and unique index are actually live. Each needs the
+owner's dashboard, so the read-only queries that answer them are recorded here
+and go with the migration. **Every one of them was executed against a real
+PostgreSQL (PGlite, with 0008 and 0024 applied) before being written down**, and
+each is shown to change answer across 0024 — the first two drafts of this table
+were not, and both were broken: `pg_class.datacl` does not exist (the column is
+`relacl`), and `information_schema.table_privileges` / `column_privileges`
+returned **zero rows** for `authenticated` even while it held the whole-table
+grant, because those views filter by role visibility to the current user. A
+pre-flight that answers "nothing" in both the guarded and unguarded state is
+worse than no pre-flight, so the catalog functions below replaced them.
 
 | Read-only pre-flight, before applying 0024 | What it tells you |
 |---|---|
-| `select column_name from information_schema.columns where table_schema='public' and table_name='farmers' order by ordinal_position;` | whether the live table matches `base-schema.sql:6-21`, and whether `preferred_language` exists |
-| `select grantee, privilege_type, column_name from information_schema.column_privileges where table_name='farmers' and privilege_type='UPDATE' order by grantee;` and `select datacl from pg_class where relname='farmers';` | whether `authenticated` really holds the whole-table UPDATE this migration takes away |
-| `select id, full_name, phone from public.farmers where phone is null or phone !~ '^\+256[37]\d{8}$' order by created_at desc limit 50;` | accounts already sitting on a number that cannot be used — including any bare `'+256'` |
-| `select phone, count(*) from public.farmers where phone is not null group by phone having count(*) > 1;` | duplicate numbers 0008's index could not prevent (a non-empty result means the unique index is not live) |
+| `select column_name, data_type from information_schema.columns where table_schema='public' and table_name='farmers' order by ordinal_position;` | whether the live table matches `base-schema.sql:6-21`, and whether `preferred_language` exists |
+| `select has_table_privilege('authenticated','public.farmers','update') as authenticated_whole_table_update;` | `true` = the hole 0024 closes is really open; `false` = something already narrowed it and the grant list must be re-read before applying |
+| `select relacl::text as acl from pg_class where relname='farmers';` | the table ACL. Before: `authenticated=arwdDxtm/postgres` — the `w` is UPDATE. After 0024: `authenticated=ardDxtm/postgres`, no `w`. Column grants are **not** in this row; they are per-attribute, so read them with the next query |
+| `select attname, attacl::text as column_acl from pg_attribute where attrelid='public.farmers'::regclass and attnum>0 and attacl is not null order by attnum;` | the column list 0024 actually granted. Verified shape after applying: one row per profile column reading `{authenticated=w/postgres}`, and **no row at all** for `is_verified`, `is_premium`, `otp_code`, `email` or `id` |
+| `select has_column_privilege('authenticated','public.farmers','is_verified','update') as can_self_verify, has_column_privilege('authenticated','public.farmers','otp_code','update') as can_write_otp, has_column_privilege('authenticated','public.farmers','district','update') as can_edit_district;` | before 0024 all three are `true` (a farmer can grade themselves and plant an OTP); after it the first two are `false` and `can_edit_district` stays `true` — that pair is the whole point of the migration |
+| `select conname, pg_get_constraintdef(oid) as definition from pg_constraint where conrelid='public.farmers'::regclass and contype='c' order by conname;` and `select indexname, indexdef from pg_indexes where tablename='farmers' order by indexname;` | whether 0008 is live: `farmers_phone_format`, `farmers_full_name_nonempty` and `farmers_phone_unique` should all appear. If they do not, the name/phone rules the brief asked for are enforced only by the Flask route |
+| `select coalesce(phone,'(null)') as phone, full_name from public.farmers where phone is null or phone !~ '^[+]256[37][0-9]{8}$' order by phone;` | accounts sitting on a number that cannot be used, including any bare `'+256'`. Written with `[+]` and `[0-9]` instead of `\+` and `\d` on purpose: the bracket form matches the same strings (checked against `+256771234567`, `+256312345678`, `+256`, `0771234567`, `+25671234567`) and survives any client that eats backslashes inside string literals |
+| `select phone, count(*) as accounts from public.farmers where phone is not null group by phone having count(*) > 1 order by count(*) desc;` | duplicate numbers 0008's index could not prevent (a non-empty result means the unique index is not live) |
+
 
 **Deployed (2026-11-04).** Pushed in three reviewable commits — `92f1dc2` (route
 mappings + the corrected profile editor + its 38 tests), `2f6ba0f` (0024, its 25

@@ -248,9 +248,12 @@ production; behavior is proven by faked transport in the 14 tests.
   farmer" above "Checked against your ID and farm by the AgriBridge team."
   (`:7798`), beside "Premium listing … Set by the AgriBridge team." (`:7799`).
 * **What was already covered.** The identity *fields* — name length, the +256
-  phone pattern, one account per phone — have been enforced since 0008, and the
+  phone pattern, one account per phone — are enforced by 0008's SQL, and the
   only client writes left in the SPA are `profile_photo` (`:7850`, `:8495`) and
-  `preferred_language` (`:12502`), both on the grant list 0024 keeps.
+  `preferred_language` (`:12502`), both on the grant list 0024 keeps. Whether
+  that migration is live in the project is a catalog question, not a file
+  question, so the pre-flight in `docs/IMPLEMENTATION_STATUS.md` asks
+  `pg_constraint` and `pg_indexes` directly instead of assuming.
 * **The change.** `0024_farmers_self_write_guard.up.sql` revokes table-wide
   UPDATE from `public`/`anon`/`authenticated` and grants back exactly the profile
   columns, resolved from `information_schema` so a live table that lacks
@@ -264,11 +267,16 @@ production; behavior is proven by faked transport in the 14 tests.
   restoring, re-apply safe). Applying it to the project is the owner's step.
 * **Fixed here in the client rather than the database** — found by writing the
   browser test, not by reading the migration: the Settings → Account phone box
-  rendered empty and saved as `'+256'`, because the E.164 component split the
+  rendered empty and sent `'+256'`, because the E.164 component split the
   stored number with `/^\+\d+\s?/` (greedy, so it took the whole number) and
-  `getE164Phone()` joined the flag button's code to an empty box. A silently
-  blanked phone field is one of the ways an account ends up with no usable
-  number, which is what this review is for.
+  `getE164Phone()` joined the flag button's code to an empty box. Measured, not
+  assumed: 0008's `farmers_phone_format` CHECK **refuses** `'+256'` (PGlite:
+  `insert … ('+256')` → 23514, same for `0771234567` and `''`), so the stored
+  number never changed — the harm was defect above: the write failed and the
+  screen toasted "Profile saved ✓" anyway, which is how a farmer walks away
+  believing a new number is on their account when it is not. A row that really
+  holds `'+256'` would mean the CHECK is not live in the project, which the
+  catalog probe in `docs/IMPLEMENTATION_STATUS.md` answers directly.
 
 ## Verified as not exploitable
 
