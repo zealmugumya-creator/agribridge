@@ -5584,11 +5584,27 @@ def update_user_profile():
         }
         resp = requests.post(url, json=update, headers=headers, timeout=8)
         if resp.status_code >= 300:
-            log.warning('profile.save_failed', uid=uid, status=resp.status_code)
-            return jsonify({'error': 'Could not save profile'}), 500
+            # PostgREST says why, in its `code`. The two codes this table can
+            # produce are the person's own doing rather than a server fault:
+            # 23505 is 0008's one-phone-one-account index (someone claimed that
+            # number between the check above and this write) and 23514 is its
+            # name/phone checks. A flat "Could not save profile" sends that person
+            # back to the same number. The response body is never logged — it
+            # repeats the phone number and the email that collided.
+            try:
+                code = str((resp.json() or {}).get('code') or '')
+            except ValueError:
+                code = ''
+            log.warning('profile.save_failed', uid=uid, status=resp.status_code, code=code or None)
+            if code == '23505':
+                return jsonify({'error': 'That phone number is already registered to another account'}), 409
+            if code == '23514':
+                return jsonify({'error': 'Please enter your real full name and a valid '
+                                         'Ugandan phone number, e.g. 0771 234567'}), 400
+            return jsonify({'error': 'Could not save profile'}), 502
     except Exception as _pe:
         log.warning('profile.save_exception', uid=uid, error=str(_pe))
-        return jsonify({'error': 'Could not save profile'}), 500
+        return jsonify({'error': 'Could not save profile'}), 502
 
     return jsonify({'ok': True}), 200
 

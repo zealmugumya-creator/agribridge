@@ -8496,18 +8496,55 @@ async function uploadAvatar(inp){
   showToast(saved ? 'Photo updated ✓' : 'Photo shown, but saving to your account failed — try again');
   renderSettings();
 }
-function saveProfile(){
-  if(!currentUser) return;
+var _savingProfile=false;
+async function saveProfile(){
+  if(!currentUser||_savingProfile) return;
   var g=function(id){ var e=document.getElementById(id); return e?e.value.trim():''; };
-  var nm=g('setName'); if(nm) currentUser.name=nm;
-  currentUser.phone=g('setPhone');
-  currentUser.district=g('setDistrict');
-  localStorage.setItem('ab_user',JSON.stringify(currentUser));
-  // Persist to the farmers row so edits survive re-login and reach other devices.
-  if(currentUser.supaId) sbUpdate('farmers',{ full_name:currentUser.name||null, phone:currentUser.phone||null, district:currentUser.district||null },'id',currentUser.supaId);
-  if(typeof updateNavUser==='function') updateNavUser(currentUser);
-  showToast('Profile saved ✓');
-  closeModal('settingsModal');
+  var nm=g('setName'), ph=g('setPhone'), di=g('setDistrict');
+  // An empty box means "leave it", which is exactly what the backend does with
+  // an empty field — mirroring anything else would show the person a profile the
+  // database does not hold.
+  var next={ name: nm || currentUser.name, phone: ph || currentUser.phone,
+             district: di || currentUser.district };
+  var commit=function(){
+    currentUser.name=next.name; currentUser.phone=next.phone; currentUser.district=next.district;
+    try{ localStorage.setItem('ab_user',JSON.stringify(currentUser)); }catch(e){}
+    if(typeof updateNavUser==='function') updateNavUser(currentUser);
+  };
+  // Waiting for the answer means the tap now takes most of a second, long enough
+  // for a second tap. Each POST holds one of Render's two workers, and a doubled
+  // write of the same values is a second write, not a firmer one.
+  _savingProfile=true;
+  try{
+    if(currentUser.supaId){
+      // The farmers row is the copy every other device and every buyer sees, so
+      // this write — not localStorage.setItem — is what "saved" means. It used to
+      // be a fire-and-forget PATCH straight to PostgREST whose result was thrown
+      // away while the toast said "Profile saved ✓": a phone another account
+      // already holds is refused by the unique index in migration 0008, and the
+      // person was told it worked. Going through /api/user/profile means the same
+      // rules that guard sign-up guard this edit, and the answer comes back in
+      // words the person can act on.
+      var res=await abApi('/api/user/profile',{method:'POST',body:JSON.stringify(
+        {full_name:next.name, phone:next.phone, district:next.district})});
+      if(!res.ok){
+        // The route's own sentence is the one thing worth repeating — "That
+        // phone number is already registered to another account" tells the
+        // person what to change. Everything else is translated, because
+        // abApi's stand-in for a failed request is the word "network" and the
+        // 401 body is the word "token".
+        var msg;
+        if(res.status===401) msg='Your session has ended. Sign in again, then save your profile.';
+        else if(!res.status) msg='We could not reach AgriBridge. Check your connection and try again.';
+        else msg=(res.json&&res.json.error)||'We could not save that. Try again.';
+        showToast(msg);
+        return;
+      }
+    }
+    commit();
+    showToast('Profile saved ✓');
+    closeModal('settingsModal');
+  } finally { _savingProfile=false; }
 }
 // Let a user set/correct their own account type. Older accounts were created
 // without a role and defaulted to a seller view; this makes the choice stick
@@ -12305,8 +12342,13 @@ window.getE164Phone = function(wrapperId, inputId) {
   var btn = document.getElementById(wrapperId + '_btn');
   var input = document.getElementById(inputId);
   if (!btn || !input) return '';
+  var national = input.value.trim();
+  // An empty box is an empty box. Joining it to the dial code made '+256' — a
+  // country code with no number after it — which the settings screen then sent
+  // as a profile phone and the database refused as a format violation.
+  if (!national) return '';
   var dial = btn.getAttribute('data-dial') || '+256';
-  return normalisePhone(dial, input.value.trim());
+  return normalisePhone(dial, national);
 };
 
 /** Replace the registration phone field with the new component */
@@ -12351,7 +12393,16 @@ window.renderSettings = function() {
       setPhone.remove();
       // Restore saved value if it starts with a digit (national) or +
       var restoredInput = document.getElementById('setPhone');
-      if (restoredInput && currentVal) restoredInput.value = currentVal.replace(/^\+\d+\s?/,'');
+      if (restoredInput && currentVal) {
+        // The flag button beside this box carries the country code, so the box
+        // itself shows the national number. The pattern used here was
+        // /^\+\d+\s?/, and \d+ is greedy: for the stored E.164 value
+        // '+256771234567' it matched the WHOLE number and replaced it with
+        // nothing. Every farmer who opened this screen saw an empty phone box,
+        // and saving it sent '+256' — a country code with no number after it.
+        // A country code is one to three digits, so that is all that may go.
+        restoredInput.value = currentVal.replace(/^\+\d{1,3}\s?/, '').trim();
+      }
     }
     // Patch saveProfile to use E.164
     if (!window._saveProfilePatched) {
