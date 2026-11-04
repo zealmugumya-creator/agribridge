@@ -12,6 +12,7 @@ as words instead of as a green tick.
 """
 from __future__ import annotations
 
+import re
 from pathlib import Path
 
 import pytest
@@ -116,12 +117,50 @@ def test_the_route_needs_a_real_session(client):
 
 
 # ── the identity rules, enforced before a row is written ────────────────────
-@pytest.mark.parametrize("name", ["S", "  A  ", "test", "TEST", "Admin", "farmer", "null", "n/a"])
+@pytest.mark.parametrize("name", ["S", "  A  ", "test", "TEST", "Admin", "farmer", "null",
+                                  "n/a", "unknown user", "Unknown", " Unknown User "])
 def test_a_name_that_is_not_a_name_is_refused(client, session, visits, name):
     r = _put(client, {"full_name": name}, ip=f"10.7.2.{abs(hash(name)) % 200}")
     assert r.status_code == 400, name
     assert "real full name" in r.get_json()["error"] or "at least 2" in r.get_json()["error"]
     assert _writes(visits) == []
+
+
+def _balanced(text: str, marker: str, open_ch: str, close_ch: str) -> str:
+    i = text.index(marker) + len(marker)
+    start = text.index(open_ch, i)
+    depth = 0
+    for j in range(start, len(text)):
+        if text[j] == open_ch:
+            depth += 1
+        elif text[j] == close_ch:
+            depth -= 1
+            if depth == 0:
+                return text[start + 1:j]
+    raise AssertionError(f"unbalanced {open_ch}{close_ch} after {marker!r}")
+
+
+def test_the_flask_blacklist_and_the_database_blacklist_are_the_same_list():
+    """0008 kept its refusal list in Python while the database kept its own, and
+    nothing noticed when 'Unknown User' walked through the gap between them. This
+    test is the notice: migration 0025's farmers_full_name_real list and the
+    /api/user/profile check must contain exactly the same names."""
+    py = (REPO / "app.py").read_text(encoding="utf-8")
+    route = py[py.index("def update_user_profile"):]
+    route = route[:route.index("# Validate and normalise phone")]
+    names_py = {t.lower() for t in re.findall(r"'([^']+)'", _balanced(route, " in ", "{", "}"))}
+
+    sql = (REPO / "supabase/migrations/0025_identity_checks_all_users.up.sql")\
+        .read_text(encoding="utf-8")
+    # The list is built as SQL string literals, so each name is doubled-quoted.
+    body = _balanced(sql, "lower(trim(full_name)) not in", "(", ")")
+    names_sql = {t.lower() for t in re.findall(r"''([^']+)''", body)}
+
+    assert names_py, "the profile route no longer has a readable refusal list"
+    assert names_sql == {"test", "user", "admin", "farmer", "buyer", "name", "null",
+                         "undefined", "none", "n/a", "unknown user", "unknown"}
+    assert names_py == names_sql, (f"flask refuses {sorted(names_py - names_sql)}, "
+                                   f"database refuses {sorted(names_sql - names_py)}")
 
 
 @pytest.mark.parametrize("phone", ["0771", "+254700000000", "07712345678901", "abc"])

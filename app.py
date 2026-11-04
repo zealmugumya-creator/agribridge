@@ -5540,8 +5540,13 @@ def update_user_profile():
     if full_name:
         if len(full_name) < 2:
             return jsonify({'error': 'Full name must be at least 2 characters'}), 400
-        if full_name.lower() in {'test', 'user', 'admin', 'farmer', 'buyer', 'name',
-                                  'null', 'undefined', 'none', 'n/a'}:
+        # Kept identical to the farmers_full_name_real list in migration 0025.
+        # 'unknown user' is here because the live farmers table has a row with
+        # exactly that name; the app used to accept it and the database did not
+        # exist to object.
+        if full_name.lower().strip() in {'test', 'user', 'admin', 'farmer', 'buyer',
+                                          'name', 'null', 'undefined', 'none', 'n/a',
+                                          'unknown', 'unknown user'}:
             return jsonify({'error': 'Please enter your real full name'}), 400
 
     # Validate and normalise phone
