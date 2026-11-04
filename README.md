@@ -102,12 +102,25 @@ GO-LIVE.md          ← accounts/keys/toggles checklist
 
 **Views:** `farmer_ratings` (avg rating + count per farmer).
 
-**Triggers:**
-- `handle_new_user` (on `auth.users`) — creates the `farmers` profile on signup,
-  server-side, even before email confirmation.
-- `sync_delivery_on_order` (on `orders`) — on **confirmed** creates the delivery; on
-  **delivered + paid** records a `payouts` row (commission from `platform_config`); on
-  **cancelled** marks the delivery failed.
+**Triggers.** Measured against the live project on 2026-11-04 by listing every
+non-internal trigger in `pg_trigger` — the result is in
+`docs/IMPLEMENTATION_STATUS.md`, and it contradicts what this section used to
+claim:
+
+- **There is no trigger on `auth.users`.** `handle_new_user` exists in no
+  migration in this repository and is not installed in the project, so a profile
+  row is created by the application — `POST /api/user/profile` — not by the
+  database. A sign-up that never reaches that route leaves no `farmers` row.
+- **There is no trigger on `orders`.** `sync_delivery_on_order` is likewise not
+  installed; deliveries and `payouts` rows are written by the Flask layer, inside
+  the same transactions that verify a payment.
+- What *is* installed is `ab_discord_hook` on 17 tables (including
+  `contact_messages`, `farmers`, `buyers`, `orders`-adjacent `supply_orders`,
+  `payouts` and `user_roles`), plus the ledger guards from 0013
+  (`ledger_journals_guard`, `ledger_lines_balanced`, the append-only and
+  no-truncate triggers) and the legal-document immutability triggers from 0007.
+  The `contact_messages` hook duplicates the first-party alert the app now sends
+  itself — see `docs/SECURITY_REVIEW.md` for which single trigger to drop.
 
 ---
 
@@ -140,9 +153,12 @@ GO-LIVE.md          ← accounts/keys/toggles checklist
 
 ## 5. Key user flows
 
-**Sign up →** Supabase Auth creates the user → `handle_new_user` trigger writes the
-`farmers` profile (name, phone, district from signup) → session token drives all
-subsequent DB calls.
+**Sign up →** Supabase Auth creates the user → the app calls
+`POST /api/user/profile`, which upserts the `farmers` row (name, phone, district
+from the profile step) using the verified session → that session token drives all
+subsequent DB calls. There is no database trigger doing this (see §Triggers), so
+a sign-up whose profile write never lands has an auth account and no profile row
+until it retries.
 
 **List produce/animal →** logged-in farmer submits → row inserted with
 `farmer_id = their id` → appears in the public marketplace.
