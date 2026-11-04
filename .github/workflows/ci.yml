@@ -112,7 +112,7 @@ jobs:
           failed=0
           for f in legal_consent ledger security_lockdown category_orders settlements \
                    pesapal farmer_ratings order_write_lockdown transport_assignment \
-                   proof_bucket farmers_self_write; do
+                   proof_bucket farmers_self_write identity_all_users; do
             log="$RUNNER_TEMP/sql-$f.log"
             if ! node "$f.test.mjs" 2>&1 | tee "$log"; then
               detail="$(tr '\r\n' '  ' <"$log" | tail -c 700)"
