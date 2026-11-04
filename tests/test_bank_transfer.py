@@ -158,7 +158,8 @@ class _Res:
         self.ok, self.data, self.error, self.status_code = ok, data or {}, None, 200
 
 
-def _sync(monkeypatch, *, marker_present, created_at, meta=None, farmer_row=None):
+def _sync(monkeypatch, *, marker_present, created_at, meta=None, farmer_row=None,
+          session_alerted_today=False):
     auth_user = {"user_metadata": {"full_name": "Z"} if meta is None else meta,
                  "created_at": created_at}
 
@@ -176,7 +177,13 @@ def _sync(monkeypatch, *, marker_present, created_at, meta=None, farmer_row=None
 
     def fake_get(table, filters=None, limit=100):
         if table == "system_events":
-            return [{"id": "e1"}] if marker_present else []
+            # The handler asks two different questions of the same table: has
+            # this account ever been announced, and has this person been
+            # announced today. Answer them separately or one gates the other.
+            wanted = str((filters or {}).get("event_type") or "")
+            if wanted.endswith("signup_alerted"):
+                return [{"id": "e1"}] if marker_present else []
+            return [{"id": "e1"}] if session_alerted_today else []
         if table == "farmers":
             return [farmer_row] if farmer_row else []
         return []
@@ -189,13 +196,19 @@ def _sync(monkeypatch, *, marker_present, created_at, meta=None, farmer_row=None
     return logged, notified
 
 
+def _fired(notified, event_type):
+    """The alerts sent for one event type — a session ping must not disturb the
+    signup assertions, and neither should a listing alert."""
+    return [n for n in notified if n.get("event_type") == event_type]
+
+
 def test_signup_alerts_once_for_a_new_account(monkeypatch):
     now = datetime.datetime.now(datetime.UTC).isoformat()
     logged, notified = _sync(monkeypatch, marker_present=False, created_at=now)
     app_mod.app.config["TESTING"] = True
     with app_mod.app.test_client() as c:
         assert c.post("/api/legal/sync-signup").status_code == 200
-    assert "signup_alerted" in logged and len(notified) == 1
+    assert "signup_alerted" in logged and len(_fired(notified, "user.signup")) == 1
 
 
 def test_signup_alert_suppressed_when_marker_exists(monkeypatch):
@@ -204,7 +217,7 @@ def test_signup_alert_suppressed_when_marker_exists(monkeypatch):
     app_mod.app.config["TESTING"] = True
     with app_mod.app.test_client() as c:
         assert c.post("/api/legal/sync-signup").status_code == 200
-    assert "signup_alerted" not in logged and notified == []
+    assert "signup_alerted" not in logged and _fired(notified, "user.signup") == []
 
 
 def test_signup_alert_suppressed_for_old_account(monkeypatch):
@@ -214,7 +227,7 @@ def test_signup_alert_suppressed_for_old_account(monkeypatch):
     app_mod.app.config["TESTING"] = True
     with app_mod.app.test_client() as c:
         assert c.post("/api/legal/sync-signup").status_code == 200
-    assert notified == []
+    assert _fired(notified, "user.signup") == []
 
 
 # ── The signup alert must show the real name ─────────────────────────────────
@@ -231,8 +244,9 @@ def _alert_description(monkeypatch, **kw):
     app_mod.app.config["TESTING"] = True
     with app_mod.app.test_client() as c:
         assert c.post("/api/legal/sync-signup").status_code == 200
-    assert len(notified) == 1
-    return notified[0]["description"]
+    signup = _fired(notified, "user.signup")
+    assert len(signup) == 1
+    return signup[0]["description"]
 
 
 def test_signup_alert_names_a_password_account_by_the_name_it_stored(monkeypatch):
@@ -260,3 +274,55 @@ def test_signup_stores_the_name_under_both_metadata_keys():
     html = (repo / "static" / "index.html").read_text(encoding="utf-8")
     assert "options: { data: { name: name, full_name: name," in html, (
         "sign-up must write both metadata keys, or the alert depends on a DB read")
+
+
+# ── A sign-in is an event the owner can see ───────────────────────────────────
+# Signing in happens in the browser against GoTrue, so the backend saw nothing
+# at all until this legal check — which every session runs — started recording.
+def _signed_in(monkeypatch, *, session_alerted_today=False, meta=None, provider="google"):
+    """One sign-in: returns (events recorded, alerts sent)."""
+    _sync(monkeypatch, marker_present=True, created_at=_now(),
+          session_alerted_today=session_alerted_today)   # marker on: no signup alert
+
+    def _verify():
+        app_mod.g.auth_user = {"user_metadata": meta if meta is not None else {},
+                               "created_at": _now(), "app_metadata": {"provider": provider}}
+        return ("u1", None)
+
+    monkeypatch.setattr(app_mod, "verify_supabase_user", _verify)
+    detailed, notified = [], []
+    monkeypatch.setattr(app_mod, "_log_system_event",
+                        lambda et, d, **k: detailed.append((et, d, k)))
+    monkeypatch.setattr(app_mod, "_discord_notify", lambda *a, **k: notified.append(k))
+    app_mod.app.config["TESTING"] = True
+    with app_mod.app.test_client() as c:
+        assert c.post("/api/legal/sync-signup").status_code == 200
+    return detailed, notified
+
+
+def test_a_sign_in_is_recorded_with_the_name_and_how_they_arrived(monkeypatch):
+    detailed, _ = _signed_in(monkeypatch, meta={"full_name": "Sarah Auma"})
+    started = [e for e in detailed if e[0] == "session_started"]
+    assert len(started) == 1
+    _event, details, kwargs = started[0]
+    assert details == {"role": "farmer", "name": "Sarah Auma", "provider": "google"}
+    assert kwargs["user_id"] == "u1" and kwargs["severity"] == "info"
+
+
+def test_a_person_is_announced_once_a_day_not_once_a_page_load(monkeypatch):
+    # The endpoint behind this runs on every session start, and a browser fires
+    # it again on every reload — an unthrottled ping would bury #signups.
+    _detailed, notified = _signed_in(monkeypatch, meta={"name": "Allan"})
+    assert len(_fired(notified, "user.signin")) == 1
+    assert "Allan" in _fired(notified, "user.signin")[0]["description"]
+
+    _detailed, already = _signed_in(monkeypatch, session_alerted_today=True)
+    assert _fired(already, "user.signin") == []
+    assert "session_alerted" not in [e[0] for e in _detailed]
+
+
+def test_the_sign_in_ping_carries_no_contact_details(monkeypatch):
+    _detailed, notified = _signed_in(
+        monkeypatch, meta={"full_name": "Sarah", "email": "s@x.com", "phone": "0771234567"})
+    description = _fired(notified, "user.signin")[0]["description"]
+    assert "s@x.com" not in description and "0771234567" not in description

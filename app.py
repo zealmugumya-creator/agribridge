@@ -26,7 +26,7 @@ import requests
 from cryptography.hazmat.primitives import padding as _sym_padding
 from cryptography.hazmat.primitives.ciphers import Cipher as _SymCipher
 from cryptography.hazmat.primitives.ciphers import modes as _SymModes
-from flask import Flask, Response, g, jsonify, redirect, request
+from flask import Flask, Response, g, has_request_context, jsonify, redirect, request
 from flask_cors import CORS
 from werkzeug.exceptions import RequestEntityTooLarge
 
@@ -505,6 +505,7 @@ def verify_token(required_role=None):
         payload = jwt.decode(token, JWT_SECRET, algorithms=['HS256'])
         if required_role and payload.get('role') != required_role:
             return None, (jsonify({'error': 'Insufficient permissions'}), 403)
+        g.local_jwt = payload   # ours, not a Supabase session — see _request_uid
         return payload, None
     except jwt.ExpiredSignatureError:
         return None, (jsonify({'error': 'Token expired'}), 401)
@@ -3193,10 +3194,39 @@ def trigger_matching():
 
 
 # ── System event logger — writes to system_events table for admin panel ───────
+def _request_uid():
+    """Whoever is calling, taken from their own verified token — never from the body.
+
+    Sign-in and the profile name come from GoTrue, so the id cannot be claimed.
+    Cached on `g` because one page load can raise five events, and an uncached
+    lookup would be five round trips to GoTrue on the request's critical path.
+    Returns None when there is no request (background worker, webhook), no
+    bearer token, or the bearer is an admin JWT rather than a user session —
+    asking GoTrue about one of those would cost a call and only ever 401.
+    """
+    if not has_request_context() or getattr(g, 'local_jwt', None) is not None:
+        return None
+    if hasattr(g, 'activity_uid'):
+        return g.activity_uid
+    uid = (getattr(g, 'auth_user', None) or {}).get('id')
+    if uid is None and _bearer_token():
+        try:
+            uid, _err = verify_supabase_user()
+        except Exception:
+            uid = None
+    g.activity_uid = uid
+    return uid
+
+
 def _log_system_event(event_type: str, details: dict, severity: str = 'error',
                       user_id: str = None):
     """Write a system event (failure/warning) to the system_events table.
     Best-effort: never raises."""
+    if user_id is None:
+        # 8 of ~60 call sites named a user_id, so the table could not answer
+        # "what did this person do" for anything else. Attributing here fixes
+        # all of them without touching them.
+        user_id = _request_uid()
     try:
         supa_insert('system_events', {
             'event_type': event_type,
@@ -3363,6 +3393,26 @@ def contact_message():
                     description=desc, severity='info')
     _log_system_event('support.contact_message', {'table': 'contact_messages', **fields},
                       severity='info', user_id=uid)
+    return jsonify({'ok': True}), 200
+
+
+# The moments only the browser can witness. The backend already records every
+# action that passes through it — this list stays short on purpose, because a
+# feed of presses drowns the timeline and grows system_events without end.
+_ACTIVITY_EVENTS = {'visit.first': 'Arrived on the site for the first time'}
+
+
+@app.route('/api/activity', methods=['POST'])
+@rate_limit(max_req=30, window=60)
+def activity_event():
+    """Append one meaningful event to a person's timeline."""
+    data = request.get_json(force=True, silent=True) or {}
+    event = str(data.get('event') or '').strip().lower()[:40]
+    if event not in _ACTIVITY_EVENTS:
+        return jsonify({'ok': False, 'error': 'unknown event'}), 400
+    # A signed-in visitor lands on their timeline; an anonymous one is counted
+    # but cannot be named, so no identity is invented from an IP address.
+    _log_system_event(f'activity.{event}', {'what': _ACTIVITY_EVENTS[event]}, severity='info')
     return jsonify({'ok': True}), 200
 
 
@@ -6036,6 +6086,38 @@ def legal_sync_signup():
     if not res.ok:
         return _legal_response(res)
     status = LEGAL_SERVICE.status(uid, _auth_role())
+    # Someone signing in was invisible to the backend: the browser authenticates
+    # straight against GoTrue and this legal check is the only request a session
+    # start produces. It runs on every session, so it is recorded here — the id
+    # and the metadata come from the verified token, not from the client.
+    _log_system_event('session_started', {
+        'role': _auth_role() or 'unknown',
+        'name': _identity_name(au.get('user_metadata'), uid),
+        'provider': (au.get('app_metadata') or {}).get('provider') or 'unknown',
+    }, severity='info', user_id=uid)
+    # Ping #signups once a day per person. Page reloads and returning to the app
+    # re-run this endpoint, so an unthrottled alert would bury the channel.
+    try:
+        alerted = supa_get('system_events', {
+            'event_type': 'eq.session_alerted', 'user_id': f'eq.{uid}',
+            'created_at': f'gte.{datetime.date.today().isoformat()}', 'select': 'id',
+        }, limit=1)
+        if not alerted:
+            _log_system_event('session_alerted', {'role': _auth_role() or 'unknown'},
+                              severity='info', user_id=uid)
+            _discord_notify(
+                event_type='user.signin',
+                title='🚪 Someone signed in',
+                description=(
+                    f"**Name:** {_identity_name(au.get('user_metadata'), uid)}\n"
+                    f"**Role:** {_auth_role() or 'unknown'}\n"
+                    f"**Via:** {(au.get('app_metadata') or {}).get('provider') or 'unknown'}\n"
+                    f"**User ID:** `{uid}`"
+                ),
+                severity='info',
+            )
+    except Exception as _ae:
+        log.warning('session_alert.failed', error=type(_ae).__name__)
     # Notify Discord once per genuinely new account. This endpoint runs on every
     # login, so an unguarded alert spams #signups with the same user (seen live).
     # The system_events marker makes it durable across restarts; the age window

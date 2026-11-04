@@ -8849,6 +8849,11 @@ document.addEventListener('DOMContentLoaded', () => {
   // First-time welcome
   if (!localStorage.getItem('ab_visited')) {
     setTimeout(() => { showToast('🌱 Welcome to AgriBridge! Browse fresh produce or dial *789# on any phone.'); localStorage.setItem('ab_visited','1'); }, 1800);
+    // The one arrival the backend cannot see on its own: no route runs just
+    // because someone opened the site. Once per browser, no token, fire and
+    // forget — a failed beacon must never delay or block a first visit.
+    try { fetch(USSD_API+'/api/activity', {method:'POST', headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({event:'visit.first'})}).catch(function(){}); } catch(e){}
   }
   // Recommendations
   setTimeout(() => { if(getTopInterests(1).length>0) renderRecommendations(); }, 1200);
