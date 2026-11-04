@@ -6744,12 +6744,17 @@ async function sendContactMsgCore() {
     if (r.ok && j && j.ok) status = 200; else serverError = (j && j.error) || '';
   } catch(e) { status = 0; }
   var sent = (status === 200);
-  if (!sent && (status === 0 || status >= 500)) {
+  // 404/405 count as unreachable: the SPA and the backend are published
+  // separately, so for the minutes the backend is mid-deploy this route simply
+  // does not exist yet. A message must never be lost during that window.
+  if (!sent && (status === 0 || status >= 500 || status === 404 || status === 405)) {
     sent = await sbInsert('contact_messages',{ full_name:name, contact, role, message:msg }, {minimal:true});
   }
   if(sent){ showToast('Message sent! We\'ll reply within 24 hours ✅'); ['cName','cContact','cMessage'].forEach(id=>{ const el=document.getElementById(id); if(el) el.value=''; }); }
   else if(serverError){ showToast(serverError); }
-  else showToast('Saved locally. We\'ll follow up soon ✅');
+  // Nothing reached either path. Saying "saved" here is what hid the message
+  // that never arrived, so the only honest answer is the number that works.
+  else showToast('We could not send that. Please try again, or WhatsApp us on +256 755 966 690.');
 }
 
 // ─────────────────────────────────────────────────────────────────

@@ -168,8 +168,14 @@ def test_a_signed_in_sender_is_attributed_to_their_account(client, contact, monk
 def test_the_form_uses_the_backend_and_keeps_the_old_insert_as_fallback():
     js = (REPO / "static/index.html").read_text(encoding="utf-8")
     start = js.index("async function sendContactMsgCore()")
-    body = js[start:start + 1800]
+    body = js[start:js.index("\n}", start) + 2]
     assert "USSD_API+'/api/contact'" in body, "the form still bypasses the backend"
-    assert "status === 0 || status >= 500" in body, (
+    assert "status === 0 || status >= 500 || status === 404 || status === 405" in body, (
         "the direct insert must stay as a fallback, but only when the backend "
-        "is unreachable or failing - never after a validation rejection")
+        "is unreachable or failing - never after a validation rejection. 404 is "
+        "unreachable: the SPA and the backend are published separately, so a "
+        "route can be missing for the minutes the backend is mid-deploy.")
+    # A message that reached neither path must not be reported as saved. That
+    # lie is how a contact went unread for days with a green-looking form.
+    assert "Saved locally" not in body
+    assert "We could not send that" in body
