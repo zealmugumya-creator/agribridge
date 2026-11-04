@@ -1152,8 +1152,102 @@ registered to another account" instead of a green tick.
 
 ---
 
+## 2026-11-05 — Stage N7: the live schema is not the schema in this repository
 
-**Phase 1 COMPLETE — Baseline Audit**
+The owner ran the census queries. Every claim below is a row one of those queries
+returned; the reproduction of each is `tests/sql/identity_all_users.test.mjs`,
+which builds the **measured** state rather than the state `base-schema.sql`
+describes, and then applies 0025 against it.
+
+### What the live project actually contains
+
+| Measured | Live value | What the repo says | Consequence |
+|---|---|---|---|
+| `farmers_phone_format` | `CHECK ((phone ~ '^\+[1-9]\d{6,14}$'))` | 0008:28 says `'^\+256[37]\d{8}$'` | A generic international check. `+10000000000` satisfies it — that is the entire reason the number got in. |
+| `farmers_full_name_nonempty` | **absent** | 0008:21 adds it | Nothing in SQL objects to an empty name. Reproduced: `insert … values ('', '+256733111222')` succeeded. |
+| `farmers_phone_unique` | `indisvalid=true`, `WHERE (phone <> '+10000000000'::text)` | 0008:31 says `where phone is not null` | The index is healthy and does enforce one-phone-per-account — for every number except that one. The predicate appears **nowhere in this repository**, so it was written in the dashboard. |
+| buyers / transporters | no name rule, no phone-format rule | — | "Login security for all users" was unenforced for every user type but farmers, and farmers' rule was the wrong rule. |
+| `relacl` on farmers, buyers, user_roles | `anon=arwdDxtm/postgres` | 0014 fixed system_events + transporters only | The unauthenticated role holds INSERT/UPDATE/DELETE/TRUNCATE on three identity tables. Whether a given anon request lands depends entirely on RLS — which is the open measurement below. |
+| `attacl` on all four | **0 rows** | 0024 would have written one row per profile column | 0024 is not applied. The owner ran its `down` file instead, so whole-table UPDATE stands on `farmers`. |
+| `user_roles_role_chk` | present | 0002:33 | 0002 *is* applied, so the role store and `is_admin()` exist. |
+
+### Two of my own hypotheses were wrong, and the measurements killed them
+
+1. I predicted `farmers_phone_unique` was an **INVALID** index left behind by a
+   failed `create unique index concurrently`. It is valid. The duplicates are
+   permitted by a predicate, not by a broken build. (The invalid-index mechanism is
+   real — reproduced separately — it just was not what happened here.)
+2. I predicted the placeholder phone came from a code path that constructs it. A
+   grep of `app.py`, `services/`, `scripts/` and `static/*.html` for
+   `10000000000` returns **zero matches**. `+10000000000` is `+1` (the US dial code
+   in the country picker at `static/index.html:12216`) followed by ten zeros: a
+   typed test value that the generic live CHECK accepted.
+
+The decisive reproduction: the repo's own index cannot be built over these rows.
+`create unique index … where phone is not null` fails with
+`Key (phone)=(+10000000000) is duplicated.` So 0008 as written was never
+successfully applied to this table, and the exemption was added to stop an
+existing problem raising an error — which guarantees the problem keeps multiplying.
+Three more placeholder rows went in without complaint (8 → 11) while a second
+`+256771234567` was refused with 23505.
+
+### Migration 0025 — `0025_identity_checks_all_users.up.sql`
+
+Installs `…_full_name_real` and `…_phone_uganda` on **farmers, buyers and
+transporters**, the name rule refusing empties, one-word placeholders and the
+exact string `Unknown User`. Every constraint is added `NOT VALID`: no existing
+row is re-checked, so the nine placeholder accounts survive and the migration
+cannot abort on them. New and updated rows must satisfy the rule.
+
+Privileges: `insert, update, delete, truncate, references, trigger` revoked from
+`anon` and `public` on all four user tables; `authenticated` loses writes on
+buyers, transporters and `user_roles` outright (no client code writes them — the
+only reference in `static/*.html` is a label map at `static/admin.html:351`, and
+the admin console reads through `/api/admin/*` with the service-role key), and
+keeps the profile columns on farmers, which repeats 0024's move so one migration
+is enough. Reads are untouched: `anon` still reads farmer profiles, `authenticated`
+keeps SELECT on transporters.
+
+**Known consequence, asserted not promised** (`identity_all_users` §3): a `NOT
+VALID` check still fires on UPDATE of an existing row. An account whose stored
+phone is `+10000000000` cannot have **any** column changed — not by its owner
+through the profile screen, not by an administrator flipping `is_verified` — until
+that phone is fixed. The test states it as an expectation so nobody meets it as a
+surprise.
+
+### What 0025 deliberately does not do
+
+It does not drop or rebuild `farmers_phone_unique`. The honest index cannot be
+built while several accounts share one number, and cleaning those rows is a data
+change with consequences — `listings`, `orders`, `reviews` and `payouts` point at
+farmer ids (`supabase/base-schema.sql:38, 68, 102, 111`) — so it is a separate
+migration after the owner has seen which rows are affected. It does not touch RLS
+policies: row visibility and column writability are different questions.
+
+### The merge question, answered by measurement
+
+`select count(*) as farmer_rows, count(distinct u.email) as distinct_emails from
+public.farmers f left join auth.users u on u.id = f.id where f.phone =
+'+10000000000';` → **8 rows, 3 distinct emails.** So these are not eight accounts
+belonging to one person, and not eight people either: at most three auth accounts
+sit behind eight profiles, and the rest have no `auth.users` row at all. A shared
+placeholder phone is evidence of one bad default, not of one person, so no merge
+was performed and none will be on that basis.
+
+### Still unmeasured, and it now matters more than anything above
+
+`relrowsecurity` and the policies on these four tables. `anon` holds write
+privileges on farmers, buyers and `user_roles`; if RLS is off on any of them, that
+grant is reachable by anyone on the internet with the publishable anon key —
+including inserting a row into `user_roles` that says `superadmin`. The queries are
+`census_check3.mjs` §H/H2, executed against PGlite before being handed over.
+
+**Not verified live:** 0025 has not been applied — applying it is the owner's step
+— and no production row has been read or written by this stage.
+
+---
+
+
 **Completed:** 2026-10-10
 **Auditor:** Claude Code (baseline inspection, no live environment access)
 
