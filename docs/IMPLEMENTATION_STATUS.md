@@ -1102,6 +1102,31 @@ queries that answer them are recorded here and go with the migration:
 | `select id, full_name, phone from public.farmers where phone is null or phone !~ '^\+256[37]\d{8}$' order by created_at desc limit 50;` | accounts already sitting on a number that cannot be used — including any bare `'+256'` |
 | `select phone, count(*) from public.farmers where phone is not null group by phone having count(*) > 1;` | duplicate numbers 0008's index could not prevent (a non-empty result means the unique index is not live) |
 
+**Deployed (2026-11-04).** Pushed in three reviewable commits — `92f1dc2` (route
+mappings + the corrected profile editor + its 38 tests), `2f6ba0f` (0024, its 25
+PGlite assertions, and `farmers_self_write` added to CI's SQL loop), `b3ba817`
+(this record). CI on `b3ba817`, read from the public check-runs API:
+"Backend lint + type + tests" **success**, "Migration 0007 on real PostgreSQL
+(PGlite)" **success** — now eleven SQL files, so 0024 cannot regress silently —
+and "deploy" **success**.
+
+Live check read from the published URL, not inferred: `https://agribrige.com/`
+→ **200, 877,818 bytes**, LF-normalised sha256
+`45f5dbe20a8a14d9ae79e96e2d46484cec19f4cff371ca55a205524afd263a9c`, identical to
+`git show HEAD:static/index.html` after CRLF normalisation. So the refusal-aware
+`saveProfile()`, the one-tap-one-write lock, the fixed country-code split and the
+end of the fabricated `'+256'` are what a farmer's phone actually downloads.
+
+**Not verified live, and not claimed:** the `app.py` 23505/23514 mappings, and
+migration 0024 — which was never applied, because applying it is the owner's
+step and the pre-flight above has not been run. A probe of the Render endpoints
+from this workspace was blocked pending the owner's confirmation. Note what a
+probe *cannot* prove here: `POST /api/user/profile` already existed, so a `401
+{"error":"Missing token"}` from it says the service is awake and answers auth
+before the database, not that the new mappings are deployed. The first genuine
+evidence will be a farmer on a phone seeing "That phone number is already
+registered to another account" instead of a green tick.
+
 ---
 
 
