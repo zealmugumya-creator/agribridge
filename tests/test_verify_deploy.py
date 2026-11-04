@@ -137,8 +137,15 @@ def test_hash_matches_hashlib():
 
 
 def test_the_check_works_over_real_http(capsys):
-    """One end-to-end pass: a real server returns the committed page."""
-    body = _committed(PAGE)
+    """One end-to-end pass: a real server returns the committed file."""
+    # Deliberately a small committed file. This host forcibly resets about a
+    # third of 131 KB loopback responses (measured 2026-10-29: 8/25 failures at
+    # admin.html's size, 0/25 at 58 KB, ~19 s lost each), which is a property of
+    # the machine and tells us nothing about the check. Large pages are proven
+    # where they are really served: the CI deploy step and the live run against
+    # agribrige.com, both of which fetch admin.html's 129 KB.
+    page = "static/robots.txt"
+    body = _committed(page)
     requests: list[str] = []
 
     class Handler(http.server.BaseHTTPRequestHandler):
@@ -162,12 +169,12 @@ def test_the_check_works_over_real_http(capsys):
     try:
         base = f"http://127.0.0.1:{server.server_address[1]}"
         # Two attempts: a local socket reset on this host is retried, not fatal.
-        assert _run(PAGE, base=base, attempts="2") == 0
+        assert _run(page, base=base, attempts="2") == 0
     finally:
         server.shutdown()
         server.server_close()
-    assert "OK   static/admin.html" in capsys.readouterr().out
-    assert requests and requests[0].startswith("/admin.html?v=")
+    assert "OK   static/robots.txt" in capsys.readouterr().out
+    assert requests and requests[0].startswith("/robots.txt?v=")
 
 
 def test_deploy_workflow_runs_the_check_after_deploy():

@@ -80,6 +80,12 @@ jobs:
               message = ' '.join((node.get('message') or '').split())
               name = f"{tc.get('classname', '')}::{tc.get('name', '')}"
               print(f"::error::{name}: {message[:600]}")
+              # The message attribute is only the first line. The body carries
+              # Playwright's call log: which wait timed out and its expression.
+              # A bare "Timeout 30000ms exceeded" cannot be acted on.
+              detail = ' '.join((node.text or '').split())
+              if detail and detail != message:
+                  print(f"::error::{name} detail: {detail[:1200]}")
           print(f"::notice::{len(bad)} failing test(s) reported")
           PY
 

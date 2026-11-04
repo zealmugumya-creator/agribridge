@@ -181,11 +181,19 @@ def env(browser, site):
 
 def _enter(page, site):
     page.goto(site + "/index.html", wait_until="domcontentloaded")
-    page.wait_for_function("typeof sbAuth !== 'undefined' && sbAuth", timeout=10000)
+    # Interval polling, not the default requestAnimationFrame loop: the
+    # predicates read plain JS state, and rAF only ticks when the compositor
+    # produces frames, which is the one thing a headless CI runner can stall.
+    page.wait_for_function("typeof sbAuth !== 'undefined' && sbAuth",
+                           timeout=10000, polling=100)
     page.evaluate("try{localStorage.setItem('ab_seen_splash','1')}catch(e){}")
     page.evaluate("enterApp(); hideSplash()")
+    # The precondition every test relies on is loaded listing data, not a card
+    # in the DOM: detail pages and the cart read allListings directly.
     page.wait_for_function(
-        "document.querySelectorAll('#homeProdGrid .prod-card').length > 0", timeout=10000)
+        "document.querySelectorAll('#homeProdGrid .prod-card').length > 0"
+        " && typeof allListings !== 'undefined' && allListings.length > 0",
+        timeout=10000, polling=100)
 
 
 def test_home_renders_listing_data_and_only_real_ratings(env):
@@ -212,7 +220,8 @@ def test_signed_in_buyer_lands_on_the_shopping_home(env):
         user_metadata:{name:'Buyer', role:'vendor', phone:'', district:'Kampala'}};
       window.__sb.emit('SIGNED_IN', {access_token:'tok', user:user});
     }""")
-    page.wait_for_function("(document.querySelector('.page.active')||{}).id === 'page-home'", timeout=5000)
+    page.wait_for_function("(document.querySelector('.page.active')||{}).id === 'page-home'",
+                           timeout=5000, polling=100)
     assert page.evaluate("getCurrentRole()") == "vendor"
     assert page.locator("#homeProdGrid .prod-card").count() == 6
 
@@ -220,7 +229,7 @@ def test_signed_in_buyer_lands_on_the_shopping_home(env):
 def test_detail_shows_real_listing_facts_and_disables_out_of_stock(env):
     page, _ = env
     page.evaluate("openProductDetail(101)")
-    page.wait_for_function("document.getElementById('pdName').textContent === 'Tomatoes'")
+    assert page.inner_text("#pdName") == "Tomatoes"   # rendered synchronously
     assert page.inner_text("#pdDesc") == "Fresh tomatoes"
     assert page.inner_text("#pdDeliveryInfo") == "Arranged after the order is confirmed"
     assert page.inner_text("#pdPayInfo") == "Chosen at checkout"
@@ -232,26 +241,33 @@ def test_detail_shows_real_listing_facts_and_disables_out_of_stock(env):
     assert page.evaluate("(document.querySelector('.page.active')||{}).id") == "page-product-detail"
 
     page.evaluate("openProductDetail(108)")
-    page.wait_for_function("document.getElementById('pdName').textContent === 'Sold Out Maize'")
+    assert page.inner_text("#pdName") == "Sold Out Maize"
     assert page.get_attribute("#pdAddBtn", "disabled") is not None
     assert page.get_attribute("#pdBuyBtn", "disabled") is not None
     assert page.is_visible("#pdOutNote")
 
     page.evaluate("openProductDetail(104)")       # stored description is the literal "None"
-    page.wait_for_function("document.getElementById('pdName').textContent === 'Maize'")
+    assert page.inner_text("#pdName") == "Maize"
     assert page.inner_text("#pdDesc") == "No description provided by the farmer yet."
 
 
 def test_cart_totals_are_honest_and_survive_a_reload(env, site):
     page, _ = env
     page.evaluate("openProductDetail(107)")       # 10% discount: 8,100/kg
-    page.wait_for_function("document.getElementById('pdName').textContent === 'Cocoa'")
+    # openProductDetail, pdAddToCart and showPage('cart') all run synchronously,
+    # so each step is asserted directly. A 30 s wait_for_function timeout used to
+    # be the only symptom of a failure here (CI, 2026-10-29) and said nothing
+    # about the state; an assertion reports the real value instead.
+    assert page.inner_text("#pdName") == "Cocoa", page.evaluate(
+        "[document.getElementById('pdName').textContent, allListings.length]")
     page.click("#pdQtyPlus")
+    assert page.is_enabled("#pdAddBtn")
     page.click("#pdAddBtn")
-    page.wait_for_function("typeof basketItems !== 'undefined' && basketItems.length === 1")
+    assert page.evaluate("basketItems.length") == 1, page.evaluate(
+        "[basketItems.length, typeof window._pdListing === 'object']")
 
     page.evaluate("showPage('cart')")
-    page.wait_for_function("document.getElementById('cartPageSummary').style.display === 'block'")
+    assert page.evaluate("document.getElementById('cartPageSummary').style.display") == "block"
     assert page.inner_text("#cartDelivery") == "Arranged after confirmation"
     assert page.inner_text("#cartTotal") == page.inner_text("#cartSubtotal") == "UGX 16,200"
     assert "server" in page.inner_text("#cartNotices").lower()
@@ -272,7 +288,7 @@ def test_search_and_category_filter_use_the_same_listing_data(env):
     page.wait_for_selector("#bhSearchResults .bh-sr-row")
     assert "Grace Nakato" in page.inner_text("#bhSearchResults .bh-sr-row")
     page.evaluate("document.querySelector('#bhSearchResults .bh-sr-row').click()")
-    page.wait_for_function("document.getElementById('pdName').textContent === 'Tomatoes'")
+    assert page.inner_text("#pdName") == "Tomatoes"
 
     page.evaluate("showPage('home')")
     page.evaluate("""() => {
