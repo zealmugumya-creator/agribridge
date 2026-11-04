@@ -284,7 +284,7 @@
       <div class="navgrp"><h4>Records &amp; system</h4>
         <span class="tab" data-tab="inbox" role="button" tabindex="0" onclick="showTab('inbox',this)"><svg class="i"><use href="#i-inbox"/></svg><span class="lbl">Inbox</span></span>
         <span class="tab" data-tab="scans" role="button" tabindex="0" onclick="showTab('scans',this)"><svg class="i"><use href="#i-scan"/></svg><span class="lbl">Crop doctor scans</span></span>
-        <span class="tab" data-tab="activity" role="button" tabindex="0" onclick="showTab('activity',this)"><svg class="i"><use href="#i-bell"/></svg><span class="lbl">Activity</span></span>
+        <span class="tab" data-tab="activity" role="button" tabindex="0" onclick="showTab('activity',this)"><svg class="i"><use href="#i-bell"/></svg><span class="lbl">Activity</span><span class="cnt" id="cnt_activity"></span></span>
         <span class="tab" data-tab="errors" role="button" tabindex="0" onclick="showTab('errors',this)"><svg class="i"><use href="#i-warn"/></svg><span class="lbl">Errors</span></span>
         <span class="tab" data-tab="health" role="button" tabindex="0" onclick="showTab('health',this)"><svg class="i"><use href="#i-pulse"/></svg><span class="lbl">Performance</span></span>
       </div>
@@ -570,11 +570,14 @@
     document.getElementById('dash').classList.remove('hidden');
     showTab('overview');
     refreshAll();
+    startActPoll();
   }
   function logout(){
     TOKEN=''; sessionStorage.removeItem('ab_admin_token');
+    stopActPoll();                       // a signed-out console asks the server nothing
     // Nothing from the previous session survives a sign-out on a shared machine.
     DATA={}; HAY={}; LOADING={}; DATA_ERR={}; STATS=null; STATS_AT=0; STATS_ERR=null;
+    ACT_USER=null;
     FIN.cache={}; FIN.errors={}; FIN.loading=false; PERF=[];
     document.getElementById('dash').classList.add('hidden');
     document.getElementById('login').classList.remove('hidden');
@@ -1128,6 +1131,7 @@
     if(!force && LOADING[tab]) return;                       // a duplicate read is already running
     if(!force && !isRetry && DATA[tab] && !DATA_ERR[tab]) return;  // reuse what was fetched minutes ago
     var path = tab==='inbox' ? ('/api/admin/inbox?table='+encodeURIComponent(inboxTable))
+             : (tab==='activity' && ACT_USER) ? ('/api/admin/events?user_id='+encodeURIComponent(ACT_USER))
                              : (PATHS[tab] || ('/api/admin/'+tab));
     LOADING[tab]=true;
     if(currentTab===tab) renderCurrent();
@@ -1173,6 +1177,7 @@
   // refresh button in the top bar is the only deliberate refetch.
   function showTab(t, node){
     currentTab=t;
+    if(t==='activity') actMarkSeen();   // opening the feed is how the owner says "seen"
     document.querySelectorAll('.tab.active,.bn.active').forEach(function(x){ x.classList.remove('active'); });
     var marked = node || document.querySelector('.sidebar [data-tab="'+t+'"]')
                         || document.querySelector('.bottomnav [data-tab="'+t+'"]');
@@ -1342,9 +1347,74 @@
   async function discordTest(){
     try{ var r=await api('/api/admin/discord-test',{method:'POST',body:'{}'}); var res=(r&&r.results)||{}; alert('Discord test:\n'+Object.keys(res).map(function(k){return k+': '+res[k];}).join('\n')); }catch(e){ alert('Test failed'); }
   }
+  // ── Someone is on the site: the Activity badge and one person's timeline ────
+  // The complaint on 2026-11-04 was silence, and this console had no idea what
+  // "new" meant — every tab redrew whatever it last fetched, indefinitely. The
+  // badge counts the info events newer than the last time Activity was opened.
+  // It asks once a minute, and only while this tab is visible: a console left
+  // open in a pocket should not keep a two-worker server busy.
+  var ACT_SEEN='ab_admin_activity_seen', ACT_TIMER=null, ACT_POLL_MS=60000, ACT_USER=null;
+  var UUID_RE=/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+  function actSince(){
+    var v=''; try{ v=localStorage.getItem(ACT_SEEN)||''; }catch(e){}
+    // First run of a fresh console shows what happened in the last minute, not
+    // every event the table still holds — a badge of 200 says nothing useful.
+    return v || new Date(Date.now()-ACT_POLL_MS).toISOString();
+  }
+  function actMarkSeen(){ try{ localStorage.setItem(ACT_SEEN,new Date().toISOString()); }catch(e){} paintAct(0); }
+  function paintAct(n){
+    var el=document.getElementById('cnt_activity'); if(!el) return;
+    el.textContent = n>99?'99+':(n>0?String(n):'');
+  }
+  async function pollAct(){
+    if(document.hidden) return;
+    try{
+      var rows=await api('/api/admin/events?severity=info&since='+encodeURIComponent(actSince()));
+      paintAct((rows||[]).length);
+    }catch(e){ /* a failed poll leaves the badge alone; it is a hint, not a promise */ }
+  }
+  function startActPoll(){
+    stopActPoll();
+    pollAct();
+    ACT_TIMER=setInterval(pollAct, ACT_POLL_MS);
+    document.addEventListener('visibilitychange', onActVisible);
+  }
+  function onActVisible(){ if(!document.hidden && ACT_TIMER) pollAct(); }
+  function stopActPoll(){
+    if(ACT_TIMER){ clearInterval(ACT_TIMER); ACT_TIMER=null; }
+    document.removeEventListener('visibilitychange', onActVisible);
+    paintAct(0);
+  }
+  // Clicking a person on the feed filters it to them. The list endpoints are the
+  // console's own, so this reuses the load path rather than inventing a second one.
+  function showPerson(uid){
+    ACT_USER = (uid && UUID_RE.test(String(uid))) ? String(uid) : null;
+    DATA.activity=null; DATA_ERR.activity=null;
+    if(currentTab!=='activity') showTab('activity');
+    else { renderCurrent(); ensure('activity', true); }
+  }
+  function personName(uid){
+    var seen=(DATA.farmers||[]).concat(DATA.buyers||[]);
+    for(var i=0;i<seen.length;i++){
+      if(seen[i] && seen[i].id===uid) return seen[i].full_name || seen[i].name || personShort(uid);
+    }
+    return personShort(uid);
+  }
+  function personShort(uid){ return String(uid).slice(0,8)+'…'; }
+
   function renderActivity(rows){
-    if(!rows.length){ panelMsg('No recent activity recorded.'); return; }
-    var glyph={'listing_created_web':'leaf','listing.created':'leaf','purchase_request_created':'inquiry','offer_accepted':'handshake','offer_rejected':'x','match_approved':'check','transport_registered':'truck','transport.registered':'truck','user.signup':'users','order.created':'box'};
+    var who='';
+    if(ACT_USER){
+      who='<div style="padding:6px 0 10px;font-size:0.86rem">Timeline of <strong>'+h(personName(ACT_USER))+
+          '</strong> · <button class="btn sm ghost" onclick="showPerson(null)">Show everyone</button></div>';
+    }
+    if(!rows.length){
+      panelMsg(who + h(ACT_USER?('Nothing recorded for '+personName(ACT_USER)+' yet.')
+                            :'No recent activity recorded.'));
+      return;
+    }
+    var glyph={'listing_created_web':'leaf','listing.created':'leaf','purchase_request_created':'inquiry','offer_accepted':'handshake','offer_rejected':'x','match_approved':'check','transport_registered':'truck','transport.registered':'truck','user.signup':'users','order.created':'box','session_started':'users','activity.visit.first':'users'};
     var body=rows.map(function(ev){
       var ts=ev.created_at?(new Date(ev.created_at)).toLocaleString('en-UG'):'';
       var det=ev.details||{};
@@ -1353,12 +1423,17 @@
       if(det.crop_name) summary='Crop: '+det.crop_name;
       else if(det.product) summary='Product: '+det.product;
       else if(det.full_name) summary='Name: '+det.full_name;
+      else if(det.name) summary='Name: '+det.name+(det.provider?(' · via '+det.provider):'');
+      else if(det.what) summary=det.what;
       else if(det.buyer_id) summary='Buyer ID: '+String(det.buyer_id).slice(0,8)+'...';
       else summary=JSON.stringify(det).slice(0,80);
-      var uid=ev.user_id?String(ev.user_id).slice(0,8)+'...':'—';
-      return '<tr><td>'+ic+'</td><td>'+h(ev.event_type||'—')+'</td><td style="max-width:280px;font-size:0.82rem">'+h(summary)+'</td><td style="font-size:0.78rem">'+h(uid)+'</td><td>'+h(ts)+'</td></tr>';
+      var uid='—';
+      if(ev.user_id && UUID_RE.test(String(ev.user_id))){
+        uid='<button class="btn sm ghost" title="Show only this person" onclick="showPerson(\''+h(ev.user_id)+'\')">'+h(personName(ev.user_id))+'</button>';
+      } else if(ev.user_id){ uid=h(String(ev.user_id).slice(0,8)+'...'); }
+      return '<tr><td>'+ic+'</td><td>'+h(ev.event_type||'—')+'</td><td style="max-width:280px;font-size:0.82rem">'+h(summary)+'</td><td style="font-size:0.78rem">'+uid+'</td><td>'+h(ts)+'</td></tr>';
     }).join('');
-    setPanel('<table><thead><tr><th></th><th>Event</th><th>Summary</th><th>User</th><th>Time</th></tr></thead><tbody>'+body+'</tbody></table>');
+    setPanel(who+'<table><thead><tr><th></th><th>Event</th><th>Summary</th><th>Person</th><th>Time</th></tr></thead><tbody>'+body+'</tbody></table>');
   }
 
   function actionsCell(tab,id,status){

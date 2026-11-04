@@ -3438,18 +3438,36 @@ def admin_inbox():
 
 @app.route('/api/admin/events', methods=['GET'])
 def admin_events():
-    """Return recent system events (failures, warnings) for the admin panel."""
+    """Recent system events — optionally one person's timeline, or only what is new.
+
+    `user_id` answers "what did this person do", `since` answers "what have I
+    missed since I last looked" (the bell polls that). Both are validated rather
+    than passed through: a filter that quietly matches nothing reads as an empty
+    timeline and costs the owner attention for nothing.
+    """
     payload, err = verify_token(required_role='admin')
     if err:
         return err
     severity   = request.args.get('severity')
     event_type = request.args.get('event_type')
+    user_id    = (request.args.get('user_id') or '').strip()
+    since      = (request.args.get('since') or '').strip()
     filters = {'order': 'created_at.desc'}
     if severity:
         filters['severity'] = f'eq.{severity}'
     if event_type:
         # Support prefix match: e.g. event_type=scan matches scan_*, listing_created, etc.
         filters['event_type'] = f'ilike.*{event_type}*'
+    if user_id:
+        try:
+            filters['user_id'] = f'eq.{uuid.UUID(user_id)}'
+        except ValueError:
+            return jsonify({'error': 'user_id is not a user id'}), 400
+    if since:
+        if not re.fullmatch(r'\d{4}-\d{2}-\d{2}([ T]([01]\d|2[0-3]):[0-5]\d'
+                            r'(:[0-5]\d(\.\d{1,6})?)?)?Z?', since):
+            return jsonify({'error': 'since is not a date or timestamp'}), 400
+        filters['created_at'] = f'gt.{since}'
     return jsonify(supa_get('system_events', filters=filters, limit=200) or [])
 
 

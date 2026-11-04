@@ -115,7 +115,7 @@ def test_an_admin_action_does_not_ask_GoTrue_about_its_own_token(rows):
     assert rows.calls == []
 
 
-# ── the browser-side events ───────────────────────────────────────────────────
+# ── the browser-side events ──────────────────────────────────────────────────
 def test_a_first_visit_becomes_one_line_on_the_feed(client, rows):
     r = _event(client, {"event": "visit.first"}, ip="10.9.0.1")
     assert r.status_code == 200
@@ -152,3 +152,115 @@ def test_the_spa_reports_the_visit_it_cannot_be_seen_in_any_other_way():
         "the first visit is the one arrival no backend route can witness")
     assert ".catch(function(){});" in block, (
         "a beacon that fails must never surface as an error to a first-time visitor")
+
+
+# ── reading it back: one person, or only what is new ─────────────────────────
+UUID = "4f1e2b3c-5d6a-4b7c-8d9e-0f1a2b3c4d5e"
+
+
+@pytest.fixture
+def asked(monkeypatch):
+    """What /api/admin/events actually asked Supabase for."""
+    seen = {}
+
+    def fake_get(table, filters=None, limit=100):
+        seen["table"], seen["filters"], seen["limit"] = table, filters, limit
+        return []
+
+    monkeypatch.setattr(app_mod, "supa_get", fake_get)
+    return seen
+
+
+def _events(client, query):
+    return client.get("/api/admin/events" + query, headers={
+        "Authorization": "Bearer " + app_mod.make_token({"role": "admin"})})
+
+
+def test_a_persons_timeline_is_their_own_rows(client, asked):
+    assert _events(client, f"?user_id={UUID}").status_code == 200
+    assert asked["table"] == "system_events"
+    assert asked["filters"]["user_id"] == f"eq.{UUID}"
+
+
+def test_a_bad_user_id_is_refused_rather_than_reading_as_an_empty_timeline(client, asked):
+    for bad in ("1", "not-a-uuid", "4f1e2b3c-5d6a-4b7c-8d9e-0f1a2b3c4d5%;select=1"):
+        assert _events(client, f"?user_id={bad}").status_code == 400
+    assert asked == {}, "a refused query must never reach Supabase"
+
+
+def test_the_bell_asks_for_only_what_is_new(client, asked):
+    r = _events(client, "?severity=info&since=2026-11-04T09:00:00.500Z")
+    assert r.status_code == 200
+    assert asked["filters"]["created_at"] == "gt.2026-11-04T09:00:00.500Z"
+    assert asked["filters"]["severity"] == "eq.info"
+    assert asked["filters"]["order"] == "created_at.desc"
+
+
+def test_a_since_that_is_not_a_time_is_refused(client, asked):
+    for bad in ("last tuesday", "2026-11-04T99:99", "1970"):
+        assert _events(client, f"?since={bad}").status_code == 400
+    assert asked == {}
+
+
+def test_the_events_endpoint_still_needs_an_admin(client):
+    assert client.get("/api/admin/events").status_code == 401
+    farmer = client.get(f"/api/admin/events?user_id={UUID}", headers={
+        "Authorization": "Bearer " + app_mod.make_token({"role": "farmer"})})
+    assert farmer.status_code == 403
+
+
+# ── the owner's side: a badge that means "new", and a feed that filters ──────
+@pytest.fixture(scope="module")
+def admin_js():
+    from pathlib import Path
+    repo = Path(app_mod.__file__).resolve().parent
+    return (repo / "static" / "admin.html").read_text(encoding="utf-8")
+
+
+def _fn(src, name):
+    """One function's own text — assertions on a whole 100 KB file pass even when
+    the wiring they describe is in the wrong place."""
+    start = src.index("function " + name + "(")
+    return src[start:src.index("\n  }", start) + 4]
+
+
+def test_the_activity_tab_can_show_an_unread_count(admin_js):
+    assert 'id="cnt_activity"' in admin_js
+
+
+def test_the_badge_counts_what_is_new_not_what_is_old(admin_js):
+    poll = _fn(admin_js, "pollAct")
+    assert "/api/admin/events?severity=info&since=" in poll
+    since = _fn(admin_js, "actSince")
+    assert "ACT_SEEN='ab_admin_activity_seen'" in admin_js
+    assert "localStorage.getItem(ACT_SEEN)" in since
+    assert "localStorage.setItem(ACT_SEEN" in _fn(admin_js, "actMarkSeen"), (
+        "seen-ness has to survive a reload of the console")
+    assert "Date.now()-ACT_POLL_MS" in since, (
+        "a console that has never been opened must not report history as news")
+    assert "99+" in _fn(admin_js, "paintAct")
+
+
+def test_opening_the_feed_is_what_marks_it_seen(admin_js):
+    assert "if(t==='activity') actMarkSeen();" in _fn(admin_js, "showTab")
+
+
+def test_a_console_nobody_is_looking_at_asks_the_server_nothing(admin_js):
+    assert "if(document.hidden) return;" in _fn(admin_js, "pollAct")
+    assert "startActPoll()" in _fn(admin_js, "showDash"), "the bell starts with the dashboard"
+    logout = _fn(admin_js, "logout")
+    assert "stopActPoll()" in logout and "ACT_USER=null" in logout, (
+        "a signed-out console must keep polling nothing")
+
+
+def test_a_person_on_the_feed_is_a_link_to_their_timeline(admin_js):
+    person = _fn(admin_js, "showPerson")
+    assert "UUID_RE.test(String(uid))" in person, (
+        "an id from the page goes into a query string; anything malformed is dropped")
+    assert "user_id=" in _fn(admin_js, "load")
+    assert "onclick=\"showPerson(" in _fn(admin_js, "renderActivity")
+
+
+def test_names_and_details_are_escaped_before_they_reach_the_page(admin_js):
+    render = _fn(admin_js, "renderActivity")
+    assert "h(summary)" in render and "h(personName(ev.user_id))" in render
