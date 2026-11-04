@@ -235,6 +235,41 @@ the browser tests stub Supabase OAuth. Owner setup and acceptance checks are in
 **Not yet verified live:** no real bank order has been placed and settled against
 production; behavior is proven by faked transport in the 14 tests.
 
+### 10. A farmer could grade their own profile (migration 0024)
+
+* **What was open.** `base-schema.sql:257` declares `farmers_owner_update …
+  using (auth.uid() = id) with check (auth.uid() = id)`, and Supabase's default
+  privileges give `authenticated` UPDATE on the whole table. A row policy decides
+  WHICH ROWS, never WHICH COLUMNS — the same shape 0019 closed on `orders` and
+  0022 closed on `transporters` — so a direct PATCH against their own row reached
+  `is_verified`, `is_premium`, `otp_code`, `otp_expires_at`, `email` and `id`.
+  `is_verified` is not decoration: the buyer market sorts and filters on it
+  (`static/index.html:3638`, `:4472`) and the profile page prints "Verified
+  farmer" above "Checked against your ID and farm by the AgriBridge team."
+  (`:7798`), beside "Premium listing … Set by the AgriBridge team." (`:7799`).
+* **What was already covered.** The identity *fields* — name length, the +256
+  phone pattern, one account per phone — have been enforced since 0008, and the
+  only client writes left in the SPA are `profile_photo` (`:7850`, `:8495`) and
+  `preferred_language` (`:12502`), both on the grant list 0024 keeps.
+* **The change.** `0024_farmers_self_write_guard.up.sql` revokes table-wide
+  UPDATE from `public`/`anon`/`authenticated` and grants back exactly the profile
+  columns, resolved from `information_schema` so a live table that lacks
+  `preferred_language` cannot abort the migration. SELECT is untouched (buyers
+  still read profiles through `farmers_public_select`), and `/api/admin/*` uses
+  the service-role key, so verification stays an admin action.
+* **Not applied.** Written and tested in PGlite
+  (`tests/sql/farmers_self_write.test.mjs`, 25 assertions: the hole reproduced
+  before the migration, every privileged column `permission denied` after it, a
+  legitimate edit still saving, RLS still blocking another farmer's row, down
+  restoring, re-apply safe). Applying it to the project is the owner's step.
+* **Fixed here in the client rather than the database** — found by writing the
+  browser test, not by reading the migration: the Settings → Account phone box
+  rendered empty and saved as `'+256'`, because the E.164 component split the
+  stored number with `/^\+\d+\s?/` (greedy, so it took the whole number) and
+  `getE164Phone()` joined the flag button's code to an empty box. A silently
+  blanked phone field is one of the ways an account ends up with no usable
+  number, which is what this review is for.
+
 ## Verified as not exploitable
 
 The following tables returned zero rows to `anon` and their policies are
@@ -254,6 +289,7 @@ was the exception because its policy explicitly allowed every role.
 | Severity | Finding | Recommendation |
 |---|---|---|
 | Medium | `farmers` is intentionally public (`farmers_public_select`) and exposes `email`, `phone`, full name, village/sub-county. No web/mobile code reads it directly today. | Decide whether buyer-facing profiles need `email`. If not, revoke column `select (email)` from `anon, authenticated`, or serve profiles through a narrow public view. |
+| High | `farmers.otp_code` / `otp_expires_at` stay readable by `authenticated` even though `base-schema.sql:285` tries to revoke them: a column-level REVOKE cannot subtract from Supabase's whole-table SELECT grant, so that statement is a no-op. Measured in PGlite, both before and after 0024, and asserted there as `MEASURED, NOT FIXED` rather than left implied. Deliberately not fixed in 0024 — closing it means revoking table-wide SELECT and re-granting every column three screens read, including the `select *` and `farmers(full_name,is_verified)` embeds, which changes what buyers see. | Settle it with the OTP feature (N6), not before: keep the code out of `farmers` in a one-time-code table whose SELECT is service-role only. That needs no column arithmetic and cannot be half-applied. |
 | Low | `platform_config` is public and exposes `commission_pct` and `payout_note`. No secrets present. | Keep public only if the app needs it; otherwise move to a safe view. |
 | Info | `legal_document_versions`, `listings`, `animal_listings`, `market_prices`, `supplier_products`, `training_videos` are intentionally public catalog data. | No action; review before adding sensitive columns. |
 

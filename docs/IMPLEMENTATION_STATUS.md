@@ -995,6 +995,116 @@ contains exactly **1** `push` listener, **1** `notificationclick` listener, **1*
 
 ---
 
+## 2026-11-04 — Stage N5: an identity rule that is enforced, and whose answer is told
+
+The owner's words were "no should be able to sign in agribridge with a fake name
+or fake number or fake email or not even putting in a name", and the decision on
+top of it: a server-enforced name, a unique phone, and no way for a signed-in
+person to write those fields past the rules.
+
+**Most of the rule already existed, and measuring that came before changing
+anything.** `supabase/migrations/0008_enforce_profile_name_phone.up.sql` carries
+`farmers_full_name_nonempty` (a trimmed name of at least 2 characters),
+`farmers_phone_format` (`^\+256[37]\d{8}$`), the partial unique index
+`farmers_phone_unique`, and the `update_my_profile()` RPC that refuses
+'test'/'user'/'admin' as names. `POST /api/user/profile` applies the same
+validation and pre-checks the clash. So the gap was not the rule. Three
+defects sat between the rule and the person.
+
+**1 — the profile editor threw away the database's answer (VERIFIED IN SOURCE,
+NOW FIXED).** `static/index.html` `saveProfile()` PATCHed
+`/rest/v1/farmers` with `sbUpdate(...)` and discarded the result, then toasted
+"Profile saved ✓" unconditionally. A number another account had just claimed is
+refused by 0008's unique index, and the person was told it worked — while the
+name they typed lived only in `localStorage` until the next reload. It now goes
+through `POST /api/user/profile`, checks `res.ok`, and repeats the route's own
+sentence. The backend gained the two mappings that make that honest: PostgREST
+`23505` → 409 "already registered to another account", `23514` → 400 with the
+example number, anything else → 502 "Could not save profile". The response body
+is never forwarded or logged, because it repeats the phone number and the
+colliding key. Since the tap now waits for a round trip, one tap holds one write
+(`_savingProfile`), because each POST occupies one of Render's two sync workers.
+
+**2 — a row guard was trusted as a column guard (VERIFIED IN SOURCE, FIXED BY
+0024, NOT YET APPLIED).** `base-schema.sql:257` declares
+`farmers_owner_update … using (auth.uid() = id) with check (auth.uid() = id)`,
+and Supabase's default privileges hand `authenticated` UPDATE on the whole table.
+`using`/`with check` decide WHICH ROWS, never WHICH COLUMNS — the same defect
+0019 closed on `orders` and 0022 closed on `transporters` — so a direct PATCH
+against their own row let a signed-in farmer write `is_verified` (the badge the
+buyer market sorts by, `static/index.html:3638`, `:4472`, and printed as
+"Verified farmer … Checked against your ID and farm by the AgriBridge team" at
+`:7798`), `is_premium`, `otp_code`, `otp_expires_at`, `email` and `id`.
+`0024_farmers_self_write_guard.up.sql` revokes table-wide UPDATE and grants back
+exactly the profile columns the app writes (`full_name`, `phone`, `district`,
+`profile_photo`, `sub_county`, `village`, `farm_size_acres`, `crops_grown`, and
+`preferred_language` if the live table has it — the list is resolved from
+`information_schema` because `preferred_language` is declared in no SQL file).
+Reads and `service_role` are untouched, so the admin console still verifies
+people. **Applying it is the owner's step**: until then the live project still
+has the wide grant.
+
+**3 — the phone box arrived empty (FOUND BY MEASUREMENT, FIXED).** Writing the
+browser test for this flow is what turned it up: opening Settings → Account as a
+farmer whose stored number is `+256771234567` showed **no number at all** in the
+box, and tapping Save sent `'+256'`. Two causes, both in the country-code
+component added to that screen. `renderSettings` split the stored value with
+`/^\+\d+\s?/`, and `\d+` is greedy — it matched the entire number, not the
+country code. And `getE164Phone()` joined the `+256` flag to an empty box and
+returned `'+256'` as though it were a number. Now the split takes one to three
+digits, and an empty box stays empty (which the profile route reads as "leave
+that field alone", and the register form reads as "Please enter your phone
+number"). `tests/e2e/test_profile_save_ui.py::test_the_stored_number_is_shown_in_the_box_that_edits_it`
+pins it, because a silently blanked phone field is exactly how an account ends up
+with no usable number.
+
+**Measured, deliberately not fixed — the `otp_code` read leak.**
+`base-schema.sql:285` declares `revoke select (otp_code, otp_expires_at) on
+public.farmers from …`. In PGlite, with the schema and Supabase's default
+privileges applied as the platform creates them, `authenticated` still reads
+`otp_code`: a column-level REVOKE cannot subtract from a whole-table GRANT, so
+that statement is a no-op. Closing it properly means revoking table-wide SELECT
+and enumerating every column the app reads — including the `select *` and
+`farmers(full_name,is_verified)` embeds in three screens — which is a change to
+what buyers may see, not a hardening of what farmers may write. It is recorded
+in `docs/SECURITY_REVIEW.md` and asserted as `MEASURED, NOT FIXED` in
+`tests/sql/farmers_self_write.test.mjs` (before and after 0024) so that nobody
+later reads the revoke line as protection. No code reads or writes `otp_code`
+today; that is what makes N6 (OTP verification) the place where it has to be
+settled.
+
+**Evidence.** Verified in source and against fixtures, not against production.
+`tests/test_profile_guard.py` — 29 tests, including 4 SPA source-shape checks on
+the editor. `tests/e2e/test_profile_save_ui.py` — 9 browser tests in headless
+Chromium against the real `static/index.html`: the 409 sentence with no green
+tick and no local write, 401 and 502 translated, an aborted connection reported
+as a connection failure rather than the word "network", a successful edit sent
+as E.164, an empty box left alone, one POST for two taps, and no client write to
+`/rest/v1/farmers` for a profile edit. `tests/sql/farmers_self_write.test.mjs` —
+25 assertions on 0024 in PGlite, including the hole reproduced before the
+migration and refused after it. Full local run: **641 passed** (`pytest -q`),
+all 11 SQL files green, `ruff check .` clean, `node --check` on the SPA's 9
+script blocks clean. CI had not reported at the time of writing; the push
+record follows in the commit history, and `farmers_self_write` was added to both
+`tests/sql/package.json` and the CI SQL loop so the migration cannot regress
+silently.
+
+**Still unverified in production.** Whether the live `farmers` grants match what
+`base-schema.sql` declares, whether the live table has `preferred_language`, and
+whether any real account currently holds a phone of exactly `'+256'` from the
+blanked-box defect. Each needs the owner's dashboard, so the four read-only
+queries that answer them are recorded here and go with the migration:
+
+| Read-only pre-flight, before applying 0024 | What it tells you |
+|---|---|
+| `select column_name from information_schema.columns where table_schema='public' and table_name='farmers' order by ordinal_position;` | whether the live table matches `base-schema.sql:6-21`, and whether `preferred_language` exists |
+| `select grantee, privilege_type, column_name from information_schema.column_privileges where table_name='farmers' and privilege_type='UPDATE' order by grantee;` and `select datacl from pg_class where relname='farmers';` | whether `authenticated` really holds the whole-table UPDATE this migration takes away |
+| `select id, full_name, phone from public.farmers where phone is null or phone !~ '^\+256[37]\d{8}$' order by created_at desc limit 50;` | accounts already sitting on a number that cannot be used — including any bare `'+256'` |
+| `select phone, count(*) from public.farmers where phone is not null group by phone having count(*) > 1;` | duplicate numbers 0008's index could not prevent (a non-empty result means the unique index is not live) |
+
+---
+
+
 **Phase 1 COMPLETE — Baseline Audit**
 **Completed:** 2026-10-10
 **Auditor:** Claude Code (baseline inspection, no live environment access)
