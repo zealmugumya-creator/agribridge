@@ -5942,6 +5942,31 @@ def _account_is_new(created_at, within_days=2):
     return (datetime.datetime.now(datetime.timezone.utc) - dt) <= datetime.timedelta(days=within_days)
 
 
+def _identity_name(meta: dict | None, uid: str | None = None) -> str:
+    """The one name every surface should show for an account.
+
+    Email/password sign-up stores `user_metadata.name` while Google onboarding
+    stores `full_name`, so reading a single key rendered "Name —" for every
+    password account in #signups (seen live 2026-10-23). Fall back to the
+    profile row, then say what is missing in words rather than a dash that
+    reads like a database fault.
+    """
+    for key in ('full_name', 'name'):
+        value = str((meta or {}).get(key) or '').strip()
+        if value:
+            return value[:80]
+    if uid:
+        try:
+            rows = supa_get('farmers', {'id': f'eq.{uid}', 'select': 'full_name'}, limit=1)
+        except Exception:
+            rows = []
+        for row in rows or []:
+            value = str(row.get('full_name') or '').strip()
+            if value:
+                return value[:80]
+    return 'not given at sign-up'
+
+
 @app.route('/api/legal/sync-signup', methods=['POST'])
 @rate_limit(max_req=10, window=60)
 def legal_sync_signup():
@@ -5972,7 +5997,7 @@ def legal_sync_signup():
                 description=(
                     f"**Role:** {_auth_role() or 'unknown'}\n"
                     f"**User ID:** `{uid}`\n"
-                    f"**Name:** {(au.get('user_metadata') or {}).get('full_name', '—')}"
+                    f"**Name:** {_identity_name(au.get('user_metadata'), uid)}"
                 ),
                 severity='info',
             )

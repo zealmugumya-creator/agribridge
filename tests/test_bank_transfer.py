@@ -158,8 +158,9 @@ class _Res:
         self.ok, self.data, self.error, self.status_code = ok, data or {}, None, 200
 
 
-def _sync(monkeypatch, *, marker_present, created_at):
-    auth_user = {"user_metadata": {"full_name": "Z"}, "created_at": created_at}
+def _sync(monkeypatch, *, marker_present, created_at, meta=None, farmer_row=None):
+    auth_user = {"user_metadata": {"full_name": "Z"} if meta is None else meta,
+                 "created_at": created_at}
 
     # verify_supabase_user normally populates g.auth_user inside the request
     # context; mirror that here (patching g from outside a context raises).
@@ -176,6 +177,8 @@ def _sync(monkeypatch, *, marker_present, created_at):
     def fake_get(table, filters=None, limit=100):
         if table == "system_events":
             return [{"id": "e1"}] if marker_present else []
+        if table == "farmers":
+            return [farmer_row] if farmer_row else []
         return []
 
     monkeypatch.setattr(app_mod, "supa_get", fake_get)
@@ -212,3 +215,48 @@ def test_signup_alert_suppressed_for_old_account(monkeypatch):
     with app_mod.app.test_client() as c:
         assert c.post("/api/legal/sync-signup").status_code == 200
     assert notified == []
+
+
+# ── The signup alert must show the real name ─────────────────────────────────
+# Live evidence (2026-10-23, #signups): every email/password account arrived as
+# "Name —" because sign-up stores user_metadata.name while the alert read
+# full_name. A dash on an ops channel reads as a broken account, not as a
+# missing field, so the alert now resolves one name from every source.
+def _now():
+    return datetime.datetime.now(datetime.UTC).isoformat()
+
+
+def _alert_description(monkeypatch, **kw):
+    logged, notified = _sync(monkeypatch, marker_present=False, created_at=_now(), **kw)
+    app_mod.app.config["TESTING"] = True
+    with app_mod.app.test_client() as c:
+        assert c.post("/api/legal/sync-signup").status_code == 200
+    assert len(notified) == 1
+    return notified[0]["description"]
+
+
+def test_signup_alert_names_a_password_account_by_the_name_it_stored(monkeypatch):
+    # This is the shape sign-up actually writes: metadata.name, no full_name.
+    description = _alert_description(monkeypatch, meta={"name": "Allan Magembe"})
+    assert "Allan Magembe" in description
+    assert "—" not in description
+
+
+def test_signup_alert_falls_back_to_the_profile_row(monkeypatch):
+    description = _alert_description(monkeypatch, meta={},
+                                     farmer_row={"full_name": "Sarah Auma"})
+    assert "Sarah Auma" in description
+
+
+def test_signup_alert_says_so_when_no_name_was_ever_given(monkeypatch):
+    description = _alert_description(monkeypatch, meta={"name": "   "})
+    assert "not given at sign-up" in description
+    assert "—" not in description
+
+
+def test_signup_stores_the_name_under_both_metadata_keys():
+    from pathlib import Path
+    repo = Path(app_mod.__file__).resolve().parent
+    html = (repo / "static" / "index.html").read_text(encoding="utf-8")
+    assert "options: { data: { name: name, full_name: name," in html, (
+        "sign-up must write both metadata keys, or the alert depends on a DB read")

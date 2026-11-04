@@ -10008,7 +10008,7 @@ async function doRegister() {
   try {
     var res = await sbAuth.auth.signUp({
       email: email, password: pwd,
-      options: { data: { name: name, phone: phone, role: role, district: district,
+      options: { data: { name: name, full_name: name, phone: phone, role: role, district: district,
         legal_signup: { accepted_at: new Date().toISOString(), versions: legalVersions },
         marketing_optin: { sms: wantsSms } } }
     });
