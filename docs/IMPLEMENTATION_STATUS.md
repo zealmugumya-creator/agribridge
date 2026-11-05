@@ -1337,6 +1337,127 @@ permitted by a table with RLS off.
 
 ---
 
+## 2026-11-05 — Stage N8: the census answer, and the sign-up write that had no policy
+
+The owner's RLS census came back as the CSV of nine policies on four tables. It
+answers N7's open question and it refutes one claim I had already pushed.
+
+### What the census settled
+
+RLS is **enabled** on `farmers`, `buyers`, `transporters` and `user_roles`
+(`rls_enabled=true`, `rls_forced=false` on all of them), and **no policy names
+`anon`** — every policy in the dump applies to `authenticated`, `service_role` or
+the pseudo-role `public` with `using (false)`. So the anon write privileges found
+in `relacl` are not an internet-reachable hole: RLS refuses them. The exposure is
+the *other* one — a dashboard toggle of "disable RLS" on any of these four turns
+that grant into a live one, which is how this project's schema has drifted before.
+
+### A claim in commit `afb7a41` was an assumption, and is corrected here
+
+`## What the census settled` above is measured. What I wrote on 2026-11-05 in the
+N7 section — that the backend's writes "send the publishable key" and therefore
+"run as anon" — was inferred from `static/index.html` putting a publishable key in
+the browser. It is not what the repo says about the server: `.env.example:15`
+documents `SUPABASE_KEY` as the **SERVICE-ROLE** key, `SUPABASE_SERVICE_KEY` is a
+separate optional variable, and `app.py:109` passes `SUPABASE_KEY` into a class
+whose own docstring says service-role. Which value Render actually holds is not
+knowable from this workspace. The honest statement is a fork, and both branches are
+now written into 0026's header:
+
+| If Render's `SUPABASE_KEY` is | then `POST /api/user/profile` today | then 0026's effect on sign-up |
+|---|---|---|
+| the publishable key | runs as `anon`, is refused by the missing INSERT policy, and the person gets an auth account with no profile row | the policy is what makes sign-up work |
+| the service-role key | bypasses RLS, the row is created | the new policies are never exercised, because the write never arrives as `authenticated` |
+
+That fork is why this stage changed the route as well as the schema: the route now
+sends the **caller's own verified token**, so the write arrives as `authenticated`
+under either deployment and 0026's policies become load-bearing instead of
+decorative. What is still unmeasured is which row of that table describes
+production today; the query below answers it.
+
+### Migration 0026 — `0026_self_signup_insert_policies.up.sql`
+
+Three `for insert to authenticated with check (auth.uid() = id)` policies, on
+`farmers` and `buyers` keyed on `id` and on `transporters` keyed on `supabase_uid`
+because that is what 0014 keys that table's UPDATE policy on. Then
+`revoke insert, update, delete, truncate, references, trigger … from anon, public`
+on all four tables — safe precisely because of the census above. It adds no policy
+for `user_roles`: creating your own profile must not become a path to granting
+yourself admin, and 0026's test asserts that refusal by name.
+
+`tests/sql/self_signup_policies.test.mjs` (25 assertions) builds the census state
+verbatim — nine policies, `grant all … to anon, authenticated, service_role`, and
+`create unique index farmers_phone_unique … where phone <> '+10000000000'` — then
+reproduces today's failures, applies 0026 twice, and proves: own-row INSERT works
+for all three roles; another uid is refused; self-admin is refused; anon is now
+refused by the privilege layer rather than only by policy; anon `SELECT` survives
+so the public browse pages are unchanged. Applied after 0025 it also pins the
+consequences the owner asked about directly: **one auth account creates exactly one
+farmer profile**, a new `+10000000000` account is refused even by the backend, and
+the two legacy placeholder rows still share that number — MEASURED, NOT FIXED,
+because the exemption predicate is 0027's question and needs the owner's decision.
+
+### The route, and why it retries
+
+`/api/user/profile` now posts with the caller's token first. If the database
+answers `42501` — refused at the caller's own role — it retries once with the
+backend key and logs `profile.policy_missing` at error level. The reason is
+operational, not stylistic: migrations here are applied by hand in the dashboard
+and 0018–0024 are still outstanding, so a hard dependency on 0026 would take
+sign-up down the moment this deploys and before the owner clicks anything. The
+retry cannot widen what a person can write: the payload is three validated columns
+plus `id`, and `id` is GoTrue's own subject claim, never the caller's choice. If
+the *second* attempt is also refused — which is what happens if `SUPABASE_KEY` is
+the publishable key and 0026 is unapplied — the person is told the truth
+("AgriBridge is not accepting profile saves right now", 503) rather than being
+invited to retype a name that was fine. `tests/test_write_path_identity.py` pins
+that ordering: the retry is unreachable except behind the `42501` branch, and a
+successful save is exactly one request carrying no backend key.
+
+### The sign-out button the owner reported broken
+
+`static/index.html:2991` called `signOut()`. No such function exists anywhere in
+the file — the real one is `logOut()` at `:10292`, which calls
+`sbAuth.auth.signOut()`, clears `currentUser` and removes `ab_user`. So the button
+threw a `ReferenceError` and left the person signed in. Fixed at the call site.
+`tests/test_spa_wiring.py` (3 tests) now extracts every `onclick` body in the SPA,
+resolves each bare call target against the defined functions and constants, and
+fails on any reference that does not exist — a measured guard, not a specific one:
+it found exactly one dead reference in 176 handlers, and that one was the reported
+bug. Verified that it fails against the pre-fix file.
+
+### CI could previously skip a whole SQL test silently
+
+`.github/workflows/ci.yml` ran a hand-maintained list of twelve test names. A
+thirteenth file added without editing that list would never execute, and the job
+would stay green. It now runs every `*.test.mjs` in `tests/sql` in sorted order and
+fails if the directory yields nothing. Verified the loop's shell syntax in Git Bash
+against the real directory: 13 files discovered, including the new one.
+
+### What the owner can measure, in one query
+
+Sign-up produced accounts with no profile row — is that still true?
+
+```sql
+select count(*) as signed_in_without_a_profile
+from auth.users u
+left join public.farmers    f on f.id          = u.id
+left join public.buyers     b on b.id          = u.id
+left join public.transporters t on t.supabase_uid = u.id
+where f.id is null and b.id is null and t.supabase_uid is null;
+```
+
+A non-trivial count is the signature of the refused write described above; a count
+near zero means the service-role branch of the table is the live one and the
+duplicate accounts came from somewhere else — the `+10000000000` rows already prove
+that placeholder values get in, so that answer would still be worth having.
+
+**Not verified live:** 0026 has not been applied; the sign-out fix and the route
+change are not deployed as of writing. Everything above is either read from this
+repository or executed against PGlite.
+
+---
+
 
 **Completed:** 2026-10-10
 **Auditor:** Claude Code (baseline inspection, no live environment access)
