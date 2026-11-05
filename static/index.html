@@ -3897,8 +3897,8 @@ function bhSetCat(cat, el) {
     if (c.includes(cat)) return true;
     if (cat === 'vegetables') return c.includes('veg') || c.includes('tomato') || c.includes('cabbage') || c.includes('onion');
     if (cat === 'fruits') return c.includes('fruit') || c.includes('banana') || c.includes('mango');
-    if (cat === 'staples') return c.includes('staple') || c.includes('maize') || c.includes('cassava') || c.includes('matooke');
-    if (cat === 'grains') return c.includes('grain') || c.includes('rice') || c.includes('millet') || c.includes('bean');
+    if (cat === 'staples') return c.includes('staple') || c.includes('cassava') || c.includes('matooke') || c.includes('plantain') || c.includes('yam') || c.includes('sweet potato');
+    if (cat === 'grains') return c.includes('grain') || c.includes('maize') || c.includes('corn') || c.includes('rice') || c.includes('millet') || c.includes('sorghum') || c.includes('wheat') || c.includes('barley') || c.includes('bean') || c.includes('soy') || c.includes('groundnut') || c.includes('peanut');
     return false;
   });
   if (!grid) return;
@@ -4605,31 +4605,92 @@ function renderAnimals() {
 
 function animalCard(a) {
   const catLabel = { livestock:'🐄 Livestock', poultry:'🐔 Poultry', dairy:'🥛 Dairy', aqua:'🐟 Aquaculture', apiary:'🐝 Beekeeping' };
-  const tagCls   = { livestock:'tag-livestock', poultry:'tag-poultry', dairy:'tag-dairy', aqua:'tag-aqua', apiary:'tag-apiary' };
-  const photoMap = { cattle:'1516467508483-a7212febe31a', cow:'1570824104453-508955ab713e', goat:'1591593765853-b9e4c5d80b03', chicken:'1548550023-2bdb3c5beed7', fish:'1625246174804-de40b2fae23d', tilapia:'1625246174804-de40b2fae23d', bee:'1558618666-fcd25c85cd64', honey:'1607303929487-5e16e41f2f41', rabbit:'1585110396000-d9e2e6c1e4f2' };
-  const pk = Object.keys(photoMap).find(k => a.name.toLowerCase().includes(k));
-  const imgUrl = a.image_url ? a.image_url : '';
-  const safeId = escHtml(a.id);
-  const safeName = escHtml(a.name);
-  return `<div class="animal-card" id="ac-${safeId}">
-    ${a.certified ? '<div class="certified-badge">✅ MAAIF</div>' : ''}
-    ${a.health_cert ? '<div class="health-badge">🩺 Vet Cert</div>' : ''}
-    ${imgUrl ? `<img src="${imgUrl}" alt="${safeName}" class="animal-card-img" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'">` : ''}
-    <div class="animal-emoji-bg" style="display:${imgUrl?'none':'flex'}">${getAnimalEmoji(a.name||'')}</div>
-    <div class="animal-info">
-      <div class="animal-name">${safeName}</div>
-      <span class="animal-tag ${tagCls[a.cat]||'tag-livestock'}">${catLabel[a.cat]||a.cat}</span>
-      <div class="animal-desc">${escHtml(a.desc||'')}${a.breed?`<br><b>Type:</b> ${escHtml(a.breed)}`:''}</div>
-      ${a.video_url?`<a href="${escHtml(a.video_url)}" target="_blank" rel="noopener" style="display:inline-block;font-size:0.76rem;color:var(--green);margin:2px 0 6px">🎥 Watch video</a>`:''}
-      <div class="animal-price">UGX ${Number(a.price).toLocaleString()} <small>/ ${escHtml(a.unit||'head')}</small></div>
-      <div class="animal-district">📍 ${escHtml(a.district||'Uganda')} · 📦 ${Number(a.qty||0).toLocaleString()} available</div>
-      ${a.health_cert ? '<div class="animal-vet">📄 Health certificate available on purchase</div>' : ''}
-      <div class="animal-actions">
-        <button class="btn-animal-basket" onclick="addToBasket('${safeId}','${safeName}',${a.price},'${escHtml(a.unit||'head')}','${a.emoji||'🐄'}','animal')">🛒 Add to Basket</button>
-        <button class="btn-animal-order" onclick="quickOrderAnimal('${safeId}','${safeName}',${a.price})">Order Now</button>
-      </div>
+  const em = getAnimalEmoji(a.name || '');
+  const safeId = String(a.id).replace(/[^a-zA-Z0-9-]/g,'');
+  const safeName = escHtml(a.name || 'Animal');
+  const farmerName = escHtml(a.farmer_name || 'Local Farmer');
+  const district = a.district ? escHtml(a.district) : '';
+  const unit = escHtml(a.unit || 'head');
+  const price = Number(a.price) || 0;
+  const qty = Number(a.qty) || 0;
+  const low = qty > 0 && qty <= 3;
+  const out = qty === 0;
+
+  const imgHtml = a.image_url
+    ? `<img src="${escHtml(a.image_url)}" alt="${safeName}" loading="lazy" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'"><span style="display:none;position:absolute;inset:0;align-items:center;justify-content:center;font-size:2.8rem">${em}</span>`
+    : `<span style="font-size:2.8rem">${em}</span>`;
+
+  const badges = (a.certified ? '<span class="prod-card-badge" style="background:#43a047;color:#fff">✅ MAAIF</span>' : '')
+    + (a.health_cert ? '<span class="prod-card-badge" style="background:#0288d1;color:#fff">🩺 Vet Cert</span>' : '');
+
+  const catBadge = catLabel[a.cat] ? `<span class="prod-card-badge" style="background:rgba(255,143,0,.18);color:var(--amber);border:1px solid var(--amber)">${catLabel[a.cat]}</span>` : '';
+  const breedHtml = a.breed ? `<span class="prod-card-meta"><span style="color:var(--text2)">Type: </span>${escHtml(a.breed)}</span>` : '';
+  const videoHtml = a.video_url ? `<a href="${escHtml(a.video_url)}" target="_blank" rel="noopener" style="font-size:0.72rem;color:var(--green);display:block;margin-top:2px">🎥 Watch video</a>` : '';
+
+  const stock = out
+    ? '<span class="prod-card-stock out">None available</span>'
+    : low ? `<span class="prod-card-stock low">Only ${qty} left</span>`
+    : `<span class="prod-card-stock ok">${qty} available</span>`;
+
+  const metaHtml = (district ? `<span>📍 ${district}</span>` : '');
+
+  return `<div class="prod-card" role="link" tabindex="0" aria-label="View ${safeName}"
+    onclick="openAnimalDetail('${safeId}')"
+    onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();openAnimalDetail('${safeId}');}">
+    <div class="prod-card-img" style="position:relative">${imgHtml}${badges}</div>
+    <div class="prod-card-body">
+      <div class="prod-card-name">${safeName}</div>
+      <div style="margin-bottom:4px">${catBadge}</div>
+      <div class="prod-card-farmer">${farmerName}</div>
+      <div class="prod-card-meta">${metaHtml}</div>
+      ${breedHtml}
+      ${videoHtml}
+      <div class="prod-card-price-row"><span class="prod-card-price">${fmtUgx(price)}<small>/${unit}</small></span></div>
+      <div class="prod-card-stock-row">${stock}</div>
+    </div>
+    <div class="prod-card-footer">
+      <button class="prod-card-cart" onclick="event.stopPropagation();addToBasket('${safeId}','${safeName}',${price},'${unit}','${em}','animal')"${out?' disabled aria-disabled="true"':''}>
+        ${out ? 'Out of stock' : '+ Add'}
+      </button>
     </div>
   </div>`;
+}
+
+function openAnimalDetail(id) {
+  const a = allAnimals.find(x => x.id === id);
+  if (!a) { showToast('Animal not found — refresh the page'); return; }
+  const em = getAnimalEmoji(a.name || '');
+  const catLabel = { livestock:'🐄 Livestock', poultry:'🐔 Poultry', dairy:'🥛 Dairy', aqua:'🐟 Aquaculture', apiary:'🐝 Beekeeping' };
+  // Reuse the quick-order flow for now; a full detail modal can be added later
+  const price = Number(a.price) || 0;
+  const modalHtml = `
+    <div style="text-align:center;font-size:3rem;margin-bottom:8px">${a.image_url ? `<img src="${escHtml(a.image_url)}" style="width:100%;max-height:200px;object-fit:cover;border-radius:10px">` : em}</div>
+    <h3 style="margin:0 0 4px">${escHtml(a.name||'')}</h3>
+    <div style="color:var(--text2);font-size:0.82rem;margin-bottom:8px">${catLabel[a.cat]||''} · ${escHtml(a.district||'Uganda')}</div>
+    ${a.breed?`<div style="font-size:0.82rem;margin-bottom:4px"><b>Type:</b> ${escHtml(a.breed)}</div>`:''}
+    <div style="font-size:0.85rem;color:var(--text2);margin-bottom:10px;line-height:1.5">${escHtml(a.desc||'')}</div>
+    ${a.certified?'<div style="color:#43a047;font-size:0.82rem;margin-bottom:4px">✅ MAAIF Certified</div>':''}
+    ${a.health_cert?'<div style="color:#0288d1;font-size:0.82rem;margin-bottom:4px">🩺 Health certificate available</div>':''}
+    ${a.video_url?`<div style="margin-bottom:8px"><a href="${escHtml(a.video_url)}" target="_blank" rel="noopener" style="color:var(--green);font-size:0.82rem">🎥 Watch video</a></div>`:''}
+    <div style="font-size:1.2rem;font-weight:800;color:var(--amber);margin-bottom:4px">${fmtUgx(price)} <small style="font-weight:400;font-size:0.75rem;color:var(--text2)">/ ${escHtml(a.unit||'head')}</small></div>
+    <div style="font-size:0.8rem;color:var(--text2);margin-bottom:14px">📦 ${Number(a.qty||0)} available · Farmer: ${escHtml(a.farmer_name||'Local Farmer')}</div>
+    <div style="display:flex;gap:8px">
+      <button class="btn-sm" style="flex:1;background:var(--amber-dim);color:var(--amber);border:1px solid var(--amber)"
+        onclick="addToBasket('${id}','${escHtml(a.name||'')}',${price},'${escHtml(a.unit||'head')}','${em}','animal');closeModal('animalDetailModal')">🛒 Add to Basket</button>
+      <button class="btn-sm" style="flex:1;background:var(--amber);color:#000"
+        onclick="quickOrderAnimal('${id}','${escHtml(a.name||'')}',${price});closeModal('animalDetailModal')">Order Now</button>
+    </div>`;
+  var el = document.getElementById('animalDetailModal');
+  if (!el) {
+    el = document.createElement('div');
+    el.id = 'animalDetailModal';
+    el.className = 'modal-overlay';
+    el.onclick = function(e){ if(e.target===el) closeModal('animalDetailModal'); };
+    el.innerHTML = '<div class="modal-box" style="max-width:420px"><button class="modal-close" onclick="closeModal(\'animalDetailModal\')">✕</button><div id="animalDetailBody"></div></div>';
+    document.body.appendChild(el);
+  }
+  document.getElementById('animalDetailBody').innerHTML = modalHtml;
+  openModal('animalDetailModal');
 }
 
 function setAnimalFilter(f,btn){ animalFilter=f; document.querySelectorAll('#animalFilters .filter-btn').forEach(b=>b.classList.remove('active')); btn.classList.add('active'); renderAnimals(); }
@@ -6533,7 +6594,13 @@ async function loadMyOrders() {
     const date  = o.created_at ? new Date(o.created_at).toLocaleDateString('en-UG', {day:'numeric',month:'short',year:'numeric'}) : '';
     let items = o.items || [];
     if (typeof items === 'string') { try { items = JSON.parse(items); } catch(e) { items = []; } }
-    const itemStr = items.map(i => escHtml((i.product||i.name||'Item') + ' ×' + (i.quantity||i.qty||1))).join(', ') || 'Order items';
+    const itemStr = items.map(i => {
+      const iname = i.product_name || i.crop_name || i.product || i.name || 'Item';
+      const iqty  = i.quantity || i.qty || 1;
+      const iunit = i.unit || 'kg';
+      const ifarmer = i.farmer_name ? ` (from ${i.farmer_name})` : '';
+      return escHtml(`${iname} ×${iqty} ${iunit}${ifarmer}`);
+    }).join('<br>') || 'Order items';
     const hasId = !!o.id;
     return `<div style="background:var(--bg3);border-radius:12px;padding:14px;margin-bottom:10px;border:1px solid var(--border)">
       <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:8px">
@@ -6570,9 +6637,15 @@ async function downloadReceipt(orderId, ref) {
     if (!r.ok) { showToast('Could not load receipt'); return; }
     const o = await r.json();
     // Build a printable HTML receipt and trigger download
-    const items = (o.items || []).map(i =>
-      `<tr><td>${escHtml(i.product||i.name||'Item')}</td><td style="text-align:center">${i.quantity||i.qty||1} ${i.unit||'kg'}</td><td style="text-align:right">UGX ${Number((i.price_per_unit||i.price||0)*(i.quantity||i.qty||1)).toLocaleString()}</td></tr>`
-    ).join('');
+    const items = (o.items || []).map(i => {
+      const iname   = i.product_name || i.crop_name || i.product || i.name || 'Item';
+      const iqty    = i.quantity || i.qty || 1;
+      const iunit   = i.unit || 'kg';
+      const iup     = i.unit_price || i.price_per_unit || i.price || 0;
+      const itotal  = Number(iup) * Number(iqty);
+      const ifarmer = i.farmer_name ? `<br><small style="color:#666">From: ${escHtml(i.farmer_name)}</small>` : '';
+      return `<tr><td>${escHtml(iname)}${ifarmer}</td><td style="text-align:center">${iqty} ${iunit}</td><td style="text-align:right">UGX ${itotal.toLocaleString()}</td></tr>`;
+    }).join('');
     const html = `<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Receipt ${o.order_ref}</title>
 <style>body{font-family:Arial,sans-serif;max-width:520px;margin:40px auto;color:#111;font-size:13px}
 h1{color:#17E06B;margin-bottom:4px}.logo{font-size:1.5rem;font-weight:900;color:#17E06B}
@@ -10404,6 +10477,8 @@ async function oauthSignOut() {
 }
 
 // ── logOut — replaces original ────────────────────────
+// signOut() is an alias used by the profile panel Sign Out button
+async function signOut(){ return logOut(); }
 async function logOut(){
   // The server-side sign-out is tried first but can never hold the door shut: with
   // an expired or already-revoked session — the state a person is in when they have
@@ -10421,6 +10496,7 @@ async function logOut(){
   try{ localStorage.removeItem('ab_account_type'); }catch(e){}
   updateNavUser(null,null);
   _hidePushPrompt();
+  closeModal('profileModal');
   closeModal('myAccountModal');
   closeModal('settingsModal');
   showToast('👋 Logged out successfully');

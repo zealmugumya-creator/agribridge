@@ -3036,19 +3036,84 @@ def create_order():
                 except Exception as _sms_exc:
                     log.warning("order.farmer_sms_failed", phone=fphone, error=str(_sms_exc))
 
-    # ── Discord notification ──────────────────────────────────────────────────
-    _discord_notify(
-        event_type='order.created',
-        title=f'🛒 New Order — {result.order_ref}',
-        description=(
-            f"**Order Ref:** `{result.order_ref}`\n"
-            f"**Tracking:** `{result.tracking_code}`\n"
-            f"**Total:** UGX {int(result.total_price):,}\n"
-            f"**Items:** {len(result.items or [])}\n"
-            f"**Payment:** {data.get('payment_method','')}"
-        ),
-        severity='info',
-    )
+    # ── Farmer push notification — one per unique farmer ─────────────────────
+    if WEB_PUSH and WEB_PUSH.enabled:
+        _notified_farmer_push = set()
+        for _item in (result.items or []):
+            _fid = _item.get('farmer_id') or ''
+            if _fid and _fid not in _notified_farmer_push:
+                _notified_farmer_push.add(_fid)
+                try:
+                    _pname = str(_item.get('product_name') or 'produce')[:40]
+                    _qty   = _item.get('quantity', '')
+                    _price = int(_item.get('unit_price', 0) * _item.get('quantity', 1))
+                    WEB_PUSH.send_to_user_async(
+                        _fid,
+                        title=f'🛒 New Order — {result.order_ref}',
+                        body=(f'{_qty} {_pname} · UGX {_price:,} — log in to confirm'),
+                        url='/',
+                    )
+                except Exception as _pe:
+                    log.warning('order.farmer_push_failed', farmer=_fid, error=str(_pe))
+
+    # ── Discord notification — full product detail for admin/ops ──────────────
+    try:
+        # Pull buyer profile for name + phone
+        _buyer_meta = (getattr(g, 'auth_user', {}) or {}).get('user_metadata') or {}
+        _buyer_name  = _buyer_meta.get('full_name') or _buyer_meta.get('name') or '—'
+        _buyer_phone = _buyer_meta.get('phone') or '—'
+        _buyer_email = (getattr(g, 'auth_user', {}) or {}).get('email') or '—'
+
+        # Build per-item lines
+        _item_lines = []
+        for _it in (result.items or []):
+            _iname  = str(_it.get('product_name') or _it.get('crop_name') or 'Item')
+            _iqty   = _it.get('quantity', '?')
+            _iunit  = _it.get('unit', 'kg')
+            _iprice = int((_it.get('unit_price') or 0) * (_it.get('quantity') or 1))
+            _fname  = str(_it.get('farmer_name') or '—')
+            _fphone = str(_it.get('farmer_phone') or '—')
+            _item_lines.append(
+                f"• **{_iname}** — {_iqty} {_iunit} · UGX {_iprice:,}\n"
+                f"  Farmer: {_fname} ({_fphone})"
+            )
+        _items_text = '\n'.join(_item_lines) or '—'
+        _delivery   = str(data.get('delivery_address', '') or '—')[:120]
+        _pay        = str(data.get('payment_method', '') or '—')
+        import datetime as _dt
+        _time_str = _dt.datetime.utcnow().strftime('%Y-%m-%d %H:%M UTC')
+
+        _discord_notify(
+            event_type='order.created',
+            title=f'🛒 New Order — {result.order_ref}',
+            description=(
+                f"**Order Ref:** `{result.order_ref}`\n"
+                f"**Tracking:** `{result.tracking_code}`\n"
+                f"**Total:** UGX {int(result.total_price):,}\n"
+                f"**Payment:** {_pay}\n"
+                f"**Time:** {_time_str}\n\n"
+                f"**Buyer:** {_buyer_name}\n"
+                f"**Buyer Phone:** {_buyer_phone}\n"
+                f"**Buyer Email:** {_buyer_email}\n"
+                f"**Delivery Address:** {_delivery}\n\n"
+                f"**Items:**\n{_items_text}"
+            ),
+            severity='info',
+        )
+    except Exception as _de:
+        log.warning('order.discord_notify_failed', error=str(_de))
+        # Fallback minimal notification
+        _discord_notify(
+            event_type='order.created',
+            title=f'🛒 New Order — {result.order_ref}',
+            description=(
+                f"**Order Ref:** `{result.order_ref}`\n"
+                f"**Total:** UGX {int(result.total_price):,}\n"
+                f"**Items:** {len(result.items or [])}\n"
+                f"**Payment:** {data.get('payment_method','')}"
+            ),
+            severity='info',
+        )
 
     # ── In-app notification → buyer ──────────────────────────────────────────
     try:
@@ -6483,18 +6548,90 @@ def legal_sync_signup():
     if err:
         return err
     au = getattr(g, 'auth_user', {}) or {}
-    res = LEGAL_SERVICE.sync_signup(user_id=uid, role=_auth_role(),
-                                    meta=au.get('user_metadata') or {},
+    meta = au.get('user_metadata') or {}
+    role = _auth_role() or meta.get('role', '')
+
+    # ── Duplicate-account & cross-role guard (runs on every new signup) ──────
+    # Only run these checks for newly created accounts (within 2 days).
+    if _account_is_new(au.get('created_at')):
+        import re as _re
+        raw_phone = str(meta.get('phone', '') or '').strip()
+        norm_phone = ''
+        if raw_phone:
+            _pd = _re.sub(r'\D', '', raw_phone)
+            if _pd.startswith('256'):
+                _pd = _pd[3:]
+            elif _pd.startswith('0'):
+                _pd = _pd[1:]
+            if _re.match(r'^[37]\d{8}$', _pd):
+                norm_phone = '+256' + _pd
+
+        # 1. Block phone number already used by another account
+        if norm_phone:
+            existing_phone = supa_get('farmers', {
+                'phone': f'eq.{norm_phone}', 'id': f'neq.{uid}', 'select': 'id,role',
+            }, limit=1) or []
+            if existing_phone:
+                log.warning('signup.duplicate_phone', uid=uid, role=role)
+                _discord_notify(
+                    event_type='user.signup',
+                    title='🚫 Duplicate Phone Registration Blocked',
+                    description=(
+                        f"**Phone:** `{norm_phone}`\n"
+                        f"**New UID:** `{uid}`\n"
+                        f"**Role:** {role}\n"
+                        f"**Name:** {meta.get('full_name') or meta.get('name', '—')}"
+                    ),
+                    severity='warning',
+                )
+                return jsonify({
+                    'error': 'That phone number is already linked to another account. '
+                             'Please log in to your existing account, or contact support.',
+                    'code': 'duplicate_phone',
+                }), 409
+
+        # 2. Block one person having both a farmer AND a buyer account
+        # Check if this phone or email is registered under a different role
+        auth_email = str(au.get('email') or '').strip().lower()
+        if norm_phone or auth_email:
+            other_role = 'buyer' if role == 'farmer' else 'farmer'
+            # Check by phone
+            if norm_phone:
+                cross_phone = supa_get('farmers', {
+                    'phone': f'eq.{norm_phone}', 'id': f'neq.{uid}',
+                    'role': f'eq.{other_role}', 'select': 'id',
+                }, limit=1) or []
+                if cross_phone:
+                    log.warning('signup.cross_role_phone', uid=uid, role=role)
+                    _discord_notify(
+                        event_type='user.signup',
+                        title='🚫 Cross-Role Registration Blocked',
+                        description=(
+                            f"**Phone:** `{norm_phone}`\n"
+                            f"**New UID:** `{uid}` (role: {role})\n"
+                            f"**Existing role:** {other_role}\n"
+                            f"**Name:** {meta.get('full_name') or meta.get('name', '—')}"
+                        ),
+                        severity='warning',
+                    )
+                    return jsonify({
+                        'error': f'This phone number is already registered as a {other_role}. '
+                                  'One person can only have one account type on AgriBridge.',
+                        'code': 'cross_role_conflict',
+                    }), 409
+
+    res = LEGAL_SERVICE.sync_signup(user_id=uid, role=role,
+                                    meta=meta,
                                     created_at=au.get('created_at'))
     if not res.ok:
         return _legal_response(res)
-    status = LEGAL_SERVICE.status(uid, _auth_role())
+    status = LEGAL_SERVICE.status(uid, role)
     # Someone signing in was invisible to the backend: the browser authenticates
     # straight against GoTrue and this legal check is the only request a session
     # start produces. It runs on every session, so it is recorded here — the id
     # and the metadata come from the verified token, not from the client.
     _log_system_event('session_started', {
-        'role': _auth_role() or 'unknown',
+        'role': role or 'unknown',
         'name': _identity_name(au.get('user_metadata'), uid),
         'provider': (au.get('app_metadata') or {}).get('provider') or 'unknown',
     }, severity='info', user_id=uid)
@@ -6506,14 +6643,14 @@ def legal_sync_signup():
             'created_at': f'gte.{datetime.date.today().isoformat()}', 'select': 'id',
         }, limit=1)
         if not alerted:
-            _log_system_event('session_alerted', {'role': _auth_role() or 'unknown'},
+            _log_system_event('session_alerted', {'role': role or 'unknown'},
                               severity='info', user_id=uid)
             _discord_notify(
                 event_type='user.signin',
                 title='🚪 Someone signed in',
                 description=(
                     f"**Name:** {_identity_name(au.get('user_metadata'), uid)}\n"
-                    f"**Role:** {_auth_role() or 'unknown'}\n"
+                    f"**Role:** {role or 'unknown'}\n"
                     f"**Via:** {(au.get('app_metadata') or {}).get('provider') or 'unknown'}\n"
                     f"**User ID:** `{uid}`"
                 ),
@@ -6530,15 +6667,16 @@ def legal_sync_signup():
             'event_type': 'eq.signup_alerted', 'user_id': f'eq.{uid}', 'select': 'id',
         }, limit=1)
         if not seen and _account_is_new(au.get('created_at')):
-            _log_system_event('signup_alerted', {'role': _auth_role()},
+            _log_system_event('signup_alerted', {'role': role},
                               severity='info', user_id=uid)
             _discord_notify(
                 event_type='user.signup',
                 title='👤 New User Signed Up',
                 description=(
-                    f"**Role:** {_auth_role() or 'unknown'}\n"
+                    f"**Role:** {role or 'unknown'}\n"
                     f"**User ID:** `{uid}`\n"
-                    f"**Name:** {_identity_name(au.get('user_metadata'), uid)}"
+                    f"**Name:** {_identity_name(meta, uid)}\n"
+                    f"**Phone:** {meta.get('phone', '—')}"
                 ),
                 severity='info',
             )
