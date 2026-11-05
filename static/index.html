@@ -1615,6 +1615,22 @@ a.wl-chip small{color:var(--green)}
 .bh-hero-dots span{width:6px;height:6px;border-radius:50%;background:rgba(255,255,255,.3)}
 .bh-hero-dots span.active{background:#fff;width:18px;border-radius:3px}
 
+/* ── Animals page hero banner (amber/earthy cattle theme) ── */
+.an-hero{margin:0 16px 16px;border-radius:20px;overflow:hidden;position:relative;min-height:155px;
+  background:linear-gradient(135deg,#3b1900,#5c2d00);display:flex;align-items:center;padding:20px 18px}
+.an-hero-photo{position:absolute;inset:0;object-fit:cover;width:100%;height:100%;opacity:.38;mix-blend-mode:luminosity}
+.an-hero::after{content:'';position:absolute;inset:0;background:linear-gradient(90deg,rgba(20,8,0,.85) 55%,transparent 100%)}
+.an-hero-txt{flex:1;z-index:2;position:relative}
+.an-hero-tag{font-size:.68rem;font-weight:800;text-transform:uppercase;letter-spacing:.8px;
+  color:var(--amber);background:rgba(255,160,0,.15);border:1px solid rgba(255,160,0,.35);
+  display:inline-block;padding:3px 9px;border-radius:999px;margin-bottom:8px}
+.an-hero-title{font-family:'Syne',sans-serif;font-size:1.28rem;font-weight:800;color:#fff;line-height:1.2;margin-bottom:10px}
+.an-hero-title em{font-style:normal;color:#ffd180}
+.an-hero-btn{display:inline-flex;align-items:center;gap:6px;background:var(--amber);
+  color:#1a0800;border:none;border-radius:999px;padding:8px 18px;font-size:.82rem;
+  font-weight:800;cursor:pointer;font-family:inherit}
+.an-hero-btn:hover{filter:brightness(1.1)}
+
 /* ── Card payment modal ── */
 .card-pay-modal{position:fixed;inset:0;z-index:900;display:none;align-items:flex-end}
 .card-pay-modal.open{display:flex}
@@ -2637,13 +2653,13 @@ AgriBridge service</div>
      PAGE: ANIMALS MARKETPLACE
 ════════════════════════════════════════════════════════ -->
 <div id="page-animals" class="page">
-  <div class="page-header">
-    <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px;flex-wrap:wrap">
-      <div>
-        <h2>🐄 Livestock &amp; Animals</h2>
-        <p>Buy &amp; sell cattle, goats, poultry, fish and bees — vet-certified, MAAIF approved</p>
-      </div>
-      <button class="btn-sm" onclick="openListAnimalModal()" style="background:var(--amber);white-space:nowrap;flex-shrink:0">+ List Animal</button>
+  <!-- Animals hero banner — same style as crops hero -->
+  <div class="an-hero">
+    <img class="an-hero-photo" src="https://images.unsplash.com/photo-1500595046743-cd271d694d30?w=900&q=75" alt="" loading="lazy" onerror="this.style.display='none'">
+    <div class="an-hero-txt">
+      <div class="an-hero-tag">🐾 Vet-Certified · MAAIF Approved</div>
+      <div class="an-hero-title">Uganda's Finest <em>Livestock</em>,<br>Direct from Farmers</div>
+      <button class="an-hero-btn" onclick="openListAnimalModal()">+ List Animal</button>
     </div>
   </div>
 
