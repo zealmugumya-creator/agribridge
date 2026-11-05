@@ -1,18 +1,33 @@
 # Copyright (C) 2026 zealmugumya-creator. All rights reserved.
 
-"""Which PostgREST role the backend's writes actually run as, pinned by measurement.
+"""Which PostgREST role each backend write runs as, pinned against the source.
 
-Reading the code says something the schema files do not: every write helper builds
-`'Authorization': f'Bearer {SUPABASE_KEY}'`, so orders, listings, contact messages
-and profile saves reach PostgREST as the unauthenticated `anon` role. That is why
-migration 0025 revokes nothing from anon — cutting that role off would sever the
-write path rather than close a hole nobody uses.
+Two different identities leave this file, and the difference is the whole point of
+migration 0026.
 
-This file exists so the arrangement cannot change by accident. When the helpers
-move onto a real service identity, this test goes red, and the person fixing it is
-pointed at the two places that must change together: the anon revoke in the next
-migration and the block in tests/sql/identity_all_users.test.mjs that asserts the
-hole is still open.
+  * `supa_insert` / `supa_update` / `supa_delete` and most routes send
+    `Bearer {SUPABASE_KEY}`. What role that is cannot be settled from the
+    repository: `.env.example:15` documents `SUPABASE_KEY` as the SERVICE-ROLE
+    key, and `SUPABASE_SERVICE_KEY` is a separate, optional variable. So these
+    writes run as `service_role` under the documented configuration — which
+    bypasses RLS — and as `anon` if the deploy actually holds the publishable
+    key. Measured in tests/sql/self_signup_policies.test.mjs: on the live state
+    an `anon` write to `farmers` is already refused, by the absence of an INSERT
+    policy, so 0026's `revoke ... from anon` removes no working write path either
+    way. That is why 0025 stopped revoking anon and 0026 could.
+
+  * `POST /api/user/profile` writes the caller's OWN row, so it sends the caller's
+    verified access token first. PostgREST derives the role from that JWT, which
+    means the write is checked by `farmers_owner_insert` (0026) and by the
+    `farmers` column grants (0025) rather than sailing past both. Only when that
+    answer is 42501 — refused at the caller's own role, which is what an un-migrated
+    project returns — does the route retry once with the backend key, because the
+    payload is three validated columns keyed to the verified uid and taking signup
+    down while a migration waits in a dashboard is not a fix.
+
+This file goes red if either arrangement changes silently. If the profile route
+sends `SUPABASE_KEY` first again, 0026's policies become dead code and the
+owner's duplicate-account problem keeps its root.
 """
 from __future__ import annotations
 
@@ -25,6 +40,7 @@ APP = (Path(__file__).resolve().parent.parent / "app.py").read_text(encoding="ut
 
 # The helpers that write, and the function each one is defined as.
 WRITE_HELPERS = ["supa_insert", "supa_update", "supa_delete"]
+BACKEND_KEY_RE = r"'Authorization': f'Bearer \{SUPABASE_KEY\}'"
 
 
 def helper_body(name: str) -> str:
@@ -36,25 +52,61 @@ def helper_body(name: str) -> str:
     return APP[start.start():end]
 
 
+def profile_route() -> str:
+    route = APP[APP.index("def update_user_profile()"):]
+    return route[:route.index("\n@app.route", 100)]
+
+
 @pytest.mark.parametrize("name", WRITE_HELPERS)
-def test_this_write_helper_runs_as_the_anon_role(name: str):
-    body = helper_body(name)
-    assert re.search(r"'Authorization': f'Bearer \{SUPABASE_KEY\}'", body), (
-        f"{name} no longer sends the publishable key. If it now sends "
-        f"SUPABASE_SERVICE_KEY or a caller's token, that write runs as "
-        f"service_role or authenticated instead of anon — so 0025's successor can "
-        f"revoke anon's writes, and tests/sql/identity_all_users.test.mjs must be "
-        f"updated in the same commit."
+def test_backend_write_helpers_still_send_the_backend_key(name: str):
+    assert re.search(BACKEND_KEY_RE, helper_body(name)), (
+        f"{name} no longer sends SUPABASE_KEY. Whichever key replaces it changes "
+        f"the role these writes reach PostgREST with, and 0026's anon revoke plus "
+        f"the 'service_role writes freely' assertion in "
+        f"tests/sql/self_signup_policies.test.mjs are both written against the "
+        f"current arrangement."
     )
 
 
-def test_the_profile_upsert_runs_as_the_anon_role_too():
-    """POST /api/user/profile builds its headers inline, not through a helper."""
-    route = APP[APP.index("def update_user_profile()"):]
-    route = route[:route.index("\n@app.route", 100)]
-    assert "f'Bearer {SUPABASE_KEY}'" in route, (
-        "the profile upsert no longer sends the publishable key — same follow-up "
-        "as above: revoke anon UPDATE on farmers and update the SQL test."
+def test_a_self_profile_write_is_sent_as_the_caller_not_the_backend():
+    """The one write in this app that belongs to the person making the request."""
+    route = profile_route()
+    first = route.index("_save(_bearer_token())")
+    assert route.count("_save(") >= 2, (
+        "the profile route now makes a single PostgREST call again. That is only "
+        "correct if it is the caller's token; if the backend key replaced it, RLS "
+        "and 0025's column grants never apply to a self-write and a missing "
+        "INSERT policy stays invisible."
+    )
+    # The fallback exists, but it may only ever be reached behind the 42501 test.
+    fallback = route.index("_save(SUPABASE_KEY)")
+    assert fallback > first
+    assert route.index("if code == '42501'") < fallback, (
+        "the backend-key retry is no longer guarded by the 42501 branch, so every "
+        "profile save runs as service_role again — the arrangement this stage removed."
+    )
+    assert not re.search(BACKEND_KEY_RE, route), (
+        "the profile route builds an Authorization header from SUPABASE_KEY directly."
+    )
+
+
+def test_the_forwarded_token_is_the_one_gotrue_just_verified():
+    """`_bearer_token()` is only this request's own header, and the route must
+    validate that header with GoTrue before it reaches the write.
+
+    Reading the header directly would otherwise be a way to send an unvalidated
+    token to PostgREST; `auth.uid()` in the policy would then be somebody's guess.
+    """
+    route = profile_route()
+    assert "verify_supabase_user()" in route
+    assert route.index("verify_supabase_user()") < route.index("_bearer_token()"), (
+        "the profile route builds its PostgREST headers before it verifies the "
+        "session — the write would then carry an unverified token."
+    )
+    check = helper_body("verify_supabase_user")
+    assert "/auth/v1/user" in check, (
+        "verify_supabase_user no longer asks GoTrue, so nothing vouches for the "
+        "token this route forwards."
     )
 
 
@@ -63,7 +115,8 @@ def test_the_service_key_is_only_used_where_it_is_declared_to_bypass_rls():
 
     A second reader would be fine; a silent `or SUPABASE_KEY` fallback next to a
     write would not — it means the code believes it is writing as service_role and,
-    when the environment variable is missing, writes as anon instead.
+    when the environment variable is missing, writes under whatever the publishable
+    key can do.
     """
     uses = re.findall(r"key = SUPABASE_SERVICE_KEY or SUPABASE_KEY", APP)
     assert len(uses) == 1, (

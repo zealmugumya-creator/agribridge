@@ -5581,26 +5581,67 @@ def update_user_profile():
 
     try:
         url = f"{SUPABASE_URL}/rest/v1/farmers"
-        headers = {
-            'apikey': SUPABASE_KEY,
-            'Authorization': f'Bearer {SUPABASE_KEY}',
+        base_headers = {
             'Content-Type': 'application/json',
             'Prefer': 'resolution=merge-duplicates,return=minimal',
         }
-        resp = requests.post(url, json=update, headers=headers, timeout=8)
-        if resp.status_code >= 300:
-            # PostgREST says why, in its `code`. The two codes this table can
-            # produce are the person's own doing rather than a server fault:
+
+        def _save(as_token: str) -> tuple[int, str]:
+            """POST the upsert and return (status, PostgREST code).
+
+            The body is never logged and never returned: it repeats this
+            person's phone number, and a collision names the number that got
+            there first.
+            """
+            h = dict(base_headers, apikey=SUPABASE_KEY, Authorization=f'Bearer {as_token}')
+            r = requests.post(url, json=update, headers=h, timeout=8)
+            if r.status_code < 300:
+                return r.status_code, ''
+            try:
+                return r.status_code, str((r.json() or {}).get('code') or '')
+            except ValueError:
+                return r.status_code, ''
+
+        # First attempt: the header verify_supabase_user() above just had GoTrue
+        # vouch for. PostgREST takes the role from that JWT, so the write arrives
+        # as `authenticated` and is checked by farmers_owner_insert (0026) and the
+        # farmers column grants (0025) instead of sailing past both. `update['id']`
+        # is GoTrue's own subject claim, so the policy can only match the person
+        # who sent the request.
+        status, code = _save(_bearer_token())
+
+        if code == '42501':
+            # Refused by the database at the caller's own role. Two very different
+            # reasons produce this, and this app cannot tell them apart from here:
+            #   * migrations 0025/0026 have not been applied to this project yet.
+            #     They are applied by hand in the dashboard and 0018-0024 are still
+            #     outstanding, so a brand-new account's first save — an INSERT —
+            #     has no policy to allow it. That is today's normal state.
+            #   * the person is trying to write something their role may not write.
+            #     Impossible through this route: the payload is three validated
+            #     columns and `id` is the verified uid, never the caller's choice.
+            # So the retry below cannot reach another person's row or a privileged
+            # column. It exists because taking signup down while a migration waits
+            # in a dashboard is not a fix.
+            log.error('profile.policy_missing', uid=uid,
+                      hint='write refused at authenticated; apply 0025 and 0026')
+            status, code = _save(SUPABASE_KEY)
+
+        if code == '42501':
+            # Still refused, now with the backend key too. On this project that
+            # means SUPABASE_KEY is the publishable key, so no identity this route
+            # can use may write farmers until 0026 is applied. Not the person's
+            # doing, and not something re-typing their name will change.
+            log.error('profile.self_write_refused', uid=uid)
+            return jsonify({'error': 'AgriBridge is not accepting profile saves right now. '
+                                     'Please try again shortly.'}), 503
+
+        if status >= 300:
             # 23505 is 0008's one-phone-one-account index (someone claimed that
             # number between the check above and this write) and 23514 is its
             # name/phone checks. A flat "Could not save profile" sends that person
-            # back to the same number. The response body is never logged — it
-            # repeats the phone number and the email that collided.
-            try:
-                code = str((resp.json() or {}).get('code') or '')
-            except ValueError:
-                code = ''
-            log.warning('profile.save_failed', uid=uid, status=resp.status_code, code=code or None)
+            # back to the same number.
+            log.warning('profile.save_failed', uid=uid, status=status, code=code or None)
             if code == '23505':
                 return jsonify({'error': 'That phone number is already registered to another account'}), 409
             if code == '23514':

@@ -214,10 +214,56 @@ def test_a_check_constraint_is_the_persons_to_fix_not_the_servers(client, sessio
 
 
 def test_any_other_refusal_is_a_bad_gateway_not_a_lie(client, session, monkeypatch):
-    _refuse(monkeypatch, "42501", 403)
+    _refuse(monkeypatch, "42P01", 500)
     r = _put(client, {"full_name": "Sarah Auma", "phone": "+256771234567"}, ip="10.7.5.3")
     assert r.status_code == 502
     assert r.get_json() == {"error": "Could not save profile"}
+
+
+def test_a_policy_refusal_is_reported_as_the_machines_fault_not_the_persons(client, session,
+                                                                            monkeypatch):
+    """42501 is what PostgREST returns when the caller's own role may not write.
+
+    Since the profile route now sends the caller's token first, this is the shape
+    of "the database has not been brought up to migration 0026 yet" — the owner
+    applies migrations by hand and 0018-0024 are still outstanding, so a new
+    account's first save has no INSERT policy to allow it. The route retries once
+    with the backend key rather than taking signup down with it, and only if that
+    is refused too does the person hear about it. A message telling them to retype
+    their name would send them to register a second account, which is the failure
+    this whole stage exists to stop.
+    """
+    monkeypatch.setattr(app_mod, "supa_get", lambda *a, **k: [])
+    seen: list = []
+
+    def _post(url, json=None, headers=None, timeout=None):
+        seen.append(headers["Authorization"])
+        return _Resp(403, {"code": "42501", "message": "permission denied for table farmers",
+                           "details": None, "hint": None})
+
+    monkeypatch.setattr(app_mod.requests, "post", _post)
+    r = _put(client, {"full_name": "Sarah Auma", "phone": "+256771234567"}, ip="10.7.5.5")
+    assert r.status_code == 503
+    assert "not accepting profile saves" in r.get_json()["error"]
+    assert seen[0] == "Bearer tok", "the caller's own token is tried first"
+    assert len(seen) == 2 and seen[1] != seen[0], (
+        "the retry is the one place the backend key may be used for this write")
+    assert app_mod.SUPABASE_KEY in seen[1]
+
+
+def test_a_successful_save_is_one_request_and_carries_no_backend_key(client, session,
+                                                                     monkeypatch):
+    """The backend-key retry runs only when the caller's own write is refused."""
+    monkeypatch.setattr(app_mod, "supa_get", lambda *a, **k: [])
+    seen: list = []
+    monkeypatch.setattr(app_mod.requests, "post",
+                        lambda url, json=None, headers=None, timeout=None:
+                        seen.append(headers["Authorization"]) or _Resp(201))
+    r = _put(client, {"full_name": "Sarah Auma", "phone": "+256771234567"}, ip="10.7.5.6")
+    assert r.status_code == 200
+    assert seen == ["Bearer tok"], (
+        f"{len(seen)} attempt(s) with {[s[:12] for s in seen]}; a working policy must "
+        "be exercised as the caller and must never need the backend key")
 
 
 def test_the_database_error_body_never_reaches_the_person(client, session, monkeypatch):
