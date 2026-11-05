@@ -19,27 +19,26 @@
 -- unauthenticated request can create a profile row at all — Postgres refuses it
 -- with 42501 before the row, the phone or the uniqueness index is ever consulted.
 --
--- That is the mechanism behind the complaint "one person created two accounts,
--- which should not be allowed" and "people with old accounts cannot get into
--- them" — with one dependency stated plainly, because it is the thing this repo
--- cannot measure. The signup flow (static/index.html:10076-10104) creates the
--- auth user with GoTrue, then calls saveProfileWithRetry (:3409), which POSTs to
--- /api/user/profile. What role that write reaches PostgREST with depends on the
--- value of SUPABASE_KEY on Render:
---   * the publishable key  -> role anon -> refused by the missing policy, because
---     RLS applies to anon and no policy grants it. The function retries twice,
---     gives up, and logs "Profile could not be saved; queued to retry on next
---     visit" — and the retry only ever runs from localStorage on the same device
---     (:10102, flushPendingProfiles). The person is left with an auth account that
---     has no profile: exactly what "the old account is not accessible" means in
---     the WhatsApp thread the owner forwarded. They then register again with a
---     second email, and the head count grows.
---   * the service-role key (what .env.example:15 says it should be) -> bypasses
---     RLS, the row is created, and these policies are never exercised at all.
--- The ten-second test that settles it is in docs/IMPLEMENTATION_STATUS.md: sign
--- up on the live site with a real name and +256 number, then look for the row.
--- Either way this migration is the right half of the fix, and app.py now sends
--- the caller's own token for that write, so the answer stops mattering.
+-- That was the mechanism I predicted. It is NOT the live one, and the file that
+-- settles it is in this repo: render.yaml:18-21 declares SUPABASE_KEY with the
+-- comment "Set this in Render from Supabase's service-role/secret key", and
+-- .env.example:15 says "SERVICE-ROLE key — backend ONLY". Two independent
+-- declarations agree, so the branch that has been running is the second one:
+--   * SUPABASE_KEY is a service-role key. `service_role` is `bypassrls`, so the
+--     missing INSERT policy never blocked a signup. Profile rows have been
+--     created, every time, by a role that no policy can see.
+--   * The publishable-key branch ("refused by the missing policy, which is why
+--     the old account is not accessible") was an inference and is recorded here
+--     as wrong. The complaints have different causes and they are in
+--     docs/IMPLEMENTATION_STATUS.md §N9: /api/user/profile writes `farmers` for
+--     everyone (app.py:5583), no code path anywhere creates a `buyers` row, and
+--     the one-phone check reads `farmers` only (app.py:5566).
+--
+-- So what is this migration for? It is the precondition for the fix, not the
+-- cause of the bug. app.py now sends the CALLER's verified token for that write
+-- (6a063fa), and from the moment this file is applied the profile save is checked
+-- by farmers_owner_insert instead of sailing past every policy in the database.
+-- Without it, routing the write through the caller's token would fail.
 --
 -- WHAT THIS MIGRATION DOES
 --   1. Adds the missing half of the guarantee the UPDATE policies already give:
@@ -70,13 +69,12 @@
 --
 -- CONSEQUENCE WORTH KNOWING BEFORE APPLYING
 --   The four transporters writes in the admin console — supa_update('transporters',
---   …) at app.py:3532, :3541, :3561 and :3646 — send SUPABASE_KEY. If that value is
---   the publishable key they run as anon and this migration changes nothing
---   observable: the SQL test reproduces that they are refused before it (by the
---   missing policy) and after it (by the privilege). If it is the service-role key
---   they bypass RLS and are untouched by anything in this file. Neither branch is
---   a new breakage, and both are named so nobody discovers them as a surprise.
---   Fixing those admin actions is the next stage, not this one.
+--   …) at app.py:3532, :3541, :3561 and :3646, plus supa_insert at :3504 — send
+--   SUPABASE_KEY, which render.yaml:18-21 declares as the service-role key. That
+--   role is bypassrls, so nothing in this file changes them: the admin console
+--   behaves exactly as it did a minute ago. The SQL test asserts this rather than
+--   leaving it implied, and 0028 is the file that constrains those writes, with a
+--   trigger — the only instrument a bypassrls role cannot step over.
 --
 --   /api/user/profile is different, and deliberate: it now sends the CALLER's
 --   verified token first, so from the moment this migration is applied a profile
