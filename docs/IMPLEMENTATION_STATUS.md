@@ -1458,6 +1458,180 @@ repository or executed against PGlite.
 
 ---
 
+## 2026-11-05 — Stage N9: one login, one type of account
+
+The owner's sentence is the specification: *"there should be a clear distinction
+between which type of user one person is — they shouldn't create a farmer account
+and then create a buyer account"*, next to *"the accounts jalia namyalo should be
+merged … and any person who can't access it now should have a way to access it
+instead of creating a new one"*. Those are the same problem seen from both sides,
+and the second one is why the first keeps happening.
+
+### What the source says is actually happening (verified in source)
+
+Three facts, each read from this repository, and none of them is the story I told
+in N8:
+
+| # | Fact | Where |
+|---|---|---|
+| 1 | **Every** signed-in person's profile is written into `farmers`. A buyer, a hotel, a supplier — all of them get a farmer row. | `app.py:5884` (`url = f"{SUPABASE_URL}/rest/v1/farmers"`) |
+| 2 | No code path in the Flask app or the SPA creates a `buyers` row. The only writer is the admin console's generic row editor (`static/admin.html:351`), so a self-registered buyer is a `farmers` row wearing a `user_metadata.role` of `vendor`. | `grep` for inserts into `buyers`: no hits in `app.py`, `static/index.html` |
+| 3 | The "is this number taken?" check at sign-up and on profile save reads `farmers` only, and the answer it compares against is `id neq <caller>`. | `app.py:5867`, `app.py:900` |
+
+Consequence: today the duplicate-account complaint cannot be settled by counting
+`farmers` rows on one phone, because that table is the only one anything writes
+into — and `user_metadata.role`, the field that decides which screens a person
+sees, is one the browser itself rewrites at will
+(`static/index.html` `setAccountRole`, before this stage). A person who wanted to
+be a buyer instead of a farmer did not need a second account: they had a dropdown.
+That is also the mechanism behind *"people who had old accounts are inaccessible"*:
+their account was always the same one, shown under a role they no longer recognised.
+
+### Migration 0028 — `0028_one_role_per_person.up.sql`
+
+`user_roles.business_role` (a new nullable column, CHECK-constrained to exactly the
+five words the app already uses — `farmer`, `vendor`, `hotel`, `supplier`,
+`transporter`; see `services/legal.py:41-50` and the signup select) becomes the
+server-owned answer. Then `reject_second_role_row()`, a **SECURITY DEFINER** trigger
+on `farmers` and `buyers` keyed on `id`, and on `transporters` keyed on
+`supabase_uid`, raising `'this person is already registered as a %'` with
+SQLSTATE `GP001`.
+
+The choice of instrument was measured rather than assumed, and it is the part worth
+recording. An equivalent `NOT EXISTS` inside an INSERT policy was tried first and
+does none of what is needed here:
+
+* a policy is not evaluated for `service_role`, because that role is `bypassrls` —
+  and the admin console writes with the backend key. A trigger function is;
+* the guard therefore binds the caller-token path, the backend-key path and the
+  admin console with one installation, and the app can translate the refusal
+  instead of discovering it as a silent duplicate weeks later;
+* `GP001` is a client-defined class, so it survives the PostgREST hop intact and is
+  distinguishable from `23505` (real duplicate key) and `42501` (missing policy —
+  which is N8's retry, and must not be conflated with a rule).
+
+`tests/sql/one_role_per_person.test.mjs` — **37 assertions**, all passing: a pre-run
+census proves the harness role really is `bypassrls` before any claim about it is
+made; a second profile row is refused for the same uid on each of the three tables
+and **refused for `service_role` too**; the `business_role` CHECK accepts the five
+app words and refuses `buyer`, `admin`, `superadmin`, `input_seller`; and a person
+cannot rewrite their own `business_role` — asserted with a value the CHECK *accepts*,
+so the refusal is the grant and RLS layer and not a vocabulary mistake. Column
+grants are narrowed to `grant insert (id, …)` on `farmers` and `buyers`, which is
+what 0025's identity CHECKs need and nothing more.
+
+Two consequences are written into the migration header instead of being quietly
+widened: `buyers` gets no self-service INSERT (0026's policy is there, but the
+`Prefer: resolution=merge-duplicates` profile upsert needs INSERT **and** UPDATE
+grants plus both policies, and `buyers` has neither), and `create_order_atomic` still
+reads the buyer's phone out of `farmers` — so routing sign-ups into `buyers` is a
+separate stage, not a checkbox inside this one.
+
+### The backend: translate the guard, and answer from the server
+
+`supa_insert_checked()` (`app.py:2599`) returns `(rows, code, message)` so a caller
+can tell `GP001` from `XX000`. Every write into a guarded table now goes through it:
+`/api/user/profile`, `/api/admin/transporters`, and `/api/admin/row` for the three
+role tables (`_ROLE_TABLES`, cross-checked against 0028's own text by
+`test_only_the_three_guarded_tables_take_the_new_path` — if the migration gains a
+fourth table, the test fails rather than the route silently keeping the old
+behaviour). `_second_role_refusal()` turns the trigger's sentence into
+`409 {"code":"already_another_role","existing_role":"buyer","error":"…recover the
+login that is already a buyer account…"}`: a word the person can act on, and no
+echo of the phone number or the colliding key that PostgREST puts in its body.
+
+`resolve_account_type()` (`app.py`) is the single answer the rest of the app reads,
+strongest evidence first: `business_role` → the `user_roles.role` privilege row →
+which guarded profile table holds them (`_profile_account_type`) →
+`user_metadata.role` → nothing. Memoised per request, because the legal routes call
+it several times in one reply and each uncached call costs up to four round trips on
+a box with two sync workers. `/api/user/account-type` GET reports it with
+`can_choose`, and POST records it **once** — refusing a second, different choice
+with `account_type_locked`, refusing to turn an operator login into a marketplace
+account, and refusing to let an empty `business_role` outrank the farmer row that
+already proves what the login is.
+
+Two honest degradations, both pinned by tests: if `user_roles` cannot be read, a
+*new* choice is blocked with 503 (an unreadable store must not look like "no choice
+made yet"), while `_auth_role()` keeps its historical metadata fallback — so a
+missing grant or an un-applied 0028 cannot silently change which documents a person
+is asked to accept.
+
+### The screen on the other side
+
+The account panel no longer shows an always-editable dropdown. `_accountTypePicker()`
+renders the select **only** while the server says the choice is open; a locked login
+is shown as words — *"Set once and kept by AgriBridge — one login is one type of
+account. If this is not the account you need, message us instead of opening a second
+one"* — which is the recovery path the owner asked for, pointed at a human rather
+than at a signup form. `getCurrentRole()` prefers the server's answer (an `admin`
+privilege keeps the view the console was built for), `setAccountRole()` no longer
+writes `user_metadata` at all, and the cached answer is dropped with the session so
+a shared phone cannot show the next person the previous one's navigation.
+
+**Sign out**, reported again in the same message, had two causes and only one was
+fixed in N8. The handler did name a function that does not exist — that is
+`79a863c`, already pushed and live. The second cause is in this stage: `logOut()`
+awaited `sbAuth.auth.signOut()` on its first line, so a revoked or expired session
+threw there and abandoned the whole teardown — nav, basket, stored identity, all of
+it. Getting out of a session must not depend on the session being healthy, so the
+call is now tried and the teardown runs either way; the Settings modal closes with
+the account panel inside it, and the person is returned to `home` instead of being
+left standing on their own dashboard with no session behind it.
+
+### Gates run for this stage
+
+| Check | Result |
+|---|---|
+| `python -m pytest tests/ -q` | **635 passed, 6 skipped, 0 failed** (all 6 skips are the missing `playwright` module) |
+| `node --test` over `tests/sql` | **14 files, 14 pass** (~55 s) |
+| `one_role_per_person.test.mjs` | **37 assertions passed** |
+| `python -m ruff check .` | All checks passed |
+| Every inline `<script>` in `static/index.html`, parsed with `node:vm` | **7 blocks checked, 0 syntax errors** |
+
+New tests: `tests/test_account_type.py` (46 — guard translation on all three write
+paths, resolution order, the one-time choice including a lost race, GET/POST
+agreement on who is locked, and the SPA panel's two branches read out of the shipped
+file) and two additions to `tests/test_spa_wiring.py` (a stale session can still be
+signed out of; signing out leaves the signed-in screen).
+
+### What is NOT done, and what only the owner can measure
+
+* **Not applied, not deployed.** 0026 and 0028 are both still unapplied (the owner
+  applies migrations by hand), and nothing in this stage is live yet. The guard is
+  inert until 0028 is run; the code in front of it degrades honestly in the meantime
+  — a `GP001` that never arrives simply isn't translated.
+* **Buyer sign-ups still land in `farmers`.** Deliberately not changed here: it
+  needs a `buyers` owner-UPDATE policy plus update grants, and
+  `create_order_atomic` reads the buyer's phone from `farmers`. Recorded in the
+  migration header as a numbered consequence.
+* **The same-email / same-phone flag at the moment of registration** is task #94 —
+  the census query below tells us how big it already is.
+* Two owner queries, both needed before any merge is proposed:
+
+```sql
+-- 1. Does orders.buyer_id actually point at farmers.id, and is the FK enforced?
+select conname, confrelid::regclass as references_table
+from pg_constraint where conrelid = 'public.orders'::regclass and contype='f';
+
+-- 2. How many logins already hold more than one profile row? (0028 will refuse
+--    any *new* one; existing collisions are the owner's merge decision, not mine.)
+select uid, count(*) as tables_held, string_agg(src, '+' order by src) as where_they_are
+from (
+  select id as uid, 'farmers' as src from public.farmers
+  union all select id, 'buyers' from public.buyers
+  union all select supabase_uid, 'transporters' from public.transporters
+    where supabase_uid is not null
+) t group by uid having count(*) > 1 order by count(*) desc, uid;
+```
+
+Do not run a merge from this workspace. A merge moves orders, listings and payouts
+between identities; which row survives is a business decision about whose history
+the owner wants to keep, and the numbers above are the input to it, not an
+instruction.
+
+---
+
 
 **Completed:** 2026-10-10
 **Auditor:** Claude Code (baseline inspection, no live environment access)
