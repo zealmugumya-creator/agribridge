@@ -5571,25 +5571,74 @@ def buyer_order_receipt(order_id):
     if not rows:
         return jsonify({'error': 'Order not found'}), 404
     order = rows[0]
-    # Build receipt payload
-    items = order.get('items') or []
-    if isinstance(items, str):
-        try:
-            items = _json.loads(items)
-        except Exception:
-            items = []
+    order_ref = order.get('order_ref') or order.get('payment_ref') or ''
+
+    # ── Pull items from order_events (the canonical store) ────────────────────
+    # The orders table is one row per line-item; item details live in the
+    # order.created event payload which the create_order_atomic() SP writes.
+    items = []
+    try:
+        ev_rows = supa_get('order_events', {
+            'order_ref': f'eq.{order_ref}',
+            'event_type': 'eq.order.created',
+            'select': 'payload',
+        }, limit=1) or []
+        if ev_rows:
+            payload = ev_rows[0].get('payload') or {}
+            if isinstance(payload, str):
+                payload = _json.loads(payload)
+            raw_items = payload.get('items') or []
+            # Enrich each item with farmer name if missing
+            for it in raw_items:
+                if not it.get('farmer_name') and it.get('farmer_id'):
+                    try:
+                        f_rows = supa_get('farmers', {
+                            'id': f'eq.{it["farmer_id"]}',
+                            'select': 'full_name,phone',
+                        }, limit=1) or []
+                        if f_rows:
+                            it['farmer_name'] = f_rows[0].get('full_name', '')
+                            it['farmer_phone'] = f_rows[0].get('phone', '')
+                    except Exception:
+                        pass
+                items.append(it)
+    except Exception as _ie:
+        log.warning('receipt.items_lookup_failed', order_ref=order_ref, error=str(_ie))
+
+    # Fallback: synthesise one item from the orders row itself
+    if not items:
+        notes = order.get('notes') or order.get('source_ref') or ''
+        # notes is set to "Item: <name>" by the SP
+        item_name = notes.replace('Item: ', '').strip() if notes.startswith('Item: ') else (notes or 'Order')
+        farmer_id = order.get('farmer_id')
+        farmer_name = ''
+        if farmer_id:
+            try:
+                f_rows = supa_get('farmers', {'id': f'eq.{farmer_id}', 'select': 'full_name'}, limit=1) or []
+                farmer_name = (f_rows[0].get('full_name') or '') if f_rows else ''
+            except Exception:
+                pass
+        items = [{
+            'product_name': item_name,
+            'quantity':     float(order.get('quantity_kg') or 1),
+            'unit':         order.get('unit') or 'kg',
+            'unit_price':   float(order.get('price_per_kg') or order.get('total_price') or 0),
+            'farmer_name':  farmer_name,
+            'farmer_id':    farmer_id,
+        }]
+
     receipt = {
-        'order_ref':      order.get('order_ref', ''),
-        'tracking_code':  order.get('tracking_code', ''),
-        'status':         order.get('status', ''),
-        'payment_method': order.get('payment_method', ''),
-        'payment_status': order.get('payment_status', 'unpaid'),
+        'order_ref':        order_ref,
+        'tracking_code':    order.get('tracking_code', ''),
+        'status':           order.get('status', ''),
+        'payment_method':   order.get('payment_method', ''),
+        'payment_status':   order.get('payment_status', 'unpaid'),
         'delivery_address': order.get('delivery_address', ''),
-        'created_at':     order.get('created_at', ''),
-        'total_price':    order.get('total_price', 0),
-        'items':          items,
-        'farmer_id':      order.get('farmer_id'),
-        'transporter_id': order.get('transporter_id'),
+        'created_at':       order.get('created_at', ''),
+        'total_price':      order.get('total_price', 0),
+        'items':            items,
+        'farmer_id':        order.get('farmer_id'),
+        'transporter_id':   order.get('transporter_id'),
     }
     return jsonify(receipt), 200
 

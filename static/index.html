@@ -58,6 +58,7 @@ img{max-width:100%}
 @keyframes fadeIn{from{opacity:0}to{opacity:1}}
 @keyframes slideIn{from{opacity:0;transform:translateX(40px)}to{opacity:1;transform:translateX(0)}}
 @keyframes pulse{0%,100%{transform:scale(1)}50%{transform:scale(1.08)}}
+@keyframes ab-pulse{0%,100%{opacity:1}50%{opacity:.4}}
 @keyframes spin{to{transform:rotate(360deg)}}
 @keyframes ticker{from{transform:translateX(100%)}to{transform:translateX(-100%)}}
 @keyframes flash{0%,100%{opacity:1}50%{opacity:0.4}}
@@ -8259,12 +8260,36 @@ function _setNotifUnread(n){
   if(dot){ dot.textContent = txt; dot.className = 'fh-dot' + (n > 0 ? ' on' : ''); }
 }
 
+// Pre-warm the Render backend so the first real request doesn't stall
+// on a cold-start. Called once on page load — fire and forget.
+function _warmBackend(){
+  try{ fetch(USSD_API+'/health',{method:'GET',mode:'cors',credentials:'omit'}).catch(function(){}); }
+  catch(e){}
+}
+
+function _notifSkeleton(n){
+  n=n||3;
+  var items='';
+  for(var i=0;i<n;i++){
+    items+='<div style="padding:12px 16px;border-bottom:1px solid var(--border);display:flex;align-items:flex-start;gap:8px">'+
+      '<div style="width:8px;height:8px;border-radius:50%;background:var(--border);flex-shrink:0;margin-top:5px"></div>'+
+      '<div style="flex:1">'+
+        '<div style="height:11px;width:'+(55+i*12)+'%;background:var(--border);border-radius:4px;margin-bottom:6px;animation:ab-pulse 1.4s ease-in-out infinite"></div>'+
+        '<div style="height:9px;width:'+(70-i*8)+'%;background:var(--border);border-radius:4px;animation:ab-pulse 1.4s ease-in-out '+(i*0.15)+'s infinite"></div>'+
+      '</div>'+
+    '</div>';
+  }
+  return items;
+}
+
 async function loadNotifications(){
   const list=document.getElementById('notifList');
   if(!list) return;
   // _authToken is set by onAuthStateChange — do NOT rely on localStorage only
   const tok=_authToken||localStorage.getItem('ab_jwt')||localStorage.getItem('ab_token')||(await refreshAuthToken());
   if(!tok){ list.innerHTML='<div style="padding:16px;text-align:center;color:var(--text2);font-size:0.85rem">Log in to see notifications</div>'; return; }
+  // Show skeleton immediately so the panel feels snappy
+  list.innerHTML=_notifSkeleton(4);
   try{
     const r=await fetch(USSD_API+'/api/user/notifications',{headers:{'Authorization':'Bearer '+tok}});
     if(!r.ok) throw new Error('not ok');
@@ -8293,7 +8318,7 @@ async function loadNotifications(){
       '</div>';
     }).join('');
   } catch(e){
-    list.innerHTML='<div style="padding:16px;text-align:center;color:var(--text2);font-size:0.85rem">Could not load notifications</div>';
+    list.innerHTML='<div style="padding:16px;text-align:center;color:var(--text2);font-size:0.85rem">Could not load notifications. Please try again.</div>';
   }
 }
 
@@ -12736,6 +12761,19 @@ document.addEventListener('DOMContentLoaded', function() {
 });
 
 })(); // end auth lang IIFE
+</script>
+
+<script>
+// Pre-warm the Flask backend on page load so the first real API call
+// (notifications, listings, etc.) doesn't sit through a Render cold-start.
+// /health is a tiny no-auth endpoint; we fire it and forget.
+(function(){
+  if(document.readyState==='loading'){
+    document.addEventListener('DOMContentLoaded',function(){ _warmBackend && _warmBackend(); });
+  } else {
+    setTimeout(function(){ _warmBackend && _warmBackend(); }, 800);
+  }
+})();
 </script>
 </body>
 </html>
