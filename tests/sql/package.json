@@ -4,7 +4,7 @@
   "type": "module",
   "description": "Runs the Supabase migrations against a real in-process PostgreSQL (PGlite) with stubbed Supabase roles.",
   "scripts": {
-    "test": "node legal_consent.test.mjs && node ledger.test.mjs && node security_lockdown.test.mjs && node category_orders.test.mjs && node settlements.test.mjs && node pesapal.test.mjs && node farmer_ratings.test.mjs && node order_write_lockdown.test.mjs && node transport_assignment.test.mjs && node proof_bucket.test.mjs && node farmers_self_write.test.mjs && node identity_all_users.test.mjs && node self_signup_policies.test.mjs"
+    "test": "node legal_consent.test.mjs && node ledger.test.mjs && node security_lockdown.test.mjs && node category_orders.test.mjs && node settlements.test.mjs && node pesapal.test.mjs && node farmer_ratings.test.mjs && node order_write_lockdown.test.mjs && node transport_assignment.test.mjs && node proof_bucket.test.mjs && node farmers_self_write.test.mjs && node identity_all_users.test.mjs && node self_signup_policies.test.mjs && node one_role_per_person.test.mjs"
   },
   "devDependencies": {
     "@electric-sql/pglite": "0.5.8"
