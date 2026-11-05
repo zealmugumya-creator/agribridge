@@ -410,6 +410,13 @@ img{max-width:100%}
 .legal-foot-links a{margin-right:12px;font-size:0.82rem;color:var(--green)}
 .modal-overlay{display:none;position:fixed;inset:0;z-index:500;background:rgba(0,0,0,0.7);align-items:center;justify-content:center;padding:16px}
 .modal-overlay.open{display:flex;animation:fadeIn 0.25s ease}
+/* The review screen and the privacy request it opens are the only overlays that
+   refuse to be dismissed, and a person reaches them from inside Settings — where
+   both would otherwise sit at z-index 500 and lose to whichever div comes later in
+   the document. Settings is later, so the blocking dialog was invisible behind it:
+   the app stopped scrolling, Escape was held shut, and the tick box was covered. */
+#legalReviewModal{z-index:520}
+#privacyRequestModal{z-index:530}
 .modal-box{background:var(--bg2);border:1px solid var(--border);border-radius:16px;padding:24px;width:100%;max-width:440px;max-height:90vh;overflow-y:auto;position:relative}
 .modal-close{position:absolute;top:16px;right:16px;background:none;border:none;color:var(--text2);font-size:1.3rem;cursor:pointer;line-height:1}
 .st-top{display:flex;align-items:center;gap:6px;margin:0 36px 14px 0}
@@ -8691,33 +8698,36 @@ async function setAccountRole(r){
   var sel=document.getElementById('setRole');
   var revert=function(){ if(sel) sel.value=(_accountType&&_accountType.role)||currentUser.role||'vendor'; };
   var res=await abApi('/api/user/account-type',{method:'POST',body:JSON.stringify({role:r})});
-  if(!res.ok){
-    // A 409 carries the type the server is holding, and where it holds it from —
-    // their recorded choice, an operator row, or a profile table they already
-    // appear in. Adopting it puts the panel back on the truth instead of on the
-    // value that was just refused.
-    if(res.json&&res.json.role){
-      _accountType={role:res.json.role,source:res.json.source||'business_role',
-                    label:_ROLE_LABELS[res.json.role]||'',can_choose:false};
-      try{ localStorage.setItem('ab_account_type',JSON.stringify(_accountType)); }catch(e){}
-      if(typeof applyRoleUI==='function') applyRoleUI();
-      repaintAccountPanel();
-    }
+  // Both answers can change what this login is. A 200 records the choice; a 409
+  // carries the type the server is holding instead — their recorded choice, an
+  // operator row, or a profile table they already appear in — and adopting it is
+  // the same kind of change, so the two paths share one tail instead of the
+  // refusal quietly leaving the person on the wrong feature set.
+  var held=res.json&&res.json.role;
+  if(!res.ok&&!held){
     revert();
     showToast((res.json&&res.json.error)||'We could not set your account type. Check your connection and try again.');
     return;
   }
-  _accountType={role:(res.json&&res.json.role)||r,source:'business_role',
-                label:_ROLE_LABELS[((res.json&&res.json.role)||r)]||'',can_choose:false};
+  var changed=currentUser.role!==held;
+  _accountType={role:held,source:res.json.source||'business_role',
+                label:_ROLE_LABELS[held]||'',can_choose:false};
   try{ localStorage.setItem('ab_account_type',JSON.stringify(_accountType)); }catch(e){}
-  currentUser.role=_accountType.role;
-  try{ localStorage.setItem('ab_user',JSON.stringify(currentUser)); }catch(e){}
+  if(changed){
+    currentUser.role=held;
+    try{ localStorage.setItem('ab_user',JSON.stringify(currentUser)); }catch(e){}
+  }
   if(typeof applyRoleUI==='function') applyRoleUI();
   if(typeof updateNavUser==='function') updateNavUser(currentUser);
   if(typeof renderRoleHome==='function') renderRoleHome();
   repaintAccountPanel();
-  showToast('Account type set — features updated ✓');
-  _legalCheckedFor = null; postAuthLegalCheck('settings_review');
+  showToast(res.ok?'Account type set — features updated ✓'
+                   :((res.json&&res.json.error)||'This login already has an account type.'));
+  // Whichever role the server is now answering for has its own terms, and the
+  // acceptance recorded under the old one does not cover it. This used to run
+  // only after a 200, so a login that turned out to be a hotel — refused, then
+  // adopted — never got asked.
+  if(changed||res.ok){ _legalCheckedFor=null; postAuthLegalCheck('settings_review'); }
 }
 function shareListing(name,district,price){ const text='🌾 Fresh '+name+' from '+district+' at UGX '+Number(price).toLocaleString()+'/kg on AgriBridge!\nhttps://agribrige.com · Dial *789# on any phone'; if(navigator.share) navigator.share({title:name+' on AgriBridge',text,url:'https://agribrige.com'}).catch(()=>{}); else window.open('https://wa.me/?text='+encodeURIComponent(text),'_blank'); }
 function updateOnlineStatus(){ const b=document.getElementById('offlineBanner'); if(b) b.style.display=navigator.onLine?'none':'block'; }
