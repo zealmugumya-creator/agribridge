@@ -110,13 +110,21 @@ jobs:
         run: |
           set -o pipefail
           failed=0
-          for f in legal_consent ledger security_lockdown category_orders settlements \
-                   pesapal farmer_ratings order_write_lockdown transport_assignment \
-                   proof_bucket farmers_self_write identity_all_users; do
-            log="$RUNNER_TEMP/sql-$f.log"
-            if ! node "$f.test.mjs" 2>&1 | tee "$log"; then
+          # Run every file in the directory, not a hand-maintained list: the
+          # list below this comment was a second place to remember, and a new
+          # SQL test omitted from it would simply never execute while the job
+          # stayed green. Sorted glob = deterministic order, nothing to update.
+          files=($(ls -1 *.test.mjs | sort))
+          if [ "${#files[@]}" -eq 0 ]; then
+            echo "::error::no SQL test files found in tests/sql"
+            exit 1
+          fi
+          echo "Running ${#files[@]} SQL test files"
+          for f in "${files[@]}"; do
+            log="$RUNNER_TEMP/sql-${f%.test.mjs}.log"
+            if ! node "$f" 2>&1 | tee "$log"; then
               detail="$(tr '\r\n' '  ' <"$log" | tail -c 700)"
-              echo "::error::SQL test $f.test.mjs failed: $detail"
+              echo "::error::SQL test $f failed: $detail"
               failed=1
             fi
           done
