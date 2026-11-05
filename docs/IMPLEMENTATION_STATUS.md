@@ -1199,14 +1199,42 @@ exact string `Unknown User`. Every constraint is added `NOT VALID`: no existing
 row is re-checked, so the nine placeholder accounts survive and the migration
 cannot abort on them. New and updated rows must satisfy the rule.
 
-Privileges: `insert, update, delete, truncate, references, trigger` revoked from
-`anon` and `public` on all four user tables; `authenticated` loses writes on
-buyers, transporters and `user_roles` outright (no client code writes them — the
-only reference in `static/*.html` is a label map at `static/admin.html:351`, and
-the admin console reads through `/api/admin/*` with the service-role key), and
-keeps the profile columns on farmers, which repeats 0024's move so one migration
-is enough. Reads are untouched: `anon` still reads farmer profiles, `authenticated`
-keeps SELECT on transporters.
+Privileges: `authenticated` loses writes on buyers, transporters and `user_roles`
+outright (no signed-in client code names those tables — the SPA's only reference in
+`static/index.html` to `buyers`, `transporters` or `user_roles` is zero, and its one
+direct farmers write is the language PATCH at `:12502`), and keeps the profile
+columns on farmers, which repeats 0024's move so one migration is enough. Reads are
+untouched.
+
+**Nothing is revoked from `anon`, and that is the important part of this record.**
+The first version of 0025 (`b96558b`, pushed) did revoke anon's writes on all four
+tables, on the reasoning that no client writes them before sign-in. Reading the code
+that performs the writes disproved it:
+
+| Write path | How it authenticates to PostgREST | Resulting role |
+|---|---|---|
+| `app.py:395` `supa_insert` | `'Authorization': f'Bearer {SUPABASE_KEY}'` | `anon` |
+| `app.py:421` `supa_update` | same | `anon` |
+| `app.py:439` `supa_delete` | same | `anon` |
+| `app.py:5583` profile upsert (`POST /api/user/profile`) | same | `anon` |
+| `static/index.html:3312` `sb()` | `'Bearer ' + (_authToken \|\| SUPA_KEY)` | `authenticated` when signed in, `anon` otherwise |
+| `static/index.html:12502` language PATCH | hardcodes the publishable key as the bearer | always `anon` |
+| `app.py:325` `supa_get_admin` | `SUPABASE_SERVICE_KEY or SUPABASE_KEY` | `service_role` only if that variable is set in Render — reads only |
+
+So the backend's entire write path — orders, listings, contact messages, activity
+records, profile saves — reaches the database as the *unauthenticated* role. Revoking
+anon in 0025 would not have removed a capability nobody uses; it would have stopped
+production writes dead, and it would have looked like a security improvement while
+doing so. The revoke belongs to the stage that first gives those helpers a real
+service identity, which is now task #92 and migration 0026.
+
+`tests/test_write_path_identity.py` pins the table above so the arrangement cannot
+change quietly: it fails the moment a write helper stops sending the publishable key,
+and its message names the two places that must then move together.
+
+**Corrected after push, not before.** `b96558b` is on `main`; the narrowing is the
+commit that follows it. Nothing was applied to production in between, which is the
+only reason the mistake stayed on paper.
 
 **Known consequence, asserted not promised** (`identity_all_users` §3): a `NOT
 VALID` check still fires on UPDATE of an existing row. An account whose stored
@@ -1236,11 +1264,73 @@ was performed and none will be on that basis.
 
 ### Still unmeasured, and it now matters more than anything above
 
-`relrowsecurity` and the policies on these four tables. `anon` holds write
-privileges on farmers, buyers and `user_roles`; if RLS is off on any of them, that
-grant is reachable by anyone on the internet with the publishable anon key —
-including inserting a row into `user_roles` that says `superadmin`. The queries are
-`census_check3.mjs` §H/H2, executed against PGlite before being handed over.
+`relrowsecurity` and the policies on these four tables. Because the backend writes
+as `anon`, RLS is the **only** thing between the publishable key — which is in
+`static/index.html:3295` by design and is readable by every visitor — and those
+tables. If RLS is off on `user_roles`, that key can insert a row saying `superadmin`.
+If RLS is on for `farmers` with only the two policies `base-schema.sql:257` declares,
+then `POST /api/user/profile` has been failing with 42501 for everyone and the
+"Could not save profile" message is live, which the owner can settle in ten seconds
+without SQL: sign in on a phone, change the district, save, and report the words that
+appear.
+
+The four queries below are the ones handed over. Each was executed against a PGlite
+reproduction of the measured live state (`C:/Users/HP/diag/census_check3.mjs`, §I/§H/
+§H2/§J, all four `OK`) before being written here, because the last two sets I handed
+over included queries that did not run.
+
+```sql
+-- 1. who holds which privilege, one row per grantee so nothing is truncated
+select c.relname as table_name,
+       g.grantee::regrole::text as grantee,
+       string_agg(g.privilege_type, ',' order by g.privilege_type) as privileges
+  from pg_class c
+  join pg_namespace n on n.oid = c.relnamespace
+  cross join aclexplode(c.relacl) g
+ where n.nspname = 'public'
+   and c.relname in ('farmers','buyers','transporters','user_roles')
+ group by 1, 2
+ order by 1, 2;
+
+-- 2. is RLS even on, and how many policies each table has
+select c.relname as table_name, c.relrowsecurity as rls_enabled,
+       c.relforcerowsecurity as rls_forced,
+       coalesce(p.polname,'(no policies)') as policy,
+       coalesce(p.polcmd::text,'-') as applies_to,
+       coalesce(array_to_string(p.polroles::regrole[],','),'(all roles)') as for_roles
+  from pg_class c
+  join pg_namespace n on n.oid = c.relnamespace
+  left join pg_policy p on p.polrelid = c.oid
+ where c.relkind = 'r' and n.nspname = 'public'
+   and c.relname in ('farmers','buyers','transporters','user_roles')
+ order by 1, 4;
+
+-- 3. the policy expressions themselves, so 'to public' can be told from 'to authenticated'
+select c.relname as table_name, p.polname, p.polcmd::text,
+       coalesce(pg_get_expr(p.polqual, p.polrelid),'(none)') as using_expr,
+       coalesce(pg_get_expr(p.polwithcheck, p.polrelid),'(none)') as with_check_expr
+  from pg_policy p
+  join pg_class c on c.oid = p.polrelid
+  join pg_namespace n on n.oid = c.relnamespace
+ where n.nspname = 'public'
+   and c.relname in ('farmers','buyers','transporters','user_roles')
+ order by 1, 2;
+
+-- 4. the placeholder accounts, grouped without putting anyone's address in a report
+select case when u.email is null then '(no auth.users row)'
+            else left(split_part(u.email,'@',1),2) || '***@' || split_part(u.email,'@',2)
+       end as email_masked,
+       count(*) as placeholder_rows
+  from public.farmers f
+  left join auth.users u on u.id = f.id
+ where f.phone = '+10000000000'
+ group by 1
+ order by 2 desc;
+```
+
+Query 2 is the one that decides the next stage's shape: it says whether 0025's
+`authenticated` narrowing is load-bearing or whether the real exposure is anon writes
+permitted by a table with RLS off.
 
 **Not verified live:** 0025 has not been applied — applying it is the owner's step
 — and no production row has been read or written by this stage.
