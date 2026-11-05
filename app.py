@@ -2587,6 +2587,67 @@ def _check_transporter_login(fields, row_id):
                             'code': 'login_already_linked'}), 409
     return None
 
+_ONE_ROLE_CODE = 'GP001'   # raised by reject_second_role_row() in migration 0028
+# The three tables 0028 attaches the guard to. 'buyer' is deliberately not a value
+# anyone can pick: the app's account types are the four in the signup select
+# `#regRole` in static/index.html) plus transporter, and the `buyers` table holds hotels,
+# restaurants and input sellers — which are `buyer_type` values inside one account
+# type, not account types of their own.
+_ROLE_TABLES = frozenset(('farmers', 'buyers', 'transporters'))
+
+
+def supa_insert_checked(table, data):
+    """INSERT and report the PostgREST error instead of collapsing it to None.
+
+    A caller that has to tell "that person is already an account of another type"
+    (0028's guard) apart from "the insert failed" needs the SQLSTATE and the
+    message; `supa_insert` logs both and returns None, which is right for the
+    ~20 call sites that only ever report a generic failure and wrong for this one.
+    Nothing a person typed is echoed here: 0028 raises only
+    'this person is already registered as a <role>' plus a fixed hint.
+    """
+    if not SUPABASE_KEY:
+        return None, '', 'supabase not configured'
+    res = SUPA.insert(table, data)
+    if res.ok:
+        if not res.data:
+            return [], '', ''
+        return (res.data if isinstance(res.data, list) else [res.data]), '', ''
+    try:
+        detail = _json.loads(res.error or '{}')
+    except ValueError:
+        detail = {}
+    code = str(detail.get('code') or '')
+    message = str(detail.get('message') or res.error or f'http {res.status}')
+    log.error('supabase.insert_failed', table=table, status=res.status,
+              code=code or None, message=message[:200])
+    return None, code, message
+
+
+def _second_role_refusal(message: str):
+    """409 body for 0028's one-role-per-person guard.
+
+    The guard is a SECURITY DEFINER trigger, so it refuses the write for
+    service_role too — this backend cannot arrange to bypass it, and the
+    SQLSTATE is the only thing that survives the PostgREST hop. The role named in
+    the message is what makes the reply actionable: an admin linking a driver has
+    to be told which account they are holding the wrong key for.
+    """
+    found = re.search(r'already registered as an? ([a-z_]+)', (message or '').lower())
+    existing = found.group(1) if found else ''
+    body = {'code': 'already_another_role',
+            'error': (f'That login is already an AgriBridge {existing} account. One person '
+                      f'is one account here, so it cannot also be opened as something '
+                      f'else — edit the {existing} profile, or recover that login, '
+                      f'instead of creating a second one.')
+            if existing else
+            ('This login already belongs to an AgriBridge account of another type. One '
+             'person is one account: sign into the account you already have, or ask for '
+             'it to be recovered, instead of opening a second one.'),
+            'existing_role': existing}
+    return jsonify(body), 409
+
+
 @app.route('/api/admin/row', methods=['POST', 'PATCH', 'DELETE'])
 def admin_row():
     payload, err = verify_token(required_role='admin')
@@ -2617,6 +2678,16 @@ def admin_row():
         if refusal:
             return refusal
     if request.method == 'POST':
+        if table in _ROLE_TABLES:
+            # farmers/transporters are editable from this console, and both carry
+            # 0028's one-role guard. The guard is SECURITY DEFINER, so it refuses
+            # the insert even with the backend key — pre-checking cannot avoid it
+            # and a plain "Create failed" leaves the admin re-typing the same login.
+            row, code, message = supa_insert_checked(table, fields)
+            if code == _ONE_ROLE_CODE:
+                return _second_role_refusal(message)
+            return (jsonify({'ok': True, 'row': row}), 200) if row \
+                else (jsonify({'error': 'Create failed'}), 500)
         row = supa_insert(table, fields)
         return (jsonify({'ok': True, 'row': row}), 200) if row else (jsonify({'error': 'Create failed'}), 500)
 
@@ -3501,7 +3572,13 @@ def admin_create_transporter():
         return jsonify({'error': 'full_name and phone are required'}), 400
     row.setdefault('is_available', False)
     row.setdefault('status', 'active')
-    inserted = supa_insert('transporters', row)
+    inserted, code, message = supa_insert_checked('transporters', row)
+    if code == _ONE_ROLE_CODE:
+        # The login an admin typed belongs to someone who is already a farmer or a
+        # buyer. 0028's guard is SECURITY DEFINER, so the backend key does not get
+        # around it, and 'Failed to create transporter' would send them back to the
+        # same UUID.
+        return _second_role_refusal(message)
     if not inserted:
         return jsonify({'error': 'Failed to create transporter'}), 500
     _discord_notify(
@@ -5522,6 +5599,230 @@ def email_order_receipt(order_id):
         return jsonify({'ok': True, 'email': email, 'note': 'queued'}), 200
 
 
+# ══════════════════════════════════════════════════════════════════════════════
+# ACCOUNT TYPE — one login, one type of account (Stage N9)
+# ══════════════════════════════════════════════════════════════════════════════
+# The choice is stored in user_roles.business_role. That table is closed to the
+# browser at both layers (user_roles_no_public in base-schema, and 0025:211 revoked
+# every grant from `authenticated`), so the only writer is this backend acting on a
+# session GoTrue has verified — which is what makes the answer safe to hand the SPA
+# as a replacement for user_metadata.role, where the person's own signed-in client
+# could rewrite it, until this stage moved setAccountRole (static/index.html) here.
+#
+# What makes it *stick* is 0028, not this file: the guard there refuses a second
+# profile row whatever key sends the write, so a person who chose 'farmer' cannot
+# later be written into buyers by any route, including the admin console.
+BUSINESS_ROLES = ('farmer', 'vendor', 'hotel', 'supplier')
+_ROLE_LABELS = {'farmer': 'Farmer', 'vendor': 'Vendor / buyer',
+                'hotel': 'Hotel / restaurant', 'supplier': 'Supplier / input seller',
+                'transporter': 'Transporter'}
+
+
+def _stored_business_role(uid):
+    """(business_role, privilege_role, error) read from user_roles in one round trip.
+
+    The error is returned rather than swallowed because this answer decides whether
+    the one-time choice is still open: supa_get and SUPA.select both come back [] for
+    a refused or broken read, which is fine for a dashboard tile and would hand out a
+    role switch here.
+    """
+    rows, err = supa_get_checked('user_roles', {
+        'user_id': f'eq.{uid}', 'select': 'business_role,role',
+    }, limit=1)
+    if err:
+        return '', '', err
+    if not rows:
+        return '', '', ''
+    return (str(rows[0].get('business_role') or ''),
+            str(rows[0].get('role') or ''), '')
+
+
+def resolve_account_type(uid, meta_role=None):
+    """(role, source) for a verified login, strongest evidence first.
+
+      'business_role' — they chose it and this backend wrote it;
+      'privilege'     — an admin/superadmin row in user_roles and no marketplace
+                        account: this is what _auth_role() has always returned for
+                        those, and it is returned before the profile tables so an
+                        operator who also sells produce keeps the admin answer the
+                        legal routes were tested against;
+      'profile'       — derived from which guarded profile table holds their row.
+                        A farmers row means farmer; a buyers row answers from its own
+                        buyer_type; a transporter row is the one account type no one
+                        self-selects (the admin console creates it), and it outranks
+                        metadata so a driver cannot be painted as a buyer by an old
+                        user_metadata value;
+      'metadata'      — user_metadata.role, which the signed-in client can rewrite
+                        (setAccountRole in static/index.html, before this stage), so it is last;
+      ''              — nothing to go on, and the caller shows the choice.
+
+    Memoised per request: the legal routes call this several times in one reply and
+    each answer costs up to three round trips, which is not free on the Render box.
+    """
+    if not uid:
+        return '', ''
+    cache = getattr(g, '_account_type', None)
+    if cache is None:
+        cache = {}
+        g._account_type = cache
+    if uid in cache:
+        return cache[uid]
+    out = _resolve_account_type(uid, meta_role)
+    cache[uid] = out
+    return out
+
+
+def _profile_account_type(uid):
+    """Which guarded profile table holds this login, or '' for none.
+
+    A farmers row means farmer; a buyers row is the one profile table whose own
+    column names what the person is, so it is read instead of guessed: base-schema:28
+    keeps individual|vendor|hotel|restaurant|exporter|ngo, the app has no restaurant
+    or exporter tab, and everything that is not a hotel is shown on the one buyer
+    surface the SPA calls vendor (getCurrentRole in static/index.html). A transporter row is the
+    one account type nobody self-selects — the admin console creates it, and since it
+    is not in BUSINESS_ROLES a driver can never choose their way out of it.
+    """
+    if supa_get('farmers', {'id': f'eq.{uid}', 'select': 'id'}, limit=1):
+        return 'farmer'
+    if supa_get('transporters', {'supabase_uid': f'eq.{uid}', 'select': 'id'}, limit=1):
+        return 'transporter'
+    held = supa_get('buyers', {'id': f'eq.{uid}', 'select': 'buyer_type'}, limit=1)
+    if held:
+        bt = str(held[0].get('buyer_type') or '')
+        return 'hotel' if bt in ('hotel', 'restaurant') else 'vendor'
+    return ''
+
+
+def _resolve_account_type(uid, meta_role=None):
+    business, privilege, err = _stored_business_role(uid)
+    if business:
+        return business, 'business_role'
+    if privilege in ('admin', 'superadmin'):
+        return privilege, 'privilege'
+    profile = _profile_account_type(uid)
+    if profile:
+        return profile, 'profile'
+    if err:
+        # The store could not be read, so anything below would silently outrank a
+        # choice the person already made. Report the gap instead of guessing.
+        log.warning('account_type.store_unreadable', uid=uid, error=err[:120])
+        return '', 'unreadable'
+    meta = str(meta_role or '').strip().lower()
+    if meta in ('hotel', 'restaurant', 'b2b'):
+        return 'hotel', 'metadata'
+    if meta == 'farmer':
+        return 'farmer', 'metadata'
+    if meta in ('supplier', 'input_seller'):
+        return 'supplier', 'metadata'
+    if meta in ('vendor', 'buyer'):
+        return 'vendor', 'metadata'
+    if meta == 'transporter':
+        return 'transporter', 'metadata'
+    return '', ''
+
+
+@app.route('/api/user/account-type', methods=['GET'])
+@rate_limit(max_req=60, window=60)
+def get_account_type():
+    """What this login is, according to the server, and whether it can still be chosen."""
+    uid, err = verify_supabase_user()
+    if err:
+        return err
+    meta = (getattr(g, 'auth_user', {}) or {}).get('user_metadata') or {}
+    role, source = resolve_account_type(uid, meta.get('role'))
+    body = {'role': role, 'source': source,
+            'label': _ROLE_LABELS.get(role, ''),
+            # A transporter is issued by an operator, and a person who has already
+            # chosen has no second choice coming.
+            'can_choose': source in ('', 'metadata', 'unreadable')}
+    if body['can_choose']:
+        body['choices'] = [{'value': r, 'label': _ROLE_LABELS[r]} for r in BUSINESS_ROLES]
+    return jsonify(body), 200
+
+
+@app.route('/api/user/account-type', methods=['POST'])
+@rate_limit(max_req=8, window=300)
+def choose_account_type():
+    """Record the account type for this login — once.
+
+    Refuses a change rather than rewriting it, which is the owner's rule: the way to
+    become a different kind of account is to recover the login that already is one,
+    not to flip a field on the current one. An operator who genuinely needs a change
+    edits user_roles directly in the dashboard; nothing here pretends to be that door.
+    """
+    uid, err = verify_supabase_user()
+    if err:
+        return err
+    data = request.get_json(force=True, silent=True) or {}
+    choice = str(data.get('role', '') or '').strip().lower()
+    if choice not in BUSINESS_ROLES:
+        return jsonify({'error': 'Choose one of: ' + ', '.join(BUSINESS_ROLES)}), 400
+
+    business, privilege, read_err = _stored_business_role(uid)
+    if read_err:
+        log.error('account_type.store_unreadable', uid=uid, error=read_err[:120])
+        return jsonify({'error': 'AgriBridge could not check your account type. '
+                                 'Please try again shortly.'}), 503
+
+    def locked(existing, source):
+        # The SPA adopts the role in this body, so a refused choice lands the
+        # person back on what their login actually is instead of on the value they
+        # just tried to give it.
+        return jsonify({
+            'error': f"This login is already a {_ROLE_LABELS.get(existing, existing)} account. "
+                     f"One login is one type of account, so it cannot be changed to "
+                     f"{_ROLE_LABELS.get(choice, choice)} here.",
+            'code': 'account_type_locked',
+            'role': existing,
+            'source': source,
+        }), 409
+
+    if business:
+        if business == choice:
+            return jsonify({'ok': True, 'role': business, 'note': 'already set'}), 200
+        return locked(business, 'business_role')
+    if privilege in ('admin', 'superadmin'):
+        # An operator login. Writing a business role here would make the legal
+        # routes answer as a marketplace account for the person who runs the
+        # console, so the door stays shut and the row stays as 0002 left it.
+        return jsonify({'error': 'This login is an AgriBridge operator account, not a '
+                                 'marketplace account. Sign up separately to sell or buy.',
+                        'code': 'account_type_locked', 'role': privilege,
+                        'source': 'privilege'}), 409
+
+    held = _profile_account_type(uid)
+    if held and held != choice:
+        # The GET already answers can_choose:false here, but the browser is not the
+        # only caller. A login holding a farmer's row *is* a farmer's account whether
+        # or not business_role was ever written for it, and recording 'vendor' now
+        # would let an empty column outrank the table that proves what they are —
+        # which is the switch the owner asked to close.
+        return locked(held, 'profile')
+
+    # Conditional write: `business_role is null` is what makes two racing saves land
+    # as one choice, because the second one updates zero rows.
+    res = SUPA.update_checked('user_roles', {'business_role': choice},
+                              {'user_id': f'eq.{uid}', 'business_role': 'is.null'})
+    if not res.ok:
+        log.error('account_type.write_failed', uid=uid, status=res.status)
+        return jsonify({'error': 'Could not save your account type. Please retry.'}), 503
+    if not res.data:
+        if privilege:
+            # A row existed with the column empty and now matches nothing, so the
+            # choice was made in the milliseconds since the read: honour theirs.
+            now, _, _ = _stored_business_role(uid)
+            return jsonify({'ok': True, 'role': now or choice, 'note': 'already set'}), 200
+        # No user_roles row for this login (only operators were ever given one).
+        # `role` is left out of the payload, so nothing can downgrade a privilege:
+        # 0002:30 defaults it to 'user' on insert.
+        ins = SUPA.insert('user_roles', {'user_id': uid, 'business_role': choice})
+        if not ins.ok:
+            log.error('account_type.row_create_failed', uid=uid, status=ins.status)
+            return jsonify({'error': 'Could not save your account type. Please retry.'}), 503
+    return jsonify({'ok': True, 'role': choice, 'source': 'business_role'}), 200
+
+
 @app.route('/api/user/profile', methods=['POST'])
 @rate_limit(max_req=20, window=60)
 def update_user_profile():
@@ -5586,21 +5887,24 @@ def update_user_profile():
             'Prefer': 'resolution=merge-duplicates,return=minimal',
         }
 
-        def _save(as_token: str) -> tuple[int, str]:
-            """POST the upsert and return (status, PostgREST code).
+        def _save(as_token: str) -> tuple[int, str, str]:
+            """POST the upsert and return (status, PostgREST code, message).
 
             The body is never logged and never returned: it repeats this
             person's phone number, and a collision names the number that got
-            there first.
+            there first. `message` is used for exactly one decision — reading the
+            account type out of 0028's guard, which names a role and nothing else.
             """
             h = dict(base_headers, apikey=SUPABASE_KEY, Authorization=f'Bearer {as_token}')
             r = requests.post(url, json=update, headers=h, timeout=8)
             if r.status_code < 300:
-                return r.status_code, ''
+                return r.status_code, '', ''
             try:
-                return r.status_code, str((r.json() or {}).get('code') or '')
+                detail = r.json() or {}
             except ValueError:
-                return r.status_code, ''
+                return r.status_code, '', ''
+            return (r.status_code, str(detail.get('code') or ''),
+                    str(detail.get('message') or ''))
 
         # First attempt: the header verify_supabase_user() above just had GoTrue
         # vouch for. PostgREST takes the role from that JWT, so the write arrives
@@ -5608,7 +5912,7 @@ def update_user_profile():
         # farmers column grants (0025) instead of sailing past both. `update['id']`
         # is GoTrue's own subject claim, so the policy can only match the person
         # who sent the request.
-        status, code = _save(_bearer_token())
+        status, code, message = _save(_bearer_token())
 
         if code == '42501':
             # Refused by the database at the caller's own role. Two very different
@@ -5625,16 +5929,27 @@ def update_user_profile():
             # in a dashboard is not a fix.
             log.error('profile.policy_missing', uid=uid,
                       hint='write refused at authenticated; apply 0025 and 0026')
-            status, code = _save(SUPABASE_KEY)
+            status, code, message = _save(SUPABASE_KEY)
 
         if code == '42501':
-            # Still refused, now with the backend key too. On this project that
-            # means SUPABASE_KEY is the publishable key, so no identity this route
-            # can use may write farmers until 0026 is applied. Not the person's
-            # doing, and not something re-typing their name will change.
+            # Still refused, now with the backend key too. render.yaml:18-21
+            # declares that key as the service-role one, and service_role is
+            # bypassrls, so reaching here means something other than a missing
+            # policy — a grant, or a project whose key is not what the file says.
+            # Either way it is not the person's doing, and re-typing their name
+            # will not change it, which is what this message exists to avoid.
             log.error('profile.self_write_refused', uid=uid)
             return jsonify({'error': 'AgriBridge is not accepting profile saves right now. '
                                      'Please try again shortly.'}), 503
+
+        if code == _ONE_ROLE_CODE:
+            # 0028's guard: this login already holds a profile row of another type,
+            # so the INSERT into farmers is refused whichever key sends it (the
+            # trigger is SECURITY DEFINER — measured, and the reason there is no
+            # retry above). Telling the person which account they are duplicating
+            # is the only part that helps them; the recovery path is stage N7.
+            log.warning('profile.second_role_refused', uid=uid)
+            return _second_role_refusal(message)
 
         if status >= 300:
             # 23505 is 0008's one-phone-one-account index (someone claimed that
@@ -6055,21 +6370,29 @@ def unregister_push_subscription():
 def _auth_role():
     """Return the user's role string for legal-service calls.
 
-    Reads from the server-controlled user_roles table first (tamper-proof).
-    Falls back to user_metadata.role for app-level roles (farmer/buyer/vendor)
-    that are stored there at registration and are not in user_roles.
+    resolve_account_type() owns the order: the server-written business_role, then
+    the user_roles privilege row (which is what this function returned before
+    Stage N9, so operators are unaffected), then the guarded profile table that
+    holds their row, and only then user_metadata.role — a value the person's own
+    signed-in client can rewrite, which is exactly the
+    field the owner does not want deciding which terms they accepted.
     """
     uid = (getattr(g, 'auth_user', {}) or {}).get('id')
-    if uid:
-        try:
-            rows = SUPA.select('user_roles', {'user_id': f'eq.{uid}', 'select': 'role'}, limit=1)
-            if rows:
-                return rows[0].get('role')
-        except Exception:
-            pass
-    # fallback: user_metadata (set at registration, not server-controlled)
+    if not uid:
+        return None
     meta = (getattr(g, 'auth_user', {}) or {}).get('user_metadata') or {}
-    return meta.get('role')
+    role, source = resolve_account_type(uid, meta.get('role'))
+    if role:
+        return role
+    if source == 'unreadable':
+        # user_roles could not be read — a missing grant, an outage, or a project
+        # where 0028 has not been applied yet. That is not the person's fault, and
+        # asking them to accept a different set of terms because of it would be.
+        # This is precisely what the route did before Stage N9, so it stays.
+        return meta.get('role')
+    # Nothing to go on. The legal service maps '' to its default set, as an unknown
+    # metadata role always has; /api/user/account-type is what asks them to choose.
+    return None
 
 
 def _legal_response(result, ok_code=200):
