@@ -8308,6 +8308,32 @@ function _stAvatar(size){
     ? '<img class="st-av" style="width:'+size+'px;height:'+size+'px" src="'+escHtml(u.avatar_url)+'" alt="">'
     : '<div class="st-av" style="width:'+size+'px;height:'+size+'px">'+escHtml((u.name||'U').charAt(0).toUpperCase())+'</div>';
 }
+// One login is one kind of account, and the server holds that answer:
+// /api/user/account-type reads user_roles.business_role first and the guarded profile
+// tables after it, and only says can_choose to a login that appears in neither. So the
+// dropdown is for the person who has not chosen yet, and everyone else is shown words —
+// which is the honest UI for "no switching roles by editing a profile field". Hiding the
+// box is not what enforces it: the POST refuses a second choice whatever the browser
+// sends, and migration 0028 refuses the second profile row it would have led to.
+function _accountTypeName(){
+  var r=(_accountType&&_accountType.role)||'';
+  if(_ROLE_LABELS[r]) return _ROLE_LABELS[r];
+  if(_ROLE_SHORT[r]) return _ROLE_SHORT[r];
+  var label=(_accountType&&_accountType.label)||r;
+  if(!label) return 'Not chosen yet';
+  return label.charAt(0).toUpperCase()+label.slice(1);
+}
+function _accountTypePicker(role){
+  if(_accountType&&_accountType.can_choose===false){
+    return '<div class="st-input" style="background:rgba(128,128,128,.12);color:var(--text)">'+
+        escHtml(_accountTypeName())+'</div>'+
+      '<div class="st-label" style="margin-bottom:12px">Set once and kept by AgriBridge — one login is one type of account. '+
+      'If this is not the account you need, message us instead of opening a second one.</div>';
+  }
+  return '<select id="setRole" onchange="setAccountRole(this.value)" class="st-input">'+
+    ['farmer','vendor','hotel','supplier'].map(function(r){ return '<option value="'+r+'"'+(role===r?' selected':'')+'>'+_ROLE_LABELS[r]+'</option>'; }).join('')+
+  '</select>';
+}
 
 function renderSettings(){
   var b=document.getElementById('settingsBody'); if(!b) return;
@@ -8361,9 +8387,7 @@ function renderSettings(){
       '<input id="setPhone" placeholder="Phone" class="st-input">'+
       '<input id="setDistrict" placeholder="District" class="st-input">'+
       '<span class="st-label">Account type — this decides which features you see</span>'+
-      '<select id="setRole" onchange="setAccountRole(this.value)" class="st-input">'+
-        ['farmer','vendor','hotel','supplier'].map(function(r){ return '<option value="'+r+'"'+(role===r?' selected':'')+'>'+_ROLE_LABELS[r]+'</option>'; }).join('')+
-      '</select>'+
+      _accountTypePicker(role)+
       '<div class="st-label" style="margin-bottom:12px">'+escHtml(currentUser.email||'')+'</div>'+
       '<button class="btn-sm" style="width:100%" onclick="saveProfile()">Save changes</button></div>';
   }
@@ -8408,6 +8432,7 @@ function renderSettings(){
     var n=document.getElementById('setName'); if(n) n.value=currentUser.name||'';
     var p=document.getElementById('setPhone'); if(p) p.value=currentUser.phone||'';
     var d=document.getElementById('setDistrict'); if(d) d.value=currentUser.district||'';
+    _askAccountTypeOnce();
   }
   if(screen==='privacy' && currentUser) loadPrivacySettings();
   if(screen==='notifications') refreshPushSettings();
@@ -8546,17 +8571,43 @@ async function saveProfile(){
     closeModal('settingsModal');
   } finally { _savingProfile=false; }
 }
-// Let a user set/correct their own account type. Older accounts were created
-// without a role and defaulted to a seller view; this makes the choice stick
-// (auth metadata + local) and instantly re-tailors the nav, More menu and home.
+// Let a person set their own account type — once, and on the server.
+// Older accounts were created without a role and defaulted to a seller view, so this
+// has to stay reachable. What changed is where the answer is kept: it used to be
+// written into user_metadata by the browser, which is exactly the field a person can
+// re-pick at any time. /api/user/account-type records it in user_roles.business_role
+// and refuses a second choice; migration 0028 then makes the choice mean something in
+// the database, because a second profile row is refused whichever key writes it.
 async function setAccountRole(r){
   if(!currentUser||!r) return;
-  currentUser.role=r;
+  var sel=document.getElementById('setRole');
+  var revert=function(){ if(sel) sel.value=(_accountType&&_accountType.role)||currentUser.role||'vendor'; };
+  var res=await abApi('/api/user/account-type',{method:'POST',body:JSON.stringify({role:r})});
+  if(!res.ok){
+    // A 409 carries the type the server is holding, and where it holds it from —
+    // their recorded choice, an operator row, or a profile table they already
+    // appear in. Adopting it puts the panel back on the truth instead of on the
+    // value that was just refused.
+    if(res.json&&res.json.role){
+      _accountType={role:res.json.role,source:res.json.source||'business_role',
+                    label:_ROLE_LABELS[res.json.role]||'',can_choose:false};
+      try{ localStorage.setItem('ab_account_type',JSON.stringify(_accountType)); }catch(e){}
+      if(typeof applyRoleUI==='function') applyRoleUI();
+      repaintAccountPanel();
+    }
+    revert();
+    showToast((res.json&&res.json.error)||'We could not set your account type. Check your connection and try again.');
+    return;
+  }
+  _accountType={role:(res.json&&res.json.role)||r,source:'business_role',
+                label:_ROLE_LABELS[((res.json&&res.json.role)||r)]||'',can_choose:false};
+  try{ localStorage.setItem('ab_account_type',JSON.stringify(_accountType)); }catch(e){}
+  currentUser.role=_accountType.role;
   try{ localStorage.setItem('ab_user',JSON.stringify(currentUser)); }catch(e){}
-  try{ if(sbAuth&&sbAuth.auth&&sbAuth.auth.updateUser) await sbAuth.auth.updateUser({ data:{ role:r } }); }catch(e){}
   if(typeof applyRoleUI==='function') applyRoleUI();
   if(typeof updateNavUser==='function') updateNavUser(currentUser);
   if(typeof renderRoleHome==='function') renderRoleHome();
+  repaintAccountPanel();
   showToast('Account type set — features updated ✓');
   _legalCheckedFor = null; postAuthLegalCheck('settings_review');
 }
@@ -9560,9 +9611,68 @@ function renderMoreGrid(){
     return '<button onclick="'+act+'"><span>'+it.icon+'</span>'+it.label+'</button>'; }).join('');
 }
 
+// What the server says this login is. Kept separately from currentUser.role,
+// which is user_metadata.role — a field the signed-in browser writes itself (see
+// setAccountRole) and therefore cannot be trusted as an identity. The pair that
+// cannot be edited by the account holder is user_roles.business_role (written only
+// by /api/user/account-type) and migration 0028's trigger, which refuses a second
+// profile row whatever key sends the write.
+var _accountType = null;
+try { _accountType = JSON.parse(localStorage.getItem('ab_account_type') || 'null'); } catch (e) {}
+
+var _accountTypeCall = null;
+function loadAccountType() {
+  if (!currentUser || !currentUser.supaId) { _accountType = null; return Promise.resolve(null); }
+  // Two auth callbacks can fire on one sign-in, and each round trip is not free on
+  // the Render box: share the one that is already in flight.
+  if (_accountTypeCall) return _accountTypeCall;
+  _accountTypeCall = abApi('/api/user/account-type').then(function (res) {
+    _accountTypeCall = null;
+    // A failed read keeps whatever was cached: 'could not ask' must not demote a
+    // person to the metadata value they may have set themselves.
+    if (!res || !res.ok || !res.json || !res.json.role) return _accountType;
+    var changed = !_accountType || _accountType.role !== res.json.role;
+    _accountType = { role: res.json.role, source: res.json.source,
+                     label: res.json.label || '', can_choose: !!res.json.can_choose };
+    try { localStorage.setItem('ab_account_type', JSON.stringify(_accountType)); } catch (e) {}
+    if (changed) {
+      // The navigation the person is looking at was built from a guess. Rebuild it
+      // from the answer; applyRoleUI's own re-entrancy guard covers the repaint.
+      if (typeof applyRoleUI === 'function') applyRoleUI();
+      if (typeof renderRoleHome === 'function') renderRoleHome();
+    }
+    return _accountType;
+  }, function () { _accountTypeCall = null; return _accountType; });
+  return _accountTypeCall;
+}
+
+// The account panel is the one screen that has to show the server's answer, and a
+// person who signed in before this stage has nothing cached to show it from. Asked
+// once per login: a read that failed must not become a request every time Settings
+// opens, and a locked type that is missing is shown as the dropdown — which the POST
+// then refuses, adopting the truth from its body.
+var _accountTypeAsked = false;
+function _askAccountTypeOnce() {
+  if (_accountTypeAsked || _accountType) return;
+  if (!currentUser || !currentUser.supaId) return;
+  _accountTypeAsked = true;
+  loadAccountType().then(function () {
+    if (_accountType && _setScreen === 'account') repaintAccountPanel();
+  });
+}
+// Redraws the account panel over whatever the server now says. Called after a choice
+// is made or refused, so the dropdown becomes the locked line it just became true for.
+function repaintAccountPanel() {
+  if (_setScreen === 'account' && document.getElementById('settingsBody')) renderSettings();
+}
+
 function getCurrentRole() {
   if (!currentUser) return 'guest';
-  var role = (currentUser.role || (currentUser.user_metadata && currentUser.user_metadata.role) || 'vendor');
+  // 'admin' is a privilege, not a marketplace account, and the SPA has no admin
+  // screens — an operator keeps the view their metadata gave them before this stage.
+  var server = (_accountType && _accountType.role && _accountType.role !== 'admin')
+    ? _accountType.role : '';
+  var role = server || (currentUser.role || (currentUser.user_metadata && currentUser.user_metadata.role) || 'vendor');
   if (role === 'hotel' || role === 'restaurant' || role === 'b2b') return 'hotel';
   if (role === 'farmer') return 'farmer';
   if (role === 'supplier' || role === 'input_seller') return 'supplier';
@@ -9793,6 +9903,7 @@ function initSupabase() {
       currentUser = { name: (u.user_metadata&&u.user_metadata.name)||(u.user_metadata&&u.user_metadata.full_name)||u.email.split('@')[0], role: (u.user_metadata&&u.user_metadata.role)||'vendor', phone: (u.user_metadata&&u.user_metadata.phone)||'', district: (u.user_metadata&&u.user_metadata.district)||'', email: u.email, supaId: u.id };
       localStorage.setItem('ab_user', JSON.stringify(currentUser));
       updateNavUser(currentUser.name, currentUser.role);
+      loadAccountType();
       if (_oauthNeedsProfile(u)) _openOAuthProfile(u);
       else hydrateUserProfile();
       // Flush any profile that couldn't be saved at registration time
@@ -9815,6 +9926,9 @@ function initSupabase() {
     } else {
       currentUser = null;
       localStorage.removeItem('ab_user');
+      _accountType = null;
+      _accountTypeAsked = false;
+      try { localStorage.removeItem('ab_account_type'); } catch (e) {}
       updateNavUser(null, null);
       _stopNotifPolling();
       _hidePushPrompt();
@@ -9828,6 +9942,7 @@ function initSupabase() {
       currentUser = { name: (u.user_metadata&&u.user_metadata.name)||(u.user_metadata&&u.user_metadata.full_name)||u.email.split('@')[0], role: (u.user_metadata&&u.user_metadata.role)||'vendor', phone: (u.user_metadata&&u.user_metadata.phone)||'', district: (u.user_metadata&&u.user_metadata.district)||'', email: u.email, supaId: u.id };
       localStorage.setItem('ab_user', JSON.stringify(currentUser));
       updateNavUser(currentUser.name, currentUser.role);
+      loadAccountType();
       if (_oauthNeedsProfile(u)) _openOAuthProfile(u);
       else hydrateUserProfile();
       if (typeof syncCloudBasket === 'function') syncCloudBasket();
@@ -10290,16 +10405,33 @@ async function oauthSignOut() {
 
 // ── logOut — replaces original ────────────────────────
 async function logOut(){
-  if(sbAuth)await sbAuth.auth.signOut();
+  // The server-side sign-out is tried first but can never hold the door shut: with
+  // an expired or already-revoked session — the state a person is in when they have
+  // been locked out of an old account — supabase-js rejects here, and the click did
+  // nothing at all. Getting out of a session must not depend on the session being
+  // healthy.
+  if(sbAuth){ try{ await sbAuth.auth.signOut(); }catch(e){} }
   currentUser=null;
   localStorage.removeItem('ab_user');
+  // The server's answer about the account type belongs to the person, not the
+  // device: leaving it cached would show the next signer-in their navigation built
+  // from someone else's role for the second or two before their own read returns.
+  _accountType=null;
+  _accountTypeAsked=false;
+  try{ localStorage.removeItem('ab_account_type'); }catch(e){}
   updateNavUser(null,null);
   _hidePushPrompt();
   closeModal('myAccountModal');
+  closeModal('settingsModal');
   showToast('👋 Logged out successfully');
   basketItems=[]; appliedPromo=null;
   localStorage.removeItem('ab_basket'); localStorage.removeItem('ab_promo');
   renderBasket(); updateBasketBadge();
+  // And leave the screen they were looking at. A farmer who signed out from their
+  // dashboard stayed on it — own listings, own orders, own earnings — with only two
+  // small nav buttons visibly changed, which is the other half of why sign-out reads
+  // as a button that does not work. Home repaints for whoever is now looking.
+  try{ showPage('home'); }catch(e){}
 }
 // Play-required account deletion (audit H6). Calls the server-side erasure
 // endpoint with the verified session token; the SERVER scopes it to the caller's

@@ -96,17 +96,65 @@ def test_the_sign_out_button_is_wired_to_the_function_that_logs_out():
     assert logout_buttons, "no handler calls logOut(), so nothing can sign out"
 
 
+def _logout_body() -> str:
+    body = SPA[SPA.index("async function logOut()"):]
+    return body[:body.index("\n}", body.index("{")) + 2]
+
+
 def test_the_logout_function_actually_ends_the_session():
     """A button that calls a function is not the same as a session that ends.
 
     logOut() has to reach Supabase and drop the stored identity, or the next page
     load signs the person straight back in.
     """
-    body = SPA[SPA.index("async function logOut()"):]
-    body = body[:body.index("\n}", body.index("{")) + 2]
+    body = _logout_body()
     assert "auth.signOut()" in body, "logOut() no longer ends the Supabase session"
     assert "ab_user" in body, "logOut() no longer clears the stored identity"
     assert "currentUser=null" in body.replace(" ", ""), (
         "logOut() leaves currentUser set, so the app still believes someone is "
         "signed in until the page reloads"
     )
+
+
+def test_a_stale_session_can_still_be_signed_out_of():
+    """The awaited signOut() is the first line of the teardown, so a rejection there
+    used to abandon everything after it — nav, basket, stored identity and all.
+
+    That is the state a person is in when their refresh token has already been
+    revoked (another device signed into the same account, or the session simply
+    expired while they were away), which is also the state the owner is describing
+    when they say the old accounts are inaccessible. Getting out must not depend on
+    the session still being healthy, so the call is tried and the teardown runs
+    either way.
+    """
+    body = _logout_body()
+    call = body[body.index("if(sbAuth)"):]
+    call = call[:call.index("currentUser=null")]
+    assert "try{" in call and "catch(e){}" in call, (
+        f"signOut() is awaited unprotected again: {call.strip()[:80]!r}"
+    )
+    assert body.index("catch(e){}") < body.index("currentUser=null"), (
+        "the guard has to sit around the call, not after it"
+    )
+
+
+def test_signing_out_leaves_the_screen_only_the_signed_in_have():
+    """Half of 'the sign out button doesn't work' was that nothing visibly changed.
+
+    updateNavUser() swaps two small buttons; a farmer standing on their own dashboard
+    kept the dashboard — their listings, their orders, their earnings — with no
+    session behind it. The teardown has to close the panel they clicked in and
+    repaint a page a guest can be shown.
+    """
+    body = _logout_body()
+    assert "closeModal('settingsModal')" in body, (
+        "signing out from Settings leaves the account panel open on a signed-out app"
+    )
+    assert "showPage('home')" in body, (
+        "the person stays on the page their role made, after the role is gone"
+    )
+    assert "showPage('home')" in body[body.index("currentUser=null"):], (
+        "the repaint has to come after the identity is dropped, or it renders for "
+        "the person who just signed out"
+    )
+
