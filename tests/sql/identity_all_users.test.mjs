@@ -224,15 +224,25 @@ await rejects(() => as('service_role', null,
   'KNOWN CONSEQUENCE: an admin cannot verify a placeholder account until its phone is fixed');
 
 // ── 4. Privileges ───────────────────────────────────────────────────────────
-for (const t of ['farmers', 'buyers', 'transporters', 'user_roles']) {
-  for (const kind of ['insert', 'update', 'delete', 'truncate'])
-    assert.equal(await priv('anon', t, kind), false, `anon ${t} ${kind}`);
+// Measured, and deliberately NOT fixed here. Every write helper in app.py sends
+// the publishable key as its bearer token (app.py:395 supa_insert, :421
+// supa_update, :439 supa_delete, :5583 the profile upsert), so the production
+// write path runs as anon. Taking anon's writes away in this migration would not
+// remove a capability anyone uses — it would stop orders, listings, contact
+// messages and profile saves from being writable at all. The revoke belongs to
+// the stage that first moves those helpers onto a real service identity, and
+// tests/test_write_path_identity.py fails if that stage happens without this
+// block being rewritten with it.
+for (const t of ['farmers', 'buyers', 'user_roles']) {
+  assert.equal(await priv('anon', t, 'update'), true, `anon ${t} update`);
+  assert.equal(await priv('anon', t, 'insert'), true, `anon ${t} insert`);
 }
-ok('anon can no longer write any user table, RLS or no RLS');
+ok('MEASURED, NOT FIXED: anon can still write farmers, buyers and user_roles — '
+   + 'RLS is the only thing deciding whether an anon request lands');
 
 assert.equal(await priv('authenticated', 'user_roles', 'insert'), false);
 assert.equal(await priv('authenticated', 'user_roles', 'update'), false);
-ok('a signed-in user cannot grant themselves admin at the privilege layer either');
+ok('a signed-in user cannot grant themselves admin at the privilege layer');
 
 await rejects(() => as('authenticated', MINE,
   `update public.farmers set is_verified = true where id = '${MINE}'`),
@@ -278,7 +288,17 @@ ok('the admin console still manages roles through service_role, which bypasses a
 await db.exec(down);
 assert.equal(await priv('anon', 'farmers', 'update'), true);
 assert.equal(await priv('anon', 'user_roles', 'insert'), true);
-ok('the rollback re-opens the anon write hole, as a rollback must');
+ok('anon is exactly where it was: 0025 never touched it, so neither does the rollback');
+
+assert.equal(await priv('authenticated', 'farmers', 'update'), true);
+r = await as('authenticated', MINE,
+  `update public.farmers set is_verified = false where id = '${MINE}' returning id`);
+assert.equal(r.rows.length, 1);
+ok('the rollback re-opens the self-verification hole, as a rollback must');
+assert.equal(await priv('authenticated', 'user_roles', 'insert'), false);
+ok('…but leaves buyers/transporters/user_roles writes closed, because a rollback '
+   + 'that could not tell 0014 from 0025 must not guess them open');
+
 r = await db.query(`select pg_get_constraintdef(oid) as d from pg_constraint
                      where conname = 'farmers_phone_format'`);
 assert.match(r.rows[0].d, /\[\+\]\[1-9\]\[0-9\]\{6,14\}/);

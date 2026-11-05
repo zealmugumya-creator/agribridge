@@ -33,8 +33,29 @@
 --       unauthenticated role can insert, update, delete and truncate those tables
 --       as far as privileges go (0014 fixed system_events and transporters only).
 --       Whether a given anon request succeeds then depends entirely on RLS being
---       enabled on that table, which this migration does not measure. It removes
---       the privilege so the answer no longer depends on remembering to check.
+--       enabled on that table, which this migration does not measure.
+--
+--       This file does NOT revoke those anon privileges, because reading the code
+--       that performs the writes says why: every backend write helper sends the
+--       publishable key as its bearer token, so PostgREST runs them as anon —
+--       app.py:395 supa_insert, :421 supa_update, :439 supa_delete and the
+--       profile upsert at :5583 all build
+--       'Authorization': f'Bearer {SUPABASE_KEY}', and only supa_get_admin (:325)
+--       uses SUPABASE_SERVICE_KEY, for reads. In the browser, sb()
+--       (static/index.html:3312) sends 'Bearer ' + (_authToken || SUPA_KEY), so a
+--       signed-in SPA call is authenticated and an anonymous one is anon, and the
+--       only direct write to farmers is the language PATCH at :12502, which
+--       hardcodes the publishable key and so always runs as anon. Revoking anon
+--       writes here would therefore not close a hole nobody uses — it would cut
+--       the write path every order, listing, contact message and profile save is
+--       currently on.
+--
+--       The hole is real and this file says so plainly: as long as the backend
+--       writes as anon, the only thing between the public publishable key (it is
+--       in static/index.html:3295, by design) and these tables is RLS. Fixing it
+--       means moving the writes to the service-role key or to the caller's own
+--       token FIRST, and revoking anon afterward — one cannot precede the other,
+--       and the order is why this is 0025 and that is 0026.
 --
 -- WHAT THIS MIGRATION DOES
 --   1. Replaces the farmers phone rule with the +256 rule and adds the name rule,
@@ -43,10 +64,15 @@
 --      row is touched and the migration cannot fail because of the 8 placeholder
 --      accounts or of a buyer who registered with a Kenyan number. New and
 --      updated rows must satisfy the rule.
---   3. Removes write privileges the applications do not use, and for farmers
---      replaces the whole-table UPDATE grant with the profile columns the SPA and
---      the backend actually write (the 0024 move, repeated here so one migration
---      is enough).
+--   3. For farmers, replaces authenticated's whole-table UPDATE grant with the
+--      profile columns the profile screen actually writes (the 0024 move, repeated
+--      here so one migration is enough), and takes authenticated's write access to
+--      buyers, transporters and user_roles away, because no signed-in client code
+--      writes those three tables — the SPA never names them and the backend writes
+--      them as anon. Reads are untouched.
+--
+--      Nothing is taken from anon. See the grants bullet above: the backend is
+--      anon right now, so that revoke belongs to the stage that moves the writes.
 --
 -- WHAT IT DELIBERATELY DOES NOT DO
 --   It does not drop or rebuild farmers_phone_unique. The honest index cannot be
@@ -144,24 +170,20 @@ begin
   end if;
 end $$;
 
--- ── 2. Write privileges the applications do not use ─────────────────────────
--- anon: no client code writes any of these tables before sign-in. The SPA's only
--- PostgREST writes are sbUpdate('farmers', …) at static/index.html:7850 and :8495
--- (profile_photo) and the direct PATCH at :12502 (preferred_language), all of
--- which run as authenticated; /api/user/profile (app.py:5525) also runs as
--- authenticated; buyers, transporters and user_roles have no client writer at all
--- (a grep of static/*.html for those table names returns only
--- static/admin.html:351, which is a label map — the admin console reads through
--- /api/admin/*, which uses the service-role key).
-revoke insert, update, delete, truncate, references, trigger
-  on public.farmers, public.buyers, public.transporters, public.user_roles
-  from anon, public;
+-- ── 2. Write privileges, narrowed for the role the clients actually use ─────
+-- anon is deliberately left alone. Every write helper in app.py authenticates to
+-- PostgREST with the publishable key, so anon is the role the production write
+-- path runs as today; revoking it here would break orders, listings, contact
+-- messages and profile saves without removing any capability, because the same
+-- key would still be the one sending them. The stage that takes anon's writes is
+-- the stage that first moves those helpers onto the service-role key (0026), and
+-- the test file states which privileges remain open after this one.
 
 -- authenticated: farmers keeps the profile columns (the 0024 move, repeated so
 -- this one migration is enough). buyers / transporters / user_roles lose write
 -- entirely; reads are untouched, so the public browse pages, the transporter
 -- portal and the admin console keep working exactly as they do today.
-revoke update on public.farmers from public, anon, authenticated;
+revoke update on public.farmers from authenticated;
 
 do $$
 declare
@@ -190,10 +212,10 @@ revoke insert, update, delete, truncate, references, trigger
   on public.buyers, public.transporters, public.user_roles
   from authenticated;
 
--- 0014 handed authenticated `select, update` on transporters and 0022 revokes the
--- update again; 0022 is still unapplied, so the select is re-granted here rather
--- than assumed. Without it the transporter portal's own account screen breaks.
-grant select on public.transporters to authenticated;
-grant select on public.buyers to authenticated;
+-- No select is granted here. authenticated keeps read access through the
+-- whole-table SELECT that Supabase's default privileges installed, and this file
+-- revokes no reads, so re-granting select would be a no-op dressed up as a fix.
+-- The read side — including the otp_code column that base-schema.sql:285 tries,
+-- and fails, to protect — is its own stage.
 
 commit;
