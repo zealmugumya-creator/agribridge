@@ -6718,14 +6718,19 @@ def legal_sync_signup():
         if not seen and _account_is_new(au.get('created_at')):
             _log_system_event('signup_alerted', {'role': role},
                               severity='info', user_id=uid)
+            # A phone is named only when one was given. A dash where a fact is missing
+            # is exactly what the name line refuses to print — this alert is the owner's
+            # answer to "who just joined", and a placeholder reads as a person the system
+            # could not identify. The normalised number is the one that can be dialled.
+            phone = norm_phone or str(meta.get('phone') or '').strip()
             _discord_notify(
                 event_type='user.signup',
                 title='👤 New User Signed Up',
                 description=(
                     f"**Role:** {role or 'unknown'}\n"
                     f"**User ID:** `{uid}`\n"
-                    f"**Name:** {_identity_name(meta, uid)}\n"
-                    f"**Phone:** {meta.get('phone', '—')}"
+                    f"**Name:** {_identity_name(meta, uid)}"
+                    + (f"\n**Phone:** {phone}" if phone else '')
                 ),
                 severity='info',
             )

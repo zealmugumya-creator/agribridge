@@ -268,6 +268,16 @@ def test_signup_alert_says_so_when_no_name_was_ever_given(monkeypatch):
     assert "—" not in description
 
 
+def test_signup_alert_names_the_phone_when_one_was_given(monkeypatch):
+    # The owner calls people back from this message, so the number is the one that
+    # can be dialled, and it appears only when the person actually gave one — a
+    # placeholder dash is what the two tests above forbid for the whole message.
+    description = _alert_description(monkeypatch,
+                                     meta={"name": "Allan Magembe", "phone": "0771 234 567"})
+    assert "+256771234567" in description
+    assert "—" not in description
+
+
 def test_signup_stores_the_name_under_both_metadata_keys():
     from pathlib import Path
     repo = Path(app_mod.__file__).resolve().parent

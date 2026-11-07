@@ -1710,6 +1710,32 @@ it. It still cannot claim anything about production: `0026` and `0028` remain un
 so live behaviour is the code above sitting in front of a column that does not exist
 yet.
 
+### What the rebase brought with it
+
+Between the first push of this stage and this fix, a second session pushed four commits
+(`f365bb4..366ce89`): duplicate-phone and cross-role refusals inside
+`/api/legal/sync-signup`, farmer/admin order notifications, receipt items read from
+`order_events`, the animal-page layout and category naming, a `signOut()` alias for the
+profile panel, and an animals hero banner. **Two pre-existing tests failed on that tree
+alone** — `test_signup_alert_names_a_password_account_by_the_name_it_stored` and
+`test_signup_alert_says_so_when_no_name_was_ever_given` — because the signup alert gained
+`**Phone:** {meta.get('phone', '—')}`, and both tests forbid a placeholder dash in the
+message. Attribution is not inference: CI check-run `127576440165` on `366ce89` reports
+`Backend lint + type + tests | completed | failure` *before* anything here was rebased on
+top, while its `deploy` run succeeded — so that UI is live with its backend tests red.
+
+Repaired by naming the phone only when one was given, and dialling it in normalised form
+(`+256…`), with `test_signup_alert_names_the_phone_when_one_was_given` pinning both
+halves. Final gate on the rebased tree: **707 passed, 0 failed, 0 skipped**, ruff clean,
+8 inline script blocks parsed (the other session added one), 0 syntax errors.
+
+The duplicate-account guard that arrived with it is **not** the same mechanism as 0028
+and does not replace it: it reads `farmers` only, it fires only for accounts younger than
+two days, and it answers from `legal_sync_signup`, so a person who never triggers that
+route is not checked. 0028 refuses a second profile row for every writer at the database
+layer, including the service key. Task #94 stays open for the same-email half and for the
+`buyers`/`transporters` half of the phone check.
+
 ---
 
 
