@@ -1339,11 +1339,107 @@
     var opts=Object.keys(INBOX_TABLES).map(function(k){return '<option value="'+k+'"'+(k===inboxTable?' selected':'')+'>'+INBOX_TABLES[k]+'</option>';}).join('');
     var head='<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;padding:10px"><select onchange="inboxTable=this.value;retryTab(\'inbox\')" style="padding:6px 10px">'+opts+'</select><span style="color:#8b98a8;font-size:.8rem">Latest 100 rows, read-only</span><button class="btn" style="margin-left:auto" onclick="discordTest()">Send Discord test</button></div>';
     if(!rows.length){ setPanel(head+'<div class="loading">Nothing in this table yet.</div>'); return; }
+
+    // Contact messages get a card layout with Reply button instead of a raw table
+    if(inboxTable==='contact_messages'){
+      var cards=rows.map(function(r){
+        var name=h(r.full_name||r.name||'(no name)');
+        var contact=h(r.contact||'');
+        var role=h(r.role||'');
+        var msg=h(r.message||'');
+        var ts=r.created_at ? new Date(r.created_at).toLocaleString('en-UG') : '';
+        var id=h(r.id||'');
+        // Quick-reply links if contact looks like phone or email
+        var directLinks='';
+        if(r.contact){
+          if(r.contact.indexOf('@')>-1){
+            directLinks='<a href="mailto:'+h(r.contact)+'?subject=Re%3A%20Your%20AgriBridge%20Message&body=Hi%20'+encodeURIComponent(r.full_name||'')+'%2C%0A%0A" style="color:#4fc3f7;font-size:.78rem;margin-right:10px">✉️ Email directly</a>';
+          } else {
+            var phone=(r.contact||'').replace(/\D/g,'');
+            if(phone) directLinks='<a href="https://wa.me/'+phone+'?text=Hi%20'+encodeURIComponent(r.full_name||'')+'%2C%20thank%20you%20for%20contacting%20AgriBridge.%20" target="_blank" style="color:#25D366;font-size:.78rem;margin-right:10px">💬 WhatsApp</a>';
+          }
+        }
+        return '<div style="background:#1a2630;border:1px solid #2a3a4a;border-radius:10px;padding:14px;margin-bottom:10px">'+
+          '<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px;flex-wrap:wrap;margin-bottom:8px">'+
+            '<div>'+
+              '<strong style="font-size:.95rem">'+name+'</strong>'+
+              (role ? '<span style="margin-left:8px;background:#2a3a4a;border-radius:4px;padding:2px 7px;font-size:.72rem;color:#8b98a8">'+role+'</span>' : '')+
+              '<div style="font-size:.78rem;color:#8b98a8;margin-top:2px">'+contact+' &bull; '+ts+'</div>'+
+            '</div>'+
+            '<button class="btn" style="background:#27ae60;color:#fff;font-size:.78rem;padding:5px 12px;white-space:nowrap" onclick="openContactReply(\''+id+'\',\''+name+'\',\''+h(r.contact||'')+'\')">↩ Reply</button>'+
+          '</div>'+
+          '<div style="background:#0d1b22;border-radius:6px;padding:10px;font-size:.85rem;color:#cdd7e0;white-space:pre-wrap;word-break:break-word">'+msg+'</div>'+
+          (directLinks ? '<div style="margin-top:8px">'+directLinks+'</div>' : '')+
+        '</div>';
+      }).join('');
+      setPanel(head+cards);
+      return;
+    }
+
     var cols=[]; rows.forEach(function(r){ Object.keys(r).forEach(function(k){ if(cols.indexOf(k)<0&&cols.length<9) cols.push(k); }); });
     var th=cols.map(function(c){return '<th>'+h(c)+'</th>';}).join('');
     var body=rows.map(function(r){ return '<tr>'+cols.map(function(c){ var v=r[c]; if(v&&typeof v==='object') v=JSON.stringify(v); if(/_at$/.test(c)&&v){ var d=new Date(v); if(!isNaN(d)) v=d.toLocaleString('en-UG'); } return '<td>'+h(String(v==null?'':v).slice(0,140))+'</td>'; }).join('')+'</tr>'; }).join('');
     setPanel(head+'<table><thead><tr>'+th+'</tr></thead><tbody>'+body+'</tbody></table>');
   }
+
+  // ── Contact message reply modal ──────────────────────────────────────────────
+  var _replyTarget = null;
+  function openContactReply(id, name, contact){
+    _replyTarget = {id:id, name:name, contact:contact};
+    var el = document.getElementById('contactReplyModal');
+    if(!el){
+      el = document.createElement('div');
+      el.id = 'contactReplyModal';
+      el.style.cssText='position:fixed;inset:0;z-index:999;background:rgba(0,0,0,.7);display:flex;align-items:flex-end;justify-content:center';
+      el.innerHTML=
+        '<div style="background:#1a2630;border-radius:16px 16px 0 0;width:100%;max-width:520px;padding:20px 16px 32px">'+
+          '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">'+
+            '<strong style="font-size:1rem">↩ Reply to <span id="replyToName"></span></strong>'+
+            '<button onclick="closeContactReply()" style="background:none;border:none;color:#8b98a8;font-size:1.3rem;cursor:pointer">✕</button>'+
+          '</div>'+
+          '<div id="replyContactInfo" style="font-size:.8rem;color:#8b98a8;margin-bottom:12px"></div>'+
+          '<textarea id="replyBody" rows="5" placeholder="Type your reply here…" style="width:100%;background:#0d1b22;border:1px solid #2a3a4a;border-radius:8px;color:#e0e8f0;padding:10px;font-size:.87rem;resize:vertical;box-sizing:border-box"></textarea>'+
+          '<div style="display:flex;gap:8px;margin-top:12px">'+
+            '<button class="btn" style="flex:1;background:#27ae60;color:#fff;font-weight:700" onclick="sendContactReply()">📨 Send Reply</button>'+
+            '<button class="btn" style="flex:1" onclick="closeContactReply()">Cancel</button>'+
+          '</div>'+
+          '<div id="replyStatus" style="margin-top:8px;font-size:.82rem;text-align:center"></div>'+
+        '</div>';
+      document.body.appendChild(el);
+    }
+    document.getElementById('replyToName').textContent = name;
+    document.getElementById('replyContactInfo').textContent = 'Will be sent to: ' + contact;
+    document.getElementById('replyBody').value = '';
+    document.getElementById('replyStatus').textContent = '';
+    el.style.display = 'flex';
+  }
+  function closeContactReply(){
+    var el=document.getElementById('contactReplyModal');
+    if(el) el.style.display='none';
+    _replyTarget=null;
+  }
+  async function sendContactReply(){
+    if(!_replyTarget) return;
+    var body=(document.getElementById('replyBody').value||'').trim();
+    if(!body){ document.getElementById('replyStatus').textContent='Please type a reply.'; return; }
+    var st=document.getElementById('replyStatus');
+    st.textContent='Sending…';
+    try{
+      var r=await api('/api/admin/contact-reply',{method:'POST',body:JSON.stringify({
+        contact_message_id: _replyTarget.id,
+        reply: body
+      })});
+      if(r && r.ok){
+        st.style.color='#27ae60';
+        st.textContent='✓ Reply sent!';
+        setTimeout(closeContactReply, 1500);
+      } else {
+        st.style.color='#e74c3c';
+        st.textContent='Error: '+(r&&r.error?r.error:'Failed to send.');
+      }
+    }catch(e){ st.style.color='#e74c3c'; st.textContent='Error: '+e.message; }
+  }
+
   async function discordTest(){
     try{ var r=await api('/api/admin/discord-test',{method:'POST',body:'{}'}); var res=(r&&r.results)||{}; alert('Discord test:\n'+Object.keys(res).map(function(k){return k+': '+res[k];}).join('\n')); }catch(e){ alert('Test failed'); }
   }

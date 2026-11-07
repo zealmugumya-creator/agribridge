@@ -3407,6 +3407,121 @@ def admin_discord_test():
     return jsonify({'ok': True, 'results': results})
 
 
+@app.route('/api/admin/contact-reply', methods=['POST'])
+@rate_limit(max_req=20, window=60)
+def admin_contact_reply():
+    """Admin replies to a contact_messages row.
+
+    Delivery chain (best-effort, all failures are logged not raised):
+      1. In-app notification  — if the sender has a registered account
+      2. WhatsApp/SMS         — via AfricasTalking if contact is a phone
+      3. Discord alert        — so the support channel sees the outgoing reply
+    """
+    payload_tok, err = verify_token(required_role='admin')
+    if err:
+        return err
+
+    data = request.get_json(force=True, silent=True) or {}
+    msg_id = str(data.get('contact_message_id') or '').strip()
+    reply_text = str(data.get('reply') or '').strip()
+
+    if not msg_id:
+        return jsonify({'ok': False, 'error': 'contact_message_id required'}), 400
+    if len(reply_text) < 2:
+        return jsonify({'ok': False, 'error': 'Reply text is required.'}), 400
+    if len(reply_text) > 1000:
+        return jsonify({'ok': False, 'error': 'Reply must be under 1,000 characters.'}), 400
+
+    # ── Load the original message ────────────────────────────────────────────
+    rows = supa_get('contact_messages', {'id': f'eq.{msg_id}'}, limit=1) or []
+    if not rows:
+        return jsonify({'ok': False, 'error': 'Message not found.'}), 404
+    msg = rows[0]
+    sender_name = msg.get('full_name') or msg.get('name') or 'there'
+    contact = (msg.get('contact') or '').strip()
+
+    sent_channels = []
+    errors = []
+
+    # ── 1. In-app notification if sender is a registered user ───────────────
+    # Check buyers and farmers tables for a matching phone/email
+    sender_uid = None
+    if contact:
+        for tbl in ('buyers', 'farmers'):
+            field = 'email' if '@' in contact else 'phone'
+            try:
+                hit = supa_get(tbl, {field: f'eq.{contact}', 'select': 'id'}, limit=1) or []
+                if hit:
+                    sender_uid = hit[0].get('id')
+                    break
+            except Exception:
+                pass
+
+    if sender_uid:
+        try:
+            NOTIFY.enqueue(
+                channel='in_app',
+                audience='user',
+                recipient=sender_uid,
+                event_type='support.reply',
+                severity='info',
+                title='💬 AgriBridge replied to your message',
+                body=reply_text,
+                payload={'contact_message_id': msg_id},
+                dedupe_key=f'contact_reply:{msg_id}',
+            )
+            sent_channels.append('in_app')
+        except Exception as _e:
+            errors.append(f'in_app: {_e}')
+
+    # ── 2. SMS via AfricasTalking (phone contacts only) ──────────────────────
+    if contact and '@' not in contact and AT_AVAILABLE:
+        try:
+            import africastalking as _at
+            _at.initialize(
+                os.environ.get('AT_USERNAME', 'sandbox'),
+                os.environ.get('AT_API_KEY', ''),
+            )
+            sms = _at.SMS
+            phone = contact if contact.startswith('+') else '+' + re.sub(r'^0', '256', contact)
+            full_msg = f'AgriBridge Support: {reply_text}'
+            sms.send(full_msg, [phone])
+            sent_channels.append('sms')
+        except Exception as _e:
+            errors.append(f'sms: {_e}')
+
+    # ── 3. Discord support-channel alert ────────────────────────────────────
+    actor = (payload_tok or {}).get('sub') or 'admin'
+    _discord_notify(
+        event_type='support.reply_sent',
+        title=f'↩️ Admin replied to contact message',
+        description=(
+            f'**To:** {sender_name} ({contact})\n'
+            f'**Reply:** {reply_text[:300]}\n'
+            f'**Channels:** {", ".join(sent_channels) or "none"}\n'
+            f'**By:** {actor}'
+        ),
+        severity='info',
+    )
+
+    # ── 4. Mark message as replied in DB ────────────────────────────────────
+    try:
+        import datetime as _dt
+        supa_update('contact_messages',
+                    {'replied_at': _dt.datetime.utcnow().isoformat() + 'Z',
+                     'replied_by': actor,
+                     'reply_text': reply_text[:1000]},
+                    'id', msg_id)
+    except Exception as _e:
+        errors.append(f'db_update: {_e}')
+
+    return jsonify({
+        'ok': True,
+        'sent_via': sent_channels,
+        'warnings': errors if errors else None,
+    }), 200
+
+
 # ══════════════════════════════════════════════════════════════════════════════
 # MONITORING: Supabase table events -> Discord + admin Activity feed, and a
 # read-only admin Inbox over the user-submitted tables.
