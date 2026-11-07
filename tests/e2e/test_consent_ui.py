@@ -24,6 +24,7 @@ pw = pytest.importorskip("playwright.sync_api")
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / "tests"))
 
+from conftest import RpcResult  # noqa: E402
 from test_legal import LegalDb  # noqa: E402
 
 import app as app_mod  # noqa: E402
@@ -96,17 +97,70 @@ def browser():
         b.close()
 
 
+class _RoleStoreDb(LegalDb):
+    """LegalDb plus the one table whose read-back decides a later write.
+
+    A person's account type is stored in user_roles.business_role and read again on
+    the next request. A fake that forgets the write cannot answer that next request
+    the way Postgres does, and the request that matters here is the legal check the
+    page fires the instant the choice comes back: it has to be told the new role by
+    the server, because the browser used to be the one answering for it.
+    """
+
+    def __init__(self):
+        super().__init__()
+        self.user_roles: dict[str, dict] = {}
+
+    def select(self, table, filters=None, limit=100):
+        if table != "user_roles":
+            return super().select(table, filters, limit)
+        self.select_calls.append((table, filters))
+        row = self.user_roles.get(str((filters or {}).get("user_id", "")).removeprefix("eq."))
+        return [dict(row)] if row else []
+
+    def update_checked(self, table, data, filters):
+        self.update_checked_calls.append((table, data, filters))
+        if table != "user_roles":
+            return RpcResult(ok=True, data=[{"id": "row-1"}])
+        f = filters or {}
+        row = self.user_roles.get(str(f.get("user_id", "")).removeprefix("eq."))
+        # Zero rows back is how the route spots a lost race, so the guard has to be
+        # evaluated here and not waved through: business_role is null is the whole
+        # reason two racing saves land as one choice.
+        if row is None or ("is.null" in str(f.get("business_role", "")) and row.get("business_role")):
+            return RpcResult(ok=True, data=[])
+        row.update(data)
+        return RpcResult(ok=True, data=[dict(row)])
+
+    def insert(self, table, rows):
+        res = super().insert(table, rows)
+        if table == "user_roles" and res.ok:
+            for r in rows if isinstance(rows, list) else [rows]:
+                self.user_roles[str(r.get("user_id"))] = dict(r)
+        return res
+
+
 @pytest.fixture
 def env(browser, site, monkeypatch):
-    db = LegalDb()
+    db = _RoleStoreDb()
     monkeypatch.setattr(app_mod, "LEGAL_SERVICE", LegalService(db))
     # The browser fake covers the Supabase SDK; the Flask app's own REST reads
     # must not reach the internet either, or a slow background request stalls
     # navigation. These endpoints are not what this suite is asserting.
     monkeypatch.setattr(app_mod, "supa_get", lambda *a, **k: [])
-    monkeypatch.setattr(app_mod, "supa_get_checked", lambda *a, **k: ([], None))
+    # The checked read is the exception. /api/user/account-type decides whether the
+    # one-time choice is still open from exactly what this returns, so answering []
+    # for every table — as the unchecked helper may — would pretend no login has
+    # ever chosen, and the page could never be shown a locked panel.
+    monkeypatch.setattr(app_mod, "supa_get_checked", lambda table, filters=None, **kw: (
+        db.select(table, filters, kw.get("limit", 100)), ""))
     monkeypatch.setattr(app_mod, "supa_insert", lambda *a, **k: True)
     monkeypatch.setattr(app_mod, "supa_update", lambda *a, **k: True)
+    # And the client object itself, for the routes that write through SUPA rather
+    # than the helpers above — /api/user/account-type is one of them. Left alone,
+    # those calls go to the example.supabase.co test URL over a real socket, fail,
+    # and the page sees a 503 that says nothing about why.
+    monkeypatch.setattr(app_mod, "SUPA", db)
     app_mod.app.config["TESTING"] = True
     flask = app_mod.app.test_client()
     ctx = browser.new_context(viewport={"width": 390, "height": 800}, service_workers="block", bypass_csp=True)
@@ -425,18 +479,84 @@ def test_user_can_sign_out_or_file_a_privacy_request_from_the_review_screen(env)
     assert page.is_hidden("#legalReviewModal")
 
 
+def _accept_review(page, boxes):
+    for i in range(boxes):
+        page.locator("#legalReviewDocs input[type=checkbox]").nth(i).check()
+    page.click("#legalReviewBtn")
+    page.wait_for_selector("#legalReviewModal:not(.open)", state="attached")
+
+
 def test_changing_account_type_asks_for_the_new_role_terms(env):
     page, db, _ = env
     _login(page)
     page.wait_for_selector("#legalReviewModal.open")
-    for i in range(3):
-        page.locator("#legalReviewDocs input[type=checkbox]").nth(i).check()
-    page.click("#legalReviewBtn")
-    page.wait_for_selector("#legalReviewModal:not(.open)", state="attached")
-    page.evaluate("setAccountRole('supplier')")
+    _accept_review(page, 3)
+    page.evaluate("openSettings(); settingsGo('account')")
+    assert page.locator("#setRole").count() == 1
+    page.select_option("#setRole", "supplier")
     page.wait_for_selector("#legalReviewModal.open")
     assert page.locator("#legalReviewDocs input[type=checkbox]").count() == 1
     assert "Supplier Terms" in page.inner_text("#legalReviewDocs")
+    # Where the answer came from is the point of this test. It used to pass because
+    # setAccountRole() wrote user_metadata.role and the server read it back — that
+    # field belongs to the signed-in client, so any person could have picked a role
+    # their account was never issued by editing it. The server must have been told
+    # through its own store, and the browser-writable field must be untouched.
+    assert db.user_roles["user-1"]["business_role"] == "supplier"
+    assert page.evaluate("window.__sb.session.user.user_metadata.role") == "farmer"
+
+
+def test_a_blocking_review_screen_is_never_behind_the_panel_that_raised_it(env):
+    page, _, _ = env
+    _login(page)
+    page.wait_for_selector("#legalReviewModal.open")
+    # The way a person gets here: Settings is still open when the review screen is
+    # raised from the Account row. Both are position:fixed overlays, so without an
+    # explicit level the one later in the document paints over the one that must
+    # not be hidden — and this dialog cannot be dismissed or escaped out of.
+    page.evaluate("openSettings(); settingsGo('account')")
+    assert page.is_visible("#setRole")
+
+    def topmost_of(selector):
+        box = page.locator(selector).bounding_box()
+        return page.evaluate(
+            "([x, y, host]) => { const e = document.elementFromPoint(x, y); "
+            "return e && e.closest(host) ? 'on top' : (e ? (e.id || e.tagName) : 'nothing'); }",
+            [box["x"] + box["width"] / 2, box["y"] + box["height"] / 2,
+             selector.split(" ")[0]])
+
+    assert topmost_of("#legalReviewBtn") == "on top"
+    page.evaluate("openPrivacyRequest()")
+    page.wait_for_selector("#privacyRequestModal.open")
+    # The request form is opened FROM the review screen, so it has to clear that
+    # one too, or the person taps a link and nothing they can reach appears.
+    assert topmost_of("#prBtn") == "on top"
+
+
+def test_the_account_type_choice_is_not_offered_twice(env):
+    page, db, _ = env
+    _login(page)
+    page.wait_for_selector("#legalReviewModal.open")
+    _accept_review(page, 3)
+    page.evaluate("openSettings(); settingsGo('account')")
+    page.select_option("#setRole", "supplier")
+    page.wait_for_selector("#legalReviewModal.open")
+    _accept_review(page, 1)
+
+    # One choice, then the panel closes itself: the row now names what the login is
+    # and there is no control left to re-pick it.
+    assert page.locator("#setRole").count() == 0
+    assert "supplier" in page.inner_text("#settingsBody").lower()
+
+    # And a call that skips the panel entirely — the old select's onchange, a bookmarked
+    # script, or any other client — is refused by the server, not just hidden.
+    writes = len(db.update_checked_calls) + len(db.insert_calls)
+    page.evaluate("setAccountRole('hotel')")
+    page.wait_for_function("localStorage.getItem('ab_account_type') && "
+                           "JSON.parse(localStorage.getItem('ab_account_type')).role === 'supplier'")
+    assert db.user_roles["user-1"]["business_role"] == "supplier"
+    assert page.evaluate("currentUser.role") == "supplier"
+    assert len(db.update_checked_calls) + len(db.insert_calls) == writes
 
 
 # ── privacy settings & requests ──────────────────────────────────────────────

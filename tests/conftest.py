@@ -52,8 +52,10 @@ class FakeSupabase:
         self.upsert_calls: list[tuple[str, dict | list, str | None]] = []
         self.delete_calls: list[tuple[str, dict]] = []
         self.insert_calls: list[tuple[str, dict | list]] = []
+        self.update_checked_calls: list[tuple[str, dict, dict]] = []
         self.insert_result = RpcResult(ok=True, data=[{"id": "req-1"}])
         self.upsert_result = RpcResult(ok=True, data=None)
+        self.update_checked_result = RpcResult(ok=True, data=[{"id": "row-1"}])
         self.delete_result = True
         self.configured = True
 
@@ -80,6 +82,19 @@ class FakeSupabase:
     def insert(self, table, rows):
         self.insert_calls.append((table, rows))
         return self.insert_result
+
+    def update_checked(self, table, data, filters):
+        """Mirrors services.supabase_client.update_checked: the filtered UPDATE and
+        the affected rows back.
+
+        A fake that simply lacks a method the real client has makes every route that
+        reaches it raise AttributeError inside Flask, and the browser suite reports
+        that as a timeout on whatever the page was waiting for — the shape of this
+        failure gave nothing away about the missing method. Zero rows back is the
+        lost-race branch, so `update_checked_result` is scriptable per test.
+        """
+        self.update_checked_calls.append((table, data, filters))
+        return self.update_checked_result
 
     def delete(self, table, filters):
         self.delete_calls.append((table, filters))
