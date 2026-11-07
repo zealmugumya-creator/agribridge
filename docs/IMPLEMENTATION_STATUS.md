@@ -1630,6 +1630,86 @@ between identities; which row survives is a business decision about whose histor
 the owner wants to keep, and the numbers above are the input to it, not an
 instruction.
 
+### The gate that CI ran and this workstation could not
+
+`635 passed` above was not the whole story: the browser suite is
+`pytest.importorskip("playwright")`, so every one of its tests *skipped* locally and
+CI ran them for real. CI failed one:
+
+```
+tests/e2e/test_consent_ui.py::test_changing_account_type_asks_for_the_new_role_terms
+  playwright._impl._errors.TimeoutError: Page.wait_for_selector: Timeout 5000ms exceeded.
+  waiting for locator("#legalReviewModal.open") to be visible
+```
+
+Reproduced here once `.test-deps` was on `PYTHONPATH` (1 failed). Three causes, in
+order of how much they mattered:
+
+1. **`tests/conftest.py`'s fake had no `update_checked`.** `services/supabase_client.py`
+   has had it since the stock-race work, so `/api/user/account-type` raised
+   `AttributeError` inside Flask and the browser suite reported a *timeout on a modal*
+   — a shape of failure that gave nothing away about the missing method. The fake now
+   mirrors it, with `update_checked_result` scriptable because zero rows back is the
+   lost-race branch.
+2. **The e2e fixture replaced the helpers but not `app.SUPA`.** Routes that write
+   through the client object went to `example.supabase.co` over a real socket and
+   returned 503. `SUPA = db` now covers them.
+3. **The test asserted the contract this stage removed.** It passed *before* this
+   stage only because `setAccountRole()` wrote `user_metadata.role` and the server read
+   it back — that field belongs to the signed-in client, which is precisely the switch
+   the owner asked to close. It now drives the real `<select>` on the Settings account
+   screen, asserts the choice landed in `user_roles` on the server, and asserts
+   `user_metadata.role` is still `farmer`. For the fake to answer the request that
+   follows the write, `tests/e2e/test_consent_ui.py` gained `_RoleStoreDb`: the one
+   table whose read-back decides a later write, because the legal check fires
+   immediately after the choice and has to be told the new role by the server.
+
+### Two product defects found by making that test pass
+
+**A refused choice never re-asked for the terms of the role it handed back.** The 409
+branch adopted the server's role — so the panel, the nav and the home screen moved —
+but only the 200 branch ran `postAuthLegalCheck()`. A login that turned out to be a
+hotel, refused and then adopted, kept the feature set of a hotel and the legal record of
+something else. Both branches now share one tail, and it fires when the effective role
+changed *or* the write succeeded. Pinned by
+`test_the_account_type_choice_is_not_offered_twice`, which also proves a second choice
+is refused by the server and not merely hidden.
+
+**The blocking terms screen opened behind the panel that raised it.** Measured, not
+assumed: `#legalReviewModal` and `#settingsModal` are both `.modal-overlay` at
+`z-index:500`, and Settings comes later in the document, so it paints over the review —
+while the review carries `.modal-locked` (Escape will not dismiss it) and sets
+`body.overflow: hidden`. The person choosing an account type in Settings was left in a
+frozen app with a dialog they could neither see nor tick. The failing click said so:
+
+```
+> assert topmost_of("#legalReviewBtn") == "on top"
+E  AssertionError: assert 'settingsModal' == 'on top'
+```
+
+Fixed with `#legalReviewModal{z-index:520}` and `#privacyRequestModal{z-index:530}` —
+the second because the privacy-request form is opened *from* the review screen and must
+clear it too. Verified in both directions: with the two rules put back to `500`,
+`test_a_blocking_review_screen_is_never_behind_the_panel_that_raised_it` and
+`test_the_account_type_choice_is_not_offered_twice` both fail; restored byte-identically
+(`cmp`) they both pass. Everything else that must sit above a dialog already does —
+toasts 700, checkout 600, the card sheet 900, location sheet 1201, landing 6000.
+
+### Gates re-run after those fixes
+
+| Check | Result |
+|---|---|
+| `PYTHONPATH=.test-deps pytest tests/ -q` (includes the browser suite) | **706 passed, 0 failed, 0 skipped** |
+| `pytest tests/e2e/ -q` alone | **71 passed** |
+| `python -m ruff check .` | All checks passed |
+| Every inline `<script>` in `static/index.html`, parsed with `node:vm` | **7 blocks checked, 0 syntax errors**; 2 `<style>` blocks, braces balanced |
+| `node --test` over `tests/sql`, `one_role_per_person.test.mjs` | unchanged from the table above — no SQL in this fix; CI re-runs both |
+
+The 706-run is the first time this stage has been measured with its own browser tests in
+it. It still cannot claim anything about production: `0026` and `0028` remain unapplied,
+so live behaviour is the code above sitting in front of a column that does not exist
+yet.
+
 ---
 
 
