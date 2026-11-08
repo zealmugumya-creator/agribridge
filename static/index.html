@@ -1952,6 +1952,17 @@ a.wl-chip small{color:var(--green)}
 <!-- ══════════════════ PAGE: HOME ══════════════════ -->
 <div id="page-home" class="page active" style="padding:0 0 80px">
 
+  <!-- ── App install nudge (shown to logged-in users who haven't installed yet) ── -->
+  <div id="homeInstallNudge" style="display:none;margin:12px 16px 0;background:linear-gradient(135deg,#0c2016,#122a1a);border:1px solid rgba(0,200,83,0.25);border-radius:14px;padding:12px 14px;align-items:center;gap:12px">
+    <img src="/logo.png" alt="" style="height:36px;width:auto;flex-shrink:0;filter:drop-shadow(0 1px 4px rgba(0,200,83,0.5))">
+    <div style="flex:1;min-width:0">
+      <div style="font-weight:800;font-size:.88rem;color:#fff;line-height:1.2">Get the AgriBridge App</div>
+      <div style="font-size:.74rem;color:var(--text2);margin-top:2px">Works offline · opens instantly · no browser bar</div>
+    </div>
+    <button onclick="showInstallModal()" style="background:var(--green);color:#04160c;border:none;border-radius:10px;padding:8px 14px;font-size:.8rem;font-weight:800;cursor:pointer;white-space:nowrap;flex-shrink:0">Get App</button>
+    <button onclick="document.getElementById('homeInstallNudge').style.display='none';localStorage.setItem('ab_nudge_dismissed','1')" style="background:transparent;border:none;color:var(--text2);cursor:pointer;font-size:1rem;padding:4px;flex-shrink:0" aria-label="Dismiss">✕</button>
+  </div>
+
   <!-- ── Buyer home top bar ── -->
   <div class="bh-top" id="buyerHomeTop">
     <div class="bh-location" onclick="promptLocationChange()">
@@ -3644,7 +3655,7 @@ function showPage(name) {
   if (name === 'delivery') { loadAlerts(); loadMyOrders(); }
   if (name === 'crops')    { renderCrops(); renderCalendar(); }
   if (name === 'animals')  loadAnimals();
-  if (name === 'home')     { loadHomeStats(); renderRoleHome(); renderRecommendations(); applyHomeMode(); }
+  if (name === 'home')     { loadHomeStats(); renderRoleHome(); renderRecommendations(); applyHomeMode(); if(typeof window.__maybeShowInstallNudge==='function') window.__maybeShowInstallNudge(); }
   if (name === 'dashboard') loadDashboard();
   if (name === 'farmer-produce')  loadFarmerProduce();
   if (name === 'farmer-orders')   loadFarmerOrders();
@@ -10884,9 +10895,21 @@ window.showPage = function(name) {
   });
   window.__installApp=function(){ if(typeof showInstallModal==='function') showInstallModal(); };
   window.__dismissInstall=function(){ hide(); localStorage.setItem('ab_install_dismissed','1'); };
+  // Show home install nudge for logged-in users who haven't installed yet
+  window.__maybeShowInstallNudge=function(){
+    var nudge=document.getElementById('homeInstallNudge');
+    if(!nudge) return;
+    if(isStandalone()){ nudge.style.display='none'; return; }
+    if(localStorage.getItem('ab_nudge_dismissed')) return;
+    var user=null; try{ user=localStorage.getItem('ab_user'); }catch(e){}
+    if(user) nudge.style.display='flex';
+  };
   window.addEventListener('load', function(){
-    if(isStandalone()){ // already installed — hide all install buttons and profile item
-      ['wlInstallBtn','wlAndroidBtn','wlIosBtn','profileInstallItem'].forEach(function(id){ var el=document.getElementById(id); if(el) el.style.display='none'; });
+    if(isStandalone()){ // already installed — hide landing buttons but keep profile item (shows "Already installed" state)
+      ['wlInstallBtn','wlAndroidBtn','wlIosBtn'].forEach(function(id){ var el=document.getElementById(id); if(el) el.style.display='none'; });
+      // Update profile item label to "App Installed" instead of hiding it
+      var pi=document.getElementById('profileInstallItem');
+      if(pi){ pi.querySelector('.profile-menu-label').textContent='App Installed ✓'; }
       return;
     }
     if(isIos()){
@@ -11963,7 +11986,7 @@ document.addEventListener('DOMContentLoaded', function() {
 </div>
 
 <!-- App install modal — shown when user taps Get/Download App buttons -->
-<div id="installModal" style="display:none;position:fixed;inset:0;z-index:600;background:rgba(0,0,0,0.65);align-items:flex-end;justify-content:center" onclick="if(event.target===this)closeInstallModal()">
+<div id="installModal" style="display:none;position:fixed;inset:0;z-index:7000;background:rgba(0,0,0,0.65);align-items:flex-end;justify-content:center" onclick="if(event.target===this)closeInstallModal()">
   <div style="background:var(--bg2);border-radius:22px 22px 0 0;width:100%;max-width:520px;padding:24px 20px 32px;box-shadow:0 -8px 32px rgba(0,0,0,0.4)">
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
       <div style="display:flex;align-items:center;gap:10px">
