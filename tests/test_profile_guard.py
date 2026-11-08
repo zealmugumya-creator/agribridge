@@ -163,12 +163,37 @@ def test_the_flask_blacklist_and_the_database_blacklist_are_the_same_list():
                                    f"database refuses {sorted(names_sql - names_py)}")
 
 
-@pytest.mark.parametrize("phone", ["0771", "+254700000000", "07712345678901", "abc"])
-def test_a_number_that_is_not_ugandan_is_refused(client, session, visits, phone):
+@pytest.mark.parametrize("phone", ["0771", "07712345678901", "abc", "+10000000000",
+                                   "12345", "+256"])
+def test_a_number_that_is_not_a_phone_is_refused(client, session, visits, phone):
+    """0030 widened the rule from Uganda to E.164, not to 'anything with digits'.
+    '+10000000000' is the placeholder the backend used to stamp on nameless
+    accounts: it passes the database's shape rule (it looks like a real NANP
+    number), so its refusal lives here, in normalize_phone — the path every
+    signup and profile save takes."""
     r = _put(client, {"phone": phone}, ip=f"10.7.3.{abs(hash(phone)) % 200}")
     assert r.status_code == 400, phone
-    assert "Ugandan phone" in r.get_json()["error"]
+    assert "country code" in r.get_json()["error"]
     assert _writes(visits) == []
+
+
+@pytest.mark.parametrize("given,stored", [
+    ("0771 234 567", "+256771234567"),
+    ("+256771234567", "+256771234567"),
+    ("256771234567", "+256771234567"),
+    ("771234567", "+256771234567"),
+    ("+254700123456", "+254700123456"),
+    ("+20 103 679 7717", "+201036797717"),
+    ("00201036797717", "+201036797717"),
+])
+def test_a_real_number_with_a_country_code_is_stored_in_one_shape(client, session, saved,
+                                                                  given, stored):
+    """The Egyptian exporter's number (+20 …) and the Kenyan buyer's (+254 …) must
+    normalise to the same +digits shape the uniqueness index compares — a duplicate
+    account on one number is only catchable if both signups store it identically."""
+    r = _put(client, {"phone": given}, ip=f"10.7.6.{abs(hash(given)) % 200}")
+    assert r.status_code == 200, given
+    assert saved["post"]["phone"] == stored
 
 
 def test_a_number_another_account_holds_is_refused_before_the_write(client, session,
@@ -340,3 +365,27 @@ def test_one_tap_on_save_is_one_write(spa):
     assert body.index("_savingProfile=true") < body.index("await abApi('/api/user/profile'")
     assert "} finally { _savingProfile=false; }" in body, (
         "a refused save must not leave the button locked forever")
+
+
+# ── the same phone rule on the signup side ───────────────────────────────────
+def test_the_browser_normalises_to_the_same_shape_as_the_route(spa):
+    """Signup used to accept any 9-12 digit number while the route refused
+    everything that was not +256. Migration 0030 widens both to E.164, and the
+    SPA helper must mirror normalize_phone in app.py — including the placeholder
+    refusal the database's shape rule cannot express."""
+    body = _balanced(spa, "function normalizePhoneE164(raw)", "{", "}")
+    for fragment in ("s.indexOf('00') === 0", r"/^256[37]\d{8}$/", r"/^0[37]\d{8}$/",
+                     r"/^[37]\d{8}$/", "d === '10000000000'", r"/^[1-9]\d{6,14}$/"):
+        assert fragment in body, fragment
+
+
+@pytest.mark.parametrize("header", ["async function doRegister()",
+                                    "async function saveOAuthProfile()"])
+def test_both_signup_flows_normalise_before_anything_leaves_the_browser(spa, header):
+    body = _balanced(spa, header, "{", "}")
+    assert "normalizePhoneE164(" in body, header
+    assert body.index("normalizePhoneE164(") < body.index("PHONE_HINT"), (
+        "the hint is shown when normalisation fails, not before it is tried")
+    assert "phone = _norm;" in body or "phone = normalized;" in body, (
+        "the stored value must be the normalised one, or the uniqueness index "
+        "compares two shapes of the same number")

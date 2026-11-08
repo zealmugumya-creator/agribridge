@@ -17,6 +17,22 @@
       "version": "1.0.0",
       "versioned_url": "legal/buyer-terms-1.0.0.html"
     },
+    "exporter-terms": {
+      "applies_to_roles": [
+        "exporter"
+      ],
+      "doc_type": "exporter-terms",
+      "effective_date": "2026-11-08",
+      "last_material_version": "1.0.0",
+      "material": true,
+      "requires_acceptance": "accept",
+      "sha256": "45f8b3305ae26c8f2ea6c61bab2aca56cb908a2aa46edc07e37b877fb5d80ad0",
+      "summary": "First published version of the extra terms for exporters and trading companies.",
+      "title": "Exporter and Trading Company Terms",
+      "url": "legal/exporter-terms.html",
+      "version": "1.0.0",
+      "versioned_url": "legal/exporter-terms-1.0.0.html"
+    },
     "farmer-terms": {
       "applies_to_roles": [
         "farmer"
@@ -83,6 +99,11 @@
     }
   },
   "role_documents": {
+    "exporter": [
+      "exporter-terms",
+      "privacy-policy",
+      "terms-of-use"
+    ],
     "farmer": [
       "farmer-terms",
       "privacy-policy",
