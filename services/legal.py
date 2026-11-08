@@ -47,6 +47,8 @@ def normalize_role(raw: str | None) -> str:
         return "farmer"
     if r in ("supplier", "input_seller"):
         return "supplier"
+    if r == "exporter":
+        return "exporter"
     return "vendor"
 
 
