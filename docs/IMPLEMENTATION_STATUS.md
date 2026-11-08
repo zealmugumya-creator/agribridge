@@ -1738,6 +1738,90 @@ layer, including the service key. Task #94 stays open for the same-email half an
 
 ---
 
+## 2026-11-08 — Stage E1: an exporter account type, and phones that carry a country code
+
+The trigger is a real offer: Five Trading & Supplies (Cairo) emailed two photographs of
+Egyptian red and golden onions and asked to trade through AgriBridge. Measured against
+the live rules, the company could not register honestly: the SPA, the API and migration
+0025's CHECK all refused any number that was not `+256`, and no account type described a
+foreign seller. The owner chose **fix the app first, then onboard**, and chose a **new
+"Exporter / Trading Co." type** rather than filing the company under farmer or supplier.
+
+### The design decision worth recording
+
+An exporter *sells*, and every selling surface in this app hangs off `farmers`
+(`listings.farmer_id`). So the exporter's profile row lives in `farmers` — but a farmers
+row on its own resolves as `farmer`, and N9's choice route locks once a profile row
+exists. The order therefore matters: `business_role='exporter'` is written through
+`POST /api/user/account-type` **before** the farmers row is created. The gate sits in
+`saveProfileWithRetry` (`static/index.html:3445`), the one place all three onboarding
+paths pass through — immediate signup, the deferred `ab_pending_profile` flush, and
+OAuth (which now queues the same pending profile). A 409 from the choice route is
+tolerated (the server already holds a type; the profile write meets the same guard);
+any other failure throws, so the save defers rather than freezing the login as a farmer
+forever. `resolve_account_type` already ranks `business_role` above `profile`, so no
+server change to the resolution order was needed — only the new word.
+
+### Migration 0029 — `0029_exporter_role_international_phones.up.sql`
+
+* `user_roles_business_role_chk` widened to admit `exporter` (NOT VALID — existing rows
+  are never scanned).
+* `farmers` and `buyers` phone CHECKs become `^[+][1-9][0-9]{6,14}$` (E.164 shape,
+  NOT VALID). `transporters` deliberately keeps `+256`: a driver is a local account an
+  operator creates, and widening it was not asked for.
+* `update_my_profile` replaced with the E.164 rule and 0025's full 12-name blacklist
+  (0008's version still carried the shorter list).
+* Pre-flight refuses to run without `bypassrls` and without 0028's `business_role`
+  column: **apply order is 0026 → 0028 → 0029**. The down file restores the narrow
+  rules and documents the reverse NOT VALID pressure (a foreign number written under
+  0029 fails its next UPDATE after rollback — measured, not assumed).
+
+The placeholder `+10000000000` satisfies E.164 at the database layer — it is
+indistinguishable from a real NANP number there — so its refusal lives in
+`normalize_phone` (app.py) and `normalizePhoneE164` (SPA), the paths every signup and
+profile save takes. Both helpers mirror each other exactly: `00` prefix stripped,
+three Ugandan local forms kept as `+256`, everything else must be 7–15 digits starting
+1–9. `legal_sync_signup` now normalises through the same helper, so the duplicate-phone
+guard compares one shape for foreign numbers too.
+
+### The legal document
+
+`legal/source/exporter-terms.md` → built `exporter-terms` 1.0.0 (effective 2026-11-08),
+archived and added to the manifest's `role_documents.exporter`. It states only what the
+platform actually does; payout timing is marked "to be confirmed" rather than invented,
+and it carries the same "not yet reviewed by a Ugandan advocate" note as the other role
+terms. `services/legal.py normalize_role` maps `exporter` to itself instead of falling
+through to buyer-terms.
+
+### Gates run for this stage (all executed on this workstation, 2026-11-08)
+
+* `pytest -q` (full suite, CI-equivalent): **730 passed, 0 failed, 0 skipped** — includes
+  the new exporter resolution/choice/SPA pins, the E.164 acceptance/refusal lists
+  (Egyptian `+20 103 679 7717` and Kenyan `+254` numbers normalise; `+10000000000`,
+  `0771`, `abc`, `+256` refused), and the exporter legal-document tests.
+* `tests/sql`: all 15 files green, including the new `exporter_role.test.mjs`
+  (**29 assertions**: pre-0029 refusal measured first, idempotent re-run, constraint
+  census, one-role guard still binds an exporter, RPC agrees with the table, rollback
+  preserves rows and refuses the next foreign UPDATE, re-apply restores).
+* ruff clean on every touched Python file; all 8 inline SPA script blocks parse
+  (`vm.Script`); `build_legal.py --check` passes (6 documents).
+
+### What is NOT done
+
+* **No account was created for Five Trading & Supplies, and no email was sent.** After
+  this deploy and the owner's 0026 → 0028 → 0029, the company self-registers as
+  Exporter / Trading Co. (or the owner sends a Supabase Auth invite to info@five-eg.com
+  and they set their own password). Their two photographs are their own actual photos —
+  usable only for their own future listing, never as a Ugandan farmer's harvest. The
+  email contains no price, quantity or sizes, so no listing can be written without
+  inventing data.
+* 0029 is **not applied** in production; until the owner applies the chain, an exporter
+  signup defers (the SPA gate throws on the choice route's 503 and queues the profile)
+  and foreign numbers are refused by the old CHECK. That is the designed behaviour,
+  not a malfunction.
+
+---
+
 
 **Completed:** 2026-10-10
 **Auditor:** Claude Code (baseline inspection, no live environment access)
