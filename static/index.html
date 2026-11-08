@@ -67,8 +67,9 @@ img{max-width:100%}
 
 /* ── NAVBAR ── */
 .navbar{position:fixed;top:0;left:0;right:0;z-index:200;height:var(--nav-h);background:rgba(6,15,9,0.99);border-bottom:1px solid var(--border);display:flex;align-items:center;gap:12px;padding:0 16px}
-.nav-logo{display:flex;align-items:center;white-space:nowrap;text-decoration:none}
-.nav-logo img{height:42px;width:auto;object-fit:contain}
+.nav-logo{display:flex;align-items:center;white-space:nowrap;text-decoration:none;padding:2px 0}
+.nav-logo img{height:52px;width:auto;object-fit:contain;filter:drop-shadow(0 2px 6px rgba(0,200,83,0.35)) drop-shadow(0 1px 3px rgba(0,0,0,0.6));transition:filter 0.2s,transform 0.2s}
+.nav-logo img:hover{filter:drop-shadow(0 3px 10px rgba(0,200,83,0.6)) drop-shadow(0 2px 6px rgba(0,0,0,0.7));transform:scale(1.04)}
 .nav-logo-txt{font-family:'Syne',sans-serif;font-size:1.3rem;font-weight:800;color:var(--green)}
 .nav-logo-txt span{color:var(--white)}
 .nav-search{flex:1;position:relative;max-width:400px}
@@ -544,7 +545,7 @@ img{max-width:100%}
      redundant and was pushing Log In / Join Free off the screen. */
   #basketNavBtn{display:none}
   .navbar .notif-bell{padding:4px;font-size:1.05rem}
-  .nav-logo img{height:36px}
+  .nav-logo img{height:44px}
   .navbar{gap:3px;padding:0 8px}
   .nav-btns{gap:5px}
   .nav-btns .btn-sm{padding:5px 8px;font-size:0.74rem}
@@ -553,13 +554,13 @@ img{max-width:100%}
 }
 @media(max-width:360px){
   .navbar{gap:2px;padding:0 6px}
-  .nav-logo img{height:28px}
+  .nav-logo img{height:38px}
   .navbar .notif-bell{padding:3px;font-size:1rem}
   .nav-btns{gap:4px}
   .nav-btns .btn-sm{padding:5px 6px;font-size:0.7rem}
 }
 @media(max-width:330px){
-  .nav-logo img{height:26px}
+  .nav-logo img{height:34px}
   .nav-btns .btn-sm{padding:5px 5px}
 }
 
@@ -1789,7 +1790,7 @@ a.wl-chip small{color:var(--green)}
 <!-- ══════════════════ WEB LANDING (browser visitors only) ══════════════════ -->
 <div id="webLanding" role="region" aria-label="AgriBridge — Bridging Farms, Building Markets">
   <header class="wl-nav">
-    <div class="wl-logo">🌱 Agri<span>Bridge</span></div>
+    <div class="wl-logo" style="display:flex;align-items:center"><img src="/logo.png" alt="AgriBridge" style="height:54px;width:auto;object-fit:contain;filter:drop-shadow(0 2px 8px rgba(0,200,83,0.4)) drop-shadow(0 1px 4px rgba(0,0,0,0.5))" onerror="this.style.display='none';this.nextElementSibling.style.display='inline'"><span style="display:none;font-family:'Syne',sans-serif;font-weight:800;font-size:1.35rem;color:var(--green)">🌱 Agri<span style="color:#fff">Bridge</span></span></div>
     <nav class="wl-navlinks">
       <a href="#wl-features">Features</a>
       <a href="#wl-roles">Who it's for</a>
