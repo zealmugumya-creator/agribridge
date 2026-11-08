@@ -96,6 +96,22 @@
       "url": "legal/terms-of-use.html",
       "version": "1.0.0",
       "versioned_url": "legal/terms-of-use-1.0.0.html"
+    },
+    "transporter-terms": {
+      "applies_to_roles": [
+        "transporter"
+      ],
+      "doc_type": "transporter-terms",
+      "effective_date": "2026-11-08",
+      "last_material_version": "1.0.0",
+      "material": true,
+      "requires_acceptance": "accept",
+      "sha256": "4fff3628670504963b558262acad4549f9cd0df4afb90091d8042ff5b7ebf2d3",
+      "summary": "First published version of the AgriBridge Transporter Agreement for delivery drivers and logistics providers.",
+      "title": "Transporter Agreement",
+      "url": "legal/transporter-terms.html",
+      "version": "1.0.0",
+      "versioned_url": "legal/transporter-terms-1.0.0.html"
     }
   },
   "role_documents": {
@@ -118,6 +134,11 @@
       "privacy-policy",
       "supplier-terms",
       "terms-of-use"
+    ],
+    "transporter": [
+      "privacy-policy",
+      "terms-of-use",
+      "transporter-terms"
     ],
     "vendor": [
       "buyer-terms",
