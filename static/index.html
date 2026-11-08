@@ -1809,9 +1809,9 @@ a.wl-chip small{color:var(--green)}
         <button class="wl-btn ghost lg" onclick="enterApp('register')">Create free account</button>
       </div>
       <div class="wl-stores">
-        <button class="wl-store wl-install-btn" id="wlInstallBtn" onclick="__wlInstall()" style="display:none"><span>📲</span><span><small>Install the</small>AgriBridge App</span></button>
-        <button class="wl-store" onclick="appStoreClick()"><span>▶</span><span><small>Get it on</small>Google Play</span></button>
-        <button class="wl-store" onclick="appStoreClick()"><span></span><span><small>Download on the</small>App Store</span></button>
+        <button class="wl-store wl-install-btn" id="wlInstallBtn" onclick="showInstallModal()" style="display:none"><span>📲</span><span><small>Install the</small>AgriBridge App</span></button>
+        <button class="wl-store" id="wlAndroidBtn" onclick="showInstallModal()"><span>▶</span><span><small>Get it on</small>Google Play</span></button>
+        <button class="wl-store" id="wlIosBtn" onclick="showInstallModal()"><span></span><span><small>Download on the</small>App Store</span></button>
       </div>
       <div class="wl-ussd">📵 No smartphone? Dial <b>*789#</b> on any MTN or Airtel phone.</div>
     </div>
@@ -3052,6 +3052,12 @@ AgriBridge service</div>
     <div class="profile-menu-item" onclick="settingsGo('language');openModal('settingsModal')">
       <div class="profile-menu-ic">🌐</div>
       <span class="profile-menu-label" data-i18n="profile.language">Language</span>
+      <span class="profile-menu-arrow">›</span>
+    </div>
+    <div class="profile-menu-item" id="profileInstallItem" onclick="showInstallModal()">
+      <div class="profile-menu-ic">📲</div>
+      <span class="profile-menu-label">Get the App</span>
+      <span style="font-size:0.65rem;font-weight:700;padding:2px 7px;border-radius:999px;background:var(--green-dim);color:var(--green-light)">FREE</span>
       <span class="profile-menu-arrow">›</span>
     </div>
   </div>
@@ -10862,18 +10868,34 @@ window.showPage = function(name) {
   function isIos(){ return /iphone|ipad|ipod/i.test(navigator.userAgent||''); }
   function show(){ var b=document.getElementById('installBanner'); if(b) b.style.display='flex'; }
   function hide(){ var b=document.getElementById('installBanner'); if(b) b.style.display='none'; }
-  window.addEventListener('beforeinstallprompt', function(e){ e.preventDefault(); deferred=e; if(!localStorage.getItem('ab_install_dismissed')) show(); var lb=document.getElementById('wlInstallBtn'); if(lb) lb.style.display='flex'; });
-  window.__wlInstall=function(){ if(deferred){ deferred.prompt(); deferred.userChoice.then(function(r){ if(r.outcome==='accepted'){ var lb=document.getElementById('wlInstallBtn'); if(lb) lb.style.display='none'; } }); } else if(isIos()){ showToast&&showToast('Tap the Share icon ⬆ then "Add to Home Screen"'); } };
-  window.addEventListener('appinstalled', function(){ hide(); localStorage.setItem('ab_install_dismissed','1'); if(typeof showToast==='function') showToast('Installed! Find AgriBridge on your home screen 🎉'); });
-  window.__installApp=function(){
-    if(deferred){ deferred.prompt(); deferred.userChoice.then(function(){ deferred=null; hide(); }); }
-    else if(isIos()){ if(typeof showToast==='function') showToast('Tap the Share icon, then "Add to Home Screen" to install'); }
-    else if(typeof showToast==='function'){ showToast('Open your browser menu and choose "Install app"'); }
-  };
+  window.addEventListener('beforeinstallprompt', function(e){
+    e.preventDefault(); deferred=e; window.__installDeferred=e;
+    if(!localStorage.getItem('ab_install_dismissed')) show();
+    var lb=document.getElementById('wlInstallBtn'); if(lb) lb.style.display='flex';
+    // On landing page show the Install button, hide the generic store buttons
+    var ab=document.getElementById('wlAndroidBtn'); var ib=document.getElementById('wlIosBtn');
+    if(ab) ab.style.display='none'; if(ib) ib.style.display='none';
+  });
+  window.__wlInstall=function(){ if(typeof showInstallModal==='function') showInstallModal(); };
+  window.addEventListener('appinstalled', function(){
+    hide(); localStorage.setItem('ab_install_dismissed','1'); window.__installDeferred=null;
+    if(typeof showToast==='function') showToast('Installed! Find AgriBridge on your home screen 🎉');
+    var lb=document.getElementById('wlInstallBtn'); if(lb) lb.style.display='none';
+  });
+  window.__installApp=function(){ if(typeof showInstallModal==='function') showInstallModal(); };
   window.__dismissInstall=function(){ hide(); localStorage.setItem('ab_install_dismissed','1'); };
   window.addEventListener('load', function(){
-    if(isStandalone()) return; // already installed — never nag
-    if(isIos() && !localStorage.getItem('ab_install_dismissed')) setTimeout(show, 2500);
+    if(isStandalone()){ // already installed — hide all install buttons and profile item
+      ['wlInstallBtn','wlAndroidBtn','wlIosBtn','profileInstallItem'].forEach(function(id){ var el=document.getElementById(id); if(el) el.style.display='none'; });
+      return;
+    }
+    if(isIos()){
+      // On iOS, show the iOS-style button and hide Android one
+      var ab=document.getElementById('wlAndroidBtn'); var ib=document.getElementById('wlIosBtn');
+      if(ab) ab.style.display='none';
+      if(ib){ ib.querySelector('small').textContent='Download on the'; ib.querySelector('span:last-child').lastChild.textContent='App Store'; ib.style.display='flex'; }
+      if(!localStorage.getItem('ab_install_dismissed')) setTimeout(show, 2500);
+    }
   });
 })();
 
@@ -11940,6 +11962,55 @@ document.addEventListener('DOMContentLoaded', function() {
   <button class="ib-x" onclick="__dismissInstall()" aria-label="Dismiss">✕</button>
 </div>
 
+<!-- App install modal — shown when user taps Get/Download App buttons -->
+<div id="installModal" style="display:none;position:fixed;inset:0;z-index:600;background:rgba(0,0,0,0.65);align-items:flex-end;justify-content:center" onclick="if(event.target===this)closeInstallModal()">
+  <div style="background:var(--bg2);border-radius:22px 22px 0 0;width:100%;max-width:520px;padding:24px 20px 32px;box-shadow:0 -8px 32px rgba(0,0,0,0.4)">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
+      <div style="display:flex;align-items:center;gap:10px">
+        <img src="/logo.png" alt="" style="height:36px;width:auto;filter:drop-shadow(0 1px 4px rgba(0,200,83,0.4))">
+        <div><div style="font-weight:800;font-size:1.05rem;color:var(--text)">Get AgriBridge</div><div style="font-size:0.76rem;color:var(--text2)">Add to your home screen</div></div>
+      </div>
+      <button onclick="closeInstallModal()" style="background:var(--bg3);border:none;border-radius:50%;width:32px;height:32px;font-size:1rem;cursor:pointer;color:var(--text2)">✕</button>
+    </div>
+    <!-- Android / Desktop: native install prompt available -->
+    <div id="im-android" style="display:none">
+      <div style="background:var(--green-dim);border-radius:14px;padding:16px;margin-bottom:14px;display:flex;gap:12px;align-items:center">
+        <span style="font-size:1.8rem">📲</span>
+        <div><div style="font-weight:700;color:var(--text);margin-bottom:3px">Install on this device</div><div style="font-size:0.8rem;color:var(--text2)">Works offline · opens instantly · no browser bar</div></div>
+      </div>
+      <button onclick="__doInstallPrompt()" style="width:100%;padding:14px;background:var(--green);color:#04160c;border:none;border-radius:13px;font-size:1rem;font-weight:800;cursor:pointer;margin-bottom:10px">📲 Install App</button>
+    </div>
+    <!-- iOS instructions -->
+    <div id="im-ios" style="display:none">
+      <div style="background:var(--bg3);border-radius:14px;padding:16px;margin-bottom:14px">
+        <div style="font-weight:700;color:var(--text);margin-bottom:10px">Add to Home Screen on iPhone / iPad</div>
+        <div style="display:flex;flex-direction:column;gap:9px">
+          <div style="display:flex;align-items:center;gap:10px"><div style="width:28px;height:28px;border-radius:8px;background:var(--green);color:#04160c;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:.85rem;flex-shrink:0">1</div><span style="font-size:0.88rem;color:var(--text)">Tap the <strong>Share</strong> button <span style="font-size:1.1rem">⬆</span> in Safari's toolbar</span></div>
+          <div style="display:flex;align-items:center;gap:10px"><div style="width:28px;height:28px;border-radius:8px;background:var(--green);color:#04160c;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:.85rem;flex-shrink:0">2</div><span style="font-size:0.88rem;color:var(--text)">Scroll down and tap <strong>"Add to Home Screen"</strong></span></div>
+          <div style="display:flex;align-items:center;gap:10px"><div style="width:28px;height:28px;border-radius:8px;background:var(--green);color:#04160c;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:.85rem;flex-shrink:0">3</div><span style="font-size:0.88rem;color:var(--text)">Tap <strong>Add</strong> — AgriBridge appears on your home screen</span></div>
+        </div>
+      </div>
+      <div style="font-size:0.76rem;color:var(--text2);text-align:center;margin-bottom:10px">⚠ Must be opened in <strong>Safari</strong> for this to work on iOS</div>
+    </div>
+    <!-- Fallback: browser menu -->
+    <div id="im-other" style="display:none">
+      <div style="background:var(--bg3);border-radius:14px;padding:16px;margin-bottom:14px">
+        <div style="font-weight:700;color:var(--text);margin-bottom:6px">Install from your browser</div>
+        <div style="font-size:0.85rem;color:var(--text2)">Open your browser menu (⋮ or ⋯) and look for <strong>"Install app"</strong> or <strong>"Add to Home Screen"</strong>. On Chrome, it may also appear in the address bar as a small install icon.</div>
+      </div>
+    </div>
+    <!-- Already installed -->
+    <div id="im-installed" style="display:none">
+      <div style="text-align:center;padding:16px 0">
+        <div style="font-size:2.2rem;margin-bottom:8px">✅</div>
+        <div style="font-weight:800;color:var(--text);font-size:1rem">Already installed!</div>
+        <div style="font-size:0.82rem;color:var(--text2);margin-top:4px">AgriBridge is running as an installed app on this device.</div>
+      </div>
+    </div>
+    <button onclick="closeInstallModal()" style="width:100%;padding:12px;background:var(--bg3);border:1px solid var(--border);border-radius:13px;font-size:0.9rem;font-weight:600;cursor:pointer;color:var(--text2)">Close</button>
+  </div>
+</div>
+
 <!-- Phone alerts (push) prompt — shown once after login -->
 <div id="pushPrompt" role="region" aria-label="Phone alerts">
   <div class="pp-txt"><b>🔔 Get order updates on your phone</b>See confirmations and delivery updates in your phone's notification bar — even when AgriBridge is closed.</div>
@@ -11973,9 +12044,35 @@ function enterApp(target){
   if(target==='login' && typeof openModal==='function') openModal('loginModal');
   else if(target==='register' && typeof openModal==='function') openModal('registerModal');
 }
-function appStoreClick(){
-  if(typeof showToast==='function') showToast('📲 Coming soon to Google Play & the App Store! For now tap “Launch app”, or add AgriBridge to your home screen.');
-  else enterApp();
+function appStoreClick(){ showInstallModal(); }
+
+function showInstallModal(){
+  var m=document.getElementById('installModal');
+  if(!m) return;
+  // Detect environment
+  var isStandalone=(window.matchMedia&&window.matchMedia('(display-mode: standalone)').matches)||window.navigator.standalone===true;
+  var isIos=/iphone|ipad|ipod/i.test(navigator.userAgent||'');
+  var hasDeferred=!!window.__installDeferred;
+  // Show correct panel
+  ['im-android','im-ios','im-other','im-installed'].forEach(function(id){ var el=document.getElementById(id); if(el) el.style.display='none'; });
+  if(isStandalone){ document.getElementById('im-installed').style.display='block'; }
+  else if(hasDeferred){ document.getElementById('im-android').style.display='block'; }
+  else if(isIos){ document.getElementById('im-ios').style.display='block'; }
+  else { document.getElementById('im-other').style.display='block'; }
+  m.style.display='flex';
+  document.body.style.overflow='hidden';
+}
+function closeInstallModal(){
+  var m=document.getElementById('installModal'); if(m) m.style.display='none';
+  document.body.style.overflow='';
+}
+function __doInstallPrompt(){
+  if(window.__installDeferred){
+    window.__installDeferred.prompt();
+    window.__installDeferred.userChoice.then(function(r){
+      if(r.outcome==='accepted'){ window.__installDeferred=null; closeInstallModal(); if(typeof showToast==='function') showToast('Installed! Find AgriBridge on your home screen 🎉'); }
+    });
+  }
 }
 </script>
 
