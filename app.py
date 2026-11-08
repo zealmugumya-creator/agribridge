@@ -5855,7 +5855,7 @@ def normalize_phone(raw):
 
     Ugandan local forms (0771…, 256771…, 771…) keep normalising to +256; any
     other number must carry its country code. The stored shape is the E.164 rule
-    migration 0029 installs on farmers and buyers, and normalizePhoneE164 in
+    migration 0030 installs on farmers and buyers, and normalizePhoneE164 in
     static/index.html applies the same rule before signUp. '+10000000000' — the
     placeholder eight legacy accounts share — satisfies E.164 but is not a
     number anyone owns, so a new write may not use it; the database cannot tell

@@ -2,18 +2,18 @@
  * Copyright (C) 2026 Mugumya Zeal. All rights reserved.
  */
 
-// Verifies migration 0029 (exporter role + international phones) against a real
+// Verifies migration 0030 (exporter role + international phones) against a real
 // PostgreSQL engine, on top of the same chain the live project must walk:
-// 0025 → 0026 → 0028 → 0029.
+// 0025 → 0026 → 0028 → 0030.
 //
 // The offer that prompted this: Five Trading & Supplies (Egypt, +20 103 679 7717)
-// wants to sell onions through AgriBridge. Before 0029 the database refuses their
+// wants to sell onions through AgriBridge. Before 0030 the database refuses their
 // number (0025's +256-only CHECK) and has no word for what they are
 // (0028's business_role CHECK). The owner chose a new "Exporter / Trading Co."
 // type over filing a foreign company under 'farmer'.
 //
 // Measured here:
-//   1. the hole is open before 0029 and shut after it — an Egyptian number is
+//   1. the hole is open before 0030 and shut after it — an Egyptian number is
 //      refused by farmers_phone_uganda, then stored by farmers_phone_e164;
 //   2. 'exporter' is a storable business role, and the words that are NOT roles
 //      stay refused;
@@ -22,7 +22,7 @@
 //   4. transporters keep the +256 rule — drivers are local, admin-created;
 //   5. update_my_profile validates the same E.164 shape and 0025's name list;
 //   6. the rollback restores the old rules without touching rows, and a foreign
-//      number written under 0029 then fails its next UPDATE (the NOT VALID
+//      number written under 0030 then fails its next UPDATE (the NOT VALID
 //      pressure 0025 documented, in reverse).
 //
 // Run:  cd tests/sql && npm install && node exporter_role.test.mjs
@@ -35,8 +35,8 @@ const read = (f) => readFileSync(new URL(f, dir), 'utf8');
 const guard  = read('0025_identity_checks_all_users.up.sql');
 const signup = read('0026_self_signup_insert_policies.up.sql');
 const roles  = read('0028_one_role_per_person.up.sql');
-const up     = read('0029_exporter_role_international_phones.up.sql');
-const down   = read('0029_exporter_role_international_phones.down.sql');
+const up     = read('0030_exporter_role_international_phones.up.sql');
+const down   = read('0030_exporter_role_international_phones.down.sql');
 
 const db = new PGlite();
 
@@ -147,7 +147,7 @@ await rejectsCode(() => as('authenticated', EXP,
   `insert into public.farmers (id, full_name, phone, district)
      values ('${EXP}', 'Ibrahim Hamroush', '${EGYPT}', 'Cairo')`),
   '23514', /phone_uganda|check constraint/,
-  'before 0029 an Egyptian number cannot be stored — the company cannot register');
+  'before 0030 an Egyptian number cannot be stored — the company cannot register');
 
 await rejects(() => as('service_role', null,
   `insert into public.user_roles (user_id, role, business_role)
@@ -155,10 +155,10 @@ await rejects(() => as('service_role', null,
   /user_roles_business_role_chk|check constraint/,
   '…and 0028 has no word for what they are');
 
-// ── 2. Apply 0029 ───────────────────────────────────────────────────────────
+// ── 2. Apply 0030 ───────────────────────────────────────────────────────────
 await db.exec(up);
 await db.exec(up);
-ok('0029 is safe to re-run');
+ok('0030 is safe to re-run');
 
 r = await db.query(`select constraint_name from information_schema.check_constraints
                      where constraint_schema = 'public'
@@ -284,14 +284,14 @@ await rejects(() => as('service_role', null,
 await rejectsCode(() => as('authenticated', EXP,
   `update public.farmers set district = 'Giza' where id = '${EXP}'`),
   '23514', /phone_uganda|check constraint/,
-  'a foreign number written under 0029 fails its next UPDATE after rollback — the '
+  'a foreign number written under 0030 fails its next UPDATE after rollback — the '
   + 'NOT VALID pressure 0025 named, in reverse (documented in the down file)');
 
 await db.exec(up);
 r = await as('authenticated', EXP,
   `update public.farmers set district = 'Giza' where id = '${EXP}'`);
 assert.equal(r.rows.length, 0);
-ok('re-applying 0029 makes those profiles editable again');
+ok('re-applying 0030 makes those profiles editable again');
 
 console.log(`\n${passed} passed`);
 await db.close();

@@ -1,6 +1,6 @@
 -- Copyright (C) 2026 zealmugumya-creator. All rights reserved.
 --
--- 0029 — an honest account type for a foreign trading company, and phones that
+-- 0030 — an honest account type for a foreign trading company, and phones that
 --        can come from anywhere.
 --
 -- WHY THIS EXISTS. On 2026-11-06 a real offer reached the owner: Five Trading &
@@ -75,7 +75,7 @@ declare
 begin
   select rolbypassrls into v_bypass from pg_roles where rolname = current_user;
   if v_bypass is distinct from true then
-    raise exception '0029 must be applied by a role that bypasses row level security (in Supabase: postgres). Applying it as "%" would own an RPC that reads through its own policies.',
+    raise exception '0030 must be applied by a role that bypasses row level security (in Supabase: postgres). Applying it as "%" would own an RPC that reads through its own policies.',
       current_user
       using errcode = '55000',
             hint   = 'Run this file in the Supabase SQL Editor signed in as the project owner. Nothing has been committed.';
@@ -85,9 +85,9 @@ begin
                   where table_schema = 'public' and table_name = 'user_roles'
                     and column_name = 'business_role') into v_column;
   if not v_column then
-    raise exception '0029 needs user_roles.business_role, which migration 0028 adds'
+    raise exception '0030 needs user_roles.business_role, which migration 0028 adds'
       using errcode = '55000',
-            hint   = 'Apply 0026, then 0028, then 0029. Nothing has been committed.';
+            hint   = 'Apply 0026, then 0028, then 0030. Nothing has been committed.';
   end if;
 end $$;
 
@@ -127,7 +127,7 @@ begin
   if not exists (select 1 from information_schema.check_constraints
                   where constraint_schema = 'public'
                     and constraint_name = 'farmers_phone_e164') then
-    raise exception '0029 installed no farmers phone rule'
+    raise exception '0030 installed no farmers phone rule'
       using hint = 'public.farmers is missing phone, so the live table is not the '
                    'one this migration describes. Nothing else has been committed.';
   end if;

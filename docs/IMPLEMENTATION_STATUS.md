@@ -1762,7 +1762,13 @@ any other failure throws, so the save defers rather than freezing the login as a
 forever. `resolve_account_type` already ranks `business_role` above `profile`, so no
 server change to the resolution order was needed — only the new word.
 
-### Migration 0029 — `0029_exporter_role_international_phones.up.sql`
+### Migration 0030 — `0030_exporter_role_international_phones.up.sql`
+
+Numbered 0029 when first written; a second session's `0029_contact_messages_reply`
+(admin reply tracking, independent of this chain) reached `origin/main` first, so
+this file was renumbered to **0030** before push — the hygiene suite refuses
+duplicate numbers. The contact-reply 0029 was also wrapped in `begin;`/`commit;`
+on the rebased tree, which its author had omitted.
 
 * `user_roles_business_role_chk` widened to admit `exporter` (NOT VALID — existing rows
   are never scanned).
@@ -1772,9 +1778,9 @@ server change to the resolution order was needed — only the new word.
 * `update_my_profile` replaced with the E.164 rule and 0025's full 12-name blacklist
   (0008's version still carried the shorter list).
 * Pre-flight refuses to run without `bypassrls` and without 0028's `business_role`
-  column: **apply order is 0026 → 0028 → 0029**. The down file restores the narrow
+  column: **apply order is 0026 → 0028 → 0030**. The down file restores the narrow
   rules and documents the reverse NOT VALID pressure (a foreign number written under
-  0029 fails its next UPDATE after rollback — measured, not assumed).
+  0030 fails its next UPDATE after rollback — measured, not assumed).
 
 The placeholder `+10000000000` satisfies E.164 at the database layer — it is
 indistinguishable from a real NANP number there — so its refusal lives in
@@ -1800,7 +1806,7 @@ through to buyer-terms.
   (Egyptian `+20 103 679 7717` and Kenyan `+254` numbers normalise; `+10000000000`,
   `0771`, `abc`, `+256` refused), and the exporter legal-document tests.
 * `tests/sql`: all 15 files green, including the new `exporter_role.test.mjs`
-  (**29 assertions**: pre-0029 refusal measured first, idempotent re-run, constraint
+  (**29 assertions**: pre-0030 refusal measured first, idempotent re-run, constraint
   census, one-role guard still binds an exporter, RPC agrees with the table, rollback
   preserves rows and refuses the next foreign UPDATE, re-apply restores).
 * ruff clean on every touched Python file; all 8 inline SPA script blocks parse
@@ -1809,13 +1815,13 @@ through to buyer-terms.
 ### What is NOT done
 
 * **No account was created for Five Trading & Supplies, and no email was sent.** After
-  this deploy and the owner's 0026 → 0028 → 0029, the company self-registers as
+  this deploy and the owner's 0026 → 0028 → 0030, the company self-registers as
   Exporter / Trading Co. (or the owner sends a Supabase Auth invite to info@five-eg.com
   and they set their own password). Their two photographs are their own actual photos —
   usable only for their own future listing, never as a Ugandan farmer's harvest. The
   email contains no price, quantity or sizes, so no listing can be written without
   inventing data.
-* 0029 is **not applied** in production; until the owner applies the chain, an exporter
+* 0030 is **not applied** in production; until the owner applies the chain, an exporter
   signup defers (the SPA gate throws on the choice route's 503 and queues the profile)
   and foreign numbers are refused by the old CHECK. That is the designed behaviour,
   not a malfunction.

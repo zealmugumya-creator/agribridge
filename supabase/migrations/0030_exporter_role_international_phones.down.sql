@@ -1,11 +1,11 @@
 -- Copyright (C) 2026 zealmugumya-creator. All rights reserved.
 --
--- Rollback for 0029. Restores the rules as 0028 and 0025 left them:
+-- Rollback for 0030. Restores the rules as 0028 and 0025 left them:
 --   * business_role without 'exporter' (NOT VALID, so a row already written as
 --     exporter is not scanned and does not abort the rollback — it simply
---     cannot be written again until 0029 is re-applied);
+--     cannot be written again until 0030 is re-applied);
 --   * the +256 phone rule on farmers and buyers. Any row saved with a foreign
---     number while 0029 was live keeps that number but fails its next UPDATE,
+--     number while 0030 was live keeps that number but fails its next UPDATE,
 --     the same NOT VALID pressure 0025 documented in reverse;
 --   * 0008's update_my_profile, Ugandan rule and original blacklist.
 -- No rows are read or changed.

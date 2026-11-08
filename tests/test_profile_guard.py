@@ -166,7 +166,7 @@ def test_the_flask_blacklist_and_the_database_blacklist_are_the_same_list():
 @pytest.mark.parametrize("phone", ["0771", "07712345678901", "abc", "+10000000000",
                                    "12345", "+256"])
 def test_a_number_that_is_not_a_phone_is_refused(client, session, visits, phone):
-    """0029 widened the rule from Uganda to E.164, not to 'anything with digits'.
+    """0030 widened the rule from Uganda to E.164, not to 'anything with digits'.
     '+10000000000' is the placeholder the backend used to stamp on nameless
     accounts: it passes the database's shape rule (it looks like a real NANP
     number), so its refusal lives here, in normalize_phone — the path every
@@ -370,7 +370,7 @@ def test_one_tap_on_save_is_one_write(spa):
 # ── the same phone rule on the signup side ───────────────────────────────────
 def test_the_browser_normalises_to_the_same_shape_as_the_route(spa):
     """Signup used to accept any 9-12 digit number while the route refused
-    everything that was not +256. Migration 0029 widens both to E.164, and the
+    everything that was not +256. Migration 0030 widens both to E.164, and the
     SPA helper must mirror normalize_phone in app.py — including the placeholder
     refusal the database's shape rule cannot express."""
     body = _balanced(spa, "function normalizePhoneE164(raw)", "{", "}")

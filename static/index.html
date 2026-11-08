@@ -3507,7 +3507,7 @@ async function saveProfileWithRetry(profile, attempts) {
         // therefore be recorded BEFORE the row exists, while the one-time choice
         // is still open. A 409 means the server already holds a type for this
         // login — let the profile write meet the same guard and answer honestly.
-        // Anything else (503 before migration 0029 is applied, a failed request)
+        // Anything else (503 before migration 0030 is applied, a failed request)
         // defers the whole save to the pending-profile flush rather than writing
         // a row that would freeze this login as a farmer forever.
         if ((profile.role || '') === 'exporter') {
@@ -9279,7 +9279,7 @@ function validatePhone(phone) {
   return cleaned.length >= 9 && cleaned.length <= 12;
 }
 
-// Same rule as normalize_phone in app.py and the E.164 check migration 0029
+// Same rule as normalize_phone in app.py and the E.164 check migration 0030
 // installs on farmers/buyers: Ugandan local forms keep their +256, every other
 // number must carry its country code. Returns '' when it cannot be stored
 // honestly — including '+10000000000', the placeholder no new account may use.
