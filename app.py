@@ -3494,7 +3494,7 @@ def admin_contact_reply():
     actor = (payload_tok or {}).get('sub') or 'admin'
     _discord_notify(
         event_type='support.reply_sent',
-        title=f'↩️ Admin replied to contact message',
+        title='↩️ Admin replied to contact message',
         description=(
             f'**To:** {sender_name} ({contact})\n'
             f'**Reply:** {reply_text[:300]}\n'
