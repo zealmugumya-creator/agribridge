@@ -277,6 +277,22 @@ def test_the_server_written_choice_beats_everything_else(store):
         assert app_mod.resolve_account_type(UID, "farmer") == ("hotel", "business_role")
 
 
+def test_an_exporter_holding_a_farmers_row_is_still_an_exporter(store):
+    """The core of the exporter design: they sell through the same farmers row a
+    farmer uses (listings.farmer_id points there), and that row on its own reads as
+    'farmer'. The recorded choice is what keeps the answer 'exporter' — which is
+    why the SPA writes the type BEFORE the row exists."""
+    with app_mod.app.test_request_context("/api/x"):
+        store(business="exporter", farmers=[{"id": UID}])
+        assert app_mod.resolve_account_type(UID, "farmer") == ("exporter", "business_role")
+
+
+def test_exporter_metadata_answers_only_while_the_server_has_nothing(store):
+    with app_mod.app.test_request_context("/api/x"):
+        store()
+        assert app_mod.resolve_account_type(UID, "exporter") == ("exporter", "metadata")
+
+
 def test_an_operator_keeps_the_answer_it_had_before_this_stage(store):
     """A privilege row with no business_role resolves exactly as the old _auth_role()
     did, so the terms an admin accepts do not move under this stage."""
@@ -351,7 +367,8 @@ def test_a_person_with_nothing_to_go_on_is_offered_the_choice(client, session, s
     r = client.get("/api/user/account-type", headers={"Authorization": "Bearer tok"})
     body = r.get_json()
     assert body["can_choose"] is True
-    assert [c["value"] for c in body["choices"]] == ["farmer", "vendor", "hotel", "supplier"]
+    assert [c["value"] for c in body["choices"]] == ["farmer", "vendor", "hotel", "supplier",
+                                                   "exporter"]
 
 
 def test_a_farmer_is_told_what_they_are_and_not_asked_again(client, session, store):
@@ -427,7 +444,7 @@ def test_repeating_the_same_choice_is_not_an_error(client, session, supa, store)
 
 
 def test_a_word_that_is_not_an_account_type_is_refused(client, session, supa, store):
-    """'buyer' is the word the owner used, and it is still not a role: the app's four
+    """'buyer' is the word the owner used, and it is still not a role: the app's five
     are the signup select, and a transporter is issued by an operator."""
     store()
     for i, bad in enumerate(["buyer", "admin", "transporter", "", "superadmin"]):
@@ -543,6 +560,33 @@ def test_the_get_and_the_post_agree_on_who_is_locked(client, session, supa, stor
         refused = _choose(client, "supplier", ip=f"10.9.3.{len(table)}")
         assert refused.status_code == 409, table
         assert refused.get_json()["role"] == role, table
+    assert supa.update_calls == [] and supa.insert_calls == []
+
+
+# ── 4b. the exporter type (Stage E1) ─────────────────────────────────────────
+def test_choosing_exporter_is_written_like_any_other_choice(client, session, supa, store):
+    store()
+    r = _choose(client, "exporter", ip="10.9.4.1")
+    assert r.status_code == 200 and r.get_json()["role"] == "exporter"
+    assert supa.update_calls == [("user_roles", {"business_role": "exporter"},
+                                  {"user_id": f"eq.{UID}", "business_role": "is.null"})]
+
+
+def test_the_choice_is_offered_with_the_label_the_signup_select_uses(client, session, store):
+    store()
+    r = client.get("/api/user/account-type", headers={"Authorization": "Bearer tok"})
+    choices = {c["value"]: c["label"] for c in r.get_json()["choices"]}
+    assert choices["exporter"] == "Exporter / trading company"
+
+
+def test_a_farmers_row_closes_the_door_on_exporter_too(client, session, supa, store):
+    """The same lock that stops a farmer becoming a hotel stops one becoming an
+    exporter after the fact: the choice has to be made before the row exists.
+    This is the rule the SPA's saveProfileWithRetry gate is built around."""
+    store(farmers=[{"id": UID}])
+    r = _choose(client, "exporter", ip="10.9.4.2")
+    assert r.status_code == 409
+    assert r.get_json()["role"] == "farmer"
     assert supa.update_calls == [] and supa.insert_calls == []
 
 
@@ -699,3 +743,50 @@ def test_the_navigation_follows_the_server_answer_and_not_the_guess(spa):
         "an operator is a privilege, not a marketplace account, and must keep the "
         "view the console was built for"
     )
+
+
+# ── 7. the exporter on the other side of the choice (Stage E1) ───────────────
+def test_both_signup_selects_offer_the_exporter_type(spa):
+    for select in ("regRole", "oauthRole"):
+        tag = spa[spa.index(f'<select id="{select}"'):]
+        tag = tag[:tag.index("</select>")]
+        assert 'value="exporter"' in tag, select
+
+
+def test_the_navigation_knows_the_exporter_word(spa):
+    body = _fn(spa, "function getCurrentRole()")
+    assert "if (role === 'exporter') return 'exporter';" in body
+
+
+def test_an_exporter_navigates_the_selling_surfaces(spa):
+    """They list produce and fulfil orders exactly as a farmer does — the five
+    seller tabs, not the buyer's market browse."""
+    nav = _fn(spa, "var ROLE_NAV =")
+    farmer = re.search(r"farmer:\s*(\[.*?\])", nav).group(1)
+    exporter = re.search(r"exporter:\s*(\[.*?\])", nav).group(1)
+    assert farmer == exporter
+
+
+def test_the_exporter_type_is_recorded_before_the_row_that_would_freeze_it(spa):
+    """A farmers row on its own reads as 'farmer' and locks the choice (pinned in
+    section 4b). All three onboarding paths — immediate signup, the deferred
+    pending-profile flush, OAuth — pass through saveProfileWithRetry, so the type
+    POST comes first there. A 409 means the server already holds a type and the
+    profile write meets the same guard; anything else must defer the whole save
+    rather than write a row that freezes this login as a farmer forever."""
+    body = _fn(spa, "async function saveProfileWithRetry(profile, attempts)")
+    gate = "if ((profile.role || '') === 'exporter')"
+    assert gate in body
+    assert body.index(gate) < body.index("'/api/user/profile'"), (
+        "the type must be recorded before the farmers row exists")
+    assert "ra.status !== 409" in body
+    assert "throw new Error('account type not recorded yet')" in body
+
+
+def test_the_oauth_flow_queues_the_same_pending_profile_as_email_signup(spa):
+    """Email confirmation can defer the profile save by minutes or days; without
+    the queue, an OAuth exporter who closes the tab mid-onboarding loses the save
+    and the role with it."""
+    body = _fn(spa, "async function saveOAuthProfile()")
+    assert "localStorage.setItem('ab_pending_profile'" in body
+    assert body.index("ab_pending_profile") < body.index("saveProfileWithRetry(")

@@ -5841,10 +5841,44 @@ def email_order_receipt(order_id):
 # What makes it *stick* is 0028, not this file: the guard there refuses a second
 # profile row whatever key sends the write, so a person who chose 'farmer' cannot
 # later be written into buyers by any route, including the admin console.
-BUSINESS_ROLES = ('farmer', 'vendor', 'hotel', 'supplier')
+BUSINESS_ROLES = ('farmer', 'vendor', 'hotel', 'supplier', 'exporter')
 _ROLE_LABELS = {'farmer': 'Farmer', 'vendor': 'Vendor / buyer',
                 'hotel': 'Hotel / restaurant', 'supplier': 'Supplier / input seller',
-                'transporter': 'Transporter'}
+                'transporter': 'Transporter', 'exporter': 'Exporter / trading company'}
+
+_PHONE_ERROR = ('Enter a valid phone number with country code, '
+                'e.g. +256 771 234567 or +20 103 679 7717.')
+
+
+def normalize_phone(raw):
+    """(e164, error) for a number a person typed; ('', '') when nothing was given.
+
+    Ugandan local forms (0771…, 256771…, 771…) keep normalising to +256; any
+    other number must carry its country code. The stored shape is the E.164 rule
+    migration 0029 installs on farmers and buyers, and normalizePhoneE164 in
+    static/index.html applies the same rule before signUp. '+10000000000' — the
+    placeholder eight legacy accounts share — satisfies E.164 but is not a
+    number anyone owns, so a new write may not use it; the database cannot tell
+    it from a real North American number, so the refusal lives here, on the path
+    every signup actually takes.
+    """
+    s = str(raw or '').strip()
+    if not s:
+        return '', ''
+    digits = re.sub(r'\D', '', s)
+    if s.startswith('00'):
+        digits = digits[2:]
+    if re.fullmatch(r'256[37]\d{8}', digits):
+        return '+256' + digits[3:], ''
+    if re.fullmatch(r'0[37]\d{8}', digits):
+        return '+256' + digits[1:], ''
+    if re.fullmatch(r'[37]\d{8}', digits):
+        return '+256' + digits, ''
+    if digits == '10000000000':
+        return '', _PHONE_ERROR
+    if re.fullmatch(r'[1-9]\d{6,14}', digits):
+        return '+' + digits, ''
+    return '', _PHONE_ERROR
 
 
 def _stored_business_role(uid):
@@ -5948,6 +5982,8 @@ def _resolve_account_type(uid, meta_role=None):
         return 'vendor', 'metadata'
     if meta == 'transporter':
         return 'transporter', 'metadata'
+    if meta == 'exporter':
+        return 'exporter', 'metadata'
     return '', ''
 
 
@@ -6081,15 +6117,9 @@ def update_user_profile():
 
     # Validate and normalise phone
     if phone:
-        import re as _re
-        _pd = _re.sub(r'\D', '', phone)
-        if _pd.startswith('256'):
-            _pd = _pd[3:]
-        elif _pd.startswith('0'):
-            _pd = _pd[1:]
-        if not _re.match(r'^[37]\d{8}$', _pd):
-            return jsonify({'error': 'Enter a valid Ugandan phone number (e.g. 0771 234567)'}), 400
-        phone = '+256' + _pd
+        phone, phone_err = normalize_phone(phone)
+        if phone_err:
+            return jsonify({'error': phone_err}), 400
 
     # Check phone uniqueness
     if phone:
@@ -6190,7 +6220,7 @@ def update_user_profile():
                 return jsonify({'error': 'That phone number is already registered to another account'}), 409
             if code == '23514':
                 return jsonify({'error': 'Please enter your real full name and a valid '
-                                         'Ugandan phone number, e.g. 0771 234567'}), 400
+                                         'phone number with country code, e.g. +256 771 234567'}), 400
             return jsonify({'error': 'Could not save profile'}), 502
     except Exception as _pe:
         log.warning('profile.save_exception', uid=uid, error=str(_pe))
@@ -6718,17 +6748,8 @@ def legal_sync_signup():
     # ── Duplicate-account & cross-role guard (runs on every new signup) ──────
     # Only run these checks for newly created accounts (within 2 days).
     if _account_is_new(au.get('created_at')):
-        import re as _re
         raw_phone = str(meta.get('phone', '') or '').strip()
-        norm_phone = ''
-        if raw_phone:
-            _pd = _re.sub(r'\D', '', raw_phone)
-            if _pd.startswith('256'):
-                _pd = _pd[3:]
-            elif _pd.startswith('0'):
-                _pd = _pd[1:]
-            if _re.match(r'^[37]\d{8}$', _pd):
-                norm_phone = '+256' + _pd
+        norm_phone, _phone_err = normalize_phone(raw_phone)
 
         # 1. Block phone number already used by another account
         if norm_phone:
