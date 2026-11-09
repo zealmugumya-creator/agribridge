@@ -2393,21 +2393,29 @@ html.is-web:not(.app-entered) body{overflow:hidden}
   <!-- ══ SLIDER SCRIPT ══ -->
   <script>
   (function(){
-    var cur=0,total=4,timer,wrap=document.getElementById('wlSlides'),dots;
+    var cur=0,wrap=document.getElementById('wlSlides'),dots;
+    function totalSlides(){return document.querySelectorAll('#wlSlides .wl-slide').length||4}
     function update(){
       if(!wrap)return;
+      var t=totalSlides();
       wrap.style.transform='translateX(-'+cur*100+'%)';
       dots=document.querySelectorAll('.wl-dot');
       dots.forEach(function(d,i){d.classList.toggle('active',i===cur)});
     }
     window.wlSlide=function(dir){
-      cur=(cur+dir+total)%total;update();resetTimer();
+      cur=(cur+dir+totalSlides())%totalSlides();update();
+      clearInterval(window._wlTimer);window._wlTimer=setInterval(function(){wlSlide(1)},5000);
     };
-    window.wlGoTo=function(i){cur=i;update();resetTimer()};
-    function resetTimer(){clearInterval(timer);timer=setInterval(function(){wlSlide(1)},5000)}
+    window.wlGoTo=function(i){
+      cur=i;update();
+      clearInterval(window._wlTimer);window._wlTimer=setInterval(function(){wlSlide(1)},5000);
+    };
     // pause on hover
     var sw=document.getElementById('wlSliderWrap');
-    if(sw){sw.addEventListener('mouseenter',function(){clearInterval(timer)});sw.addEventListener('mouseleave',resetTimer)}
+    if(sw){
+      sw.addEventListener('mouseenter',function(){clearInterval(window._wlTimer)});
+      sw.addEventListener('mouseleave',function(){window._wlTimer=setInterval(function(){wlSlide(1)},5000)});
+    }
     // subscribe toast
     window.wlSubscribe=function(){
       var el=document.getElementById('wlSubEmail');
@@ -2418,7 +2426,16 @@ html.is-web:not(.app-entered) body{overflow:hidden}
       msg.style.cssText='position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:#1a7a3c;color:#fff;padding:12px 24px;border-radius:12px;font-weight:700;font-size:.9rem;z-index:9999;box-shadow:0 4px 20px rgba(0,0,0,.3)';
       document.body.appendChild(msg);setTimeout(function(){msg.remove()},3500);
     };
-    resetTimer();
+    // start timer
+    window._wlTimer=setInterval(function(){wlSlide(1)},5000);
+    // load live data (banners from DB, featured listings)
+    if(typeof wlLoadLandingData==='function'){
+      wlLoadLandingData();
+    } else {
+      document.addEventListener('DOMContentLoaded',function(){
+        if(typeof wlLoadLandingData==='function') wlLoadLandingData();
+      });
+    }
   })();
   </script>
 
@@ -7809,6 +7826,10 @@ async function renderRoleHome() {
   const hour=new Date().getHours(); const greeting=hour<12?'Good morning':hour<17?'Good afternoon':'Good evening';
   const aiCard=`<div class="afc2" onclick="toggleAI()"><div class="afc2-txt"><div class="afc2-title">AI Farm Assistant</div><div class="afc2-sub">How can I help you today?</div><span class="afc2-btn">Ask AgriBridge AI ›</span></div><div class="afc2-orb"><span class="of-eye"></span><span class="of-eye"></span><span class="of-smile"></span></div></div>`;
   const greet=`<div class="hd-greet"><h3>Hello, ${escHtml(firstName)} 👋</h3><p>${greeting}! Let's grow more today.</p></div>`;
+  if(role==='admin') {
+    renderAdminHome(panel, greet, aiCard);
+    return;
+  }
   if(role==='farmer'||role==='exporter') {
     loadFarmerHome();
   } else if(role==='supplier') {
@@ -7851,6 +7872,361 @@ async function renderRoleHome() {
     loadBuyerKpis(); renderHomePrices();
   }
 }
+/* ═══════════════════════════════════════════════════════
+   ADMIN HOME PANEL — Landing page management + platform KPIs
+════════════════════════════════════════════════════════ */
+async function renderAdminHome(panel, greet, aiCard) {
+  panel.innerHTML = `<div class="hd">${greet}${aiCard}
+    <div class="hd-tiles">
+      <div class="hd-tile" id="adm-kpi-users"><div class="hd-ic">👥</div><div class="hd-t-lbl">Users</div><div class="hd-t-num" id="adm-users">–</div><div class="hd-t-sub">Registered</div></div>
+      <div class="hd-tile" id="adm-kpi-listings"><div class="hd-ic">🌾</div><div class="hd-t-lbl">Listings</div><div class="hd-t-num" id="adm-listings">–</div><div class="hd-t-sub">Active</div></div>
+      <div class="hd-tile" id="adm-kpi-orders"><div class="hd-ic">📦</div><div class="hd-t-lbl">Orders</div><div class="hd-t-num" id="adm-orders">–</div><div class="hd-t-sub">Today</div></div>
+      <div class="hd-tile" id="adm-kpi-farmers"><div class="hd-ic">👨‍🌾</div><div class="hd-t-lbl">Farmers</div><div class="hd-t-num" id="adm-farmers">–</div><div class="hd-t-sub">Verified</div></div>
+    </div>
+
+    <!-- ── Landing Page Manager ── -->
+    <div style="margin:18px 0 10px;display:flex;align-items:center;justify-content:space-between">
+      <div style="font-weight:800;font-size:1rem;color:var(--text)">🖼️ Landing Page — Hero Slides</div>
+      <button onclick="admAddBanner()" style="background:var(--green);color:var(--g-ink);border:none;padding:7px 14px;border-radius:9px;font-weight:700;font-size:.82rem;cursor:pointer;font-family:inherit">+ Add Slide</button>
+    </div>
+    <div id="admBannerList" style="display:flex;flex-direction:column;gap:10px">
+      <div style="color:var(--text2);font-size:.86rem;padding:12px 0">Loading banners…</div>
+    </div>
+
+    <!-- ── Landing Page — Featured Products ── -->
+    <div style="margin:22px 0 10px;display:flex;align-items:center;justify-content:space-between">
+      <div style="font-weight:800;font-size:1rem;color:var(--text)">📦 Landing Page — Featured Products</div>
+      <button onclick="admSaveFeatured()" style="background:var(--green);color:var(--g-ink);border:none;padding:7px 14px;border-radius:9px;font-weight:700;font-size:.82rem;cursor:pointer;font-family:inherit">Save</button>
+    </div>
+    <p style="font-size:.82rem;color:var(--text2);margin:0 0 10px">Pick up to 4 listings to feature on the public landing page. Leave blank to use the 4 newest.</p>
+    <div id="admFeaturedPicks" style="display:flex;flex-direction:column;gap:8px">
+      <div style="color:var(--text2);font-size:.86rem">Loading listings…</div>
+    </div>
+
+    <div class="hd-sec-head" style="margin-top:22px"><span class="hd-section-label" style="margin:0">Quick actions</span></div>
+    <div class="hd-qa">
+      <button onclick="showPage('market')"><span>🛒</span>Market</button>
+      <button onclick="showPage('community')"><span>🌱</span>Community</button>
+      <button onclick="showPage('prices')"><span>📊</span>Prices</button>
+      <button onclick="showPage('contact')"><span>✉️</span>Support</button>
+    </div>
+  </div>`;
+  loadAdminKpis();
+  loadAdminBanners();
+  loadAdminFeaturedPicker();
+}
+
+async function loadAdminKpis() {
+  try {
+    const [users, listings, farmers] = await Promise.all([
+      sb('profiles', {count:true}),
+      sb('listings', {count:true, filters:[['is_available','eq.true']]}),
+      sb('farmers',  {count:true, filters:[['is_verified','eq.true']]})
+    ]);
+    if (typeof users==='number') { const el=document.getElementById('adm-users'); if(el) el.textContent=users.toLocaleString(); }
+    if (typeof listings==='number') { const el=document.getElementById('adm-listings'); if(el) el.textContent=listings.toLocaleString(); }
+    if (typeof farmers==='number') { const el=document.getElementById('adm-farmers'); if(el) el.textContent=farmers.toLocaleString(); }
+  } catch(e) {}
+}
+
+async function loadAdminBanners() {
+  const el = document.getElementById('admBannerList'); if (!el) return;
+  const rows = await sb('landing_banners', { select:'id,position,label,heading,subheading,cta_primary_text,cta_primary_action,image_url,active', filters:[['order','position.asc']] });
+  if (!Array.isArray(rows) || !rows.length) {
+    el.innerHTML = '<div style="color:var(--text2);font-size:.86rem;padding:8px 0">No banners yet. Click "+ Add Slide" to create the first one.</div>';
+    return;
+  }
+  el.innerHTML = rows.map(r => `
+    <div style="background:var(--card);border:1px solid var(--border);border-radius:14px;padding:12px 14px;display:flex;align-items:center;gap:12px">
+      <div style="width:52px;height:52px;border-radius:10px;overflow:hidden;background:var(--bg3);flex-shrink:0">
+        ${r.image_url ? `<img src="${escHtml(r.image_url)}" style="width:100%;height:100%;object-fit:cover">` : '<div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;font-size:1.4rem">🖼️</div>'}
+      </div>
+      <div style="flex:1;min-width:0">
+        <div style="font-weight:700;font-size:.9rem;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${escHtml(r.heading||'')}</div>
+        <div style="font-size:.76rem;color:var(--text2);margin-top:2px">${escHtml(r.label||'')} · ${r.active?'<span style="color:var(--green)">Live</span>':'<span style="color:var(--amber)">Hidden</span>'}</div>
+      </div>
+      <div style="display:flex;gap:6px;flex-shrink:0">
+        <button onclick="admEditBanner(${r.id})" style="padding:6px 11px;border-radius:8px;border:1px solid var(--border);background:none;color:var(--text);cursor:pointer;font-size:.8rem;font-family:inherit">Edit</button>
+        <button onclick="admToggleBanner(${r.id},${!r.active})" style="padding:6px 11px;border-radius:8px;border:1px solid var(--border);background:none;cursor:pointer;font-size:.8rem;font-family:inherit;color:${r.active?'var(--amber)':'var(--green)'}">${r.active?'Hide':'Show'}</button>
+        <button onclick="admDeleteBanner(${r.id})" style="padding:6px 11px;border-radius:8px;border:1px solid var(--border);background:none;cursor:pointer;font-size:.8rem;font-family:inherit;color:#f44336">✕</button>
+      </div>
+    </div>`).join('');
+}
+
+async function loadAdminFeaturedPicker() {
+  const el = document.getElementById('admFeaturedPicks'); if (!el) return;
+  // Get current featured IDs from site_settings
+  const settingsRows = await sb('site_settings', { select:'value', filters:[['key','eq.landing_featured_ids']] });
+  const featuredIds = (Array.isArray(settingsRows) && settingsRows[0]?.value) ? JSON.parse(settingsRows[0].value) : [];
+  // Load all available listings
+  const listings = await sb('listings', { select:'id,crop_name,price_per_kg,unit,district,farmers(full_name)', filters:[['is_available','eq.true'],['order','created_at.desc'],['limit','30']] });
+  if (!Array.isArray(listings)) { el.innerHTML='<div style="color:var(--text2);font-size:.86rem">Could not load listings.</div>'; return; }
+  el.innerHTML = listings.map(l => {
+    const checked = featuredIds.includes(l.id) ? 'checked' : '';
+    return `<label style="display:flex;align-items:center;gap:10px;padding:8px 10px;background:var(--card);border:1px solid var(--border);border-radius:10px;cursor:pointer">
+      <input type="checkbox" data-lid="${l.id}" ${checked} style="width:16px;height:16px;accent-color:var(--green)">
+      <span style="flex:1;font-size:.88rem;color:var(--text)">${escHtml(l.crop_name)} — <span style="color:var(--green-light)">UGX ${Number(l.price_per_kg||0).toLocaleString()}/${l.unit||'kg'}</span></span>
+      <span style="font-size:.74rem;color:var(--text2)">${escHtml((l.farmers?.full_name)||'')}</span>
+    </label>`;
+  }).join('');
+}
+
+async function admSaveFeatured() {
+  const checks = document.querySelectorAll('#admFeaturedPicks input[type=checkbox]:checked');
+  const ids = Array.from(checks).slice(0,4).map(c=>c.dataset.lid);
+  // Upsert into site_settings
+  const res = await fetch(`${SUPA_URL}/rest/v1/site_settings`, {
+    method:'POST',
+    headers:{'Content-Type':'application/json','apikey':SUPA_ANON,'Authorization':'Bearer '+SUPA_ANON,'Prefer':'resolution=merge-duplicates'},
+    body:JSON.stringify({key:'landing_featured_ids', value:JSON.stringify(ids), updated_at: new Date().toISOString()})
+  });
+  if (res.ok) { showToast('Featured products saved ✓'); wlRefreshProducts(); }
+  else showToast('Save failed — check console','error');
+}
+
+function admAddBanner() { admOpenBannerModal(null); }
+async function admEditBanner(id) {
+  const rows = await sb('landing_banners', { select:'*', filters:[['id','eq.'+id]] });
+  if (Array.isArray(rows) && rows[0]) admOpenBannerModal(rows[0]);
+}
+async function admToggleBanner(id, active) {
+  await fetch(`${SUPA_URL}/rest/v1/landing_banners?id=eq.${id}`, {
+    method:'PATCH',
+    headers:{'Content-Type':'application/json','apikey':SUPA_ANON,'Authorization':'Bearer '+SUPA_ANON},
+    body:JSON.stringify({active})
+  });
+  loadAdminBanners();
+  wlLoadBanners();
+}
+async function admDeleteBanner(id) {
+  if (!confirm('Delete this slide?')) return;
+  await fetch(`${SUPA_URL}/rest/v1/landing_banners?id=eq.${id}`, {
+    method:'DELETE',
+    headers:{'apikey':SUPA_ANON,'Authorization':'Bearer '+SUPA_ANON}
+  });
+  loadAdminBanners();
+  wlLoadBanners();
+}
+
+function admOpenBannerModal(row) {
+  const existing = document.getElementById('admBannerModal');
+  if (existing) existing.remove();
+  const isNew = !row;
+  const m = document.createElement('div');
+  m.id = 'admBannerModal';
+  m.style.cssText = 'position:fixed;inset:0;z-index:9500;background:rgba(0,0,0,.7);display:flex;align-items:flex-end;justify-content:center';
+  m.innerHTML = `<div style="background:var(--bg);border-radius:20px 20px 0 0;padding:24px 20px 36px;width:100%;max-width:580px;max-height:85vh;overflow-y:auto">
+    <div style="font-family:'Syne',sans-serif;font-weight:800;font-size:1.1rem;margin-bottom:16px">${isNew?'New Hero Slide':'Edit Hero Slide'}</div>
+    <div style="display:flex;flex-direction:column;gap:12px">
+      <label style="font-size:.8rem;font-weight:700;color:var(--text2)">SLIDE LABEL (top pill)
+        <input id="admBLabel" value="${escHtml(row?.label||'')}" placeholder="e.g. 🌍 Bridging Farms" style="width:100%;margin-top:4px;padding:10px 12px;background:var(--card);border:1px solid var(--border);border-radius:10px;color:var(--text);font-family:inherit;font-size:.9rem;outline:none;box-sizing:border-box">
+      </label>
+      <label style="font-size:.8rem;font-weight:700;color:var(--text2)">HEADING
+        <input id="admBHeading" value="${escHtml(row?.heading||'')}" placeholder="Uganda's freshest farm marketplace" style="width:100%;margin-top:4px;padding:10px 12px;background:var(--card);border:1px solid var(--border);border-radius:10px;color:var(--text);font-family:inherit;font-size:.9rem;outline:none;box-sizing:border-box">
+      </label>
+      <label style="font-size:.8rem;font-weight:700;color:var(--text2)">SUBHEADING
+        <textarea id="admBSub" rows="2" placeholder="Short description shown under the heading…" style="width:100%;margin-top:4px;padding:10px 12px;background:var(--card);border:1px solid var(--border);border-radius:10px;color:var(--text);font-family:inherit;font-size:.9rem;outline:none;resize:vertical;box-sizing:border-box">${escHtml(row?.subheading||'')}</textarea>
+      </label>
+      <label style="font-size:.8rem;font-weight:700;color:var(--text2)">PRIMARY BUTTON TEXT
+        <input id="admBCtaText" value="${escHtml(row?.cta_primary_text||'Start ordering →')}" style="width:100%;margin-top:4px;padding:10px 12px;background:var(--card);border:1px solid var(--border);border-radius:10px;color:var(--text);font-family:inherit;font-size:.9rem;outline:none;box-sizing:border-box">
+      </label>
+      <label style="font-size:.8rem;font-weight:700;color:var(--text2)">PRIMARY BUTTON ACTION
+        <select id="admBCtaAction" style="width:100%;margin-top:4px;padding:10px 12px;background:var(--card);border:1px solid var(--border);border-radius:10px;color:var(--text);font-family:inherit;font-size:.9rem;outline:none;box-sizing:border-box">
+          <option value="enterApp()" ${(row?.cta_primary_action||'enterApp()')==='enterApp()'?'selected':''}>Open marketplace (default)</option>
+          <option value="enterApp('register')" ${row?.cta_primary_action==="enterApp('register')"?'selected':''}>Register / Sign up</option>
+          <option value="enterApp('login')" ${row?.cta_primary_action==="enterApp('login')"?'selected':''}>Sign in</option>
+          <option value="showInstallModal()" ${row?.cta_primary_action==='showInstallModal()'?'selected':''}>Install app</option>
+        </select>
+      </label>
+      <label style="font-size:.8rem;font-weight:700;color:var(--text2)">BACKGROUND IMAGE URL
+        <input id="admBImg" value="${escHtml(row?.image_url||'')}" placeholder="https://… or /img/hero1.jpg" style="width:100%;margin-top:4px;padding:10px 12px;background:var(--card);border:1px solid var(--border);border-radius:10px;color:var(--text);font-family:inherit;font-size:.9rem;outline:none;box-sizing:border-box">
+      </label>
+      <label style="font-size:.8rem;font-weight:700;color:var(--text2)">PANEL IMAGE URL (right side, desktop)
+        <input id="admBPanelImg" value="${escHtml(row?.panel_image_url||'')}" placeholder="https://… or /img/maize.jpg" style="width:100%;margin-top:4px;padding:10px 12px;background:var(--card);border:1px solid var(--border);border-radius:10px;color:var(--text);font-family:inherit;font-size:.9rem;outline:none;box-sizing:border-box">
+      </label>
+      <label style="font-size:.8rem;font-weight:700;color:var(--text2)">POSITION (order on slider)
+        <input id="admBPos" type="number" min="1" max="20" value="${row?.position||1}" style="width:100%;margin-top:4px;padding:10px 12px;background:var(--card);border:1px solid var(--border);border-radius:10px;color:var(--text);font-family:inherit;font-size:.9rem;outline:none;box-sizing:border-box">
+      </label>
+      <label style="display:flex;align-items:center;gap:10px;cursor:pointer;font-size:.88rem;color:var(--text)">
+        <input type="checkbox" id="admBActive" ${(row?.active!==false)?'checked':''} style="width:16px;height:16px;accent-color:var(--green)"> Show this slide (live)
+      </label>
+    </div>
+    <div style="display:flex;gap:10px;margin-top:20px">
+      <button onclick="admSaveBanner(${row?.id||'null'})" style="flex:1;padding:12px;background:var(--green);color:var(--g-ink);border:none;border-radius:11px;font-weight:700;font-size:.95rem;cursor:pointer;font-family:inherit">${isNew?'Create Slide':'Save Changes'}</button>
+      <button onclick="document.getElementById('admBannerModal').remove()" style="padding:12px 18px;background:none;border:1px solid var(--border);border-radius:11px;color:var(--text);cursor:pointer;font-family:inherit">Cancel</button>
+    </div>
+  </div>`;
+  m.addEventListener('click', e => { if (e.target===m) m.remove(); });
+  document.body.appendChild(m);
+}
+
+async function admSaveBanner(id) {
+  const payload = {
+    label:    document.getElementById('admBLabel')?.value||'',
+    heading:  document.getElementById('admBHeading')?.value||'',
+    subheading: document.getElementById('admBSub')?.value||'',
+    cta_primary_text:   document.getElementById('admBCtaText')?.value||'Start ordering →',
+    cta_primary_action: document.getElementById('admBCtaAction')?.value||'enterApp()',
+    image_url:       document.getElementById('admBImg')?.value||'',
+    panel_image_url: document.getElementById('admBPanelImg')?.value||'',
+    position:  parseInt(document.getElementById('admBPos')?.value)||1,
+    active:    document.getElementById('admBActive')?.checked!==false
+  };
+  let res;
+  if (id) {
+    res = await fetch(`${SUPA_URL}/rest/v1/landing_banners?id=eq.${id}`, {
+      method:'PATCH',
+      headers:{'Content-Type':'application/json','apikey':SUPA_ANON,'Authorization':'Bearer '+SUPA_ANON},
+      body: JSON.stringify(payload)
+    });
+  } else {
+    res = await fetch(`${SUPA_URL}/rest/v1/landing_banners`, {
+      method:'POST',
+      headers:{'Content-Type':'application/json','apikey':SUPA_ANON,'Authorization':'Bearer '+SUPA_ANON,'Prefer':'return=minimal'},
+      body: JSON.stringify(payload)
+    });
+  }
+  document.getElementById('admBannerModal')?.remove();
+  if (res.ok) { showToast('Slide saved ✓'); loadAdminBanners(); wlLoadBanners(); }
+  else showToast('Save failed','error');
+}
+
+/* ═══════════════════════════════════════════════════════
+   LANDING PAGE — Live data loader
+   Runs before the landing page becomes visible.
+   Fetches: 1) featured product cards from live listings
+            2) hero slides from landing_banners table
+════════════════════════════════════════════════════════ */
+async function wlLoadLandingData() {
+  await Promise.all([ wlRefreshProducts(), wlLoadBanners() ]);
+}
+
+async function wlRefreshProducts() {
+  // 1. Try admin-pinned featured IDs first
+  let targetIds = [];
+  try {
+    const s = await sb('site_settings', { select:'value', filters:[['key','eq.landing_featured_ids']] });
+    if (Array.isArray(s) && s[0]?.value) targetIds = JSON.parse(s[0].value);
+  } catch(e) {}
+
+  let listings;
+  if (targetIds.length) {
+    listings = await sb('listings', {
+      select:'id,crop_name,category,price_per_kg,unit,district,is_organic,is_verified,image_url,quantity_kg,reserved_qty,farmers(full_name)',
+      filters:[['is_available','eq.true'],['id','in.('+targetIds.join(',')+')'],['limit','4']]
+    });
+  }
+  if (!Array.isArray(listings) || !listings.length) {
+    // Fall back to 4 newest listings
+    listings = await sb('listings', {
+      select:'id,crop_name,category,price_per_kg,unit,district,is_organic,is_verified,image_url,quantity_kg,reserved_qty,farmers(full_name)',
+      filters:[['is_available','eq.true'],['order','created_at.desc'],['limit','4']]
+    });
+  }
+  if (!Array.isArray(listings) || !listings.length) return; // keep generated images
+
+  const grid = document.querySelector('.wl-prod-grid');
+  if (!grid) return;
+
+  const badges = { organic:'<div class="wl-prod-badge fresh">Organic</div>', verified:'<div class="wl-prod-badge new">Verified</div>' };
+  const EMOJI_MAP = {
+    maize:'🌽', beans:'🫘', tomato:'🍅', tomatoes:'🍅', banana:'🍌', matooke:'🍌',
+    coffee:'☕', rice:'🍚', groundnut:'🥜', peanut:'🥜', cassava:'🥔', yam:'🥔',
+    sorghum:'🌾', millet:'🌾', wheat:'🌾', avocado:'🥑', mango:'🥭', pineapple:'🍍',
+    cabbage:'🥬', onion:'🧅', garlic:'🧄', pepper:'🌶️', sweet:'🍠',
+    chicken:'🐔', goat:'🐐', cow:'🐄', fish:'🐟', egg:'🥚'
+  };
+  function cropEmoji(name) {
+    const n = (name||'').toLowerCase();
+    for (const k of Object.keys(EMOJI_MAP)) { if (n.includes(k)) return EMOJI_MAP[k]; }
+    return '🌿';
+  }
+
+  grid.innerHTML = listings.map(l => {
+    const price = Number(l.price_per_kg||0).toLocaleString();
+    const unit  = l.unit || 'kg';
+    const badge = l.is_organic ? badges.organic : l.is_verified ? badges.verified : '<div class="wl-prod-badge fresh">Fresh</div>';
+    const farm  = l.farmers?.full_name || l.district || 'Uganda Farm';
+    const hasImg = l.image_url && l.image_url.startsWith('http');
+    const imgEl = hasImg
+      ? `<img src="${escHtml(l.image_url)}" alt="${escHtml(l.crop_name)}" style="width:100%;height:100%;object-fit:cover;display:block" loading="lazy" onerror="this.style.display='none';this.parentElement.style.fontSize='3.5rem';this.parentElement.style.display='flex';this.parentElement.style.alignItems='center';this.parentElement.style.justifyContent='center';this.parentElement.textContent='${cropEmoji(l.crop_name)}';">`
+      : '';
+    const bgStyle = hasImg ? 'padding:0' : `padding:0;font-size:3.5rem;display:flex;align-items:center;justify-content:center`;
+    return `<div class="wl-prod-card" onclick="enterApp()">
+      <div class="wl-prod-img" style="${bgStyle}">
+        ${hasImg ? imgEl : cropEmoji(l.crop_name)}
+        ${badge}
+      </div>
+      <div class="wl-prod-body">
+        <div class="wl-prod-name">${escHtml(l.crop_name)}</div>
+        <div class="wl-prod-farm">${escHtml(farm)}</div>
+        <div class="wl-prod-price">UGX ${price}<small>/${unit}</small></div>
+      </div>
+      <div class="wl-prod-foot"><button class="wl-prod-btn" onclick="enterApp();event.stopPropagation()">Add to cart</button></div>
+    </div>`;
+  }).join('');
+}
+
+async function wlLoadBanners() {
+  const rows = await sb('landing_banners', {
+    select:'id,position,label,heading,subheading,cta_primary_text,cta_primary_action,image_url,panel_image_url,active',
+    filters:[['active','eq.true'],['order','position.asc']]
+  });
+  if (!Array.isArray(rows) || !rows.length) return; // keep default slides
+
+  const slidesEl = document.getElementById('wlSlides');
+  const dotsEl   = document.getElementById('wlDots');
+  if (!slidesEl || !dotsEl) return;
+
+  // Stop current timer, rebuild slides
+  if (window._wlTimer) clearInterval(window._wlTimer);
+
+  slidesEl.innerHTML = rows.map((r, i) => {
+    const bg = r.image_url ? `background:none` : '';
+    const imgEl = r.image_url ? `<img src="${escHtml(r.image_url)}" alt="" style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover" aria-hidden="true">` : '';
+    const panelEl = r.panel_image_url ? `<div class="wl-slide-art" aria-hidden="true"><img src="${escHtml(r.panel_image_url)}" alt="" style="width:min(260px,42vw);height:min(260px,42vw);object-fit:cover;border-radius:24px;box-shadow:0 20px 60px rgba(0,0,0,.55);border:3px solid rgba(255,255,255,.18)"></div>` : '';
+    const action = r.cta_primary_action || "enterApp()";
+    return `<div class="wl-slide" style="${bg}">
+      ${imgEl}
+      <div style="position:absolute;inset:0;background:linear-gradient(100deg,rgba(5,25,12,.82) 40%,rgba(5,25,12,.35) 100%)" aria-hidden="true"></div>
+      <div class="wl-slide-inner">
+        <div>
+          <div class="wl-slide-label">${escHtml(r.label||'')}</div>
+          <h1 class="wl-slide-h">${escHtml(r.heading||'')}</h1>
+          <p class="wl-slide-p">${escHtml(r.subheading||'')}</p>
+          <div class="wl-slide-cta">
+            <button class="wl-slide-btn primary" onclick="${r.cta_primary_action||'enterApp()'}">${escHtml(r.cta_primary_text||'Start ordering →')}</button>
+            <button class="wl-slide-btn outline" onclick="enterApp('register')">Create free account</button>
+          </div>
+        </div>
+        ${panelEl}
+      </div>
+    </div>`;
+  }).join('');
+
+  dotsEl.innerHTML = rows.map((_, i) =>
+    `<button class="wl-dot${i===0?' active':''}" onclick="wlGoTo(${i})" aria-label="Slide ${i+1}"></button>`
+  ).join('');
+
+  // Reset slider state
+  const wrap = document.getElementById('wlSliderWrap');
+  if (wrap) {
+    wrap.addEventListener('mouseenter', () => clearInterval(window._wlTimer));
+    wrap.addEventListener('mouseleave', wlStartTimer);
+  }
+  wlGoTo(0);
+  wlStartTimer();
+}
+
+function wlStartTimer() {
+  if (window._wlTimer) clearInterval(window._wlTimer);
+  window._wlTimer = setInterval(() => wlSlide(1), 5000);
+}
+
+function escHtml(s) {
+  return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
 function renderHomePrices(){
   const el=document.getElementById('hd-prices'); if(!el) return;
   const src=(typeof allPrices!=='undefined'&&allPrices&&allPrices.length)?allPrices:samplePrices();
@@ -10354,6 +10730,7 @@ var ROLE_NAV = {
   vendor: [{page:'home',icon:'🏠',label:'Home'},{page:'market',icon:'🛒',label:'Market'},{page:'prices',icon:'📊',label:'Prices'},{page:'animals',icon:'🐄',label:'Animals'},{page:'delivery',icon:'🚚',label:'Orders'}],
   hotel:  [{page:'home',icon:'🏠',label:'Home'},{page:'b2b',icon:'🏢',label:'B2B Portal'},{page:'market',icon:'🛒',label:'Browse'},{page:'delivery',icon:'🚚',label:'Deliveries'},{page:'contact',icon:'✉️',label:'Support'}],
   supplier:[{page:'home',icon:'🏠',label:'Home'},{page:'dashboard',icon:'🏪',label:'My Store'},{page:'supply',icon:'🌱',label:'Supplies'},{page:'delivery',icon:'🚚',label:'Orders'},{page:'market',icon:'🛒',label:'Market'}],
+  admin:  [{page:'home',icon:'🏠',label:'Home'},{page:'market',icon:'🛒',label:'Market'},{page:'prices',icon:'📊',label:'Prices'},{page:'community',icon:'🌱',label:'Community'},{page:'contact',icon:'✉️',label:'Support'}],
 };
 
 // The "More" sheet is tailored to the signed-in role — a buyer shouldn't be
@@ -10377,7 +10754,8 @@ var MORE_BY_ROLE = {
   exporter: ['market','prices','ai','crops','animals','doctor','training','finance','supply','coldchain','export','delivery','community','ussd','about','contact'],
   vendor: ['crops','animals','delivery','training','community','coldchain','ussd','about','contact'],
   hotel:  ['b2b','supply','delivery','coldchain','finance','community','training','ussd','about','contact'],
-  supplier:['supply','delivery','community','training','coldchain','finance','ussd','about','contact']
+  supplier:['supply','delivery','community','training','coldchain','finance','ussd','about','contact'],
+  admin:['market','prices','crops','animals','doctor','training','community','finance','supply','coldchain','export','delivery','ussd','about','contact']
 };
 function renderMoreGrid(){
   var grid=document.querySelector('#moreSheet .more-grid'); if(!grid) return;
@@ -10446,18 +10824,13 @@ function repaintAccountPanel() {
 
 function getCurrentRole() {
   if (!currentUser) return 'guest';
-  // 'admin' is a privilege, not a marketplace account, and the SPA has no admin
-  // screens — an operator keeps the view their metadata gave them before this stage.
-  var server = (_accountType && _accountType.role && _accountType.role !== 'admin')
-    ? _accountType.role : '';
+  var server = (_accountType && _accountType.role) ? _accountType.role : '';
   var role = server || (currentUser.role || (currentUser.user_metadata && currentUser.user_metadata.role) || 'vendor');
+  if (role === 'admin') return 'admin';
   if (role === 'hotel' || role === 'restaurant' || role === 'b2b') return 'hotel';
   if (role === 'farmer') return 'farmer';
   if (role === 'exporter') return 'exporter';
   if (role === 'supplier' || role === 'input_seller') return 'supplier';
-  // Transporter accounts are created by an administrator and drive deliveries in
-  // their own portal. Without this branch a driver fell through to 'vendor' and
-  // was shown a buyer's screens for a role they do not have.
   if (role === 'transporter' || role === 'driver') return 'transporter';
   return 'vendor';
 }
