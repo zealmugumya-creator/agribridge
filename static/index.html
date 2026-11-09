@@ -1194,9 +1194,11 @@ html.is-web:not(.app-entered) body{overflow:hidden}
 }
 .wl-prod-card:hover{transform:translateY(-3px);box-shadow:0 8px 28px rgba(26,122,60,.16);border-color:var(--wl-border)}
 .wl-prod-img{
-  aspect-ratio:1;display:flex;align-items:center;justify-content:center;
-  font-size:clamp(3rem,8vw,5rem);background:var(--wl-green-lt);position:relative
+  aspect-ratio:1;display:block;overflow:hidden;
+  background:var(--wl-green-lt);position:relative
 }
+.wl-prod-img img{width:100%;height:100%;object-fit:cover;display:block;transition:transform .4s}
+.wl-prod-card:hover .wl-prod-img img{transform:scale(1.05)}
 .wl-prod-badge{
   position:absolute;top:10px;left:10px;font-size:.64rem;font-weight:800;
   text-transform:uppercase;letter-spacing:.4px;padding:4px 9px;border-radius:999px
@@ -2034,8 +2036,10 @@ html.is-web:not(.app-entered) body{overflow:hidden}
   <div class="wl-slider-wrap" id="wlSliderWrap">
     <div class="wl-slides" id="wlSlides">
 
-      <!-- Slide 1 — Farmers -->
-      <div class="wl-slide">
+      <!-- Slide 1 — Marketplace -->
+      <div class="wl-slide" style="background:none">
+        <img src="/img/hero1.jpg" alt="" style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover;object-position:center" aria-hidden="true">
+        <div style="position:absolute;inset:0;background:linear-gradient(100deg,rgba(5,25,12,.82) 40%,rgba(5,25,12,.35) 100%)" aria-hidden="true"></div>
         <div class="wl-slide-inner">
           <div>
             <div class="wl-slide-label">🌍 Bridging Farms · Building Markets</div>
@@ -2046,12 +2050,16 @@ html.is-web:not(.app-entered) body{overflow:hidden}
               <button class="wl-slide-btn outline" onclick="enterApp('register')">Create free account</button>
             </div>
           </div>
-          <div class="wl-slide-art" aria-hidden="true">🌾</div>
+          <div class="wl-slide-art" aria-hidden="true">
+            <img src="/img/maize.jpg" alt="Fresh Maize" style="width:min(260px,42vw);height:min(260px,42vw);object-fit:cover;border-radius:24px;box-shadow:0 20px 60px rgba(0,0,0,.55);border:3px solid rgba(255,255,255,.18)">
+          </div>
         </div>
       </div>
 
       <!-- Slide 2 — Farmers sell -->
-      <div class="wl-slide">
+      <div class="wl-slide" style="background:none">
+        <img src="/img/hero2.jpg" alt="" style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover;object-position:center" aria-hidden="true">
+        <div style="position:absolute;inset:0;background:linear-gradient(100deg,rgba(10,30,5,.82) 40%,rgba(10,30,5,.35) 100%)" aria-hidden="true"></div>
         <div class="wl-slide-inner">
           <div>
             <div class="wl-slide-label">👨‍🌾 For Farmers</div>
@@ -2062,12 +2070,16 @@ html.is-web:not(.app-entered) body{overflow:hidden}
               <button class="wl-slide-btn outline" onclick="enterApp('login')">Sign in</button>
             </div>
           </div>
-          <div class="wl-slide-art" aria-hidden="true">🥦</div>
+          <div class="wl-slide-art" aria-hidden="true">
+            <img src="/img/beans.jpg" alt="Fresh Beans" style="width:min(260px,42vw);height:min(260px,42vw);object-fit:cover;border-radius:24px;box-shadow:0 20px 60px rgba(0,0,0,.55);border:3px solid rgba(255,255,255,.18)">
+          </div>
         </div>
       </div>
 
       <!-- Slide 3 — AI tools -->
-      <div class="wl-slide">
+      <div class="wl-slide" style="background:none">
+        <img src="/img/hero3.jpg" alt="" style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover;object-position:center" aria-hidden="true">
+        <div style="position:absolute;inset:0;background:linear-gradient(100deg,rgba(15,25,5,.82) 40%,rgba(15,25,5,.35) 100%)" aria-hidden="true"></div>
         <div class="wl-slide-inner">
           <div>
             <div class="wl-slide-label">🤖 AI-powered farming</div>
@@ -2078,12 +2090,16 @@ html.is-web:not(.app-entered) body{overflow:hidden}
               <button class="wl-slide-btn outline" onclick="enterApp('register')">Get started free</button>
             </div>
           </div>
-          <div class="wl-slide-art" aria-hidden="true">🌽</div>
+          <div class="wl-slide-art" aria-hidden="true">
+            <img src="/img/tomatoes.jpg" alt="Fresh Tomatoes" style="width:min(260px,42vw);height:min(260px,42vw);object-fit:cover;border-radius:24px;box-shadow:0 20px 60px rgba(0,0,0,.55);border:3px solid rgba(255,255,255,.18)">
+          </div>
         </div>
       </div>
 
       <!-- Slide 4 — Transport -->
-      <div class="wl-slide">
+      <div class="wl-slide" style="background:none">
+        <img src="/img/hero4.jpg" alt="" style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover;object-position:center" aria-hidden="true">
+        <div style="position:absolute;inset:0;background:linear-gradient(100deg,rgba(20,15,5,.82) 40%,rgba(20,15,5,.35) 100%)" aria-hidden="true"></div>
         <div class="wl-slide-inner">
           <div>
             <div class="wl-slide-label">🚚 Logistics network</div>
@@ -2094,7 +2110,9 @@ html.is-web:not(.app-entered) body{overflow:hidden}
               <button class="wl-slide-btn outline" onclick="window.location='/transporter'">Driver portal →</button>
             </div>
           </div>
-          <div class="wl-slide-art" aria-hidden="true">🫘</div>
+          <div class="wl-slide-art" aria-hidden="true">
+            <img src="/img/matooke.jpg" alt="Matooke Bananas" style="width:min(260px,42vw);height:min(260px,42vw);object-fit:cover;border-radius:24px;box-shadow:0 20px 60px rgba(0,0,0,.55);border:3px solid rgba(255,255,255,.18)">
+          </div>
         </div>
       </div>
 
@@ -2133,7 +2151,10 @@ html.is-web:not(.app-entered) body{overflow:hidden}
     </div>
     <div class="wl-prod-grid">
       <div class="wl-prod-card" onclick="enterApp()">
-        <div class="wl-prod-img">🌽<div class="wl-prod-badge fresh">Fresh</div></div>
+        <div class="wl-prod-img" style="padding:0;background:#e8f7ee">
+          <img src="/img/maize.jpg" alt="Fresh Maize" style="width:100%;height:100%;object-fit:cover;display:block">
+          <div class="wl-prod-badge fresh">Fresh</div>
+        </div>
         <div class="wl-prod-body">
           <div class="wl-prod-name">Fresh Maize</div>
           <div class="wl-prod-farm">Mayuge Farm Co-op</div>
@@ -2142,7 +2163,10 @@ html.is-web:not(.app-entered) body{overflow:hidden}
         <div class="wl-prod-foot"><button class="wl-prod-btn" onclick="enterApp();event.stopPropagation()">Add to cart</button></div>
       </div>
       <div class="wl-prod-card" onclick="enterApp()">
-        <div class="wl-prod-img">🫘<div class="wl-prod-badge fresh">Fresh</div></div>
+        <div class="wl-prod-img" style="padding:0;background:#f5e8dc">
+          <img src="/img/beans.jpg" alt="Red Kidney Beans" style="width:100%;height:100%;object-fit:cover;display:block">
+          <div class="wl-prod-badge fresh">Fresh</div>
+        </div>
         <div class="wl-prod-body">
           <div class="wl-prod-name">Red Kidney Beans</div>
           <div class="wl-prod-farm">Kabale Highlands Farm</div>
@@ -2151,7 +2175,10 @@ html.is-web:not(.app-entered) body{overflow:hidden}
         <div class="wl-prod-foot"><button class="wl-prod-btn" onclick="enterApp();event.stopPropagation()">Add to cart</button></div>
       </div>
       <div class="wl-prod-card" onclick="enterApp()">
-        <div class="wl-prod-img">🍅<div class="wl-prod-badge sale">Sale</div></div>
+        <div class="wl-prod-img" style="padding:0;background:#fde8e8">
+          <img src="/img/tomatoes.jpg" alt="Fresh Tomatoes" style="width:100%;height:100%;object-fit:cover;display:block">
+          <div class="wl-prod-badge sale">Sale</div>
+        </div>
         <div class="wl-prod-body">
           <div class="wl-prod-name">Tomatoes</div>
           <div class="wl-prod-farm">Mukono Organic Farm</div>
@@ -2160,7 +2187,10 @@ html.is-web:not(.app-entered) body{overflow:hidden}
         <div class="wl-prod-foot"><button class="wl-prod-btn" onclick="enterApp();event.stopPropagation()">Add to cart</button></div>
       </div>
       <div class="wl-prod-card" onclick="enterApp()">
-        <div class="wl-prod-img">🍌<div class="wl-prod-badge new">New</div></div>
+        <div class="wl-prod-img" style="padding:0;background:#e8f5dc">
+          <img src="/img/matooke.jpg" alt="Matooke Bananas" style="width:100%;height:100%;object-fit:cover;display:block">
+          <div class="wl-prod-badge new">New</div>
+        </div>
         <div class="wl-prod-body">
           <div class="wl-prod-name">Matooke Bananas</div>
           <div class="wl-prod-farm">Mbarara Valley Farm</div>
