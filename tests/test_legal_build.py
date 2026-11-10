@@ -23,6 +23,17 @@ def test_committed_outputs_are_up_to_date():
     assert r.returncode == 0, r.stderr
 
 
+def test_generated_html_has_one_copyright_notice():
+    files = build_legal.outputs(build_legal.load_documents())
+    notice = "<!-- Copyright (C) 2026 Mugumya Zeal. All rights reserved. -->"
+    for path, content in files.items():
+        if path.suffix == ".html":
+            assert content.startswith(notice + "\n"), path
+            assert content.count(notice) == 1, path
+        else:
+            assert notice not in content, path
+
+
 def test_manifest_hash_matches_the_archived_text():
     m = json.loads((ROOT / "static/legal/manifest.json").read_text())
     for k, d in m["documents"].items():

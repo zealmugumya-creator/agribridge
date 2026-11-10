@@ -311,6 +311,9 @@ def outputs(docs: dict[str, dict]) -> dict[Path, str]:
         files[OUT / f"{k}.fragment.html"] = d["html"] + "\n"
     files[OUT / "index.html"] = render_centre(docs)
     files[OUT / "manifest.json"] = json.dumps(build_manifest(docs), indent=2, sort_keys=True) + "\n"
+    for path in files:
+        if path.suffix == ".html":
+            files[path] = "<!-- Copyright (C) 2026 Mugumya Zeal. All rights reserved. -->\n" + files[path]
     return files
 
 

@@ -227,8 +227,8 @@ mean repository-built versions, not a verified database publication or productio
   timestamps remain unchanged. This is a deliberate re-review, not backfilled consent.
 - A comparison against HEAD before L2b found **zero changed hashes among previously committed
   documents**. Full-page HTML changes are navigation/layout only; the frozen substituted text
-  is the content-hash input. The transporter fragment also loses an inconsistent HTML copyright
-  header so it matches the authoritative builder; its text hash remains unchanged.
+  is the content-hash input. The transporter fragment initially lost an inconsistent HTML copyright
+  header; section 10 supersedes that removal with deterministic notice generation for every page.
 
 ### Executed checks
 
@@ -259,3 +259,27 @@ No migration, database publication, Render flag, payment, refund, message or pro
 changed. Cookie preference management, admin compliance/publication controls and the final
 rollout gates remain later stages. The homepage-redesign branch remains separate and unmerged.
 Owner census and advocate review are still unmeasurable from this workstation.
+
+## 10. L2b follow-up — reproducible copyright notices (2026-11-10)
+
+Commit `94ed2f1` added copyright comments to 13 newly created generated HTML files after the
+pre-commit checks. A post-commit `build_legal.py --check` **failed**, listing those 13 outputs.
+The commit-time change is observed; the automation responsible is not established. The previous
+pre-commit passing result must not be treated as proof of that commit's build freshness.
+
+The builder now emits the same copyright notice exactly once on every generated HTML page and
+fragment. A regression test checks that invariant and excludes the JSON manifest. Regeneration
+adds only that comment to 21 older HTML outputs (measured with `git diff --numstat`). No check
+was weakened and no hook, permission, signing or Git configuration was changed.
+
+Executed against the corrected working tree:
+
+- Full regression: **739 passed, 0 failed, 159 warnings**, exit 0, including browser tests.
+  Warnings remain the TripleDES deprecation and test JWT key length described above.
+- Focused legal/build regression: **80 passed**. Ruff: **all checks passed**.
+- Generated-output check: **up to date**, including an additional check after the full suite.
+- `git diff --exit-code` for legal sources, archives, the manifest and `.gitattributes`: **exit 0**.
+  No legal text hash or captured live artifact changed; no acceptance record was touched.
+
+These are local results, not production verification. This follow-up does not close the
+backend/PostgREST enforcement gaps or authorize deployment of the separate homepage redesign.
