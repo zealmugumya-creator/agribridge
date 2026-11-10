@@ -1881,7 +1881,7 @@ a.wl-chip small{color:var(--green)}
         <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M20.447 20.452h-3.554v-5.569c0-1.328-.027-3.037-1.852-3.037-1.853 0-2.136 1.445-2.136 2.939v5.667H9.351V9h3.414v1.561h.046c.477-.9 1.637-1.85 3.37-1.85 3.601 0 4.267 2.37 4.267 5.455v6.286zM5.337 7.433a2.062 2.062 0 01-2.063-2.065 2.064 2.064 0 112.063 2.065zm1.782 13.019H3.555V9h3.564v11.452zM22.225 0H1.771C.792 0 0 .774 0 1.729v20.542C0 23.227.792 24 1.771 24h20.451C23.2 24 24 23.227 24 22.271V1.729C24 .774 23.2 0 22.222 0h.003z"/></svg>
       </a>
     </div>
-    <div class="wl-foot-links"><a href="#" onclick="enterApp();return false">Home</a><a href="#wl-features">Features</a><a href="#" onclick="enterApp('login');return false">Sign in</a><a href="/transporter">Driver portal</a><a href="legal/terms-of-use.html">Terms</a><a href="legal/privacy-policy.html">Privacy</a><a href="#" onclick="openPrivacyRequest();return false">Privacy requests</a></div>
+    <div class="wl-foot-links"><a href="#" onclick="enterApp();return false">Home</a><a href="#wl-features">Features</a><a href="#" onclick="enterApp('login');return false">Sign in</a><a href="/transporter">Driver portal</a><a href="legal/terms-of-use.html">Terms</a><a href="legal/privacy-policy.html">Privacy</a><a href="legal/index.html">Legal Centre</a><a href="#" onclick="openPrivacyRequest();return false">Privacy requests</a></div>
     <small>© 2026 AgriBridge Uganda · Bridging Farms. Building Markets.</small>
   </footer>
 </div>
@@ -2137,6 +2137,7 @@ a.wl-chip small{color:var(--green)}
       <a href="#" onclick="showPage('about');return false">Help &amp; Support</a>
       <a href="legal/privacy-policy.html">Privacy Policy</a>
       <a href="legal/terms-of-use.html">Terms of Use</a>
+      <a href="legal/index.html">Legal Centre</a>
       <a href="mailto:agribrige@gmail.com">agribrige@gmail.com</a>
       <a href="tel:+256755966690">+256 755 966 690</a>
     </div>
@@ -2692,7 +2693,7 @@ AgriBridge service</div>
       </a>
     </div>
     <p style="text-align:center;color:var(--text2);font-size:0.78rem;margin-bottom:16px">Or leave a message below — we reply within 24 hours</p>
-    <p class="legal-foot-links" style="text-align:center;margin:14px 0"><a href="legal/terms-of-use.html" target="_blank" rel="noopener">Terms of Use</a><a href="legal/privacy-policy.html" target="_blank" rel="noopener">Privacy Policy</a><a href="#" onclick="openPrivacyRequest();return false">Privacy requests</a></p>
+    <p class="legal-foot-links" style="text-align:center;margin:14px 0"><a href="legal/terms-of-use.html" target="_blank" rel="noopener">Terms of Use</a><a href="legal/privacy-policy.html" target="_blank" rel="noopener">Privacy Policy</a><a href="legal/index.html" target="_blank" rel="noopener">Legal Centre</a><a href="#" onclick="openPrivacyRequest();return false">Privacy requests</a></p>
     <div class="contact-form">
       <h3 style="margin-bottom:20px">Send a Message</h3>
       <div class="form-row">
@@ -3072,6 +3073,11 @@ AgriBridge service</div>
     <div class="profile-menu-item" onclick="window.open('legal/terms-of-use.html')">
       <div class="profile-menu-ic">📄</div>
       <span class="profile-menu-label">Terms &amp; Conditions</span>
+      <span class="profile-menu-arrow">›</span>
+    </div>
+    <div class="profile-menu-item" onclick="window.open('legal/index.html')" role="link" tabindex="0" onkeydown="if(event.key==='Enter'){this.click()}">
+      <div class="profile-menu-ic" aria-hidden="true"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3 4h6l3 2 3-2h6v16h-6l-3 2-3-2H3zM12 6v16"/></svg></div>
+      <span class="profile-menu-label">Legal Centre</span>
       <span class="profile-menu-arrow">›</span>
     </div>
   </div>
@@ -11583,7 +11589,7 @@ document.addEventListener('DOMContentLoaded', function() {
       <div class="legal-box" id="regLegalBox">
         <label class="chk-row" for="regAcceptTerms">
           <input type="checkbox" id="regAcceptTerms" required aria-required="true" aria-describedby="regRoleTermsLine regTermsErr" onchange="clearTermsErr()">
-          <span>I agree to the AgriBridge <a href="legal/terms-of-use.html" target="_blank" rel="noopener" id="regTermsLink">Terms of Use</a>, including any terms applicable to my selected account role, and acknowledge that I have read the AgriBridge <a href="legal/privacy-policy.html" target="_blank" rel="noopener" id="regPrivacyLink">Privacy Policy</a>.</span>
+          <span>I agree to the AgriBridge <a href="legal/terms-of-use.html" target="_blank" rel="noopener" id="regTermsLink">Terms of Use</a>, the <a href="legal/index.html" target="_blank" rel="noopener">Legal Centre</a> policies (Payment &amp; Refund, Delivery &amp; Dispute and Acceptable Use) and the terms for my selected account role, and acknowledge that I have read the <a href="legal/privacy-policy.html" target="_blank" rel="noopener" id="regPrivacyLink">Privacy Policy</a> and <a href="legal/cookie-policy.html" target="_blank" rel="noopener">Cookie Policy</a>.</span>
         </label>
         <div class="legal-role-line" id="regRoleTermsLine">Terms for your account type: <a href="legal/farmer-terms.html" target="_blank" rel="noopener" id="regRoleTermsLink">Farmer and Producer Terms</a> <span id="regRoleTermsVer"></span></div>
         <div class="legal-err" id="regTermsErr" role="alert" hidden></div>
@@ -11629,7 +11635,7 @@ document.addEventListener('DOMContentLoaded', function() {
     <div class="legal-box">
       <label class="chk-row" for="oauthAcceptTerms">
         <input type="checkbox" id="oauthAcceptTerms" required aria-required="true">
-        <span>I agree to the AgriBridge <a href="legal/terms-of-use.html" target="_blank" rel="noopener">Terms of Use</a>, including any terms applicable to my selected account role, and acknowledge that I have read the AgriBridge <a href="legal/privacy-policy.html" target="_blank" rel="noopener">Privacy Policy</a>.</span>
+        <span>I agree to the AgriBridge <a href="legal/terms-of-use.html" target="_blank" rel="noopener">Terms of Use</a>, the <a href="legal/index.html" target="_blank" rel="noopener">Legal Centre</a> policies (Payment &amp; Refund, Delivery &amp; Dispute and Acceptable Use) and the terms for my selected account role, and acknowledge that I have read the <a href="legal/privacy-policy.html" target="_blank" rel="noopener">Privacy Policy</a> and <a href="legal/cookie-policy.html" target="_blank" rel="noopener">Cookie Policy</a>.</span>
       </label>
       <div class="legal-role-line" id="oauthRoleTermsLine">Terms for your account type: <a href="legal/farmer-terms.html" target="_blank" rel="noopener" id="oauthRoleTermsLink">Farmer and Producer Terms</a> <span id="oauthRoleTermsVer"></span></div>
     </div>
@@ -12065,7 +12071,7 @@ document.addEventListener('DOMContentLoaded', function() {
 </div>
 
 <div id="cookieBanner" style="display:none;position:fixed;bottom:70px;left:0;right:0;z-index:350;background:var(--bg2);border-top:1px solid var(--border);padding:12px 16px;gap:12px;align-items:center;flex-wrap:wrap;pointer-events:none">
-  <p style="flex:1;font-size:0.82rem;color:var(--text2);margin:0">🍪 AgriBridge stores small items in your browser to keep you signed in and remember your settings. No advertising trackers. <a href="legal/privacy-policy.html" target="_blank" rel="noopener" style="color:var(--green)">Privacy Policy</a></p>
+  <p style="flex:1;font-size:0.82rem;color:var(--text2);margin:0">🍪 AgriBridge stores small items in your browser to keep you signed in and remember your settings. No advertising trackers. <a href="legal/cookie-policy.html" target="_blank" rel="noopener" style="color:var(--green)">Cookie Policy</a> · <a href="legal/privacy-policy.html" target="_blank" rel="noopener" style="color:var(--green)">Privacy Policy</a></p>
   <button class="btn-sm" style="pointer-events:auto" onclick="acceptCookies()">Accept</button>
   <button class="btn-sm outline" style="pointer-events:auto" onclick="localStorage.setItem('ab_cookies','1');document.getElementById('cookieBanner').style.display='none'">Decline</button>
 </div>

@@ -36,6 +36,48 @@ def test_every_manifest_url_exists():
         assert (ROOT / "static" / d["url"]).exists() and (ROOT / "static" / d["versioned_url"]).exists()
 
 
+def test_legal_centre_lists_every_document_version_and_role():
+    docs = build_legal.load_documents()
+    centre = build_legal.render_centre(docs)
+    assert centre.count('class="doc"') == len(docs)
+    for key, doc in docs.items():
+        assert f'href="{key}.html"' in centre
+        assert f'href="{key}-{doc["version"]}.html"' in centre
+        assert f'Version {doc["version"]} · effective {doc["effective_date"]}' in centre
+    for label in build_legal._ROLE_NAMES.values():
+        assert label in centre
+    assert "Legal review pending" in centre
+
+
+def test_legal_centre_escapes_metadata():
+    docs = build_legal.load_documents()
+    docs["terms-of-use"]["title"] = '<img src=x onerror="alert(1)">'
+    docs["terms-of-use"]["summary"] = "<script>alert(1)</script>"
+    centre = build_legal.render_centre(docs)
+    assert "<img" not in centre and "<script>" not in centre
+    assert "&lt;img" in centre and "&lt;script&gt;" in centre
+
+
+def test_document_contents_links_resolve_without_changing_the_text_hash():
+    for doc in build_legal.load_documents().values():
+        page = build_legal._page(doc)
+        anchors = re.findall(r'href="#(section-\d+)"', page)
+        assert anchors and len(set(anchors)) == len(anchors)
+        assert all(f'id="{anchor}"' in page for anchor in anchors)
+        assert doc["sha256"] == hashlib.sha256(doc["text"].encode()).hexdigest()
+
+
+def test_new_policies_do_not_claim_unbuilt_verification_or_workflows():
+    docs = build_legal.load_documents()
+    assert "These requirements are enforced by the server" not in docs["acceptable-use-policy"]["text"]
+    assert "independently verified your identity" in docs["acceptable-use-policy"]["text"]
+    assert "dispute process in your account settings" not in docs["delivery-dispute-policy"]["text"]
+    assert "cookie preference centre shows" not in docs["cookie-policy"]["text"]
+    assert "For integrated online payments" in docs["payment-refund-policy"]["text"]
+    for key in ("cookie-policy", "payment-refund-policy", "delivery-dispute-policy", "acceptable-use-policy"):
+        assert "Legal review required" in docs[key]["text"]
+
+
 def test_published_text_cannot_be_silently_changed(tmp_path, monkeypatch):
     src, arch = tmp_path / "source", tmp_path / "archive"
     src.mkdir()

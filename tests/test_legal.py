@@ -89,6 +89,11 @@ def _docs(svc, role):
 
 
 # ── which documents each role sees ───────────────────────────────────────────
+# Platform-wide policies every account type must accept (cookie is acknowledge-only).
+PLATFORM_POLICIES = {"cookie-policy", "payment-refund-policy",
+                     "delivery-dispute-policy", "acceptable-use-policy"}
+
+
 @pytest.mark.parametrize("role,extra", [
     ("farmer", "farmer-terms"), ("vendor", "buyer-terms"), ("hotel", "buyer-terms"),
     ("supplier", "supplier-terms"), ("exporter", "exporter-terms"),
@@ -96,7 +101,18 @@ def _docs(svc, role):
 ])
 def test_each_role_sees_only_its_own_terms(svc, role, extra):
     types = {d["doc_type"] for d in svc.required_documents(role)}
-    assert types == {"terms-of-use", "privacy-policy", extra}
+    assert types == {"terms-of-use", "privacy-policy", extra} | PLATFORM_POLICIES
+
+
+def test_platform_policies_apply_to_every_role_and_cookie_is_acknowledge(svc):
+    for role in ("farmer", "vendor", "hotel", "supplier", "exporter", "transporter"):
+        by = {d["doc_type"]: d for d in svc.required_documents(role)}
+        assert PLATFORM_POLICIES <= set(by), role
+    cookie = next(d for d in svc.required_documents("farmer") if d["doc_type"] == "cookie-policy")
+    assert cookie["requires_acceptance"] == "acknowledge"
+    for k in ("payment-refund-policy", "delivery-dispute-policy", "acceptable-use-policy"):
+        d = next(x for x in svc.required_documents("farmer") if x["doc_type"] == k)
+        assert d["requires_acceptance"] == "accept", k
 
 
 def test_unknown_or_missing_role_defaults_to_buyer_terms(svc):
@@ -125,13 +141,13 @@ def test_no_public_admin_terms(svc):
 # ── status, acceptance, versions ─────────────────────────────────────────────
 def test_new_user_has_everything_outstanding(svc):
     st = svc.status("u1", "farmer").data
-    assert not st["complete"] and len(st["outstanding"]) == 3
+    assert not st["complete"] and len(st["outstanding"]) == len(svc.required_documents("farmer"))
 
 
 def test_acceptance_records_version_hash_role_and_method(svc, db):
     res = svc.accept(user_id="u1", role="farmer", documents=_docs(svc, "farmer"),
                      method="login_review", evidence={"surface": "review_screen"})
-    assert res.ok and len(res.data["recorded"]) == 3
+    assert res.ok and len(res.data["recorded"]) == len(svc.required_documents("farmer"))
     by = {a["doc_type"]: a for a in db.acceptances}
     for d in svc.required_documents("farmer"):
         rec = by[d["doc_type"]]
@@ -237,7 +253,7 @@ def test_signup_sync_records_what_was_ticked(svc, db):
     versions = {d["doc_type"]: d["version"] for d in svc.required_documents("farmer")}
     meta = {"legal_signup": {"accepted_at": _now(), "versions": versions}}
     res = svc.sync_signup(user_id="u1", role="farmer", meta=meta, created_at=_now())
-    assert res.ok and len(res.data["recorded"]) == 3
+    assert res.ok and len(res.data["recorded"]) == len(svc.required_documents("farmer"))
     assert {a["method"] for a in db.acceptances} == {"signup_checkbox_deferred"}
 
 
@@ -431,7 +447,7 @@ def test_sync_signup_endpoint_records_ticked_versions(client, api, monkeypatch, 
     monkeypatch.setattr(app_mod, "verify_supabase_user", fake)
     r = client.post("/api/legal/sync-signup", json={})
     body = r.get_json()
-    assert r.status_code == 200 and len(body["recorded"]) == 3 and body["status"]["complete"] is True
+    assert r.status_code == 200 and len(body["recorded"]) == len(api.required_documents("farmer")) and body["status"]["complete"] is True
     assert body["marketing"] == ["sms"]
 
 

@@ -151,14 +151,18 @@ _PAGE = """<!doctype html>
 <meta name="robots" content="index,follow">
 <style>
 body{{font:16px/1.65 system-ui,-apple-system,Segoe UI,Roboto,sans-serif;margin:0;color:#1b2a1f;background:#f7faf5}}
-main{{max-width:760px;margin:0 auto;padding:20px 16px 56px}}
+main{{max-width:760px;margin:0 auto;padding:20px 16px 56px;overflow-wrap:anywhere}}
 h1{{font-size:1.6rem}} h2{{font-size:1.15rem;margin-top:1.8em}}
+@media print{{body{{background:#fff!important;color:#000!important}}nav,.reading-help,details{{display:none}}main{{max-width:none;padding:0}}a{{color:inherit!important}}}}
 blockquote{{background:#fff7e0;border-left:4px solid #e0a800;margin:1em 0;padding:8px 14px}}
 a{{color:#1f7a3d}} nav a{{font-weight:600}}
 @media (prefers-color-scheme:dark){{body{{background:#101712;color:#e6efe8}}blockquote{{background:#2a2410}}a{{color:#6fd68f}}}}
 </style></head><body><main>
 <nav><a href="../index.html">&larr; Back to AgriBridge</a> ·
+<a href="index.html">Legal Centre</a> ·
 <a href="privacy-policy.html">Privacy Policy</a> · <a href="terms-of-use.html">Terms of Use</a></nav>
+<p class="reading-help">Use your browser's Find command to search this document, or Print to print or save a PDF.</p>
+<details><summary>Contents</summary><ol>{contents}</ol></details>
 {body}
 <hr><p>Questions? <a href="{mailto}">{email}</a> · <a href="{tel}">{phone}</a> · <a href="{wa}">WhatsApp</a></p>
 <p><small>Document: {doc_type} · version {version} · effective {effective} · SHA-256 {sha}</small></p>
@@ -220,9 +224,80 @@ def build_manifest(docs: dict[str, dict]) -> dict:
 
 
 def _page(d: dict) -> str:
+    contents = []
+
+    def section(match):
+        anchor = f"section-{len(contents) + 1}"
+        title = match.group(1)
+        contents.append(f'<li><a href="#{anchor}">{title}</a></li>')
+        return f'<h2 id="{anchor}">{title}</h2>'
+
+    body = re.sub(r"<h2>(.*?)</h2>", section, d["html"])
     return _PAGE.format(
-        title=html.escape(d["title"]), body=d["html"], doc_type=d["doc_type"],
+        title=html.escape(d["title"]), body=body, contents="\n".join(contents), doc_type=d["doc_type"],
         version=d["version"], effective=d["effective_date"], sha=d["sha256"],
+        mailto=business.MAILTO, email=html.escape(business.SUPPORT_EMAIL),
+        tel=business.TEL, phone=html.escape(business.PHONE_DISPLAY), wa=business.WHATSAPP_URL)
+
+
+_CENTRE = """<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Legal Centre — AgriBridge</title>
+<meta name="robots" content="index,follow">
+<style>
+body{{font:16px/1.65 system-ui,-apple-system,Segoe UI,Roboto,sans-serif;margin:0;color:#1b2a1f;background:#f7faf5}}
+main{{max-width:760px;margin:0 auto;padding:20px 16px 56px;overflow-wrap:anywhere}}
+h1{{font-size:1.6rem}} h2{{font-size:1.15rem;margin-top:1.8em}}
+@media print{{body{{background:#fff!important;color:#000!important}}nav,.reading-help,details{{display:none}}main{{max-width:none;padding:0}}a{{color:inherit!important}}}}
+blockquote{{background:#fff7e0;border-left:4px solid #e0a800;margin:1em 0;padding:8px 14px}}
+a{{color:#1f7a3d}} nav a{{font-weight:600}}
+.doc{{border:1px solid #d8e4d8;border-radius:10px;padding:12px 16px;margin:12px 0;background:#fff}}
+.doc h2{{margin:0 0 4px}} .meta{{color:#6b7c72;font-size:0.85rem}}
+@media (prefers-color-scheme:dark){{body{{background:#101712;color:#e6efe8}}blockquote{{background:#2a2410}}a{{color:#6fd68f}}.doc{{background:#16211a;border-color:#2a3a2e}}}}
+</style></head><body><main>
+<nav><a href="../index.html">&larr; Back to AgriBridge</a></nav>
+<h1>AgriBridge Legal Centre</h1>
+<p>Every current agreement and policy, with its version and effective date. Each entry links to the current and exact version. Acceptance is required for your account type's mandatory agreements.</p>
+<p class="reading-help">Use your browser's Find command to search this index. Each document has a contents list; use Print to print it or save a PDF.</p>
+<blockquote><strong>Legal review pending.</strong> These documents have not yet been reviewed by a qualified Ugandan legal professional and contain items marked "to be confirmed". Where anything here conflicts with applicable Ugandan law, that law prevails.</blockquote>
+{cards}
+<h2>Which documents apply to me?</h2>
+{roles}
+<h2>Older versions</h2>
+<p>Each document above links to its exact published version. When a document changes materially we publish a new version and ask you to review it; we never silently replace a published version or rewrite your acceptance history.</p>
+<hr><p>Questions? <a href="{mailto}">{email}</a> · <a href="{tel}">{phone}</a> · <a href="{wa}">WhatsApp</a></p>
+</main></body></html>
+"""
+
+_ROLE_NAMES = {
+    "farmer": "Farmer / producer", "vendor": "Buyer / vendor", "hotel": "Hotel / restaurant",
+    "supplier": "Input supplier", "exporter": "Exporter / trading company", "transporter": "Transporter / driver",
+}
+
+
+def render_centre(docs: dict[str, dict]) -> str:
+    cards = []
+    for d in sorted(docs.values(), key=lambda x: x["title"]):
+        verb = "Acknowledgement" if d["requires_acceptance"] == "acknowledge" else "Acceptance required"
+        cur = html.escape(d["doc_type"] + ".html", quote=True)
+        ver = html.escape(f"{d['doc_type']}-{d['version']}.html", quote=True)
+        cards.append(
+            '<div class="doc">'
+            f'<h2>{html.escape(d["title"])}</h2>'
+            f'<p class="meta">Version {html.escape(d["version"])} · effective {html.escape(d["effective_date"])} · {verb}</p>'
+            f'<p>{html.escape(d["summary"])}</p>'
+            f'<p><a href="{cur}">Read current version</a> · <a href="{ver}">This exact version</a></p>'
+            '</div>')
+    roles = []
+    for role in ROLES:
+        ks = sorted((k for k, d in docs.items() if "all" in d["roles"] or role in d["roles"]),
+                    key=lambda k: docs[k]["title"])
+        links = " · ".join(f'<a href="{html.escape(k + ".html", quote=True)}">{html.escape(docs[k]["title"])}</a>'
+                           for k in ks)
+        roles.append(f'<p><strong>{html.escape(_ROLE_NAMES.get(role, role))}:</strong> {links}</p>')
+    return _CENTRE.format(
+        cards="\n".join(cards), roles="\n".join(roles),
         mailto=business.MAILTO, email=html.escape(business.SUPPORT_EMAIL),
         tel=business.TEL, phone=html.escape(business.PHONE_DISPLAY), wa=business.WHATSAPP_URL)
 
@@ -234,6 +309,7 @@ def outputs(docs: dict[str, dict]) -> dict[Path, str]:
         files[OUT / f"{k}.html"] = page
         files[OUT / f"{k}-{d['version']}.html"] = page
         files[OUT / f"{k}.fragment.html"] = d["html"] + "\n"
+    files[OUT / "index.html"] = render_centre(docs)
     files[OUT / "manifest.json"] = json.dumps(build_manifest(docs), indent=2, sort_keys=True) + "\n"
     return files
 

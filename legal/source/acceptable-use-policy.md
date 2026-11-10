@@ -1,0 +1,65 @@
+---
+doc_type: acceptable-use-policy
+title: Acceptable Use Policy
+version: 1.0.0
+effective_date: 2026-11-10
+material: true
+requires_acceptance: accept
+applies_to_roles: all
+summary: First published Acceptable Use Policy. Sets out the honest-identity, honest-content and fair-dealing rules every account must follow, and how breaches are handled.
+---
+# AgriBridge Acceptable Use Policy
+
+**Version 1.0.0 · Effective 10 November 2026**
+
+> **Status of this document.** This policy describes the conduct AgriBridge requires today. It has not yet been reviewed by a Ugandan advocate. Where something is "to be confirmed", we will publish a new version and ask you to review it if the change is material. Nothing here removes rights you have under Ugandan law.
+
+## 1. Scope
+
+This policy applies to every account type and expands section 14 of the Terms of Use. It covers what you post, how you treat other users, and how you use the platform itself.
+
+## 2. Honest identity
+
+Use your real name, a phone number you control, and an email address you control. Do not create an account with a fake name, a fake number or a fake email, or with no name at all. Providing details does not mean AgriBridge has independently verified your identity or ownership of a phone number. One person holds one marketplace role at a time; do not run several accounts to avoid a suspension or a limit, and do not share your account with another person. Tell us quickly at [{{EMAIL}}](mailto:{{EMAIL}}) if you think someone else has used your account.
+
+## 3. Honest marketplace content
+
+Listings, photos and reviews must be true and not misleading. Use your own photos, or ones you have the right to use, and say what they show. **Do not present a stock photograph as a photograph of your actual harvest or livestock.** Do not claim organic, certified, vaccinated, inspected or phytosanitary status unless it is true and you can show the documents if asked. Reviews must be honest and based on real experience. Do not create fake orders, fake reviews or false payment claims.
+
+## 4. Fair dealing
+
+Do not take buyers and sellers off the platform to avoid agreed fees, and do not share another user's contact details without their permission. Do not send spam or unsolicited bulk messages. Marketing messages are optional and separate from the order and account messages you need to run your business.
+
+## 5. Respect and safety
+
+Do not harass, threaten, discriminate against or abuse buyers, sellers, transporters or AgriBridge staff. Do not publish another person's private information. Do not do anything that endangers food safety, animal welfare or the people handling goods.
+
+## 6. Lawful goods only
+
+Sell only goods you are entitled to sell and that are legal and safe. Livestock, processed foods and farm inputs must meet the Ugandan rules that apply to them. We may remove or hide listings that break these terms or the law.
+
+## 7. Platform integrity
+
+You must not:
+
+- attempt to access another account, or interfere with the service or its security;
+- test the platform's security without our written permission;
+- scrape or automatically harvest data, or copy or resell the platform, without permission;
+- introduce malware, or use the platform to build a competing service; or
+- bypass the technical limits we set to keep the service fair and available.
+
+## 8. Agricultural information and AI answers
+
+Market prices, weather, tips and AI-generated answers, including crop-doctor suggestions, are general guidance only and can be wrong. Check with a qualified agricultural officer, veterinarian or the product label before acting, especially on chemicals, animal health and food safety. Do not enter sensitive personal information into AI features.
+
+## 9. Reporting and enforcement
+
+Report a breach through the contact below or the report controls in the app. We may limit, suspend or close an account, or remove content, if we reasonably believe this policy or the law has been broken, to protect other users, or where the law requires. Where we can, we will tell you why and how to respond. In cases of serious misconduct or fraud we may act immediately. You may close your account at any time from account settings.
+
+## 10. Changes, governing law and contact
+
+Each version has an effective date and older versions are kept. This policy is governed by the laws of {{COUNTRY}}; the competent courts and any dispute-resolution forum are **to be confirmed** with a Ugandan advocate.
+
+Questions or reports: [{{EMAIL}}](mailto:{{EMAIL}}) · {{PHONE}} ([WhatsApp]({{WHATSAPP_URL}})).
+
+> **Legal review required.** This document has not been reviewed by a qualified Ugandan legal professional. AgriBridge will update this document following legal review. Where anything here conflicts with applicable Ugandan law, that law prevails.

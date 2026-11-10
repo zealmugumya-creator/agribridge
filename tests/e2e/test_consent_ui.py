@@ -32,6 +32,9 @@ from services.legal import LegalService  # noqa: E402
 
 API_HOST = "agribridge-1-og7a.onrender.com"
 
+PLATFORM_POLICIES = {"cookie-policy", "payment-refund-policy",
+                     "delivery-dispute-policy", "acceptable-use-policy"}
+
 SUPABASE_STUB = r"""
 (function(){
   var listeners = [];
@@ -269,8 +272,10 @@ def test_required_wording_and_links(env, site):
     page, _, _ = env
     page.evaluate("openModal('registerModal')")
     text = page.inner_text("label[for=regAcceptTerms]")
-    assert text.startswith("I agree to the AgriBridge Terms of Use, including any terms applicable to my selected "
-                           "account role, and acknowledge that I have read the AgriBridge Privacy Policy.")
+    assert text.startswith("I agree to the AgriBridge Terms of Use, the Legal Centre policies "
+                           "(Payment & Refund, Delivery & Dispute and Acceptable Use) and the terms "
+                           "for my selected account role, and acknowledge that I have read the "
+                           "Privacy Policy and Cookie Policy.")
     assert "optional AgriBridge promotions" in page.inner_text("label[for=regMarketing]")
     import urllib.request
     for sel in ("#regTermsLink", "#regPrivacyLink", "#regRoleTermsLink"):
@@ -349,13 +354,16 @@ def test_signup_records_exact_versions_for_the_role_and_no_marketing(env):
     page.click("#regSubmitBtn")
     page.wait_for_function("window.__sb.signups.length === 1")
     meta = page.evaluate("window.__sb.signups[0].options.data")
-    assert meta["legal_signup"]["versions"] == {"terms-of-use": "1.0.0", "privacy-policy": "1.0.0", "supplier-terms": "1.0.0"}
+    assert meta["legal_signup"]["versions"] == {
+        "terms-of-use": "1.0.0", "privacy-policy": "1.0.0", "supplier-terms": "1.0.0",
+        **{k: "1.0.0" for k in PLATFORM_POLICIES}}
     page.wait_for_function("true")
     for _ in range(50):
-        if len(db.acceptances) == 3:
+        if len(db.acceptances) == 7:
             break
         page.wait_for_timeout(100)
-    assert {a["doc_type"] for a in db.acceptances} == {"terms-of-use", "privacy-policy", "supplier-terms"}
+    assert {a["doc_type"] for a in db.acceptances} == {
+        "terms-of-use", "privacy-policy", "supplier-terms"} | PLATFORM_POLICIES
     assert {a["method"] for a in db.acceptances} == {"signup_checkbox_deferred"}
     assert db.marketing == []                      # promotions were never ticked
     assert page.is_hidden("#legalReviewModal")
@@ -388,7 +396,11 @@ def test_existing_user_without_acceptance_sees_review_and_must_tick(env):
     _login(page)
     page.wait_for_selector("#legalReviewModal.open")
     boxes = page.locator("#legalReviewDocs input[type=checkbox]")
-    assert boxes.count() == 3 and all(not boxes.nth(i).is_checked() for i in range(3))
+    assert boxes.count() == 7 and all(not boxes.nth(i).is_checked() for i in range(7))
+    # Acknowledge-only documents ask "I have read", acceptance ones "I agree".
+    text = page.inner_text("#legalReviewDocs")
+    assert "I have read the Cookie Policy" in text
+    assert "I agree to the Payment and Refund Policy" in text
     page.click("#legalReviewBtn")
     # The click listener is attached while the modal opens, so under load this
     # click can land first; wait for the message instead of reading it once.
@@ -401,7 +413,7 @@ def test_existing_user_without_acceptance_sees_review_and_must_tick(env):
     assert db.acceptances == []
     page.keyboard.press("Escape")
     assert page.is_visible("#legalReviewModal")          # cannot be dismissed
-    for i in range(3):
+    for i in range(7):
         boxes.nth(i).check()
     page.click("#legalReviewBtn")
     page.wait_for_selector("#legalReviewModal:not(.open)", state="attached")
@@ -414,7 +426,7 @@ def test_failed_save_is_shown_and_retry_works(env):
     db.fail_accept = True
     _login(page)
     page.wait_for_selector("#legalReviewModal.open")
-    for i in range(3):
+    for i in range(7):
         page.locator("#legalReviewDocs input[type=checkbox]").nth(i).check()
     page.click("#legalReviewBtn")
     page.wait_for_function("document.getElementById('legalReviewBtn').textContent.includes('Try again')")
@@ -423,14 +435,14 @@ def test_failed_save_is_shown_and_retry_works(env):
     db.fail_accept = False
     page.click("#legalReviewBtn")
     page.wait_for_selector("#legalReviewModal:not(.open)", state="attached")
-    assert len(db.acceptances) == 3
+    assert len(db.acceptances) == 7
 
 
 def test_user_who_already_accepted_is_not_asked_again(env):
     page, db, _ = env
     _login(page)
     page.wait_for_selector("#legalReviewModal.open")
-    for i in range(3):
+    for i in range(7):
         page.locator("#legalReviewDocs input[type=checkbox]").nth(i).check()
     page.click("#legalReviewBtn")
     page.wait_for_selector("#legalReviewModal:not(.open)", state="attached")
@@ -438,14 +450,14 @@ def test_user_who_already_accepted_is_not_asked_again(env):
     page.wait_for_function("!window.__sb.session")
     _login(page)
     page.wait_for_timeout(1200)
-    assert page.is_hidden("#legalReviewModal") and len(db.acceptances) == 3
+    assert page.is_hidden("#legalReviewModal") and len(db.acceptances) == 7
 
 
 def test_material_update_asks_again_only_for_the_changed_document(env, monkeypatch):
     page, db, _ = env
     _login(page)
     page.wait_for_selector("#legalReviewModal.open")
-    for i in range(3):
+    for i in range(7):
         page.locator("#legalReviewDocs input[type=checkbox]").nth(i).check()
     page.click("#legalReviewBtn")
     page.wait_for_selector("#legalReviewModal:not(.open)", state="attached")
@@ -490,7 +502,7 @@ def test_changing_account_type_asks_for_the_new_role_terms(env):
     page, db, _ = env
     _login(page)
     page.wait_for_selector("#legalReviewModal.open")
-    _accept_review(page, 3)
+    _accept_review(page, 7)
     page.evaluate("openSettings(); settingsGo('account')")
     assert page.locator("#setRole").count() == 1
     page.select_option("#setRole", "supplier")
@@ -518,6 +530,8 @@ def test_a_blocking_review_screen_is_never_behind_the_panel_that_raised_it(env):
     assert page.is_visible("#setRole")
 
     def topmost_of(selector):
+        # elementFromPoint cannot inspect controls outside the viewport.
+        page.locator(selector).scroll_into_view_if_needed()
         box = page.locator(selector).bounding_box()
         return page.evaluate(
             "([x, y, host]) => { const e = document.elementFromPoint(x, y); "
@@ -537,7 +551,7 @@ def test_the_account_type_choice_is_not_offered_twice(env):
     page, db, _ = env
     _login(page)
     page.wait_for_selector("#legalReviewModal.open")
-    _accept_review(page, 3)
+    _accept_review(page, 7)
     page.evaluate("openSettings(); settingsGo('account')")
     page.select_option("#setRole", "supplier")
     page.wait_for_selector("#legalReviewModal.open")
@@ -564,7 +578,7 @@ def test_settings_privacy_section_marketing_toggle_and_history(env):
     page, db, _ = env
     _login(page)
     page.wait_for_selector("#legalReviewModal.open")
-    for i in range(3):
+    for i in range(7):
         page.locator("#legalReviewDocs input[type=checkbox]").nth(i).check()
     page.click("#legalReviewBtn")
     page.wait_for_selector("#legalReviewModal:not(.open)", state="attached")
@@ -599,6 +613,33 @@ def test_privacy_request_works_when_signed_out(env):
     page.wait_for_selector("#prDone:not([hidden])")
     assert db.requests[0]["requester_email"] == "farmer@example.com" and db.requests[0]["user_id"] is None
     assert "agribrige@gmail.com" in page.inner_text("#prDone")
+
+
+@pytest.mark.parametrize("width", [390, 1280])
+def test_legal_centre_navigation_contents_and_print_layout(env, site, width):
+    page, _, errors = env
+    page.set_viewport_size({"width": width, "height": 800})
+    page.goto(site + "/legal/index.html")
+    assert page.locator(".doc").count() == 11
+    assert "Legal review pending" in page.inner_text("main")
+    assert page.evaluate("document.documentElement.scrollWidth <= innerWidth")
+    page.locator(".doc").filter(has=page.get_by_role("heading", name="Cookie Policy", exact=True)).get_by_role(
+        "link", name="This exact version").click()
+    assert page.url.endswith("/legal/cookie-policy-1.0.0.html")
+    assert page.locator("h1").inner_text() == "AgriBridge Cookie Policy"
+    assert page.evaluate("document.documentElement.scrollWidth <= innerWidth")
+    page.get_by_text("Contents", exact=True).click()
+    page.locator("details a").first.click()
+    assert page.url.endswith("#section-1")
+    assert page.locator("#section-1").is_visible()
+    page.emulate_media(media="print")
+    assert page.locator("nav").is_hidden()
+    assert page.locator("details").is_hidden()
+    assert page.locator("h1").is_visible()
+    page.emulate_media(media="screen")
+    page.get_by_role("link", name="Legal Centre", exact=True).click()
+    assert page.locator(".doc").count() == 11
+    assert not errors, errors
 
 
 def test_terms_and_privacy_modals_show_the_published_documents(env):
@@ -694,11 +735,11 @@ def test_google_onboarding_blocks_until_terms_and_saves_the_profile(env, monkeyp
     assert saved["phone"] == "+256771234567"
     assert saved["legal_signup"]["versions"]["supplier-terms"] == "1.0.0"
     for _ in range(50):
-        if len(db.acceptances) == 3:
+        if len(db.acceptances) == 7:
             break
         page.wait_for_timeout(100)
     assert {a["doc_type"] for a in db.acceptances} == {
-        "terms-of-use", "privacy-policy", "supplier-terms"}
+        "terms-of-use", "privacy-policy", "supplier-terms"} | PLATFORM_POLICIES
     assert page.is_hidden("#legalReviewModal")
     assert len(errors) == before, errors[before:]
 

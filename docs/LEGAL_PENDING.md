@@ -11,7 +11,7 @@ Everything here needs the owner or a Ugandan advocate. None of it was invented. 
 | Physical address | Privacy Policy s.2, Terms s.24 |
 | Name of a data protection / privacy officer | Privacy Policy s.2 (the old in-app text named a person; that was removed) |
 | PDPO registration number, if registered | Privacy Policy s.2, s.23 |
-| Effective date to publish (currently 2026-10-09, set at build time) | front matter of each file in `legal/source/` |
+| Confirm effective dates before release (original documents: 2026-10-09; exporter 1.0.0: 2026-11-08; transporter 1.0.1: 2026-11-09; four new platform policies: 2026-11-10) | Explicit front matter of each file in `legal/source/`; the build does not choose these dates |
 
 To add them, edit the source files, bump the version, set `material`, rebuild (see `legal/README.md`).
 
@@ -40,6 +40,16 @@ These are outside the legal flow, but they are statements to users. Please confi
 - "Emergency vet: 24/7" was removed together with the opening-hours lines, which disagreed with each other (7am-8pm vs 7am-9pm).
 - "Kampala, Uganda" is shown as the office on the Contact page. No street address was added.
 
-## Delivery partners
+## Transporter agreement and the new platform policies (2026-11-10)
 
-The app has no delivery-partner sign-up, so there is no delivery-partner agreement and no such role. If one is added, add `delivery-terms.md`, a role in `scripts/build_legal.py` (`ROLES`) and `services/legal.normalize_role`, and a sign-up option.
+The transporter portal and role now exist. `transporter-terms` 1.0.1 is built in the legal branch, with the prior live 1.0.0 artifact retained as evidence; see `docs/LEGAL_CONSENT_AUDIT.md` section 8. Do not apply the old instruction to create a second delivery agreement or role.
+
+The four new policies in the legal branch also need owner confirmation and Ugandan advocate review before they can be treated as reviewed legal advice:
+
+- Cookie Policy: confirm Cloudflare's actual cookie inventory, third-party checkout storage and whether functional storage is correctly classified under applicable law. No optional trackers are implemented. Acknowledgement is not optional-cookie consent.
+- Payment and Refund Policy: confirm refund timing and permitted deductions, the commission schedule and payout timelines. Online provider confirmation differs from cash, direct seller payments and administrator-verified bank transfers. No escrow, automated refund capability or fixed rates are promised.
+- Delivery and Dispute Resolution Policy: confirm liability limits, any compensation scale, dispute forum and the operational complaints process. Contact support is the documented entry point; there is no claim of a dispute form in account settings.
+- Acceptable Use Policy: review identity and content obligations. Format/name validation does not prove identity or ownership of a phone number; phone OTP remains blocked on provider setup.
+- Transporter Agreement: confirm insurance, tax treatment, payout/payment-dispute wording, liability and the governing-law mechanism.
+
+These additions are local, not production-verified. New mandatory documents require existing users to review the outstanding versions; no historical acceptance is backfilled. Administrative placeholders, database enforcement and cookie-preference management remain later implementation stages.

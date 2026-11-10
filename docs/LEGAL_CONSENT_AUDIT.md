@@ -198,3 +198,64 @@ What shipped in L2a:
 * Tests: `test_each_role_sees_only_its_own_terms` now covers transporter; alias pins for
   `transporter`/`driver`; the no-public-admin-terms guard includes the role. Legal suites:
   **74 passed** (test_legal.py + test_legal_build.py). SPA: 8 inline blocks parse clean.
+
+## 9. L2b — platform policies and Legal Centre (2026-11-10)
+
+**Local implementation only; not pushed or deployed.** References to publication in section 8
+mean repository-built versions, not a verified database publication or production deployment.
+
+- Four new all-role documents, each version 1.0.0 and effective 2026-11-10: Cookie Policy
+  (acknowledge), Payment and Refund Policy, Delivery and Dispute Resolution Policy and Acceptable
+  Use Policy (accept). All explicitly require Ugandan legal review. Missing operator identity,
+  rates, refund/payout timing, liability and cookie inventory remain unconfirmed, not invented.
+- Pre-publication review removed unsupported draft claims about identity/phone verification,
+  an account-settings dispute process and a completed cookie preference centre. Online gateway
+  confirmation is distinguished from cash, direct seller payments and administrator-verified
+  bank transfers. Only these new, uncommitted drafts and their provisional build archives were
+  corrected; no previously committed document text was edited.
+- `static/legal/index.html` is generated from the same source set as the manifest: 11 document
+  cards, exact/current version links and role mapping. Document pages have generated contents
+  links, browser Find/Print guidance and print CSS. No document scripts or third-party assets
+  were added. This is browser-native search/print, not a custom cross-document search interface.
+- Registration and Google onboarding explicitly name the new policies, preserving unchecked
+  mandatory consent and separate optional marketing. Footer/profile/cookie-banner links expose
+  the Legal Centre and Cookie Policy. Existing dynamic review and acceptance-history flows
+  include the new documents without hardcoded lists.
+- Rollout consequence: every role now requires 7 documents (measured from the built manifest).
+  A user who accepted the prior complete set will have the 4 new policies outstanding; a
+  transporter may also need the reconciled 1.0.1 agreement. Historical acceptances and their
+  timestamps remain unchanged. This is a deliberate re-review, not backfilled consent.
+- A comparison against HEAD before L2b found **zero changed hashes among previously committed
+  documents**. Full-page HTML changes are navigation/layout only; the frozen substituted text
+  is the content-hash input. The transporter fragment also loses an inconsistent HTML copyright
+  header so it matches the authoritative builder; its text hash remains unchanged.
+
+### Executed checks
+
+- Initial full regression: **11 failed, 721 passed**. Ten consent browser tests assumed the old
+  wording or 3-document set; the remaining z-order assertion sampled a button outside the
+  viewport. Expectations now include all 7 documents, and the assertion scrolls the actual
+  scrollable modal before checking what paints above it. No application security control was
+  relaxed to satisfy a test.
+- Final full regression (`pytest tests/ -q`): **738 passed, 0 failed, 159 warnings**, exit 0.
+  Warnings concern TripleDES deprecation and the test JWT signing key length.
+- Focused build + consent browser run: **40 passed**, including Legal Centre navigation at
+  390px and 1280px, exact-version link, contents anchor, no horizontal overflow and print layout.
+  Existing browser paths cover registration, Google onboarding, review retry, material updates,
+  role-specific review, marketing withdrawal, history, privacy requests and sign-out.
+- Ruff: **all checks passed**. `build_legal.py --check`: **up to date**. SPA `vm.Script`:
+  **8 inline blocks parsed**. `npm test` in `tests/sql`: **all 15 chained files passed**, exit 0.
+- Real local HTTP preview opened in the in-app browser; its console reported no warnings/errors.
+  The native screenshot tool could not capture a hidden 0x0 viewport. Separate Playwright/Chrome
+  captures at 390px and 1280px were generated and visually inspected for the centre and Cookie
+  Policy. Evidence: `C:/Users/HP/diag/legal-centre-2026-11-10-{390,1280}.png` and
+  `C:/Users/HP/diag/legal-cookie-2026-11-10-{390,1280}.png`. Port 8765 was blocked by Windows;
+  the OS-selected local port worked. No production browser session was exercised.
+
+### Still outstanding before the full legal-system rollout
+
+The backend and direct-PostgREST enforcement gaps in section 4 are **not closed by L2b**.
+No migration, database publication, Render flag, payment, refund, message or production data was
+changed. Cookie preference management, admin compliance/publication controls and the final
+rollout gates remain later stages. The homepage-redesign branch remains separate and unmerged.
+Owner census and advocate review are still unmeasurable from this workstation.

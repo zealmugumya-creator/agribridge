@@ -1,5 +1,21 @@
 {
   "documents": {
+    "acceptable-use-policy": {
+      "applies_to_roles": [
+        "all"
+      ],
+      "doc_type": "acceptable-use-policy",
+      "effective_date": "2026-11-10",
+      "last_material_version": "1.0.0",
+      "material": true,
+      "requires_acceptance": "accept",
+      "sha256": "fae7142bbb19163d0267d652a33d8188569bac26adeb8131979e09a7632e370c",
+      "summary": "First published Acceptable Use Policy. Sets out the honest-identity, honest-content and fair-dealing rules every account must follow, and how breaches are handled.",
+      "title": "Acceptable Use Policy",
+      "url": "legal/acceptable-use-policy.html",
+      "version": "1.0.0",
+      "versioned_url": "legal/acceptable-use-policy-1.0.0.html"
+    },
     "buyer-terms": {
       "applies_to_roles": [
         "vendor",
@@ -16,6 +32,38 @@
       "url": "legal/buyer-terms.html",
       "version": "1.0.0",
       "versioned_url": "legal/buyer-terms-1.0.0.html"
+    },
+    "cookie-policy": {
+      "applies_to_roles": [
+        "all"
+      ],
+      "doc_type": "cookie-policy",
+      "effective_date": "2026-11-10",
+      "last_material_version": "1.0.0",
+      "material": true,
+      "requires_acceptance": "acknowledge",
+      "sha256": "7ec41ba75991a34eb86a16057a26586d7d55e55b944fb437c0063a6877510fc4",
+      "summary": "First published Cookie Policy. Explains the browser storage AgriBridge actually uses, confirms there are no advertising or analytics trackers, and describes how preferences are managed.",
+      "title": "Cookie Policy",
+      "url": "legal/cookie-policy.html",
+      "version": "1.0.0",
+      "versioned_url": "legal/cookie-policy-1.0.0.html"
+    },
+    "delivery-dispute-policy": {
+      "applies_to_roles": [
+        "all"
+      ],
+      "doc_type": "delivery-dispute-policy",
+      "effective_date": "2026-11-10",
+      "last_material_version": "1.0.0",
+      "material": true,
+      "requires_acceptance": "accept",
+      "sha256": "e9c6d4dd4fd3b45911d0a0c642b93d9d0e0062ab18ba9993325d3f1a5691a068",
+      "summary": "First published Delivery and Dispute Resolution Policy. Describes the delivery lifecycle and proof of delivery, and the steps for raising and resolving a delivery or quality dispute.",
+      "title": "Delivery and Dispute Resolution Policy",
+      "url": "legal/delivery-dispute-policy.html",
+      "version": "1.0.0",
+      "versioned_url": "legal/delivery-dispute-policy-1.0.0.html"
     },
     "exporter-terms": {
       "applies_to_roles": [
@@ -48,6 +96,22 @@
       "url": "legal/farmer-terms.html",
       "version": "1.0.0",
       "versioned_url": "legal/farmer-terms-1.0.0.html"
+    },
+    "payment-refund-policy": {
+      "applies_to_roles": [
+        "all"
+      ],
+      "doc_type": "payment-refund-policy",
+      "effective_date": "2026-11-10",
+      "last_material_version": "1.0.0",
+      "material": true,
+      "requires_acceptance": "accept",
+      "sha256": "2c6adf4bd78ac0518f424045fa21bd758ede90e42ee0d96014f40088296aea8a",
+      "summary": "First published Payment and Refund Policy. Describes the payment methods the platform actually supports, when a payment counts as made, and how refunds are reviewed case by case.",
+      "title": "Payment and Refund Policy",
+      "url": "legal/payment-refund-policy.html",
+      "version": "1.0.0",
+      "versioned_url": "legal/payment-refund-policy-1.0.0.html"
     },
     "privacy-policy": {
       "applies_to_roles": [
@@ -116,32 +180,56 @@
   },
   "role_documents": {
     "exporter": [
+      "acceptable-use-policy",
+      "cookie-policy",
+      "delivery-dispute-policy",
       "exporter-terms",
+      "payment-refund-policy",
       "privacy-policy",
       "terms-of-use"
     ],
     "farmer": [
+      "acceptable-use-policy",
+      "cookie-policy",
+      "delivery-dispute-policy",
       "farmer-terms",
+      "payment-refund-policy",
       "privacy-policy",
       "terms-of-use"
     ],
     "hotel": [
+      "acceptable-use-policy",
       "buyer-terms",
+      "cookie-policy",
+      "delivery-dispute-policy",
+      "payment-refund-policy",
       "privacy-policy",
       "terms-of-use"
     ],
     "supplier": [
+      "acceptable-use-policy",
+      "cookie-policy",
+      "delivery-dispute-policy",
+      "payment-refund-policy",
       "privacy-policy",
       "supplier-terms",
       "terms-of-use"
     ],
     "transporter": [
+      "acceptable-use-policy",
+      "cookie-policy",
+      "delivery-dispute-policy",
+      "payment-refund-policy",
       "privacy-policy",
       "terms-of-use",
       "transporter-terms"
     ],
     "vendor": [
+      "acceptable-use-policy",
       "buyer-terms",
+      "cookie-policy",
+      "delivery-dispute-policy",
+      "payment-refund-policy",
       "privacy-policy",
       "terms-of-use"
     ]
