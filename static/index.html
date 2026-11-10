@@ -12146,6 +12146,7 @@ function normLegalRole(r) {
   if (r === 'farmer') return 'farmer';
   if (r === 'exporter') return 'exporter';
   if (r === 'supplier' || r === 'input_seller') return 'supplier';
+  if (r === 'transporter' || r === 'driver') return 'transporter';
   return 'vendor';
 }
 function legalRoleDocs(role) {

@@ -151,9 +151,46 @@ select status, count(*) from public.privacy_requests group by status;
 
 ## 7. Decisions needed before L2 implementation
 
-1. **transporter-terms reconciliation:** reproduce the live 1.0.0 bytes into the repo (preferred —
-   keeps any live acceptance valid) or publish 1.0.1; confirm whether the live DB holds the row.
+1. **transporter-terms reconciliation:** ~~reproduce the live 1.0.0 bytes into the repo (preferred —
+   keeps any live acceptance valid) or publish 1.0.1; confirm whether the live DB holds the row.~~
+   **Resolved 2026-11-10 — published 1.0.1 (material); see §8.** Reproducing the 1.0.0 hash proved
+   impossible: the live manifest's `content_sha256` is the hash of the HTML bytes, not of markdown
+   source text, and the original source is unrecoverable from the hand-written page.
 2. **Enforcement architecture:** DB-layer guard (§4b) vs moving remaining writes behind the API (§4a).
 3. **Flag timing:** `ENFORCE_LEGAL_ACCEPTANCE=true` only after coverage + smoke test, by the owner.
 4. **Public browsing stays public** while transactional actions are gated (confirm interpretation).
 5. Missing identity details (LEGAL_PENDING.md) and advocate review — unchanged, still open.
+
+## 8. L2a resolution — transporter-terms reconciled (2026-11-10)
+
+**Decision: publish `transporter-terms` 1.0.1 (material, effective 2026-11-09), not 1.0.0.**
+Evidence that forced it: `sha256(diag/live_transporter_terms_1.0.0.html)` =
+`4fff3628670504963b558262acad4549f9cd0df4afb90091d8042ff5b7ebf2d3` — **identical** to the
+`content_sha256` the live manifest serves for 1.0.0. So the unknown publisher hashed the HTML
+bytes, while `scripts/build_legal.py` hashes the substituted markdown text; the two methods can
+never agree, and the original markdown is unrecoverable from the hand-written HTML (blank lines,
+custom footer, no Questions/SHA line). Republishing 1.0.0 from the repo would therefore either
+trip the immutability trigger (503 on every accept, if the live DB holds the row) or silently
+replace a published hash. 1.0.1 is an INSERT, not an UPDATE: safe whether or not the live DB
+holds 1.0.0, and it never touches an existing acceptance record. **[S]**
+
+What shipped in L2a:
+
+* `legal/source/transporter-terms.md` — all 16 sections carried over faithfully from the captured
+  live page, including every "to be confirmed" marker (tax, dispute process, insurance, liability
+  limits, governing-law mechanism) and both legal-review blockquotes. Contact uses `{{EMAIL}}`
+  from `services/business.py` like every other document.
+* Captured live artifacts preserved in-repo, byte-verified against the originals:
+  `legal/archive/transporter-terms/1.0.0.live-captured.html` (9,999 bytes) and
+  `1.0.0.live-captured.fragment.html` (9,066 bytes). These are evidence, not build outputs;
+  `check_archive` only reads `<version>.md`, so they cannot interfere with the build.
+* Role mapping fixed in all three places that disagreed: `services/legal.py normalize_role`
+  (`transporter`/`driver` → `transporter`, matching `getCurrentRole()` at index.html:9912),
+  `scripts/build_legal.py ROLES`, and the SPA's `normLegalRole`. The manifest now serves
+  `role_documents.transporter = [privacy-policy, terms-of-use, transporter-terms]`.
+* Effect on people: anyone who accepted the live 1.0.0 keeps that record (append-only); because
+  1.0.1 is material they are asked to review it once. Nobody is silently marked accepted, and no
+  acceptance timestamp is rewritten. Transporters stop being shown the Buyer Terms.
+* Tests: `test_each_role_sees_only_its_own_terms` now covers transporter; alias pins for
+  `transporter`/`driver`; the no-public-admin-terms guard includes the role. Legal suites:
+  **74 passed** (test_legal.py + test_legal_build.py). SPA: 8 inline blocks parse clean.

@@ -96,6 +96,22 @@
       "url": "legal/terms-of-use.html",
       "version": "1.0.0",
       "versioned_url": "legal/terms-of-use-1.0.0.html"
+    },
+    "transporter-terms": {
+      "applies_to_roles": [
+        "transporter"
+      ],
+      "doc_type": "transporter-terms",
+      "effective_date": "2026-11-09",
+      "last_material_version": "1.0.1",
+      "material": true,
+      "requires_acceptance": "accept",
+      "sha256": "df80159a6e3c3a8e1b4681a8343f6ee205444a3b91a23c3481058e83fb446ea4",
+      "summary": "First repository-published Transporter Agreement. Reconciles the uncommitted 1.0.0 that reached the production API bundle on 2026-11-08; text carried over faithfully, version bumped so any acceptance recorded against the live 1.0.0 stays valid and is re-reviewable.",
+      "title": "Transporter Agreement",
+      "url": "legal/transporter-terms.html",
+      "version": "1.0.1",
+      "versioned_url": "legal/transporter-terms-1.0.1.html"
     }
   },
   "role_documents": {
@@ -118,6 +134,11 @@
       "privacy-policy",
       "supplier-terms",
       "terms-of-use"
+    ],
+    "transporter": [
+      "privacy-policy",
+      "terms-of-use",
+      "transporter-terms"
     ],
     "vendor": [
       "buyer-terms",

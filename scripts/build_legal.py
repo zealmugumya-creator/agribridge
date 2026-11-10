@@ -39,7 +39,7 @@ SRC = ROOT / "legal" / "source"
 ARCHIVE = ROOT / "legal" / "archive"
 OUT = ROOT / "static" / "legal"
 
-ROLES = ("farmer", "vendor", "hotel", "supplier", "exporter")
+ROLES = ("farmer", "vendor", "hotel", "supplier", "exporter", "transporter")
 _TOKEN = re.compile(r"\{\{([A-Z_]+)\}\}")
 _PLACEHOLDER = re.compile(r"\[(?:DATE|EMAIL|PHONE|ADDRESS|CITY|YOUR [A-Z ]+|REGISTRATION[^\]]*)\]")
 

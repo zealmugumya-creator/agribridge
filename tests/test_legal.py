@@ -92,6 +92,7 @@ def _docs(svc, role):
 @pytest.mark.parametrize("role,extra", [
     ("farmer", "farmer-terms"), ("vendor", "buyer-terms"), ("hotel", "buyer-terms"),
     ("supplier", "supplier-terms"), ("exporter", "exporter-terms"),
+    ("transporter", "transporter-terms"),
 ])
 def test_each_role_sees_only_its_own_terms(svc, role, extra):
     types = {d["doc_type"] for d in svc.required_documents(role)}
@@ -110,10 +111,13 @@ def test_role_aliases_match_the_web_app():
     assert normalize_role("exporter") == "exporter", (
         "an exporter must not fall through to buyer-terms — they sell, and their "
         "obligations (stock, packing, shipment, certification) are their own")
+    assert normalize_role("transporter") == "transporter" and normalize_role("driver") == "transporter", (
+        "a driver must not fall through to buyer-terms — getCurrentRole() maps both "
+        "aliases to transporter, and their obligations are the Transporter Agreement's")
 
 
 def test_no_public_admin_terms(svc):
-    types = {d["doc_type"] for r in ("farmer", "vendor", "hotel", "supplier", "exporter")
+    types = {d["doc_type"] for r in ("farmer", "vendor", "hotel", "supplier", "exporter", "transporter")
              for d in svc.required_documents(r)}
     assert not any("admin" in t or "staff" in t for t in types)
 
