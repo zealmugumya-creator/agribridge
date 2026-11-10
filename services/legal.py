@@ -109,14 +109,18 @@ class LegalService:
         return LegalResult(ok=True)
 
     # ── status ───────────────────────────────────────────────────────────────
-    def _accepted_versions(self, user_id: str) -> dict[str, list[str]]:
-        rows = self._db.select("legal_acceptances",
-                               {"user_id": f"eq.{user_id}", "select": "doc_type,version"},
-                               limit=500)
+    def _accepted_versions(self, user_id: str) -> dict[str, list[str]] | None:
+        result = self._db.select_checked("legal_acceptances",
+                                        {"user_id": f"eq.{user_id}", "select": "doc_type,version"},
+                                        limit=500)
+        if not result.ok:
+            return None
         out: dict[str, list[str]] = {}
-        for r in rows if isinstance(rows, list) else []:
-            if _SEMVER.match(str(r.get("version", ""))):
-                out.setdefault(r["doc_type"], []).append(r["version"])
+        for r in result.data:
+            if not isinstance(r, dict) or not isinstance(r.get("doc_type"), str) \
+                    or not isinstance(r.get("version"), str) or not _SEMVER.fullmatch(r["version"]):
+                return None
+            out.setdefault(r["doc_type"], []).append(r["version"])
         return out
 
     @staticmethod
@@ -133,6 +137,9 @@ class LegalService:
             return LegalResult(ok=False, error="user required", status_code=401)
         role = normalize_role(role)
         accepted = self._accepted_versions(user_id)
+        if accepted is None:
+            return LegalResult(ok=False, error="we could not verify your acceptance; please try again",
+                               status_code=503)
         items = []
         for d in self.required_documents(role):
             items.append({
@@ -211,6 +218,9 @@ class LegalService:
         if isinstance(sig, dict) and isinstance(sig.get("versions"), dict) and _recent(created_at):
             required = {d["doc_type"]: d for d in self.required_documents(role)}
             accepted = self._accepted_versions(user_id)
+            if accepted is None:
+                return LegalResult(ok=False, error="we could not verify your acceptance; please try again",
+                                   status_code=503)
             docs = []
             for dt, ver in sig["versions"].items():
                 d = required.get(dt)

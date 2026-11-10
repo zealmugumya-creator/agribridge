@@ -23,7 +23,7 @@ from collections import defaultdict
 from functools import wraps
 from typing import Any
 
-from flask import jsonify, request
+from flask import g, jsonify, request
 
 from services.logging import get_logger
 
@@ -79,19 +79,29 @@ class RateLimiter:
         bucket.append(now)
         return True
 
+    def check(self, route_name: str, max_req: int = 30, window: int = 60):
+        key = self._client_key(route_name)
+        checked = getattr(g, '_rate_limit_checked', set())
+        marker = (key, max_req, window)
+        if marker in checked:
+            return None
+        allowed = (self._check_redis(key, max_req, window) if self._redis
+                   else self._check_local(key, max_req, window))
+        if not allowed:
+            return jsonify({'error': 'Too many requests. Please slow down.'}), 429
+        checked.add(marker)
+        g._rate_limit_checked = checked
+        return None
+
     def limit(self, max_req: int = 30, window: int = 60):
         """Decorator: @limiter.limit(max_req=20, window=60)"""
         def deco(fn):
             @wraps(fn)
             def wrapper(*args, **kwargs):
-                key = self._client_key(fn.__name__)
-                allowed = (
-                    self._check_redis(key, max_req, window)
-                    if self._redis else
-                    self._check_local(key, max_req, window)
-                )
-                if not allowed:
-                    return jsonify({'error': 'Too many requests. Please slow down.'}), 429
+                blocked = self.check(fn.__name__, max_req, window)
+                if blocked:
+                    return blocked
                 return fn(*args, **kwargs)
+            wrapper.rate_limit = (fn.__name__, max_req, window)
             return wrapper
         return deco

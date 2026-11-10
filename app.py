@@ -204,6 +204,35 @@ def _begin_request():
     g.correlation_id = set_correlation_id(cid)
     g.started_at = _time.time()
 
+
+_LEGAL_EXEMPT_ENDPOINTS = frozenset({
+    'ussd', 'sms_delivery', 'public_listings', 'get_prices', 'market_live',
+    'crop_doctor', 'ai_chat', 'track_shipment', 'contact_message', 'activity_event',
+    'trigger_matching', 'supabase_table_hook', 'pay_providers', 'vapid_public_key',
+    'pay_webhook_flw', 'pay_pesapal_callback', 'pay_webhook_pesapal',
+    'legal_manifest', 'legal_status', 'legal_accept', 'legal_sync_signup', 'legal_history',
+    'marketing_consent', 'privacy_requests', 'delete_account',
+    'get_account_type', 'choose_account_type', 'update_user_profile',
+    'user_push_unsubscribe', 'unregister_push_subscription',
+})
+
+
+@app.before_request
+def _enforce_marketplace_legal():
+    if (not LEGAL_ENFORCED or request.method == 'OPTIONS' or request.url_rule is None
+            or not request.path.startswith('/api/') or request.path.startswith('/api/admin/')
+            or request.endpoint in _LEGAL_EXEMPT_ENDPOINTS):
+        return None
+    view = app.view_functions[request.endpoint]
+    blocked = _LIMITER.check(*getattr(view, 'rate_limit', (request.endpoint, 30, 60)))
+    if blocked:
+        return blocked
+    uid, err = verify_supabase_user()
+    if err:
+        return err
+    return legal_gate(uid)
+
+
 @app.after_request
 def _security_headers(resp):
     resp.headers['X-Content-Type-Options'] = 'nosniff'
@@ -381,7 +410,9 @@ def supa_get_checked(table, filters=None, limit=100):
                           code=code, message=message)
                 return None, f"{code}: {message}" if code else message
             batch = res.json()
-            if not isinstance(batch, list) or not batch:
+            if not isinstance(batch, list) or any(not isinstance(row, dict) for row in batch):
+                return None, 'invalid database response'
+            if not batch:
                 break
             rows.extend(batch)
             if len(batch) < page_size:
@@ -523,6 +554,9 @@ def verify_supabase_user():
     an arbitrary user id — the id comes from the verified session, never from the
     request body. Returns (user_id, None) or (None, error_response).
     """
+    cached = getattr(g, '_verified_supabase_uid', None)
+    if cached:
+        return cached, None
     token = _bearer_token()
     if not token:
         return None, (jsonify({'error': 'Missing token'}), 401)
@@ -546,6 +580,7 @@ def verify_supabase_user():
     if not uid:
         return None, (jsonify({'error': 'Invalid session'}), 401)
     g.auth_user = auth_user   # verified by GoTrue; used for role/metadata reads
+    g._verified_supabase_uid = uid
     return uid, None
 
 def is_admin_uuid(user_id):
@@ -573,17 +608,42 @@ def require_admin_user():
         return None, (jsonify({'error': 'Insufficient permissions'}), 403)
     return uid, None
 
-def legal_gate(user_id):
-    """Block protected actions until the user accepted the current required terms.
+def _legal_gate_role(user_id):
+    business, privilege, err = _stored_business_role(user_id)
+    if err:
+        return None, 'unreadable'
+    if business:
+        if business not in LEGAL_SERVICE.manifest['role_documents']:
+            return None, 'unreadable'
+        return business, ''
+    if privilege in ('admin', 'superadmin'):
+        return 'vendor', ''
+    for table, column, select in (
+            ('farmers', 'id', 'id'), ('transporters', 'supabase_uid', 'id'),
+            ('buyers', 'id', 'buyer_type')):
+        rows, err = supa_get_checked(table, {column: f'eq.{user_id}', 'select': select}, limit=1)
+        if err:
+            return None, 'unreadable'
+        if rows:
+            if table == 'farmers':
+                return 'farmer', ''
+            if table == 'transporters':
+                return 'transporter', ''
+            return ('hotel' if rows[0].get('buyer_type') in ('hotel', 'restaurant') else 'vendor'), ''
+    return None, 'missing'
 
-    OFF by default (ENFORCE_LEGAL_ACCEPTANCE). Turn it on only after migration
-    0007 is applied and the updated web app is live; otherwise users who have not
-    yet seen the review screen could not place orders. Returns an error response
-    tuple when blocked, else None. It fails CLOSED if the check itself fails.
-    """
+
+def legal_gate(user_id):
     if not LEGAL_ENFORCED:
         return None
-    st = LEGAL_SERVICE.status(user_id, _auth_role())
+    role, error = _legal_gate_role(user_id)
+    if error == 'missing':
+        return jsonify({'error': 'Please confirm your account type in Settings before continuing.',
+                        'code': 'account_type_required'}), 409
+    if error:
+        return jsonify({'error': 'Could not verify your account type. Please try again.',
+                        'code': 'legal_check_failed'}), 503
+    st = LEGAL_SERVICE.status(user_id, role)
     if not st.ok:
         return jsonify({'error': 'Could not verify legal acceptance', 'code': 'legal_check_failed'}), 503
     if st.data['outstanding']:
@@ -2000,9 +2060,6 @@ def upload_media():
     uid, err = verify_supabase_user()
     if err:
         return err
-    blocked = legal_gate(uid)
-    if blocked:
-        return blocked
 
     kind = str(request.form.get('kind', '')).strip().lower()
     if kind not in _MEDIA_UPLOAD_KINDS:
@@ -2082,9 +2139,6 @@ def create_listing():
     uid, err = verify_supabase_user()
     if err:
         return err
-    blocked = legal_gate(uid)
-    if blocked:
-        return blocked
     data = request.get_json(force=True, silent=True) or {}
     crop_name    = str(data.get('crop_name', '')).strip()[:80]
     quantity_kg  = data.get('quantity_kg')
@@ -2152,9 +2206,6 @@ def attach_listing_media(listing_id):
     uid, err = verify_supabase_user()
     if err:
         return err
-    blocked = legal_gate(uid)
-    if blocked:
-        return blocked
     data = request.get_json(force=True, silent=True) or {}
     image_url = str(data.get('image_url') or '').strip()
     video_url = str(data.get('video_url') or '').strip()
@@ -2218,9 +2269,6 @@ def update_farmer_listing(listing_id):
     uid, err = verify_supabase_user()
     if err:
         return err
-    blocked = legal_gate(uid)
-    if blocked:
-        return blocked
     body = request.get_json(force=True, silent=True) or {}
 
     patch = {}
@@ -2978,9 +3026,6 @@ def create_order():
     uid, err = verify_supabase_user()
     if err:
         return err
-    blocked = legal_gate(uid)
-    if blocked:
-        return blocked
     data = request.get_json(force=True, silent=True) or {}
     items = data.get('items')
     # Idempotency key prevents duplicate orders on a retried/replayed request.
@@ -3208,9 +3253,6 @@ def create_purchase_request():
     uid, err = verify_supabase_user()
     if err:
         return err
-    blocked = legal_gate(uid)
-    if blocked:
-        return blocked
     data = request.get_json(force=True, silent=True) or {}
     idem = request.headers.get('Idempotency-Key', '').strip() or None
     result = MATCHING_SERVICE.create_request(
@@ -3251,9 +3293,6 @@ def accept_offer(offer_id):
     uid, err = verify_supabase_user()
     if err:
         return err
-    blocked = legal_gate(uid)
-    if blocked:
-        return blocked
     result = MATCHING_SERVICE.accept_offer(offer_id, uid)
     if not result.ok:
         return jsonify({'error': result.error}), result.status_code
@@ -6173,30 +6212,13 @@ def update_user_profile():
         # who sent the request.
         status, code, message = _save(_bearer_token())
 
-        if code == '42501':
-            # Refused by the database at the caller's own role. Two very different
-            # reasons produce this, and this app cannot tell them apart from here:
-            #   * migrations 0025/0026 have not been applied to this project yet.
-            #     They are applied by hand in the dashboard and 0018-0024 are still
-            #     outstanding, so a brand-new account's first save — an INSERT —
-            #     has no policy to allow it. That is today's normal state.
-            #   * the person is trying to write something their role may not write.
-            #     Impossible through this route: the payload is three validated
-            #     columns and `id` is the verified uid, never the caller's choice.
-            # So the retry below cannot reach another person's row or a privileged
-            # column. It exists because taking signup down while a migration waits
-            # in a dashboard is not a fix.
+        if code == '42501' and not LEGAL_ENFORCED:
+            # Enforcement must never retry a database refusal with a privileged key.
             log.error('profile.policy_missing', uid=uid,
                       hint='write refused at authenticated; apply 0025 and 0026')
             status, code, message = _save(SUPABASE_KEY)
 
         if code == '42501':
-            # Still refused, now with the backend key too. render.yaml:18-21
-            # declares that key as the service-role one, and service_role is
-            # bypassrls, so reaching here means something other than a missing
-            # policy — a grant, or a project whose key is not what the file says.
-            # Either way it is not the person's doing, and re-typing their name
-            # will not change it, which is what this message exists to avoid.
             log.error('profile.self_write_refused', uid=uid)
             return jsonify({'error': 'AgriBridge is not accepting profile saves right now. '
                                      'Please try again shortly.'}), 503
@@ -6811,6 +6833,8 @@ def legal_sync_signup():
     if not res.ok:
         return _legal_response(res)
     status = LEGAL_SERVICE.status(uid, role)
+    if not status.ok:
+        return _legal_response(status)
     # Someone signing in was invisible to the backend: the browser authenticates
     # straight against GoTrue and this legal check is the only request a session
     # start produces. It runs on every session, so it is recorded here — the id

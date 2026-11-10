@@ -381,6 +381,7 @@ def _as(monkeypatch, uid, role="farmer", created=None):
         app_mod.g.auth_user = {"id": uid, "user_metadata": {"role": role}, "created_at": created or _now()}
         return uid, None
     monkeypatch.setattr(app_mod, "verify_supabase_user", fake)
+    monkeypatch.setattr(app_mod, "_stored_business_role", lambda uid: (role, "user", ""))
 
 
 def test_manifest_and_documents_are_public(client, api):
@@ -519,3 +520,285 @@ def test_gate_cannot_be_bypassed_by_claiming_a_different_role(client, api, monke
     monkeypatch.setattr(app_mod, "ORDER_SERVICE", _Orders())
     r = client.post("/api/orders", json={"items": [], "role": "admin"})
     assert r.status_code == 403
+
+
+PROTECTED_ROUTES = [
+    ("POST", "/api/uploads"), ("POST", "/api/listings"),
+    ("PATCH", "/api/listings/l1/media"), ("PATCH", "/api/listings/l1"),
+    ("POST", "/api/service-requests"), ("POST", "/api/orders"),
+    ("POST", "/api/orders/o1/status"), ("POST", "/api/requests"),
+    ("POST", "/api/offers/o1/accept"), ("POST", "/api/offers/o1/reject"),
+    ("POST", "/api/transporter/availability"), ("GET", "/api/transporter/me"),
+    ("POST", "/api/transporter/location"), ("GET", "/api/transporter/jobs"),
+    ("POST", "/api/transporter/jobs/d1/claim"), ("GET", "/api/transporter/deliveries"),
+    ("POST", "/api/transporter/deliveries/d1/status"),
+    ("POST", "/api/transporter/deliveries/d1/offer"),
+    ("POST", "/api/transporter/deliveries/d1/proof"),
+    ("GET", "/api/transporter/earnings"), ("PATCH", "/api/transporter/profile"),
+    ("GET", "/api/transporter/dashboard"), ("GET", "/api/orders/o1/receipt"),
+    ("GET", "/api/buyer/orders"), ("GET", "/api/buyer/orders/o1/receipt"),
+    ("POST", "/api/buyer/orders/o1/receipt/email"),
+    ("GET", "/api/user/notifications"), ("POST", "/api/user/notifications/n1/read"),
+    ("POST", "/api/user/notifications/read-all"), ("POST", "/api/user/push-subscribe"),
+    ("POST", "/api/user/push-subscriptions"), ("POST", "/api/sms-receipt"),
+    ("POST", "/api/pay/initiate"), ("GET", "/api/pay/status"),
+    ("POST", "/api/pay/card"), ("POST", "/api/pay/card/validate"),
+]
+
+
+@pytest.mark.parametrize("method,path", PROTECTED_ROUTES)
+def test_central_gate_runs_before_each_marketplace_handler(client, api, monkeypatch, method, path):
+    _as(monkeypatch, "u1")
+    monkeypatch.setattr(app_mod, "LEGAL_ENFORCED", True)
+    adapter = app_mod.app.url_map.bind("localhost")
+    endpoint, _ = adapter.match(path, method=method)
+    called = []
+
+    def handler(**kw):
+        called.append(kw)
+        return app_mod.jsonify({"reached": True})
+
+    monkeypatch.setitem(app_mod.app.view_functions, endpoint, handler)
+    r = client.open(path, method=method, json={"user_id": "another", "role": "admin"})
+    assert r.status_code == 403 and r.get_json()["code"] == "legal_acceptance_required"
+    assert not called
+    api.accept(user_id="u1", role="farmer", documents=_docs(api, "farmer"), method="login_review")
+    r = client.open(path, method=method, json={})
+    assert r.status_code == 200 and r.get_json()["reached"]
+    assert len(called) == 1
+
+
+@pytest.mark.parametrize("method,path", PROTECTED_ROUTES)
+def test_central_gate_requires_authentication_before_consent(client, api, monkeypatch, method, path):
+    monkeypatch.setattr(app_mod, "LEGAL_ENFORCED", True)
+    r = client.open(path, method=method, json={"user_id": "u1"})
+    assert r.status_code == 401
+
+
+@pytest.mark.parametrize("provider", ["email", "google", "phone"])
+@pytest.mark.parametrize("role", ["farmer", "vendor", "hotel", "supplier", "exporter", "transporter"])
+def test_provider_signin_is_not_consent_and_auth_is_cached_only_per_request(
+        client, api, monkeypatch, provider, role):
+    from types import SimpleNamespace
+
+    calls = []
+    user = {"id": "u1", "app_metadata": {"provider": provider},
+            "user_metadata": {"role": "admin", "legal_accepted": True}}
+
+    def get(url, **kw):
+        assert url.endswith("/auth/v1/user")
+        calls.append(kw["headers"]["Authorization"])
+        return SimpleNamespace(status_code=200, json=lambda: user)
+
+    monkeypatch.setattr(app_mod.requests, "get", get)
+    monkeypatch.setattr(app_mod, "_stored_business_role", lambda uid: (role, "user", ""))
+    monkeypatch.setattr(app_mod, "LEGAL_ENFORCED", True)
+    monkeypatch.setattr(app_mod, "ORDER_SERVICE", _Orders())
+    headers = {"Authorization": "Bearer tok"}
+    r = client.post("/api/orders", json={"items": []}, headers=headers)
+    assert r.status_code == 403
+    api.accept(user_id="u1", role=role, documents=_docs(api, role), method="login_review")
+    assert client.post("/api/orders", json={"items": []}, headers=headers).status_code == 201
+    assert calls == ["Bearer tok", "Bearer tok"]
+    assert client.post("/api/orders", json={"items": []}).status_code == 401
+
+
+@pytest.mark.parametrize("source", ["roles", "farmers", "transporters", "buyers"])
+def test_gate_fails_closed_on_authoritative_role_read_error(client, api, monkeypatch, source):
+    _as(monkeypatch, "u1", "vendor")
+    monkeypatch.setattr(app_mod, "LEGAL_ENFORCED", True)
+    monkeypatch.setattr(app_mod, "_stored_business_role", lambda uid: (
+        "", "", "database unavailable" if source == "roles" else ""))
+    monkeypatch.setattr(app_mod, "supa_get_checked", lambda table, *a, **kw: (
+        (None, "database unavailable") if table == source else ([], "")))
+    api.accept(user_id="u1", role="vendor", documents=_docs(api, "vendor"), method="login_review")
+    r = client.post("/api/orders", json={"items": []})
+    assert r.status_code == 503 and r.get_json()["code"] == "legal_check_failed"
+
+
+@pytest.mark.parametrize("table,row,role", [
+    ("farmers", {"id": "u1"}, "farmer"),
+    ("transporters", {"id": "t1"}, "transporter"),
+    ("buyers", {"buyer_type": "hotel"}, "hotel"),
+    ("buyers", {"buyer_type": "individual"}, "vendor"),
+])
+def test_gate_uses_guarded_profile_when_no_business_role_exists(client, api, monkeypatch, table, row, role):
+    _as(monkeypatch, "u1", "supplier")
+    monkeypatch.setattr(app_mod, "LEGAL_ENFORCED", True)
+    monkeypatch.setattr(app_mod, "_stored_business_role", lambda uid: ("", "user", ""))
+    monkeypatch.setattr(app_mod, "supa_get_checked", lambda t, *a, **kw: ([row] if t == table else [], ""))
+    monkeypatch.setattr(app_mod, "ORDER_SERVICE", _Orders())
+    r = client.post("/api/orders", json={"items": []})
+    assert r.status_code == 403
+    assert {d["doc_type"] for d in r.get_json()["outstanding"]} == {d["doc_type"] for d in _docs(api, role)}
+    api.accept(user_id="u1", role=role, documents=_docs(api, role), method="login_review")
+    assert client.post("/api/orders", json={"items": []}).status_code == 201
+
+
+def test_metadata_alone_never_unlocks_the_marketplace(client, api, monkeypatch):
+    _as(monkeypatch, "u1", "vendor")
+    monkeypatch.setattr(app_mod, "LEGAL_ENFORCED", True)
+    monkeypatch.setattr(app_mod, "_stored_business_role", lambda uid: ("", "user", ""))
+    monkeypatch.setattr(app_mod, "supa_get_checked", lambda *a, **kw: ([], ""))
+    api.accept(user_id="u1", role="vendor", documents=_docs(api, "vendor"), method="login_review")
+    r = client.post("/api/orders", json={"items": []})
+    assert r.status_code == 409 and r.get_json()["code"] == "account_type_required"
+
+
+def test_acceptance_read_failure_is_not_reported_as_an_empty_history(svc, db):
+    db.select_checked = lambda *a, **kw: RpcResult(ok=False, status=503)
+    st = svc.status("u1", "farmer")
+    assert not st.ok and st.status_code == 503 and "outstanding" not in st.data
+    res = svc.sync_signup(user_id="u1", role="farmer", created_at=_now(),
+                          meta={"legal_signup": {"versions": {"terms-of-use": "1.0.0"}}})
+    assert not res.ok and res.status_code == 503 and db.acceptances == []
+
+
+@pytest.mark.parametrize("row", [None, {}, {"doc_type": "terms-of-use", "version": 1},
+                                 {"doc_type": "terms-of-use", "version": "1.0.0\n"}])
+def test_invalid_acceptance_rows_fail_closed(svc, db, row):
+    db.select_checked = lambda *a, **kw: RpcResult(ok=True, data=[row])
+    assert svc.status("u1", "farmer").status_code == 503
+
+
+def test_failed_acceptance_read_blocks_marketplace_and_sync(client, api, db, monkeypatch):
+    _as(monkeypatch, "u1")
+    monkeypatch.setattr(app_mod, "LEGAL_ENFORCED", True)
+    db.select_checked = lambda *a, **kw: RpcResult(ok=False, status=503)
+    assert client.post("/api/orders", json={}).status_code == 503
+    r = client.post("/api/legal/sync-signup", json={})
+    assert r.status_code == 503 and "ok" not in r.get_json()
+
+
+@pytest.mark.parametrize("method,path", [
+    ("GET", "/api/legal/manifest"), ("GET", "/legal/index.html"),
+    ("GET", "/api/legal/status"), ("POST", "/api/legal/accept"),
+    ("POST", "/api/legal/sync-signup"), ("GET", "/api/legal/history"),
+    ("GET", "/api/marketing/consent"), ("POST", "/api/marketing/consent"),
+    ("GET", "/api/privacy/requests"), ("POST", "/api/privacy/requests"),
+    ("POST", "/api/account/delete"), ("POST", "/api/contact"),
+    ("GET", "/api/user/account-type"), ("POST", "/api/user/account-type"),
+    ("POST", "/api/user/profile"), ("POST", "/api/user/push-unsubscribe"),
+    ("DELETE", "/api/user/push-subscriptions"), ("GET", "/api/listings"),
+    ("GET", "/api/pay/providers"), ("POST", "/api/pay/webhook/flutterwave"),
+    ("POST", "/api/pay/webhook/pesapal"), ("GET", "/api/pay/pesapal/callback"),
+    ("POST", "/api/hooks/supabase"), ("GET", "/api/admin/stats"),
+])
+def test_central_gate_does_not_intercept_exempt_handlers(client, monkeypatch, method, path):
+    monkeypatch.setattr(app_mod, "LEGAL_ENFORCED", True)
+    monkeypatch.setattr(app_mod, "verify_supabase_user", lambda: pytest.fail("unexpected authentication"))
+    endpoint, _ = app_mod.app.url_map.bind("localhost").match(path, method=method)
+    monkeypatch.setitem(app_mod.app.view_functions, endpoint, lambda **kw: app_mod.jsonify({"reached": True}))
+    assert client.open(path, method=method, json={}).get_json() == {"reached": True}
+
+
+def test_preflight_and_unknown_paths_keep_their_normal_responses(client, monkeypatch):
+    monkeypatch.setattr(app_mod, "LEGAL_ENFORCED", True)
+    assert client.options("/api/orders").status_code == 200
+    assert client.get("/api/does-not-exist").status_code == 404
+
+
+def test_identity_bootstrap_cannot_retry_a_policy_refusal_with_service_role(client, monkeypatch):
+    from types import SimpleNamespace
+
+    _as(monkeypatch, "u1")
+    monkeypatch.setattr(app_mod, "LEGAL_ENFORCED", True)
+    monkeypatch.setattr(app_mod, "supa_get", lambda *a, **kw: [])
+    writes = []
+
+    def post(url, **kw):
+        writes.append(kw["headers"]["Authorization"])
+        return SimpleNamespace(status_code=403, json=lambda: {"code": "42501"})
+
+    monkeypatch.setattr(app_mod.requests, "post", post)
+    r = client.post("/api/user/profile", headers={"Authorization": "Bearer tok"},
+                    json={"full_name": "Sarah Auma", "phone": "+256771234567"})
+    assert r.status_code == 503 and writes == ["Bearer tok"]
+
+
+@pytest.mark.parametrize("failure", ["unconfigured", "http", "json", "shape", "network"])
+def test_checked_database_reads_report_failures_without_payloads(monkeypatch, failure):
+    from types import SimpleNamespace
+
+    import requests
+
+    from services.supabase_client import SupabaseClient
+
+    db = SupabaseClient("https://example.supabase.co", "" if failure == "unconfigured" else "test-key")
+
+    def get(*a, **kw):
+        if failure == "network":
+            raise requests.ConnectionError("private details")
+
+        def payload():
+            if failure == "json":
+                raise ValueError("private details")
+            return {} if failure == "shape" else []
+
+        return SimpleNamespace(ok=failure != "http", status_code=503 if failure == "http" else 200, json=payload)
+
+    monkeypatch.setattr(requests, "get", get)
+    result = db.select_checked("legal_acceptances")
+    assert not result.ok and "private" not in result.error
+
+
+def test_checked_database_reads_distinguish_successful_empty_result(monkeypatch):
+    from types import SimpleNamespace
+
+    import requests
+
+    from services.supabase_client import SupabaseClient
+
+    monkeypatch.setattr(requests, "get", lambda *a, **kw: SimpleNamespace(ok=True, status_code=200, json=lambda: []))
+    result = SupabaseClient("https://example.supabase.co", "test-key").select_checked("legal_acceptances")
+    assert result.ok and result.data == []
+
+
+@pytest.mark.parametrize("state,expected", [("expired", 401), ("outstanding", 403), ("accepted", 201)])
+def test_route_limit_runs_before_remote_checks_without_double_counting(client, api, monkeypatch, state, expected):
+    from types import SimpleNamespace
+
+    reads = []
+
+    def get(url, **kw):
+        assert url.endswith("/auth/v1/user")
+        reads.append(url)
+        return SimpleNamespace(status_code=401 if state == "expired" else 200,
+                               json=lambda: {"id": "u1"})
+
+    monkeypatch.setattr(app_mod.requests, "get", get)
+    monkeypatch.setattr(app_mod, "_stored_business_role", lambda uid: ("farmer", "user", ""))
+    monkeypatch.setattr(app_mod, "LEGAL_ENFORCED", True)
+    monkeypatch.setattr(app_mod, "ORDER_SERVICE", _Orders())
+    if state == "accepted":
+        api.accept(user_id="u1", role="farmer", documents=_docs(api, "farmer"), method="login_review")
+    for _ in range(20):
+        assert client.post("/api/orders", json={"items": []},
+                           headers={"Authorization": "Bearer tok"}).status_code == expected
+    assert len(reads) == 20
+    assert client.post("/api/orders", json={"items": []},
+                       headers={"Authorization": "Bearer tok"}).status_code == 429
+    assert len(reads) == 20
+
+
+@pytest.mark.parametrize("payload", [None, {}, {"error": "private details"}, [None], ["role"]])
+def test_malformed_authoritative_role_response_does_not_use_accepted_fallback_terms(
+        client, api, monkeypatch, payload):
+    from types import SimpleNamespace
+
+    reads = []
+
+    def get(url, **kw):
+        reads.append(url)
+        if url.endswith("/auth/v1/user"):
+            return SimpleNamespace(status_code=200, json=lambda: {"id": "u1", "user_metadata": {"role": "farmer"}})
+        if url.endswith("/user_roles"):
+            return SimpleNamespace(ok=True, status_code=200, json=lambda: payload)
+        return SimpleNamespace(ok=True, status_code=200, json=lambda: [{"id": "u1"}])
+
+    monkeypatch.setattr(app_mod.requests, "get", get)
+    monkeypatch.setattr(app_mod, "LEGAL_ENFORCED", True)
+    api.accept(user_id="u1", role="farmer", documents=_docs(api, "farmer"), method="login_review")
+    r = client.post("/api/orders", json={"items": []}, headers={"Authorization": "Bearer tok"})
+    assert r.status_code == 503 and r.get_json()["code"] == "legal_check_failed"
+    assert len(reads) == 2 and "private details" not in r.get_data(as_text=True)

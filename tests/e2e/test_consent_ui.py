@@ -498,6 +498,33 @@ def _accept_review(page, boxes):
     page.wait_for_selector("#legalReviewModal:not(.open)", state="attached")
 
 
+def test_backend_gate_stays_closed_until_browser_review_is_recorded(env, monkeypatch):
+    import copy
+
+    page, db, errors = env
+    db.user_roles["user-1"] = {"user_id": "user-1", "business_role": "farmer", "role": "user"}
+    monkeypatch.setattr(app_mod, "LEGAL_ENFORCED", True)
+    _login(page)
+    page.wait_for_selector("#legalReviewModal.open")
+    blocked = page.evaluate("abApi('/api/user/notifications')")
+    assert blocked["status"] == 403 and blocked["json"]["code"] == "legal_acceptance_required"
+    assert page.evaluate("abApi('/api/privacy/requests')")["status"] == 200
+    _accept_review(page, 7)
+    assert page.evaluate("abApi('/api/user/notifications')")["status"] == 200
+
+    manifest = copy.deepcopy(app_mod.LEGAL_SERVICE.manifest)
+    manifest["documents"]["terms-of-use"].update(version="2.0.0", last_material_version="2.0.0", material=True)
+    monkeypatch.setattr(app_mod, "LEGAL_SERVICE", LegalService(db, manifest=manifest))
+    blocked = page.evaluate("abApi('/api/user/notifications')")
+    assert blocked["status"] == 403
+    assert [d["doc_type"] for d in blocked["json"]["outstanding"]] == ["terms-of-use"]
+    assert len(db.acceptances) == 7
+    page.evaluate("logOut()")
+    page.wait_for_function("!window.__sb.session")
+    assert page.evaluate("abApi('/api/user/notifications')")["status"] == 401
+    assert not errors
+
+
 def test_changing_account_type_asks_for_the_new_role_terms(env):
     page, db, _ = env
     _login(page)

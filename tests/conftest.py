@@ -72,6 +72,9 @@ class FakeSupabase:
         self.select_calls.append((table, filters))
         return self.select_results.get(table, [])
 
+    def select_checked(self, table, filters=None, limit=100):
+        return RpcResult(ok=True, data=self.select(table, filters, limit))
+
     def update(self, table, data, eq_col, eq_val):
         return True
 

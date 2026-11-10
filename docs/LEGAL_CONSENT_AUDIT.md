@@ -283,3 +283,87 @@ Executed against the corrected working tree:
 
 These are local results, not production verification. This follow-up does not close the
 backend/PostgREST enforcement gaps or authorize deployment of the separate homepage redesign.
+
+## 11. L2c1 — centralized backend gate (2026-11-10)
+
+**Local intermediate stage, not deployed and not ready to enable enforcement.** The existing
+`ENFORCE_LEGAL_ACCEPTANCE` switch remains unchanged. This stage closes missing Flask gate coverage;
+it does not claim the entire legal mandate or direct-database enforcement is complete.
+
+### Implemented and exercised locally
+
+- A shared `before_request` gate protects registered `/api/` endpoints by default, excluding
+  explicitly named public/bootstrap/rights/provider handlers and the separately authenticated
+  admin namespace. The seven route-local gates are removed, not left as a competing system.
+  The tested inventory contains **36 protected route/method pairs**: listings/uploads, orders and
+  status changes, requests/offers, service requests, transporter reads/actions/profile changes,
+  buyer receipts, notifications/push registration, receipt sending and all user payment routes.
+- Each gate uses a verified GoTrue session. Successful identity verification is cached only on
+  Flask's request-local `g`, so the route's own authentication call does not make another remote
+  request. Nothing about the sign-in provider counts as acceptance. Tests exercise six account
+  types with email, Google and phone provider labels returned by mocked GoTrue; these are not
+  live provider sign-ins or evidence that phone OTP has been implemented.
+- Authorization reads the server-held business role, then operator privilege, then guarded
+  profile tables using checked reads. It never uses client-editable metadata to unlock a protected
+  route. Unreadable role data returns **503**; a login with no authoritative role returns **409**
+  `account_type_required`, pointing to the existing Settings choice. An outage does not justify
+  falling through from an unreadable business-role store to a weaker profile guess.
+- Acceptance reads distinguish a successful empty result from a database error or malformed
+  response. The latter returns **503**, not an invented empty acceptance history. Signup sync
+  propagates a failed status read rather than returning `ok: true`. No history is rewritten.
+- Under enforcement, profile permission refusals are **not retried with the service-role key**.
+  This prevents a future database consent guard from being overridden through the existing
+  identity-only profile bootstrap route. The rollout-off legacy behavior is unchanged.
+
+### Review findings and checks
+
+- First focused run: **320 passed**; Ruff then found **2 import-order errors**, corrected.
+- First full regression with the central gate: **877 passed, 0 failed, 159 warnings**, including
+  a new real-browser test of review → protected API succeeds → material update blocks again →
+  sign-out returns 401. It uses the existing local server/real SPA/Flask harness with external
+  services faked; it creates no real order or payment. Privacy requests remain reachable.
+- Independent read-only review found two issues despite those passing tests: remote checks ran
+  before the route limiter, and the older checked-read helper treated malformed JSON as absence.
+  Both are corrected: the middleware applies the handler's declared rate limit before remote
+  calls, sharing request-local accounting with the route decorator so it is not counted twice;
+  malformed role-read responses now fail instead of enabling a weaker fallback. Protected routes
+  without a declared limiter receive the existing default of 30 requests per 60 seconds.
+- Added tests retain the real decorated order handler and real read helpers. They check expired,
+  outstanding-consent and accepted sessions: the first 20 requests meet the route's existing
+  limit; request 21 returns 429 without another GoTrue call. Malformed role bodies cannot unlock
+  access even when the user previously accepted all fallback-role terms.
+- Focused regression after those fixes: **328 passed**. Ruff and generated legal-output checks
+  pass. Final full regression: **885 passed, 0 failed, 159 warnings**, exit 0, in 154.16 seconds.
+  These are local results including the browser harness, not authenticated production evidence.
+- `npm test` in `tests/sql`: **all 15 chained PostgreSQL test files passed**, exit 0. No SQL
+  migration changed in this stage. These are local PGlite results, not live Supabase verification.
+
+### Explicit exemptions and remaining rollout blockers
+
+Public listing/price/tracking reads and the existing public AI utilities remain public. Provider
+callbacks/webhooks retain their own verification; admin handlers retain their existing admin
+checks. Legal documents/status/acceptance/history, marketing withdrawal, privacy requests,
+account deletion, support, activity reporting, account-type selection and push unsubscription
+remain outside the consent gate. Exemption is not an authentication exemption for handlers that
+already require a verified session.
+
+`/api/user/profile` is still restricted to name, phone and district for the verified login and
+remains reachable for identity bootstrap/correction: signup currently saves those fields before
+legal sync. This is not permission to change business role or transporter operational fields.
+Its broader profile-consent ordering and the direct profile-photo path must be resolved with the
+DB guard, rather than silently deadlocking signup. The legal presentation/recording `_auth_role`
+path still has its legacy metadata fallback; it must be reconciled with the strict gate during
+bootstrap work. Accepting against that fallback cannot unlock a route checked against a different
+server-held role.
+
+Direct PostgREST writes/RPCs remain an independent bypass until the planned database guard and
+current-requirements migration are installed and tested. The USSD handler remains unchanged and
+needs protocol-appropriate authentication and consent checks. Source inspection of `ussd()` and
+`sms_delivery()` found no provider authentication/signature check in either handler; USSD trusts
+submitted form fields, while the SMS delivery handler prints its form payload. This is an
+additional pre-existing source-verified security/privacy blocker, not a tested production exploit
+or proof of upstream protections. A bearer-token middleware cannot simply replace that protocol.
+Cookie preferences, admin publication and compliance management, owner-applied migrations,
+staging verification and advocate review remain open. No production flag, data, payment,
+notification or account was changed. Do not enable the flag or represent this intermediate
+commit as completion of the mandate.

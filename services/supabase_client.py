@@ -96,6 +96,24 @@ class SupabaseClient:
             log.error("supabase.select_failed", table=table, error=type(exc).__name__)
             return []
 
+    def select_checked(self, table: str, filters: dict[str, Any] | None = None,
+                       limit: int = 100) -> RpcResult:
+        if not self.configured:
+            return RpcResult(ok=False, error="supabase not configured")
+        params = {"limit": limit, **(filters or {})}
+        try:
+            resp = requests.get(f"{self._url}/rest/v1/{table}", params=params,
+                                headers=self._headers(), timeout=_TIMEOUT)
+            if not resp.ok:
+                return RpcResult(ok=False, status=resp.status_code, error="database read failed")
+            rows = resp.json()
+            if not isinstance(rows, list):
+                return RpcResult(ok=False, status=resp.status_code, error="invalid database response")
+            return RpcResult(ok=True, data=rows, status=resp.status_code)
+        except (requests.RequestException, ValueError) as exc:
+            log.error("supabase.select_checked_failed", table=table, error=type(exc).__name__)
+            return RpcResult(ok=False, error="database read failed")
+
     def update(self, table: str, data: dict, eq_col: str, eq_val: Any) -> bool:
         if not self.configured:
             return False
