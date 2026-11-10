@@ -184,6 +184,10 @@ What shipped in L2a:
   `legal/archive/transporter-terms/1.0.0.live-captured.html` (9,999 bytes) and
   `1.0.0.live-captured.fragment.html` (9,066 bytes). These are evidence, not build outputs;
   `check_archive` only reads `<version>.md`, so they cannot interfere with the build.
+  `.gitattributes` marks `*.live-captured.*` as `-text`: with `core.autocrlf=true` the first
+  commit silently LF-normalized them (blob `28b72208…` ≠ published `4fff3628…`); a follow-up
+  commit re-stored the exact bytes and verified `git show HEAD:<file>` hashes equal the
+  originals (`4fff3628…` page, `233a951c…` fragment).
 * Role mapping fixed in all three places that disagreed: `services/legal.py normalize_role`
   (`transporter`/`driver` → `transporter`, matching `getCurrentRole()` at index.html:9912),
   `scripts/build_legal.py ROLES`, and the SPA's `normLegalRole`. The manifest now serves

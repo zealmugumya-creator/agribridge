@@ -1,0 +1,4 @@
+# Captured production artifacts are evidence: their bytes must match the
+# SHA-256 recorded in docs/LEGAL_CONSENT_AUDIT.md, so git must never
+# line-normalize them (core.autocrlf=true otherwise rewrites CRLF on add).
+legal/archive/**/*.live-captured.* -text
