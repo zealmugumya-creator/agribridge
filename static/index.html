@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- AB_BUILD:20261111_NAVFIX -->
+<!-- AB_BUILD:20261111_EMOJIFIX -->
 <html lang="en">
 <head>
 <script src="business-config.js"></script>
@@ -8301,7 +8301,7 @@ async function wlLoadLandingData() {
 }
 
 /* ── Billboard helpers ─────────────────────────────────── */
-const EMOJI_MAP = {
+const CROP_EMOJI_MAP = {
   maize:'🌽', beans:'🫘', tomato:'🍅', tomatoes:'🍅', banana:'🍌', matooke:'🍌',
   coffee:'☕', rice:'🍚', groundnut:'🥜', peanut:'🥜', cassava:'🥔', yam:'🥔',
   sorghum:'🌾', millet:'🌾', wheat:'🌾', avocado:'🥑', mango:'🥭', pineapple:'🍍',
@@ -8313,7 +8313,7 @@ const EMOJI_MAP = {
 };
 function cropEmoji(name) {
   const n = (name||'').toLowerCase();
-  for (const k of Object.keys(EMOJI_MAP)) { if (n.includes(k)) return EMOJI_MAP[k]; }
+  for (const k of Object.keys(CROP_EMOJI_MAP)) { if (n.includes(k)) return CROP_EMOJI_MAP[k]; }
   return '🌿';
 }
 function wlBadge(l) {
