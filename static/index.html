@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- AB_BUILD:20261112_AUTOLOAD -->
+<!-- AB_BUILD:20261112_ERRSHOW -->
 <html lang="en">
 <head>
 <script src="business-config.js"></script>
@@ -4411,8 +4411,16 @@ window.addEventListener('popstate', (e) => {
 // HOME
 // ─────────────────────────────────────────────────────────────────
 async function loadHomeStats() {
-  // v5.2.0 — force-deploy build 20261111; farmer_ratings isolated so missing table can't break the grid
   console.log('[AB] loadHomeStats called');
+  try { return await _loadHomeStatsInner(); }
+  catch(err) {
+    console.error('[AB] loadHomeStats crashed:', err);
+    const g = document.getElementById('homeProdGrid');
+    if (g) g.innerHTML = '<div style="padding:20px;color:#f66;font-size:13px;background:#111;border-radius:8px;margin:8px"><b>AB ERROR:</b> ' + String(err) + '</div>';
+  }
+}
+async function _loadHomeStatsInner() {
+  console.log('[AB] _loadHomeStatsInner start');
   const [farmerCount, listingCount, animalCount, listings] = await Promise.all([
     sb('farmers',  { count:true }),
     sb('listings', { count:true }),
@@ -4492,7 +4500,7 @@ async function loadHomeStats() {
   hydrateCart(rows);
   document.getElementById('homeFeatured').innerHTML = '';
   updateBuyerCartBadge();
-}
+} // end _loadHomeStatsInner
 
 /** Aggregate the farmer strip from real listings + farmer_ratings only. */
 function renderHomeFarmers(rows) {
