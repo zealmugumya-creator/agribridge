@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- AB_BUILD:20261111_DEBUG_PANEL -->
+<!-- AB_BUILD:20261111_NAVFIX -->
 <html lang="en">
 <head>
 <script src="business-config.js"></script>
@@ -2080,8 +2080,8 @@ html.is-web:not(.app-entered) body{overflow:hidden}
     <nav class="wl-navlinks">
       <a href="#wl-how">How it works</a>
       <a href="#wl-roles">Who it's for</a>
-      <button class="wl-btn ghost" onclick="enterApp('login')">Sign in</button>
-      <button class="wl-btn" onclick="enterApp()">Start ordering →</button>
+      <button class="wl-btn ghost" onclick="enterApp('login')">Log In</button>
+      <button class="wl-btn" onclick="enterApp('register')">Join Free</button>
     </nav>
   </header>
 
@@ -2594,8 +2594,8 @@ html.is-web:not(.app-entered) body{overflow:hidden}
   <button class="notif-bell" onclick="toggleNotifPanel()" title="Notifications" id="notifBell" aria-label="Notifications">🔔<span class="notif-badge" id="notifCount" style="display:none">4</span></button>
   <button class="notif-bell" onclick="toggleBasket()" title="Basket" id="basketNavBtn" style="position:relative" aria-label="Basket">🛒<span class="notif-badge" id="basketNavCount" style="display:none;background:#f44336">0</span></button>
   <div class="nav-btns">
-    <button class="btn-sm outline" onclick="openModal('loginModal')">Log In</button>
-    <button class="btn-sm" onclick="openModal('registerModal')">Join Free</button>
+    <button class="btn-sm outline" onclick="typeof enterApp==='function'?enterApp('login'):openModal('loginModal')">Log In</button>
+    <button class="btn-sm" onclick="typeof enterApp==='function'?enterApp('register'):openModal('registerModal')">Join Free</button>
   </div>
 </nav>
 
@@ -13497,17 +13497,18 @@ function enterApp(target){
   try{ window.scrollTo(0,0); }catch(e){}
   // Always navigate to home and load products first
   try { if(typeof showPage==='function') showPage('home'); } catch(e) {}
-  // Show splash for first-time visitors who don't have a session
+  // Open modal immediately if a target was given — never show splash in that case
+  if(target==='login' && typeof openModal==='function'){ setTimeout(function(){ openModal('loginModal'); },100); return; }
+  if(target==='register' && typeof openModal==='function'){ setTimeout(function(){ openModal('registerModal'); },100); return; }
+  // Show splash for first-time visitors with no specific target
   try {
     var seenSplash = localStorage.getItem('ab_seen_splash');
     var savedUser = localStorage.getItem('ab_user');
-    if (!seenSplash && !savedUser && !target) {
+    if (!seenSplash && !savedUser) {
       setTimeout(showSplash, 200);
       return;
     }
   } catch(e) {}
-  if(target==='login' && typeof openModal==='function') openModal('loginModal');
-  else if(target==='register' && typeof openModal==='function') openModal('registerModal');
 }
 function appStoreClick(){ showInstallModal(); }
 
