@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- AB_BUILD:20261111_EMOJIFIX -->
+<!-- AB_BUILD:20261112_NOJOIN -->
 <html lang="en">
 <head>
 <script src="business-config.js"></script>
@@ -4410,7 +4410,7 @@ async function loadHomeStats() {
     sb('farmers',  { count:true }),
     sb('listings', { count:true }),
     sb('animal_listings', { count:true }),
-    sb('listings', { select:'id,farmer_id,crop_name,category,quantity_kg,reserved_qty,price_per_kg,unit,district,is_organic,is_verified,description,discount_pct,sale_unit,min_order_kg,delivery_available,payment_terms,image_url,created_at,farmers(full_name,is_verified)', filters:[['is_available','eq.true'],['order','created_at.desc'],['limit','24']] })
+    sb('listings', { select:'id,farmer_id,crop_name,category,quantity_kg,reserved_qty,price_per_kg,unit,district,is_organic,is_verified,description,discount_pct,sale_unit,min_order_kg,delivery_available,payment_terms,image_url,created_at', filters:[['is_available','eq.true'],['order','created_at.desc'],['limit','24']] })
   ]);
   // Ratings are optional — ignore errors if the table doesn't exist yet
   try {
