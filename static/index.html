@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- AB_BUILD:20261112_NOJOIN -->
+<!-- AB_BUILD:20261112_AUTOLOAD -->
 <html lang="en">
 <head>
 <script src="business-config.js"></script>
@@ -2064,7 +2064,14 @@ html.is-web:not(.app-entered) body{overflow:hidden}
     var loggedIn=false; try{ loggedIn=!!JSON.parse(localStorage.getItem('ab_user')||'null'); }catch(e){}
     var entered=false; try{ entered=sessionStorage.getItem('ab_entered')==='1'; }catch(e){}
     d.classList.add(isApp?'is-app':'is-web');
-    if(isApp||loggedIn||entered) d.classList.add('app-entered');
+    if(isApp||loggedIn||entered) {
+      d.classList.add('app-entered');
+      // Auto-load home data for returning users who already have app-entered
+      document.addEventListener('DOMContentLoaded', function(){
+        if(typeof showPage==='function') showPage('home');
+        else if(typeof loadHomeStats==='function') loadHomeStats();
+      });
+    }
   }catch(e){ document.documentElement.classList.add('is-web'); }
 })();</script>
 
