@@ -243,3 +243,73 @@ def test_ussd_animal_diagnosis_stores_animal(monkeypatch, client):
     text = resp.data.decode()
     assert "END" in text
     assert sid not in store
+
+
+# ── provider callback authentication (AT_USSD_CALLBACK_TOKEN) ────────────────
+# Africa's Talking does not sign USSD/SMS callbacks. The optional shared secret
+# is OFF until configured, so the live channel is unchanged until the owner sets
+# it; once set, a request without the matching ?token= is refused before any
+# session state is touched or any listing is created.
+
+def _record_route(monkeypatch):
+    calls: list = []
+    monkeypatch.setattr(app_mod, "ussd_route",
+                        lambda *a, **kw: calls.append(a) or "CON ok")
+    return calls
+
+
+def test_ussd_allows_request_when_no_token_configured(monkeypatch, client):
+    monkeypatch.setattr(app_mod, "AT_USSD_CALLBACK_TOKEN", "")
+    calls = _record_route(monkeypatch)
+    resp = client.post("/api/ussd", data=_at_body("S", "+256700000001", ""))
+    assert resp.status_code == 200
+    assert calls, "unconfigured channel must still process the callback"
+
+
+def test_ussd_rejects_missing_token_when_configured(monkeypatch, client):
+    monkeypatch.setattr(app_mod, "AT_USSD_CALLBACK_TOKEN", "s3cret")
+    calls = _record_route(monkeypatch)
+    resp = client.post("/api/ussd", data=_at_body("S", "+256700000001", "4*1*1"))
+    assert resp.status_code == 403
+    assert not calls, "a spoofed callback must not reach the menu state machine"
+
+
+def test_ussd_rejects_wrong_token_when_configured(monkeypatch, client):
+    monkeypatch.setattr(app_mod, "AT_USSD_CALLBACK_TOKEN", "s3cret")
+    calls = _record_route(monkeypatch)
+    resp = client.post("/api/ussd?token=wrong", data=_at_body("S", "+256700000001", ""))
+    assert resp.status_code == 403
+    assert not calls
+
+
+def test_ussd_accepts_matching_token_when_configured(monkeypatch, client):
+    monkeypatch.setattr(app_mod, "AT_USSD_CALLBACK_TOKEN", "s3cret")
+    calls = _record_route(monkeypatch)
+    resp = client.post("/api/ussd?token=s3cret", data=_at_body("S", "+256700000001", ""))
+    assert resp.status_code == 200
+    assert calls, "the genuine provider callback must still be processed"
+
+
+def test_sms_delivery_rejects_missing_token_when_configured(monkeypatch, client):
+    monkeypatch.setattr(app_mod, "AT_USSD_CALLBACK_TOKEN", "s3cret")
+    resp = client.post("/api/sms/delivery", data={"phoneNumber": "+256700000001"})
+    assert resp.status_code == 403
+
+
+def test_sms_delivery_accepts_matching_token(monkeypatch, client):
+    monkeypatch.setattr(app_mod, "AT_USSD_CALLBACK_TOKEN", "s3cret")
+    resp = client.post("/api/sms/delivery?token=s3cret",
+                       data={"phoneNumber": "+256700000001", "status": "Delivered"})
+    assert resp.status_code == 200
+    assert resp.data.decode() == "OK"
+
+
+def test_sms_delivery_does_not_log_payload(monkeypatch, client, capsys):
+    monkeypatch.setattr(app_mod, "AT_USSD_CALLBACK_TOKEN", "")
+    phone = "+256700000099"
+    resp = client.post("/api/sms/delivery",
+                       data={"phoneNumber": phone, "text": "private message body"})
+    assert resp.status_code == 200
+    captured = capsys.readouterr()
+    assert phone not in captured.out + captured.err
+    assert "private message body" not in captured.out + captured.err

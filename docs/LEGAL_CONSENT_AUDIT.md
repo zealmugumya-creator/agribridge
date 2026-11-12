@@ -553,3 +553,53 @@ auth, sign-out, `request_account_deletion`; and the `to public` anonymous suppor
 - No production flag, data, or account touched. Enforcement flag remains off. Nothing pushed or
   deployed. **Owner dependency:** apply 0031 (after 0007; order_offers guard activates only if 0004
   is present) before flipping `ENFORCE_LEGAL_ACCEPTANCE` on Render.
+
+## 14. L2e — USSD/SMS provider-callback authentication + PII log fix (2026-11-10)
+
+### Verified findings (source-read, not assumed)
+
+| # | Finding | Evidence |
+|---|---------|----------|
+| 1 | `/api/ussd` accepts any POST with a caller-supplied `phoneNumber` and no proof it came from Africa's Talking. `ussd_route` can create listings, so an unauthenticated caller can plant marketplace listings for any phone. | `app.py:1464` `ussd()` reads `request.form` directly; no signature/token check. |
+| 2 | USSD listing creation works even for an **unregistered** phone (`farmer_id=None`, district `Unknown`) and records **no legal acceptance**. | `app.py:949-965` looks up `farmers` by phone, falls back to `{}`, inserts regardless. |
+| 3 | The 0031 DB guard does **not** cover USSD writes: `supa_insert` uses the service-role key, so `auth.uid()` is null and the trigger exempts it. USSD is also in `_LEGAL_EXEMPT_ENDPOINTS`, so the Flask gate skips it. USSD therefore bypasses **both** layers. | `app.py:216` exempt set; `supa_insert` uses `SUPABASE_KEY`; 0031 exempts `auth.uid() is null`. |
+| 4 | `/api/sms/delivery` printed the raw webhook payload (phone numbers, message fragments) to logs — personal data in logs. | `app.py:1493` former `print(f"SMS Delivery: {data}")`. |
+
+### What was fixed (additive, reversible, channel preserved)
+
+- **Optional provider-callback secret** `AT_USSD_CALLBACK_TOKEN` (`app.py:101`). Africa's Talking
+  does not sign USSD/SMS callbacks, so the practical proof-of-origin is a secret appended to the
+  callback URL registered in the AT dashboard (`?token=...`). `_at_callback_authorized()` compares
+  it in constant time (`hmac.compare_digest`, UTF-8 encoded) and never logs it. **OFF until set:**
+  when empty, both endpoints behave exactly as before, so the live channel and the existing tests
+  are unchanged until the owner opts in. When set, a request without the matching token is refused
+  (403) **before** any session state is touched or any listing is created.
+- **PII removed from the delivery log:** `sms_delivery()` now logs only `sms.delivery_receipt`
+  (the fact of receipt), never the payload.
+
+### What was NOT changed — owner product decision (not fabricated)
+
+Finding 2/3 (USSD consent enforcement) is a genuine product decision, not a mechanical fix: enforcing
+acceptance on USSD means deciding whether a basic-phone caller must have a **registered, consented**
+farmer account before listing, and designing a menu-based acceptance step (phone→account resolution,
+a consent screen, recording via `record_legal_acceptance`). That changes a live channel's behaviour
+and depends on the legal flag + migrations being applied. It is recorded here as a finding requiring
+the owner's decision and a qualified Ugandan legal professional's review; no consent menu was invented.
+
+### Files
+
+- `app.py` — `AT_USSD_CALLBACK_TOKEN`, `_at_callback_authorized()`, guards on `ussd()`/`sms_delivery()`,
+  PII-free delivery log.
+- `tests/test_ussd.py` — 7 new tests (unconfigured channel unchanged; missing/wrong token refused
+  before the state machine; matching token processed; SMS delivery auth; payload not logged).
+
+### Measured results (local, not production)
+
+- USSD suite (`tests/test_ussd.py`): **13 passed** (6 existing + 7 new), exit 0.
+- Ruff (`app.py tests/test_ussd.py`): all checks passed.
+- Full Python regression (`tests/ -q`): **914 passed**, 159 warnings, 165.76 s, exit 0 (907 after L2d
+  + 7 new USSD tests). Warnings are the pre-existing benign 30-byte test-JWT notice, not failures.
+- No production flag, data, or account touched. Nothing pushed or deployed.
+  **Owner dependency:** to activate callback authentication, set `AT_USSD_CALLBACK_TOKEN` in Render
+  AND append `?token=<value>` to the USSD and SMS-delivery callback URLs in the Africa's Talking
+  dashboard. Until then the channel is unchanged (secret empty = off).

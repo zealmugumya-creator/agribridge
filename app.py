@@ -98,6 +98,13 @@ AT_USERNAME    = os.environ.get('AT_USERNAME',    'sandbox')
 AT_API_KEY     = os.environ.get('AT_API_KEY',     'atsk_REPLACE_ME')
 AT_SHORTCODE   = os.environ.get('AT_SHORTCODE',   '*789#')
 AT_SMS_SENDER  = os.environ.get('AT_SMS_SENDER',  'AgriBridge')
+# Shared secret for Africa's Talking USSD/SMS callbacks. AT does not sign these
+# callbacks, so the only practical proof-of-origin is a secret appended to the
+# callback URL registered in the AT dashboard (?token=...). OFF until set: empty
+# leaves the channel exactly as before, so enabling it is an owner decision (set
+# AT_USSD_CALLBACK_TOKEN in Render AND append ?token=<value> to the AT callback
+# URL). Never logged.
+AT_USSD_CALLBACK_TOKEN = os.environ.get('AT_USSD_CALLBACK_TOKEN', '').strip()
 SUPABASE_URL         = SETTINGS.supabase_url
 SUPABASE_KEY         = SETTINGS.supabase_key
 SUPABASE_SERVICE_KEY = os.environ.get('SUPABASE_SERVICE_KEY', '')  # service-role key for server-side reads that bypass RLS
@@ -1461,8 +1468,23 @@ def ussd_route(parts, depth, last, session_id, phone):
     )
 
 
+def _at_callback_authorized() -> bool:
+    """Proof-of-origin for Africa's Talking USSD/SMS callbacks.
+
+    True when no secret is configured (channel unchanged), or the request carries
+    the matching ?token= secret. Constant-time compare; the secret is never logged.
+    """
+    if not AT_USSD_CALLBACK_TOKEN:
+        return True
+    supplied = request.args.get('token', '')
+    return hmac.compare_digest(supplied.encode('utf-8'),
+                               AT_USSD_CALLBACK_TOKEN.encode('utf-8'))
+
+
 @app.route('/api/ussd', methods=['POST'])
 def ussd():
+    if not _at_callback_authorized():
+        return Response('END', mimetype='text/plain'), 403
     session_id = request.form.get('sessionId',   '')
     phone      = request.form.get('phoneNumber', '')
     text       = request.form.get('text',        '').strip()
@@ -1492,8 +1514,11 @@ def ussd():
 # ══════════════════════════════════════════════════════════════════════════════
 @app.route('/api/sms/delivery', methods=['POST'])
 def sms_delivery():
-    data = request.form.to_dict()
-    print(f"SMS Delivery: {data}")
+    if not _at_callback_authorized():
+        return 'Forbidden', 403
+    # Delivery receipts carry phone numbers and message fragments. Log only the
+    # fact of receipt, never the payload — no personal data in logs.
+    log.info("sms.delivery_receipt")
     return 'OK', 200
 
 # ══════════════════════════════════════════════════════════════════════════════
