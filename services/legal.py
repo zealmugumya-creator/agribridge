@@ -72,6 +72,7 @@ class LegalService:
         self._db = supabase
         self._manifest = manifest
         self._published = False
+        self._requirements_synced = False
 
     # ── manifest ─────────────────────────────────────────────────────────────
     @property
@@ -106,6 +107,38 @@ class LegalService:
             return LegalResult(ok=False, error="legal documents are not available right now",
                                status_code=503)
         self._published = True
+        return LegalResult(ok=True)
+
+    # ── database-resident current requirements (migration 0031) ──────────────
+    def ensure_requirements_synced(self) -> LegalResult:
+        """Push the manifest's current requirement set into the database so the
+        0031 consent guard can refuse direct PostgREST/RPC writes that bypass Flask.
+
+        The caller decides WHEN to sync (only while enforcement is on); an empty
+        legal_current_requirements table leaves the database guard inactive, so
+        applying 0031 ahead of the flag changes nothing. Idempotent: once a sync
+        succeeds it is not repeated; a failure leaves the flag unset so the next
+        call retries. The replace is atomic in the RPC, never half-populated.
+        """
+        if self._requirements_synced:
+            return LegalResult(ok=True)
+        rows = []
+        for role, keys in self.manifest["role_documents"].items():
+            for k in keys:
+                d = self.manifest["documents"].get(k)
+                if not d:
+                    continue
+                rows.append({
+                    "role": role, "doc_type": d["doc_type"], "version": d["version"],
+                    "last_material_version": d.get("last_material_version") or d["version"],
+                    "requires_acceptance": d["requires_acceptance"],
+                })
+        res = self._db.rpc("sync_legal_current_requirements", {"p_rows": rows})
+        if not res.ok:
+            log.error("legal.requirements_sync_failed", status=res.status)
+            return LegalResult(ok=False, error="legal requirements are not available right now",
+                               status_code=503)
+        self._requirements_synced = True
         return LegalResult(ok=True)
 
     # ── status ───────────────────────────────────────────────────────────────

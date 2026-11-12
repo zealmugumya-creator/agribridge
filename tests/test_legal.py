@@ -210,6 +210,44 @@ def test_publication_failure_blocks_acceptance(svc, db):
     assert not res.ok and res.status_code == 503 and db.acceptances == []
 
 
+# ── database-resident current requirements (migration 0031) ──────────────────
+def test_requirements_sync_pushes_the_manifest_set_to_the_database(svc, db):
+    assert svc.ensure_requirements_synced().ok
+    calls = [(fn, a) for fn, a in db.rpc_calls if fn == "sync_legal_current_requirements"]
+    assert len(calls) == 1
+    rows = calls[0][1]["p_rows"]
+    expected = {(role, k) for role, keys in svc.manifest["role_documents"].items() for k in keys}
+    assert {(r["role"], r["doc_type"]) for r in rows} == expected
+    tt = next(r for r in rows if r["role"] == "transporter" and r["doc_type"] == "transporter-terms")
+    assert tt["version"] == "1.0.1" and tt["last_material_version"] == "1.0.1"
+    ck = next(r for r in rows if r["role"] == "farmer" and r["doc_type"] == "cookie-policy")
+    assert ck["requires_acceptance"] == "acknowledge"
+
+
+def test_requirements_sync_runs_once_then_short_circuits(svc, db):
+    assert svc.ensure_requirements_synced().ok
+    assert svc.ensure_requirements_synced().ok
+    assert len([fn for fn, _ in db.rpc_calls if fn == "sync_legal_current_requirements"]) == 1
+
+
+def test_requirements_sync_failure_is_retryable():
+    db = FakeSupabase()
+    db.rpc_results["sync_legal_current_requirements"] = RpcResult(ok=False, status=503, error="x")
+    svc = LegalService(db)
+    res = svc.ensure_requirements_synced()
+    assert not res.ok and res.status_code == 503
+    db.rpc_results["sync_legal_current_requirements"] = RpcResult(ok=True, data=42)
+    assert svc.ensure_requirements_synced().ok        # flag stayed unset, so it retried
+
+
+def test_enforced_gate_activates_the_database_guard(client, api, monkeypatch, db):
+    _as(monkeypatch, "u1")
+    monkeypatch.setattr(app_mod, "LEGAL_ENFORCED", True)
+    monkeypatch.setattr(app_mod, "ORDER_SERVICE", _Orders())
+    client.post("/api/orders", json={"items": []})
+    assert any(fn == "sync_legal_current_requirements" for fn, _ in db.rpc_calls)
+
+
 def _bumped(svc, doc_type, version, material, last_material=None):
     m = copy.deepcopy(svc.manifest)
     d = m["documents"][doc_type]

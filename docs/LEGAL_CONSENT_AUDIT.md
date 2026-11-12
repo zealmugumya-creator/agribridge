@@ -448,3 +448,108 @@ retryable failure. Existing authoritative roles must not be switched.
 - Full regression: **903 passed, 0 failed, 159 warnings**, exit 0, 224.92 s.
 - No migration changed. No production flag, data, or account touched. Enforcement flag remains
   off. Nothing pushed or deployed.
+
+## 13. L2d — database consent guard, migration 0031 (2026-11-10)
+
+### Finding (pre-modification, source-verified)
+
+L2c1/L2c2 only run when a request goes **through Flask**. The browser does not always do that.
+`supabase/base-schema.sql` grants `authenticated` direct write policies on the marketplace
+tables, and `static/index.html` exercises them with the caller's own token via
+`sb()`/`sbInsert()`/`sbUpdate()` (index.html:3395–3493):
+
+| Table | Direct write policy | Source |
+|---|---|---|
+| listings | INSERT/UPDATE owner | base-schema.sql:260–261 |
+| animal_listings | INSERT/UPDATE owner | base-schema.sql:248–249 |
+| supplier_products | INSERT/UPDATE/DELETE owner | base-schema.sql:276–278 |
+| reviews | INSERT verified / UPDATE/DELETE owner | base-schema.sql:269–275 |
+| community_posts | INSERT (authenticated) | base-schema.sql:252 |
+| orders | UPDATE farmer | base-schema.sql:264 |
+
+Three SECURITY DEFINER RPCs are granted to `authenticated` and write the same tables without
+touching Flask: `create_order_atomic` → orders (0015:314), `set_order_status` → orders (0015:369),
+`accept_offer`/`reject_offer` → order_offers (0005:195, :215). A signed-in person who has **not**
+accepted the current terms can therefore list produce, post a review, place an order or accept an
+offer by calling PostgREST or the RPC directly, and the L2c1 gate never sees it. This is the
+independent bypass the brief names: "Do not rely solely on frontend redirects. Direct API requests
+must also be checked." **[S]**
+
+### Design — why a trigger, and why on the table
+
+Same measurement that decided 0028: an RLS policy is stepped over by `service_role` (bypassrls)
+and its subquery runs under the caller's own RLS, so it cannot reliably read `user_roles` /
+`legal_acceptances`. A BEFORE-row **SECURITY DEFINER trigger** fires for every role (a bypassrls
+role cannot step over a trigger) and reads as its own owner, needing no new grant. It also fires
+**inside** a SECURITY DEFINER RPC: `auth.uid()` reads the request JWT (`request.jwt.claim.sub`),
+which PostgREST sets from the caller's token and which does not change when the body runs as its
+definer. So one trigger on `orders` guards both a direct PATCH and `create_order_atomic` /
+`set_order_status`, and one on `order_offers` guards `accept_offer` / `reject_offer` — **no RPC body
+is edited**, which keeps the change additive and free of version drift.
+
+### What 0031 adds
+
+1. `legal_current_requirements` — one row per (role, doc_type): current version +
+   `last_material_version` floor + `requires_acceptance`. The backend syncs it from the built
+   manifest via `sync_legal_current_requirements(jsonb)`, an **atomic replace** (one function body
+   = one transaction; never half-populated). RLS on; client roles revoked; service-role only.
+2. `legal_consent_complete(uuid)` — resolves the role with the **same priority as app.py**
+   (`_resolve_account_type`): `user_roles.business_role` first, then admin/superadmin privilege
+   (→ vendor docs, as `_legal_role`), then the profile fallback (farmers/transporters/buyers);
+   unresolvable → fail closed. Then checks every current requirement against `legal_acceptances`
+   using the same satisfaction rule as `LegalService._satisfied` (current version, or any version
+   ≥ the last-material floor; `_legal_ver_ge` does the tuple compare).
+3. `_enforce_legal_consent()` — BEFORE INSERT/UPDATE/DELETE trigger on listings, animal_listings,
+   supplier_products, reviews, community_posts, orders (and order_offers when 0004 is present;
+   created conditionally so the file stays additive on a project that has not run matching).
+
+### What it deliberately does NOT guard (the brief's exemptions)
+
+farmers/buyers/transporters/user_roles (profile bootstrap + the one-time account-type choice happen
+before consent); legal_* tables and `record_legal_acceptance` (viewing/accepting must always work);
+auth, sign-out, `request_account_deletion`; and the `to public` anonymous support inserts
+(contact_messages, disease_reports, price_alerts, vet_bookings, supply_orders).
+
+### Two safety properties (both measured)
+
+- **Backend unaffected.** It connects with the service-role key, which carries no end-user JWT, so
+  `auth.uid()` is null and the trigger returns early; those writes are already Flask-gated (L2c1)
+  and bootstrap writes happen pre-consent. anon also has no uid and is still refused by RLS exactly
+  as before. Only a real signed-in caller is checked.
+- **Applying 0031 changes nothing until the owner enables enforcement.** The requirements table
+  starts empty; an empty set means "nothing required" → `legal_consent_complete` returns true →
+  every write passes, as today. The backend populates the table **only when
+  `ENFORCE_LEGAL_ACCEPTANCE` is on** — at startup (so it protects even callers who never touch a
+  Flask route) and as a best-effort lazy retry in `legal_gate`. The database guard and the Flask
+  gate therefore activate together under the same owner-controlled flag.
+
+### Files
+
+- `supabase/migrations/0031_legal_consent_guard.up.sql` / `.down.sql` — additive, reversible;
+  pre-flight requires a bypassrls applier (as 0028); down drops triggers/functions/table and
+  documents that it reopens the bypass. No existing row is modified or deleted.
+- `services/legal.py` — `ensure_requirements_synced()` (idempotent; failure leaves the flag unset
+  so the next call retries; builds rows from `manifest.role_documents`).
+- `app.py` — startup sync under `LEGAL_ENFORCED`; lazy retry in `legal_gate` (the gate decision
+  still comes from `status()`, not the sync).
+- `tests/sql/legal_consent_guard.test.mjs` — 29 checks against real PGlite (real 0007 + real 0031;
+  marketplace policies reproduced from base-schema). Added to the `npm test` chain.
+- `tests/test_legal.py` — 4 tests: sync builds the manifest set, runs once, failure is retryable,
+  and the enforced gate activates the guard.
+
+### Measured results (local, not production)
+
+- New SQL guard test (`legal_consent_guard.test.mjs`): **29 checks passed** (run directly, exit 0).
+- Full chained SQL suite: **16 files, 406 assertions, exit 0** (re-run in foreground to capture every
+  per-file count). Per file: legal_consent 31, ledger 36, security_lockdown 17, category_orders 10,
+  settlements 11, pesapal 24, farmer_ratings 9, order_write_lockdown 12, transport_assignment 61,
+  proof_bucket 14, farmers_self_write 25, identity_all_users 36, self_signup_policies 25,
+  one_role_per_person 37, exporter_role 29, legal_consent_guard 29.
+- Focused backend (test_legal + test_account_type): **281 passed**, 10 warnings, 4.76 s.
+- Ruff (app.py services/ scripts/ tests/): all checks passed.
+- Full Python regression (`tests/ -q`): **907 passed**, 159 warnings, 150.12 s, exit 0 (prior baseline
+  903; +4 new sync tests). Warnings are the pre-existing benign 30-byte test-JWT
+  `InsecureKeyLengthWarning`, not failures.
+- No production flag, data, or account touched. Enforcement flag remains off. Nothing pushed or
+  deployed. **Owner dependency:** apply 0031 (after 0007; order_offers guard activates only if 0004
+  is present) before flipping `ENFORCE_LEGAL_ACCEPTANCE` on Render.

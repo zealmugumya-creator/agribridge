@@ -118,6 +118,14 @@ NOTIFY = NotificationDispatcher(supabase=SUPA, discord=DISCORD,
                                 web_push=WEB_PUSH)
 LEGAL_SERVICE = LegalService(supabase=SUPA)
 LEGAL_ENFORCED = os.environ.get('ENFORCE_LEGAL_ACCEPTANCE', '').strip().lower() in ('1', 'true', 'yes')
+# Activate the database consent guard (migration 0031) under the same flag as the
+# Flask gate. Syncing the current requirement set is what switches the guard on;
+# until then legal_current_requirements is empty and the guard is a no-op. Done at
+# startup so it protects even callers who never touch a Flask route (the direct
+# PostgREST/RPC bypass). Best-effort: a failure is logged and retried lazily by the
+# gate, and never prevents the process from starting.
+if LEGAL_ENFORCED:
+    LEGAL_SERVICE.ensure_requirements_synced()
 ORDER_SERVICE = OrderService(supabase=SUPA, dispatcher=NOTIFY)
 MATCHING_SERVICE = MatchingService(supabase=SUPA, dispatcher=NOTIFY)
 ACCOUNT_SERVICE = AccountService(SUPA, supabase_url=SUPABASE_URL, service_key=SUPABASE_KEY,
@@ -622,6 +630,10 @@ def _legal_role(user_id):
 def legal_gate(user_id):
     if not LEGAL_ENFORCED:
         return None
+    # Lazy retry of the startup sync: keeps the database guard (0031) active even if
+    # the import-time sync failed transiently. Idempotent and best-effort — the gate
+    # decision below comes from status(), not from this sync.
+    LEGAL_SERVICE.ensure_requirements_synced()
     role, error = _legal_role(user_id)
     if error:
         return error
