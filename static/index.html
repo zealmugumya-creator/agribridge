@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- AB_BUILD:20261112_SYNTAXFIX -->
+<!-- AB_BUILD:20261112_CLEAN -->
 <html lang="en">
 <head>
 <script src="business-config.js"></script>
@@ -4411,16 +4411,6 @@ window.addEventListener('popstate', (e) => {
 // HOME
 // ─────────────────────────────────────────────────────────────────
 async function loadHomeStats() {
-  console.log('[AB] loadHomeStats called');
-  try { return await _loadHomeStatsInner(); }
-  catch(err) {
-    console.error('[AB] loadHomeStats crashed:', err);
-    const g = document.getElementById('homeProdGrid');
-    if (g) g.innerHTML = '<div style="padding:20px;color:#f66;font-size:13px;background:#111;border-radius:8px;margin:8px"><b>AB ERROR:</b> ' + String(err) + '</div>';
-  }
-}
-async function _loadHomeStatsInner() {
-  console.log('[AB] _loadHomeStatsInner start');
   const [farmerCount, listingCount, animalCount, listings] = await Promise.all([
     sb('farmers',  { count:true }),
     sb('listings', { count:true }),
@@ -4448,20 +4438,6 @@ async function _loadHomeStatsInner() {
   const moreGrid = document.getElementById('homePopularGrid');
   const recentGrid = document.getElementById('homeRecentGrid');
   const moreHead = document.getElementById('homeMoreHead');
-  console.log('[AB] listings result:', listings, 'type:', typeof listings);
-  // ── ON-SCREEN DEBUG (remove after fix confirmed) ──
-  try {
-    var dbg = document.getElementById('_abDebug');
-    if (!dbg) { dbg = document.createElement('div'); dbg.id='_abDebug'; dbg.style.cssText='position:fixed;bottom:80px;left:8px;right:8px;z-index:9999;background:rgba(0,0,0,.85);color:#0f0;font:11px monospace;padding:8px;border-radius:8px;max-height:160px;overflow:auto;'; document.body.appendChild(dbg); }
-    var farmerUrl = SUPA_URL+'/rest/v1/farmers?select=count';
-    dbg.innerHTML = '<b>AB DEBUG</b><br>'
-      +'farmerCount: '+farmerCount+'<br>'
-      +'listingCount: '+listingCount+'<br>'
-      +'listings: '+(listings===null?'NULL ❌':Array.isArray(listings)?listings.length+' rows ✅':'type='+typeof listings)+'<br>'
-      +'SUPA_URL: '+SUPA_URL.slice(8,30)+'...<br>'
-      +'<button onclick="document.getElementById(\'_abDebug\').remove()" style="margin-top:4px;padding:2px 8px;background:#333;color:#fff;border:none;border-radius:4px;cursor:pointer">close</button>';
-  } catch(e) {}
-  // ── END DEBUG ──
   if (listings === null) {
     const msg = '<div class="home-feed-state"><div class="ic">⚠️</div><div>We could not load produce right now. Check your connection and try again.</div><button class="btn-sm outline" onclick="loadHomeStats()">Retry</button></div>';
     [grid, moreGrid, recentGrid].forEach(g => { if (g) g.innerHTML = msg; });
@@ -4500,7 +4476,7 @@ async function _loadHomeStatsInner() {
   hydrateCart(rows);
   document.getElementById('homeFeatured').innerHTML = '';
   updateBuyerCartBadge();
-} // end _loadHomeStatsInner
+}
 
 /** Aggregate the farmer strip from real listings + farmer_ratings only. */
 function renderHomeFarmers(rows) {
