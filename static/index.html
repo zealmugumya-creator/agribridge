@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- AB_BUILD:20261112_ERRSHOW -->
+<!-- AB_BUILD:20261112_SYNTAXFIX -->
 <html lang="en">
 <head>
 <script src="business-config.js"></script>
@@ -8643,9 +8643,6 @@ async function wlRefreshProductsLegacy() {
   const grid = document.querySelector('.wl-prod-grid');
   if (!grid) return;
   grid.innerHTML = listings.map(wlProdCard).join('');
-}
-    </div>`;
-  }).join('');
 }
 
 async function wlLoadBanners() {
