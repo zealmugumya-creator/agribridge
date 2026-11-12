@@ -608,41 +608,23 @@ def require_admin_user():
         return None, (jsonify({'error': 'Insufficient permissions'}), 403)
     return uid, None
 
-def _legal_gate_role(user_id):
-    business, privilege, err = _stored_business_role(user_id)
-    if err:
-        return None, 'unreadable'
-    if business:
-        if business not in LEGAL_SERVICE.manifest['role_documents']:
-            return None, 'unreadable'
-        return business, ''
-    if privilege in ('admin', 'superadmin'):
-        return 'vendor', ''
-    for table, column, select in (
-            ('farmers', 'id', 'id'), ('transporters', 'supabase_uid', 'id'),
-            ('buyers', 'id', 'buyer_type')):
-        rows, err = supa_get_checked(table, {column: f'eq.{user_id}', 'select': select}, limit=1)
-        if err:
-            return None, 'unreadable'
-        if rows:
-            if table == 'farmers':
-                return 'farmer', ''
-            if table == 'transporters':
-                return 'transporter', ''
-            return ('hotel' if rows[0].get('buyer_type') in ('hotel', 'restaurant') else 'vendor'), ''
-    return None, 'missing'
+def _legal_role(user_id):
+    role, source = resolve_account_type(user_id)
+    if source == 'unreadable':
+        return None, (jsonify({'error': 'Could not verify your account type. Please try again.',
+                               'code': 'legal_check_failed'}), 503)
+    if not role:
+        return None, (jsonify({'error': 'Please confirm your account type in Settings before continuing.',
+                               'code': 'account_type_required'}), 409)
+    return ('vendor' if source == 'privilege' else role), None
 
 
 def legal_gate(user_id):
     if not LEGAL_ENFORCED:
         return None
-    role, error = _legal_gate_role(user_id)
-    if error == 'missing':
-        return jsonify({'error': 'Please confirm your account type in Settings before continuing.',
-                        'code': 'account_type_required'}), 409
+    role, error = _legal_role(user_id)
     if error:
-        return jsonify({'error': 'Could not verify your account type. Please try again.',
-                        'code': 'legal_check_failed'}), 503
+        return error
     st = LEGAL_SERVICE.status(user_id, role)
     if not st.ok:
         return jsonify({'error': 'Could not verify legal acceptance', 'code': 'legal_check_failed'}), 503
@@ -5940,90 +5922,56 @@ def _stored_business_role(uid):
 
 
 def resolve_account_type(uid, meta_role=None):
-    """(role, source) for a verified login, strongest evidence first.
-
-      'business_role' — they chose it and this backend wrote it;
-      'privilege'     — an admin/superadmin row in user_roles and no marketplace
-                        account: this is what _auth_role() has always returned for
-                        those, and it is returned before the profile tables so an
-                        operator who also sells produce keeps the admin answer the
-                        legal routes were tested against;
-      'profile'       — derived from which guarded profile table holds their row.
-                        A farmers row means farmer; a buyers row answers from its own
-                        buyer_type; a transporter row is the one account type no one
-                        self-selects (the admin console creates it), and it outranks
-                        metadata so a driver cannot be painted as a buyer by an old
-                        user_metadata value;
-      'metadata'      — user_metadata.role, which the signed-in client can rewrite
-                        (setAccountRole in static/index.html, before this stage), so it is last;
-      ''              — nothing to go on, and the caller shows the choice.
-
-    Memoised per request: the legal routes call this several times in one reply and
-    each answer costs up to three round trips, which is not free on the Render box.
-    """
     if not uid:
         return '', ''
     cache = getattr(g, '_account_type', None)
     if cache is None:
         cache = {}
         g._account_type = cache
-    if uid in cache:
-        return cache[uid]
-    out = _resolve_account_type(uid, meta_role)
-    cache[uid] = out
-    return out
+    if uid not in cache:
+        cache[uid] = _resolve_account_type(uid)
+    role, source = cache[uid]
+    if role or source:
+        return role, source
+    # Display suggestions must never enter the authoritative request cache.
+    meta = str(meta_role or '').strip().lower()
+    meta = {'restaurant': 'hotel', 'b2b': 'hotel', 'input_seller': 'supplier',
+            'buyer': 'vendor'}.get(meta, meta)
+    if meta in (*BUSINESS_ROLES, 'transporter'):
+        return meta, 'metadata'
+    return '', ''
 
 
 def _profile_account_type(uid):
-    """Which guarded profile table holds this login, or '' for none.
-
-    A farmers row means farmer; a buyers row is the one profile table whose own
-    column names what the person is, so it is read instead of guessed: base-schema:28
-    keeps individual|vendor|hotel|restaurant|exporter|ngo, the app has no restaurant
-    or exporter tab, and everything that is not a hotel is shown on the one buyer
-    surface the SPA calls vendor (getCurrentRole in static/index.html). A transporter row is the
-    one account type nobody self-selects — the admin console creates it, and since it
-    is not in BUSINESS_ROLES a driver can never choose their way out of it.
-    """
-    if supa_get('farmers', {'id': f'eq.{uid}', 'select': 'id'}, limit=1):
-        return 'farmer'
-    if supa_get('transporters', {'supabase_uid': f'eq.{uid}', 'select': 'id'}, limit=1):
-        return 'transporter'
-    held = supa_get('buyers', {'id': f'eq.{uid}', 'select': 'buyer_type'}, limit=1)
-    if held:
-        bt = str(held[0].get('buyer_type') or '')
-        return 'hotel' if bt in ('hotel', 'restaurant') else 'vendor'
-    return ''
+    for table, column, select in (
+            ('farmers', 'id', 'id'), ('transporters', 'supabase_uid', 'id'),
+            ('buyers', 'id', 'buyer_type')):
+        rows, err = supa_get_checked(table, {column: f'eq.{uid}', 'select': select}, limit=1)
+        if err:
+            return '', err
+        if rows:
+            if table == 'farmers':
+                return 'farmer', ''
+            if table == 'transporters':
+                return 'transporter', ''
+            return ('hotel' if rows[0].get('buyer_type') in ('hotel', 'restaurant') else 'vendor'), ''
+    return '', ''
 
 
-def _resolve_account_type(uid, meta_role=None):
+def _resolve_account_type(uid):
     business, privilege, err = _stored_business_role(uid)
+    if err:
+        return '', 'unreadable'
     if business:
+        if business not in (*BUSINESS_ROLES, 'transporter'):
+            return '', 'unreadable'
         return business, 'business_role'
     if privilege in ('admin', 'superadmin'):
         return privilege, 'privilege'
-    profile = _profile_account_type(uid)
-    if profile:
-        return profile, 'profile'
+    profile, err = _profile_account_type(uid)
     if err:
-        # The store could not be read, so anything below would silently outrank a
-        # choice the person already made. Report the gap instead of guessing.
-        log.warning('account_type.store_unreadable', uid=uid, error=err[:120])
         return '', 'unreadable'
-    meta = str(meta_role or '').strip().lower()
-    if meta in ('hotel', 'restaurant', 'b2b'):
-        return 'hotel', 'metadata'
-    if meta == 'farmer':
-        return 'farmer', 'metadata'
-    if meta in ('supplier', 'input_seller'):
-        return 'supplier', 'metadata'
-    if meta in ('vendor', 'buyer'):
-        return 'vendor', 'metadata'
-    if meta == 'transporter':
-        return 'transporter', 'metadata'
-    if meta == 'exporter':
-        return 'exporter', 'metadata'
-    return '', ''
+    return (profile, 'profile') if profile else ('', '')
 
 
 @app.route('/api/user/account-type', methods=['GET'])
@@ -6035,11 +5983,12 @@ def get_account_type():
         return err
     meta = (getattr(g, 'auth_user', {}) or {}).get('user_metadata') or {}
     role, source = resolve_account_type(uid, meta.get('role'))
+    if source == 'unreadable':
+        return jsonify({'error': 'Could not verify your account type. Please try again.',
+                        'code': 'account_type_unavailable'}), 503
     body = {'role': role, 'source': source,
             'label': _ROLE_LABELS.get(role, ''),
-            # A transporter is issued by an operator, and a person who has already
-            # chosen has no second choice coming.
-            'can_choose': source in ('', 'metadata', 'unreadable')}
+            'can_choose': source in ('', 'metadata')}
     if body['can_choose']:
         body['choices'] = [{'value': r, 'label': _ROLE_LABELS[r]} for r in BUSINESS_ROLES]
     return jsonify(body), 200
@@ -6095,7 +6044,10 @@ def choose_account_type():
                         'code': 'account_type_locked', 'role': privilege,
                         'source': 'privilege'}), 409
 
-    held = _profile_account_type(uid)
+    held, profile_err = _profile_account_type(uid)
+    if profile_err:
+        return jsonify({'error': 'Could not verify your existing account. Please try again.',
+                        'code': 'account_type_unavailable'}), 503
     if held and held != choice:
         # The GET already answers can_choose:false here, but the browser is not the
         # only caller. A login holding a farmer's row *is* a farmer's account whether
@@ -6648,34 +6600,6 @@ def unregister_push_subscription():
 # (mandate sections 7-11). Public documents need no session; everything that
 # records or reads a user's own evidence needs a verified Supabase session.
 # ══════════════════════════════════════════════════════════════════════════════
-def _auth_role():
-    """Return the user's role string for legal-service calls.
-
-    resolve_account_type() owns the order: the server-written business_role, then
-    the user_roles privilege row (which is what this function returned before
-    Stage N9, so operators are unaffected), then the guarded profile table that
-    holds their row, and only then user_metadata.role — a value the person's own
-    signed-in client can rewrite, which is exactly the
-    field the owner does not want deciding which terms they accepted.
-    """
-    uid = (getattr(g, 'auth_user', {}) or {}).get('id')
-    if not uid:
-        return None
-    meta = (getattr(g, 'auth_user', {}) or {}).get('user_metadata') or {}
-    role, source = resolve_account_type(uid, meta.get('role'))
-    if role:
-        return role
-    if source == 'unreadable':
-        # user_roles could not be read — a missing grant, an outage, or a project
-        # where 0028 has not been applied yet. That is not the person's fault, and
-        # asking them to accept a different set of terms because of it would be.
-        # This is precisely what the route did before Stage N9, so it stays.
-        return meta.get('role')
-    # Nothing to go on. The legal service maps '' to its default set, as an unknown
-    # metadata role always has; /api/user/account-type is what asks them to choose.
-    return None
-
-
 def _legal_response(result, ok_code=200):
     if not result.ok:
         body = {'error': result.error}
@@ -6696,7 +6620,10 @@ def legal_status():
     uid, err = verify_supabase_user()
     if err:
         return err
-    return _legal_response(LEGAL_SERVICE.status(uid, _auth_role()))
+    role, err = _legal_role(uid)
+    if err:
+        return err
+    return _legal_response(LEGAL_SERVICE.status(uid, role))
 
 
 @app.route('/api/legal/accept', methods=['POST'])
@@ -6705,16 +6632,19 @@ def legal_accept():
     uid, err = verify_supabase_user()
     if err:
         return err
+    role, err = _legal_role(uid)
+    if err:
+        return err
     data = request.get_json(force=True, silent=True) or {}
     res = LEGAL_SERVICE.accept(
-        user_id=uid, role=_auth_role(), documents=data.get('documents'),
+        user_id=uid, role=role, documents=data.get('documents'),
         method=str(data.get('method', '')),
         evidence={'surface': str(data.get('surface', ''))[:40],
                   'user_agent': request.headers.get('User-Agent', '')[:200]})
     if not res.ok:
         return _legal_response(res)
     # Only now (database confirmed) report the fresh status.
-    return _legal_response(LEGAL_SERVICE.status(uid, _auth_role()))
+    return _legal_response(LEGAL_SERVICE.status(uid, role))
 
 
 def _account_is_new(created_at, within_days=2):
@@ -6765,7 +6695,9 @@ def legal_sync_signup():
         return err
     au = getattr(g, 'auth_user', {}) or {}
     meta = au.get('user_metadata') or {}
-    role = _auth_role() or meta.get('role', '')
+    role, err = _legal_role(uid)
+    if err:
+        return err
 
     # ── Duplicate-account & cross-role guard (runs on every new signup) ──────
     # Only run these checks for newly created accounts (within 2 days).

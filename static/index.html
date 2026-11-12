@@ -3492,62 +3492,76 @@ async function uploadMedia(file, prefix, maxMB, onProgress){
 }
 async function sbUpdate(t, d, col, val) { return sb(t, { method:'PATCH', body:d, filters:[[col, `eq.${val}`]] }); }
 
-// Save a signup profile. sb() returns null on failure rather than throwing, so
-// the result must be checked. PostgREST on the current tier intermittently times
-// out, so retry with backoff and queue locally as a last resort — a registration
-// must never be silently discarded. There is no database trigger creating the
-// profile row; the browser calls /api/user/profile, which upserts `farmers`
-// with the verified session id. The client never inserts into farmers directly
-// (that INSERT is locked by RLS).
 async function saveProfileWithRetry(profile, attempts) {
-  // Write the user's name/phone/district to the farmers table via the
-  // update_my_profile RPC (validates name length, phone format, uniqueness).
-  // Falls back to direct REST upsert if the RPC is unavailable.
   attempts = attempts || 0;
+  var stop = null;
   try {
     if (sbAuth && profile && (profile.full_name || profile.name)) {
       var tok = _authToken || localStorage.getItem('ab_jwt') || localStorage.getItem('ab_token') || (await refreshAuthToken());
       if (tok) {
-        // An exporter sells through the same farmers row a farmer uses, and that
-        // row on its own reads as 'farmer' to the server. The account type must
-        // therefore be recorded BEFORE the row exists, while the one-time choice
-        // is still open. A 409 means the server already holds a type for this
-        // login — let the profile write meet the same guard and answer honestly.
-        // Anything else (503 before migration 0030 is applied, a failed request)
-        // defers the whole save to the pending-profile flush rather than writing
-        // a row that would freeze this login as a farmer forever.
-        if ((profile.role || '') === 'exporter') {
-          var ra = await fetch(USSD_API + '/api/user/account-type', {
+        // The shared identity row alone reads as farmer; record every chosen
+        // type first so it cannot lock a new buyer or supplier into farmer terms.
+        if (profile.role && ['farmer','vendor','hotel','supplier','exporter'].indexOf(profile.role) >= 0) {
+          var held = await loadAccountType();
+          if (!(held && held.can_choose === false && held.role === profile.role)) {
+            var ra = await fetch(USSD_API + '/api/user/account-type', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + tok },
+              body: JSON.stringify({ role: profile.role })
+            });
+            if (ra.status === 429) stop = 'Too many account-type attempts. Please wait a few minutes and try again.';
+            else if (!ra.ok && ra.status !== 409) throw new Error('account type not recorded yet');
+          }
+        }
+        if (!stop) {
+          var r = await fetch(USSD_API + '/api/user/profile', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + tok },
-            body: JSON.stringify({ role: 'exporter' })
+            body: JSON.stringify({
+              full_name: profile.full_name || profile.name || '',
+              phone:     profile.phone || '',
+              district:  profile.district || '',
+            })
           });
-          if (!ra.ok && ra.status !== 409) throw new Error('account type not recorded yet');
+          if (r.ok) { try { localStorage.removeItem('ab_pending_profile'); } catch(e){} return true; }
+          var body = {}; try { body = await r.json(); } catch (e) {}
+          if (r.status === 400 || r.status === 409 || r.status === 429) {
+            stop = (body && body.error) || (r.status === 429
+              ? 'Too many profile saves. Please wait a few minutes and try again.'
+              : 'We could not save that profile. Please correct your details in Settings.');
+          }
         }
-        var r = await fetch(USSD_API + '/api/user/profile', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + tok },
-          body: JSON.stringify({
-            full_name: profile.full_name || profile.name || '',
-            phone:     profile.phone || '',
-            district:  profile.district || '',
-          })
-        });
-        if (r.ok) { try { localStorage.removeItem('ab_pending_profiles'); } catch(e){} return true; }
       }
     }
-  } catch (e) { /* network error — fall through to retry */ }
+  } catch (e) {}
+  if (stop) {
+    // A validation or uniqueness refusal needs a person, not another automatic
+    // attempt. Keep the details for correction but stop the retry loop.
+    try { localStorage.setItem('ab_pending_profile', JSON.stringify(Object.assign({}, profile, {blocked:true, error:stop}))); } catch (e) {}
+    showToast(stop);
+    return false;
+  }
   if (attempts < 2) { await new Promise(function(res){ setTimeout(res, 1500); }); return saveProfileWithRetry(profile, attempts + 1); }
-  try { localStorage.removeItem('ab_pending_profiles'); } catch (e) {}
+  try { localStorage.setItem('ab_pending_profile', JSON.stringify(profile)); } catch (e) {}
   return false;
 }
 
-async function flushPendingProfiles() {
+function _pendingProfileForMe() {
   try {
-    var pending = JSON.parse(localStorage.getItem('ab_pending_profile') || 'null');
-    if (pending && pending.name) await saveProfileWithRetry(pending, 0);
-    localStorage.removeItem('ab_pending_profile');
-  } catch (e) {}
+    var p = JSON.parse(localStorage.getItem('ab_pending_profile') || 'null');
+    if (!p || !(p.full_name || p.name) || !currentUser) return null;
+    if (p.email && p.email !== currentUser.email) return null;
+    if (p.id && p.id !== currentUser.supaId) return null;
+    return p;
+  } catch (e) { return null; }
+}
+var _pendingProfileFlush = null;
+async function flushPendingProfiles() {
+  if (_pendingProfileFlush) return _pendingProfileFlush;
+  var pending = _pendingProfileForMe();
+  if (!pending || pending.blocked) return false;
+  _pendingProfileFlush = Promise.resolve(saveProfileWithRetry(pending, 0)).finally(function(){ _pendingProfileFlush = null; });
+  return _pendingProfileFlush;
 }
 
 // ── GLOBAL STATE ──────────────────────────────────────────────────
@@ -8537,8 +8551,11 @@ function _accountTypePicker(role){
       '<div class="st-label" style="margin-bottom:12px">Set once and kept by AgriBridge — one login is one type of account. '+
       'If this is not the account you need, message us instead of opening a second one.</div>';
   }
+  // A preselected suggestion fires no change event when the person confirms it,
+  // and the one-time POST would then never record the role they actually meant.
   return '<select id="setRole" onchange="setAccountRole(this.value)" class="st-input">'+
-    ['farmer','vendor','hotel','supplier','exporter'].map(function(r){ return '<option value="'+r+'"'+(role===r?' selected':'')+'>'+_ROLE_LABELS[r]+'</option>'; }).join('')+
+    '<option value="" disabled selected>Choose your account type</option>'+
+    ['farmer','vendor','hotel','supplier','exporter'].map(function(r){ return '<option value="'+r+'">'+_ROLE_LABELS[r]+'</option>'; }).join('')+
   '</select>';
 }
 
@@ -8772,6 +8789,7 @@ async function saveProfile(){
         showToast(msg);
         return;
       }
+      try { localStorage.removeItem('ab_pending_profile'); } catch(e){}
     }
     commit();
     showToast('Profile saved ✓');
@@ -9863,9 +9881,11 @@ function loadAccountType() {
   if (_accountTypeCall) return _accountTypeCall;
   _accountTypeCall = abApi('/api/user/account-type').then(function (res) {
     _accountTypeCall = null;
-    // A failed read keeps whatever was cached: 'could not ask' must not demote a
-    // person to the metadata value they may have set themselves.
-    if (!res || !res.ok || !res.json || !res.json.role) return _accountType;
+    if (!res || !res.ok || !res.json) {
+      _accountType = null;
+      try { localStorage.removeItem('ab_account_type'); } catch (e) {}
+      return null;
+    }
     var changed = !_accountType || _accountType.role !== res.json.role;
     _accountType = { role: res.json.role, source: res.json.source,
                      label: res.json.label || '', can_choose: !!res.json.can_choose };
@@ -9877,7 +9897,12 @@ function loadAccountType() {
       if (typeof renderRoleHome === 'function') renderRoleHome();
     }
     return _accountType;
-  }, function () { _accountTypeCall = null; return _accountType; });
+  }, function () {
+    _accountTypeCall = null;
+    _accountType = null;
+    try { localStorage.removeItem('ab_account_type'); } catch (e) {}
+    return null;
+  });
   return _accountTypeCall;
 }
 
@@ -9890,6 +9915,8 @@ var _accountTypeAsked = false;
 function _askAccountTypeOnce() {
   if (_accountTypeAsked || _accountType) return;
   if (!currentUser || !currentUser.supaId) return;
+  var pending = _pendingProfileForMe();
+  if (pending && !pending.blocked) return;
   _accountTypeAsked = true;
   loadAccountType().then(function () {
     if (_accountType && _setScreen === 'account') repaintAccountPanel();
@@ -10142,9 +10169,12 @@ function initSupabase() {
       loadAccountType();
       if (_oauthNeedsProfile(u)) _openOAuthProfile(u);
       else hydrateUserProfile();
-      // Flush any profile that couldn't be saved at registration time
-      if (event === 'SIGNED_IN') setTimeout(flushPendingProfiles, 1000);
-      if (event === 'PASSWORD_RECOVERY') {
+      // A queued registration role must be recorded before the legal check can
+      // know which terms to ask for; offering the choice first could lock the
+      // wrong type permanently.
+      if (event === 'SIGNED_IN') {
+        setTimeout(async function(){ await flushPendingProfiles(); if (!_oauthOnboardingOpen) postAuthLegalCheck(); }, 0);
+      } else if (event === 'PASSWORD_RECOVERY') {
         // User clicked the reset link in their email — show the set-new-password modal.
         setTimeout(function() {
           var m = document.getElementById('setNewPasswordModal');
@@ -10182,7 +10212,7 @@ function initSupabase() {
       if (_oauthNeedsProfile(u)) _openOAuthProfile(u);
       else hydrateUserProfile();
       if (typeof syncCloudBasket === 'function') syncCloudBasket();
-      setTimeout(function(){ if (!_oauthOnboardingOpen) postAuthLegalCheck(); }, 0);
+      setTimeout(async function(){ await flushPendingProfiles(); if (!_oauthOnboardingOpen) postAuthLegalCheck(); }, 0);
       _startNotifPolling();
       setTimeout(resyncPushIfGranted, 1500);
       setTimeout(maybeShowPushPrompt, 3000);
@@ -10444,16 +10474,13 @@ async function doRegister() {
       _showRegErr('Registration failed: ' + msg);
       return;
     }
-    // Auth success - save profile locally in case PostgREST is down
-    try { localStorage.setItem('ab_pending_profile', JSON.stringify({name,phone,role,district,email})); } catch(e){}
-    // Try DB write but don't block on failure
-    if (res.data && res.data.user) {
-      var profileSaved = await saveProfileWithRetry({
-        id: res.data.user.id, full_name: name, phone: phone, role: role, district: district, email: email
-      });
-      if (!profileSaved) console.warn('Profile could not be saved; queued to retry on next visit.');
+    if (!res.data || !res.data.user) {
+      _showRegErr('Registration did not return an account. Please try again.');
+      return;
     }
-    var needsConfirm = res.data && res.data.user && !res.data.session;
+    var needsConfirm = !res.data.session;
+    var profile = {id: res.data.user.id, full_name: name, phone: phone, role: role, district: district, email: email};
+    try { localStorage.setItem('ab_pending_profile', JSON.stringify(profile)); } catch(e){}
     closeModal('registerModal');
     if (needsConfirm) {
       showToast('Check your email (' + email + ') and click the confirmation link!');
@@ -10462,6 +10489,10 @@ async function doRegister() {
                       supaId: res.data.user ? res.data.user.id : null };
       updateNavUser(name, role);
       showToast('Welcome to AgriBridge, ' + name + '! Account created.');
+      if (!await flushPendingProfiles()) {
+        var queued = _pendingProfileForMe();
+        if (!queued || !queued.blocked) showToast('We will save your delivery details when the connection returns.');
+      }
       postAuthLegalCheck();
     }
   } catch(e) {
@@ -12205,18 +12236,49 @@ async function _legalUid() {
   try { var r = await sbAuth.auth.getSession(); return r && r.data && r.data.session && r.data.session.user ? r.data.session.user.id : null; } catch (e) { return null; }
 }
 
-// Runs after sign-in, session restore and role change. Asks only for what is missing.
 async function postAuthLegalCheck(method) {
   if (!window.sbAuth && typeof sbAuth === 'undefined') return;
   var uid = await _legalUid(); if (!uid) return;
   if (_legalBusy || (_legalCheckedFor === uid && !method)) return;
   _legalBusy = true;
   try {
-    var st = null;
+    var pending = _pendingProfileForMe();
+    if (pending && !pending.blocked) {
+      await flushPendingProfiles();
+      var stillPending = _pendingProfileForMe();
+      if (stillPending && !stillPending.blocked) {
+        showToast('We will save your delivery details when the connection returns.');
+        return;
+      }
+    }
     var r = await abApi('/api/legal/sync-signup', { method: 'POST', body: '{}' });
-    if (r.ok && r.json && r.json.status) st = r.json.status;
-    else { var r2 = await abApi('/api/legal/status'); if (r2.ok) st = r2.json; }
-    if (!st) return;                       // API unreachable: do not lock users out of the app
+    var st = r.ok && r.json && r.json.status ? r.json.status : null;
+    if (!st) {
+      var r2 = await abApi('/api/legal/status');
+      if (r2.ok) st = r2.json;
+      else r = r2;
+    }
+    if (!st && r.status === 409 && r.json.code === 'account_type_required') {
+      var waiting = _pendingProfileForMe();
+      if (waiting && !waiting.blocked) {
+        if (await flushPendingProfiles()) setTimeout(function(){ postAuthLegalCheck(method); }, 0);
+        return;
+      }
+      showToast('Please confirm your account type to review the agreements for it.');
+      openSettings(); settingsGo('account');
+      _accountType = null;
+      loadAccountType().then(function(account) {
+        if (account && account.can_choose) {
+          var select = document.getElementById('setRole');
+          if (select) { select.focus(); select.scrollIntoView({block:'center'}); }
+        } else repaintAccountPanel();
+      });
+      return;
+    }
+    if (!st) {
+      showToast((r.json && r.json.error) || 'We could not check the latest agreements. Please retry.');
+      return;
+    }
     _legalCheckedFor = uid; _legalStatus = st;
     if (st.outstanding && st.outstanding.length) showLegalReview(st, method || 'login_review');
   } finally { _legalBusy = false; }

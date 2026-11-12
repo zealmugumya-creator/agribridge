@@ -415,6 +415,27 @@ def test_accept_uses_verified_identity_and_role_not_the_body(client, api, monkey
     assert {a["role"] for a in db.acceptances} == {"supplier"}
 
 
+@pytest.mark.parametrize("path,method", [("status", "get"), ("accept", "post"), ("sync-signup", "post")])
+def test_legal_bootstrap_never_uses_metadata_or_default_terms(client, api, monkeypatch, db, path, method):
+    monkeypatch.setattr(app_mod, "verify_supabase_user", lambda: ("u1", None))
+    monkeypatch.setattr(app_mod, "_stored_business_role", lambda uid: ("", "user", ""))
+    monkeypatch.setattr(app_mod, "supa_get_checked", lambda *a, **kw: ([], ""))
+    docs = [{"doc_type": d["doc_type"], "version": d["version"]} for d in api.required_documents("vendor")]
+    r = getattr(client, method)(f"/api/legal/{path}", json={"documents": docs, "role": "farmer",
+                                                           "method": "login_review"})
+    assert r.status_code == 409 and r.get_json()["code"] == "account_type_required"
+    assert not db.acceptances
+
+
+@pytest.mark.parametrize("path,method", [("status", "get"), ("accept", "post"), ("sync-signup", "post")])
+def test_legal_routes_share_the_gates_role_failure(client, api, monkeypatch, db, path, method):
+    monkeypatch.setattr(app_mod, "verify_supabase_user", lambda: ("u1", None))
+    monkeypatch.setattr(app_mod, "_stored_business_role", lambda uid: ("", "", "unavailable"))
+    r = getattr(client, method)(f"/api/legal/{path}", json={"role": "farmer"})
+    assert r.status_code == 503 and r.get_json()["code"] == "legal_check_failed"
+    assert not db.acceptances
+
+
 def test_accept_stale_version_returns_409(client, api, monkeypatch):
     _as(monkeypatch, "u1")
     r = client.post("/api/legal/accept", json={"method": "login_review",
@@ -446,6 +467,7 @@ def test_sync_signup_endpoint_records_ticked_versions(client, api, monkeypatch, 
                                                  "marketing_optin": {"sms": True}}}
         return "u1", None
     monkeypatch.setattr(app_mod, "verify_supabase_user", fake)
+    monkeypatch.setattr(app_mod, "_stored_business_role", lambda uid: ("farmer", "user", ""))
     r = client.post("/api/legal/sync-signup", json={})
     body = r.get_json()
     assert r.status_code == 200 and len(body["recorded"]) == len(api.required_documents("farmer")) and body["status"]["complete"] is True

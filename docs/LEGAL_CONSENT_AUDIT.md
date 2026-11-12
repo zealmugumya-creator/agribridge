@@ -367,3 +367,84 @@ Cookie preferences, admin publication and compliance management, owner-applied m
 staging verification and advocate review remain open. No production flag, data, payment,
 notification or account was changed. Do not enable the flag or represent this intermediate
 commit as completion of the mandate.
+
+## 12. L2c2 — role/bootstrap reconciliation (2026-11-10)
+
+### Findings (pre-modification)
+
+Source inspection found that `_auth_role()` still falls back to editable metadata when the role
+store is unreadable, unlike the newly strict API gate. Account-type GET also checks profiles
+through an unchecked reader before honoring a role-store error; account-type POST can therefore
+mistake a failed profile read for permission to choose a different role. These paths need one
+checked authoritative resolver, with metadata at most a display suggestion.
+
+`saveProfileWithRetry()` records a business role before the shared identity profile only for
+exporters. Other signup roles write a farmers row first, so the profile fallback can label a new
+buyer or supplier as a farmer and close the one-time choice. The role must be recorded before
+that profile write for every self-selectable type. A missing role must lead to the existing
+account-type choice, not invented default legal acceptance; unreadable state must be visible as
+retryable failure. Existing authoritative roles must not be switched.
+
+### Implementation
+
+**Backend (app.py):**
+- Deleted `_auth_role()` entirely. Replaced `_legal_gate_role` with `_legal_role(user_id)` — the
+  single checked authoritative resolver shared by the consent gate, legal presentation,
+  acceptance, and sync-signup. It calls `resolve_account_type(uid)` which caches per request.
+- `resolve_account_type` returns `(role, source)`. Source `'unreadable'` → 503; empty role →
+  409 `account_type_required`; privilege (admin/superadmin) maps to `'vendor'` for legal docs.
+  Metadata is at most a display suggestion returned only when the authoritative store is empty
+  and readable; it is never cached and never unlocks a protected route.
+- `_profile_account_type` and `_stored_business_role` use `supa_get_checked` (fail-closed).
+  Account-type GET returns 503 on unreadable; POST returns 503 before any write on profile-read
+  failure. `can_choose` is true only for `('', 'metadata')` — a missing role with no profile row.
+- `legal_status`, `legal_accept`, `legal_sync_signup` all call `_legal_role(uid)` and propagate
+  its error tuple directly. The duplicate-phone guard in sync-signup runs after role resolution.
+
+**Frontend (static/index.html):**
+- `saveProfileWithRetry` rewritten: GET-first `loadAccountType()` skips the account-type POST
+  when the server already holds the same role (`can_choose === false`). For every self-selectable
+  role the POST fires before the profile write. HTTP 400/409/429 from the profile endpoint are
+  permanent: the pending queue entry gets `blocked: true` and an error message; automatic retries
+  stop. Transient failures retry up to 2 times then queue for the next signed-in flush.
+- `_pendingProfileForMe` guards identity: a queued profile is only flushed when its email/id
+  matches the current session. `flushPendingProfiles` skips blocked entries and deduplicates
+  concurrent calls via a shared promise.
+- SIGNED_IN and getSession auth paths: `await flushPendingProfiles()` before
+  `postAuthLegalCheck()`, eliminating the race where the legal check fired before the
+  registration role was recorded.
+- `postAuthLegalCheck` itself flushes pending before sync-signup; on 409
+  `account_type_required` it checks for a pending queue entry and retries after flush, or opens
+  Settings → Account with the picker focused.
+- `_accountTypePicker`: a disabled placeholder ("Choose your account type") is preselected
+  instead of the metadata suggestion, so confirming the suggested role fires a change event and
+  records it. Locked accounts see a static label, not a select.
+- `loadAccountType` failure branches (non-ok response and network rejection) both clear
+  `_accountType` and remove `ab_account_type` from localStorage.
+- `doRegister`: null-user guard before profile construction; flush instead of direct save;
+  `saveProfile` clears the pending queue on successful server save.
+
+**Tests:**
+- `tests/e2e/test_consent_ui.py`: `_login` helper seeds `db.user_roles` with an authoritative
+  farmer role so legacy tests pass the strict gate. Four new browser tests: suggested-role
+  confirmation, queued-registration role priority, permanent-refusal stop, failed-read cache
+  drop. Google onboarding test asserts `db.user_roles` and acceptance role.
+- `tests/test_account_type.py`: `_auth_role` tests replaced with `_legal_role` equivalents;
+  parametrized unreadable-profile test (farmers/transporters/buyers → 503, no writes); SPA
+  static assertions updated for placeholder, GET-first, blocked flag, flush sequencing, and
+  cache-drop on failure.
+- `tests/test_legal.py`: parametrized 409/503 tests for status/accept/sync-signup when role is
+  missing or unreadable.
+- `tests/test_bank_transfer.py`: patch target updated from `_auth_role` to `_legal_role`.
+- Browser fixture: default `requests.post` mock (201) so `/api/user/profile`'s upstream
+  PostgREST upsert succeeds without network; permanent-refusal test overrides with code 23514.
+
+### Measured results (local, not production)
+
+- Focused backend (test_legal + test_account_type + test_bank_transfer): **299 passed**, 22
+  warnings, 2.33 s.
+- Browser consent suite (tests/e2e/test_consent_ui.py): **34 passed**, 86.95 s.
+- Ruff: all checks passed. 8 inline SPA scripts parsed (node vm.Script).
+- Full regression: **903 passed, 0 failed, 159 warnings**, exit 0, 224.92 s.
+- No migration changed. No production flag, data, or account touched. Enforcement flag remains
+  off. Nothing pushed or deployed.

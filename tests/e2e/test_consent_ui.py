@@ -164,6 +164,17 @@ def env(browser, site, monkeypatch):
     # those calls go to the example.supabase.co test URL over a real socket, fail,
     # and the page sees a 503 that says nothing about why.
     monkeypatch.setattr(app_mod, "SUPA", db)
+
+    # /api/user/profile writes through requests.post to PostgREST directly (not
+    # through SUPA or supa_insert). Without this, the upsert hits the real test
+    # URL over a socket, DNS fails, and the page sees a 502 that stalls signup.
+    class _PostOk:
+        status_code = 201
+
+        def json(self):
+            return {}
+
+    monkeypatch.setattr(app_mod.requests, "post", lambda *a, **k: _PostOk())
     app_mod.app.config["TESTING"] = True
     flask = app_mod.app.test_client()
     ctx = browser.new_context(viewport={"width": 390, "height": 800}, service_workers="block", bypass_csp=True)
@@ -384,7 +395,13 @@ def test_marketing_optin_at_signup_is_recorded_separately(env):
 
 
 # ── login review ─────────────────────────────────────────────────────────────
-def _login(page):
+def _login(page, db=None, wait_role=True):
+    if db is not None:
+        db.user_roles["user-1"] = {"user_id": "user-1", "business_role": "farmer", "role": "user"}
+    page.evaluate("window.__sb.loginMeta = { role: 'farmer', name: 'Grace', legal_signup: { accepted_at: '2026-01-01T00:00:00Z', versions: {} } }")
+    page.evaluate("window.__sb.emit('SIGNED_IN', {access_token:'tok', user:{id:'user-1', email:'grace@example.com', user_metadata:window.__sb.loginMeta, created_at:'2026-01-01T00:00:00Z'}})")
+    if wait_role:
+        page.wait_for_function("_accountType && _accountType.role === 'farmer'")
     page.evaluate("openModal('loginModal')")
     page.fill("#loginPhone", "grace@example.com")
     page.fill("#loginPwd", "Passw0rd!x")
@@ -393,7 +410,7 @@ def _login(page):
 
 def test_existing_user_without_acceptance_sees_review_and_must_tick(env):
     page, db, _ = env
-    _login(page)
+    _login(page, db)
     page.wait_for_selector("#legalReviewModal.open")
     boxes = page.locator("#legalReviewDocs input[type=checkbox]")
     assert boxes.count() == 7 and all(not boxes.nth(i).is_checked() for i in range(7))
@@ -424,7 +441,7 @@ def test_existing_user_without_acceptance_sees_review_and_must_tick(env):
 def test_failed_save_is_shown_and_retry_works(env):
     page, db, _ = env
     db.fail_accept = True
-    _login(page)
+    _login(page, db)
     page.wait_for_selector("#legalReviewModal.open")
     for i in range(7):
         page.locator("#legalReviewDocs input[type=checkbox]").nth(i).check()
@@ -440,7 +457,7 @@ def test_failed_save_is_shown_and_retry_works(env):
 
 def test_user_who_already_accepted_is_not_asked_again(env):
     page, db, _ = env
-    _login(page)
+    _login(page, db)
     page.wait_for_selector("#legalReviewModal.open")
     for i in range(7):
         page.locator("#legalReviewDocs input[type=checkbox]").nth(i).check()
@@ -448,14 +465,14 @@ def test_user_who_already_accepted_is_not_asked_again(env):
     page.wait_for_selector("#legalReviewModal:not(.open)", state="attached")
     page.evaluate("logOut()")
     page.wait_for_function("!window.__sb.session")
-    _login(page)
+    _login(page, db)
     page.wait_for_timeout(1200)
     assert page.is_hidden("#legalReviewModal") and len(db.acceptances) == 7
 
 
 def test_material_update_asks_again_only_for_the_changed_document(env, monkeypatch):
     page, db, _ = env
-    _login(page)
+    _login(page, db)
     page.wait_for_selector("#legalReviewModal.open")
     for i in range(7):
         page.locator("#legalReviewDocs input[type=checkbox]").nth(i).check()
@@ -469,7 +486,7 @@ def test_material_update_asks_again_only_for_the_changed_document(env, monkeypat
     monkeypatch.setattr(app_mod, "LEGAL_SERVICE", LegalService(db, manifest=m))
     page.evaluate("logOut()")
     page.wait_for_function("!window.__sb.session")
-    _login(page)
+    _login(page, db)
     page.wait_for_selector("#legalReviewModal.open")
     assert page.locator("#legalReviewDocs input[type=checkbox]").count() == 1
     assert "refunds" in page.inner_text("#legalReviewDocs")
@@ -477,7 +494,7 @@ def test_material_update_asks_again_only_for_the_changed_document(env, monkeypat
 
 def test_user_can_sign_out_or_file_a_privacy_request_from_the_review_screen(env):
     page, db, _ = env
-    _login(page)
+    _login(page, db)
     page.wait_for_selector("#legalReviewModal.open")
     page.click("text=Make a privacy request")
     assert page.is_visible("#privacyRequestModal")
@@ -502,9 +519,8 @@ def test_backend_gate_stays_closed_until_browser_review_is_recorded(env, monkeyp
     import copy
 
     page, db, errors = env
-    db.user_roles["user-1"] = {"user_id": "user-1", "business_role": "farmer", "role": "user"}
     monkeypatch.setattr(app_mod, "LEGAL_ENFORCED", True)
-    _login(page)
+    _login(page, db)
     page.wait_for_selector("#legalReviewModal.open")
     blocked = page.evaluate("abApi('/api/user/notifications')")
     assert blocked["status"] == 403 and blocked["json"]["code"] == "legal_acceptance_required"
@@ -525,36 +541,33 @@ def test_backend_gate_stays_closed_until_browser_review_is_recorded(env, monkeyp
     assert not errors
 
 
-def test_changing_account_type_asks_for_the_new_role_terms(env):
+def test_a_first_account_type_choice_asks_for_that_roles_terms(env):
     page, db, _ = env
+    page.evaluate("window.__sb.loginMeta = { role: 'farmer', name: 'Grace' }")
     _login(page)
-    page.wait_for_selector("#legalReviewModal.open")
-    _accept_review(page, 7)
-    page.evaluate("openSettings(); settingsGo('account')")
-    assert page.locator("#setRole").count() == 1
+    page.wait_for_selector("#setRole")
+    assert db.acceptances == []
     page.select_option("#setRole", "supplier")
     page.wait_for_selector("#legalReviewModal.open")
-    assert page.locator("#legalReviewDocs input[type=checkbox]").count() == 1
+    assert page.locator("#legalReviewDocs input[type=checkbox]").count() == 7
     assert "Supplier Terms" in page.inner_text("#legalReviewDocs")
-    # Where the answer came from is the point of this test. It used to pass because
-    # setAccountRole() wrote user_metadata.role and the server read it back — that
-    # field belongs to the signed-in client, so any person could have picked a role
-    # their account was never issued by editing it. The server must have been told
-    # through its own store, and the browser-writable field must be untouched.
+    _accept_review(page, 7)
     assert db.user_roles["user-1"]["business_role"] == "supplier"
+    assert {a["role"] for a in db.acceptances} == {"supplier"}
     assert page.evaluate("window.__sb.session.user.user_metadata.role") == "farmer"
 
 
 def test_a_blocking_review_screen_is_never_behind_the_panel_that_raised_it(env):
-    page, _, _ = env
-    _login(page)
+    page, db, _ = env
+    _login(page, db)
     page.wait_for_selector("#legalReviewModal.open")
     # The way a person gets here: Settings is still open when the review screen is
     # raised from the Account row. Both are position:fixed overlays, so without an
     # explicit level the one later in the document paints over the one that must
     # not be hidden — and this dialog cannot be dismissed or escaped out of.
     page.evaluate("openSettings(); settingsGo('account')")
-    assert page.is_visible("#setRole")
+    page.wait_for_selector("#settingsModal.open")
+    assert "Set once" in page.inner_text("#settingsBody")
 
     def topmost_of(selector):
         # elementFromPoint cannot inspect controls outside the viewport.
@@ -576,13 +589,13 @@ def test_a_blocking_review_screen_is_never_behind_the_panel_that_raised_it(env):
 
 def test_the_account_type_choice_is_not_offered_twice(env):
     page, db, _ = env
+    page.evaluate("window.__sb.loginMeta = { role: 'farmer', name: 'Grace' }")
     _login(page)
+    page.wait_for_selector("#setRole")
+    page.select_option("#setRole", "supplier")
     page.wait_for_selector("#legalReviewModal.open")
     _accept_review(page, 7)
     page.evaluate("openSettings(); settingsGo('account')")
-    page.select_option("#setRole", "supplier")
-    page.wait_for_selector("#legalReviewModal.open")
-    _accept_review(page, 1)
 
     # One choice, then the panel closes itself: the row now names what the login is
     # and there is no control left to re-pick it.
@@ -600,10 +613,156 @@ def test_the_account_type_choice_is_not_offered_twice(env):
     assert len(db.update_checked_calls) + len(db.insert_calls) == writes
 
 
+def test_login_with_no_server_role_offers_choice_instead_of_default_terms(env, monkeypatch):
+    page, db, errors = env
+    monkeypatch.setattr(app_mod, "LEGAL_ENFORCED", True)
+    _login(page)
+    page.wait_for_selector("#setRole")
+    assert db.acceptances == []
+    assert page.evaluate("abApi('/api/legal/status')")["json"]["code"] == "account_type_required"
+    assert page.evaluate("abApi('/api/user/notifications')")["status"] == 409
+    page.select_option("#setRole", "supplier")
+    page.wait_for_selector("#legalReviewModal.open")
+    assert "Supplier Terms" in page.inner_text("#legalReviewDocs")
+    _accept_review(page, 7)
+    assert {a["role"] for a in db.acceptances} == {"supplier"}
+    assert page.evaluate("abApi('/api/user/notifications')")["status"] == 200
+    assert not errors
+
+
+def test_a_role_outage_never_falls_back_to_metadata_terms(env, monkeypatch):
+    page, db, errors = env
+    monkeypatch.setattr(app_mod, "_stored_business_role", lambda uid: ("", "", "unavailable"))
+    _login(page, db, wait_role=False)
+    page.wait_for_function("document.body.innerText.includes('Could not verify your account type')")
+    assert db.acceptances == []
+    assert page.is_hidden("#legalReviewModal")
+    assert page.evaluate("abApi('/api/legal/status')")["status"] == 503
+    assert not errors
+
+
+def test_a_failed_profile_save_is_retained_and_retried_after_email_confirmation(env, monkeypatch):
+    page, db, errors = env
+    page.route(f"https://{API_HOST}/api/user/account-type", lambda route: route.fulfill(
+        status=503, headers={"access-control-allow-origin": "*", "content-type": "application/json"},
+        body='{"error":"Temporarily unavailable"}'))
+
+    class Resp:
+        status_code = 503
+
+    monkeypatch.setattr(app_mod.requests, "post", lambda *a, **k: Resp())
+    _fill_register(page, "supplier")
+    page.check("#regAcceptTerms")
+    page.click("#regSubmitBtn")
+    page.wait_for_function("document.body.innerText.includes('Check your email')", timeout=12000)
+    queued = page.evaluate("JSON.parse(localStorage.getItem('ab_pending_profile'))")
+    assert queued["role"] == "supplier"
+    assert db.user_roles == {}
+    assert db.acceptances == []
+
+    page.unroute(f"https://{API_HOST}/api/user/account-type")
+    class Saved:
+        status_code = 201
+
+    monkeypatch.setattr(app_mod.requests, "post", lambda *a, **k: Saved())
+    page.evaluate("window.__sb.emit('SIGNED_IN', {access_token:'tok', user:window.__sb.pendingUser})")
+    page.wait_for_function("!localStorage.getItem('ab_pending_profile')", timeout=10000)
+    assert db.user_roles["user-1"]["business_role"] == "supplier"
+    for _ in range(50):
+        if len(db.acceptances) == 7:
+            break
+        page.wait_for_timeout(100)
+    assert {a["role"] for a in db.acceptances} == {"supplier"}
+    assert {a["doc_type"] for a in db.acceptances} == {
+        "terms-of-use", "privacy-policy", "supplier-terms"} | PLATFORM_POLICIES
+    assert not errors
+
+
+def test_confirming_the_suggested_role_records_it_without_a_wrong_first_pick(env):
+    page, db, errors = env
+    _login(page)
+    page.wait_for_selector("#setRole")
+    assert page.input_value("#setRole") == ""
+    assert page.locator("#setRole option[value='farmer']").get_attribute("selected") is None
+    page.select_option("#setRole", "farmer")
+    page.wait_for_selector("#legalReviewModal.open")
+    assert "Farmer and Producer Terms" in page.inner_text("#legalReviewDocs")
+    _accept_review(page, 7)
+    assert db.user_roles["user-1"]["business_role"] == "farmer"
+    assert {a["role"] for a in db.acceptances} == {"farmer"}
+    assert not errors
+
+
+def test_a_queued_registration_role_is_recorded_before_the_legal_choice(env, monkeypatch):
+    page, db, errors = env
+
+    class Saved:
+        status_code = 201
+
+    monkeypatch.setattr(app_mod.requests, "post", lambda *a, **k: Saved())
+    page.evaluate("""localStorage.setItem('ab_pending_profile', JSON.stringify({
+        id:'user-1', full_name:'Grace Nakato', phone:'+256771234567', role:'supplier',
+        district:'Kampala', email:'grace@example.com'}))""")
+    _login(page)
+    page.wait_for_selector("#legalReviewModal.open")
+    assert "Supplier Terms" in page.inner_text("#legalReviewDocs")
+    assert db.user_roles["user-1"]["business_role"] == "supplier"
+    assert page.locator("#setRole").count() == 0
+    _accept_review(page, 7)
+    assert {a["role"] for a in db.acceptances} == {"supplier"}
+    assert not errors
+
+
+def test_a_permanent_profile_refusal_stops_automatic_retries(env, monkeypatch):
+    page, db, errors = env
+    calls = []
+
+    class Refused:
+        status_code = 400
+
+        def json(self):
+            return {"code": "23514", "message": "name check violated"}
+
+    def post(url, *a, **k):
+        calls.append(url)
+        return Refused()
+
+    monkeypatch.setattr(app_mod.requests, "post", post)
+    page.evaluate("""localStorage.setItem('ab_pending_profile', JSON.stringify({
+        id:'user-1', full_name:'Grace Nakato', phone:'+256771234567', role:'supplier',
+        district:'Kampala', email:'grace@example.com'}))""")
+    _login(page, wait_role=False)
+    page.wait_for_function("JSON.parse(localStorage.getItem('ab_pending_profile') || '{}').blocked === true")
+    profile_calls = [u for u in calls if "/rest/v1/farmers" in u]
+    assert len(profile_calls) == 1
+    assert db.user_roles["user-1"]["business_role"] == "supplier"
+    queued = page.evaluate("JSON.parse(localStorage.getItem('ab_pending_profile'))")
+    assert "real full name" in queued["error"]
+
+    page.evaluate("flushPendingProfiles()")
+    page.wait_for_timeout(200)
+    assert [u for u in calls if "/rest/v1/farmers" in u] == profile_calls
+    assert not errors
+
+
+def test_a_failed_account_type_read_drops_the_cached_answer(env):
+    page, db, errors = env
+    _login(page, db)
+    page.wait_for_function("_accountType && _accountType.role === 'farmer'")
+    page.wait_for_timeout(300)
+    page.wait_for_function("_accountTypeCall === null")
+    page.route(f"https://{API_HOST}/api/user/account-type", lambda route: route.fulfill(
+        status=503, headers={"access-control-allow-origin": "*", "content-type": "application/json"},
+        body='{"error":"Temporarily unavailable"}'))
+    page.evaluate("loadAccountType()")
+    page.wait_for_function("_accountType === null && !localStorage.getItem('ab_account_type')")
+    assert not errors
+
+
 # ── privacy settings & requests ──────────────────────────────────────────────
 def test_settings_privacy_section_marketing_toggle_and_history(env):
     page, db, _ = env
-    _login(page)
+    _login(page, db)
     page.wait_for_selector("#legalReviewModal.open")
     for i in range(7):
         page.locator("#legalReviewDocs input[type=checkbox]").nth(i).check()
@@ -767,6 +926,8 @@ def test_google_onboarding_blocks_until_terms_and_saves_the_profile(env, monkeyp
         page.wait_for_timeout(100)
     assert {a["doc_type"] for a in db.acceptances} == {
         "terms-of-use", "privacy-policy", "supplier-terms"} | PLATFORM_POLICIES
+    assert db.user_roles["user-1"]["business_role"] == "supplier"
+    assert {a["role"] for a in db.acceptances} == {"supplier"}
     assert page.is_hidden("#legalReviewModal")
     assert len(errors) == before, errors[before:]
 

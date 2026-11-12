@@ -249,16 +249,20 @@ class _Store:
         self.checked_calls = []
 
     def get_checked(self, table, filters=None, limit=100):
-        assert table == "user_roles", f"the store was asked about {table}"
-        self.checked_calls.append(filters)
-        if self.reads is not None:
-            return list(self.reads.pop(0) if self.reads else []), ""
-        if self.error:
-            return None, self.error
-        return list(self.rows), ""
+        if table == "user_roles":
+            self.checked_calls.append(filters)
+            if self.reads is not None:
+                return list(self.reads.pop(0) if self.reads else []), ""
+            if self.error:
+                return None, self.error
+            return list(self.rows), ""
+        if isinstance(self.profile.get(table), Exception):
+            return None, str(self.profile[table])
+        return list(self.profile.get(table, [])), ""
 
     def get(self, table, filters=None, limit=100):
-        return list(self.profile.get(table, []))
+        rows = self.profile.get(table, [])
+        return [] if isinstance(rows, Exception) else list(rows)
 
 
 @pytest.fixture
@@ -592,51 +596,46 @@ def test_a_farmers_row_closes_the_door_on_exporter_too(client, session, supa, st
 
 # ── 5. the rest of the app reads the same answer ─────────────────────────────
 def test_the_terms_a_person_sees_follow_the_server_not_their_own_field(session, store):
-    """_auth_role() used to hand back user_metadata.role, which the browser writes
-    itself. A farmer who set that field to 'vendor' was shown vendor terms."""
     store(business="farmer")
-    with app_mod.app.test_request_context("/api/x", headers={"Authorization": "Bearer tok"}):
-        app_mod.g.auth_user = {"id": UID, "user_metadata": {"role": "vendor"}}
-        assert app_mod._auth_role() == "farmer"
-
-
-def test_the_privilege_row_still_answers_for_legal_uses(session, store):
     with app_mod.app.test_request_context("/api/x"):
-        app_mod.g.auth_user = {"id": UID, "user_metadata": {"role": "farmer"}}
+        app_mod.g.auth_user = {"id": UID, "user_metadata": {"role": "vendor"}}
+        assert app_mod._legal_role(UID) == ("farmer", None)
+
+
+def test_an_operator_uses_the_same_default_legal_role_as_the_gate(session, store):
+    with app_mod.app.test_request_context("/api/x"):
         store(privilege="admin")
-        assert app_mod._auth_role() == "admin"
+        assert app_mod._legal_role(UID) == ("vendor", None)
 
 
 def test_nothing_is_invented_when_the_store_answers_nothing(session, store):
     with app_mod.app.test_request_context("/api/x"):
-        app_mod.g.auth_user = {"id": UID, "user_metadata": {}}
         store()
-        assert app_mod._auth_role() is None
+        role, err = app_mod._legal_role(UID)
+        assert role is None and err[1] == 409
 
 
-def test_an_unreadable_store_leaves_the_old_answer_for_terms(session, store):
-    """The choice route refuses when user_roles cannot be read, and _auth_role() does
-    not: a missing grant or an un-applied 0028 must not make a farmer accept a
-    buyer's terms. That fallback is what this route did before Stage N9.
-    """
+def test_an_unreadable_store_does_not_use_metadata_for_terms(session, store):
     with app_mod.app.test_request_context("/api/x"):
         app_mod.g.auth_user = {"id": UID, "user_metadata": {"role": "farmer"}}
-        store(error="42P01 relation public.user_roles does not exist")
-        assert app_mod._auth_role() == "farmer"
+        store(error="42P01 relation public.user_roles does not exist", farmers=[{"id": UID}])
+        role, err = app_mod._legal_role(UID)
+        assert role is None and err[1] == 503
 
 
-def test_a_profile_row_still_answers_when_the_store_is_unreadable(session, store):
-    """Only the *choice* is withheld: a farmers row is evidence the read cannot touch."""
-    with app_mod.app.test_request_context("/api/x"):
-        app_mod.g.auth_user = {"id": UID, "user_metadata": {"role": "vendor"}}
-        store(error="connection refused", farmers=[{"id": UID}])
-        assert app_mod._auth_role() == "farmer"
+@pytest.mark.parametrize("table", ["farmers", "transporters", "buyers"])
+def test_an_unreadable_profile_cannot_open_a_different_role_choice(client, session, supa, store, table):
+    store(**{table: Exception("connection refused")})
+    got = client.get("/api/user/account-type", headers={"Authorization": "Bearer tok"})
+    assert got.status_code == 503
+    assert _choose(client, "vendor").status_code == 503
+    assert not supa.update_calls and not supa.insert_calls
 
 
 def test_a_caller_with_no_session_has_no_role():
     with app_mod.app.test_request_context("/api/x"):
-        app_mod.g.auth_user = {}
-        assert app_mod._auth_role() is None
+        role, err = app_mod._legal_role(None)
+        assert role is None and err[1] == 409
 
 
 # ── 6. the panel on the other side of these two routes ───────────────────────
@@ -676,6 +675,11 @@ def test_the_account_panel_shows_a_choice_only_while_one_is_open(spa):
     assert picker.index("can_choose===false") < picker.index('<select id="setRole"'), (
         "the dropdown must come after the locked branch, not before it"
     )
+    assert '<option value="" disabled selected>Choose your account type</option>' in picker
+    assert "role===r?' selected'" not in picker, (
+        "a preselected suggestion fires no change event when confirmed, so the "
+        "one-time POST would never record the role the person actually meant"
+    )
     assert "Set once and kept by AgriBridge" in picker
     assert "opening a second one" in picker, (
         "the locked line has to send the person to the operator, not to a new signup"
@@ -699,6 +703,7 @@ def test_the_panel_asks_the_server_when_it_has_nothing_to_show(spa):
     assert "_accountTypeAsked || _accountType" in once
     assert "loadAccountType()" in once
     assert "repaintAccountPanel()" in once
+    assert "if (pending && !pending.blocked) return;" in once
     assert "_askAccountTypeOnce();" in _fn(spa, "if(screen==='account'){\n    var n=")
 
 
@@ -767,20 +772,62 @@ def test_an_exporter_navigates_the_selling_surfaces(spa):
     assert farmer == exporter
 
 
-def test_the_exporter_type_is_recorded_before_the_row_that_would_freeze_it(spa):
-    """A farmers row on its own reads as 'farmer' and locks the choice (pinned in
-    section 4b). All three onboarding paths — immediate signup, the deferred
-    pending-profile flush, OAuth — pass through saveProfileWithRetry, so the type
-    POST comes first there. A 409 means the server already holds a type and the
-    profile write meets the same guard; anything else must defer the whole save
-    rather than write a row that freezes this login as a farmer forever."""
+def test_every_chosen_type_is_recorded_before_the_row_that_would_freeze_it(spa):
     body = _fn(spa, "async function saveProfileWithRetry(profile, attempts)")
-    gate = "if ((profile.role || '') === 'exporter')"
+    gate = "['farmer','vendor','hotel','supplier','exporter'].indexOf(profile.role)"
     assert gate in body
-    assert body.index(gate) < body.index("'/api/user/profile'"), (
-        "the type must be recorded before the farmers row exists")
+    assert body.index(gate) < body.index("'/api/user/profile'")
+    assert "role: profile.role" in body
+    assert "var held = await loadAccountType();" in body
+    assert "held.can_choose === false && held.role === profile.role" in body, (
+        "a retry must not spend another one-time POST when the server already holds it"
+    )
     assert "ra.status !== 409" in body
     assert "throw new Error('account type not recorded yet')" in body
+    assert "r.status === 400 || r.status === 409 || r.status === 429" in body
+    assert "blocked:true" in body
+    assert "localStorage.setItem('ab_pending_profile', JSON.stringify(profile))" in body
+    assert "removeItem('ab_pending_profiles')" not in body
+    register = _fn(spa, "async function doRegister()")
+    assert "saveProfileWithRetry" not in register.split("needsConfirm")[0]
+    assert "if (!res.data || !res.data.user)" in register
+    assert register.index("if (!res.data || !res.data.user)") < register.index("res.data.user.id")
+
+
+def test_pending_profile_flush_never_asks_for_unrecorded_role_terms(spa):
+    flush = _fn(spa, "async function flushPendingProfiles()")
+    assert "saveProfileWithRetry(pending, 0)" in flush
+    assert "_pendingProfileForMe()" in flush
+    assert "pending.blocked" in flush
+    assert "postAuthLegalCheck" not in flush, (
+        "the legal check belongs to the caller after the flush, not inside it; "
+        "calling it here would recurse while the caller already holds _legalBusy"
+    )
+    legal = _fn(spa, "async function postAuthLegalCheck(method)")
+    assert legal.index("flushPendingProfiles()") < legal.index("'/api/legal/sync-signup'")
+    assert "account_type_required" in legal
+    once = _fn(spa, "function _askAccountTypeOnce()")
+    assert "if (pending && !pending.blocked) return;" in once
+    sequence = "await flushPendingProfiles(); if (!_oauthOnboardingOpen) postAuthLegalCheck();"
+    auth = spa[spa.index("onAuthStateChange(function(event, session)"):]
+    auth = auth[:auth.index("sbAuth.auth.getSession")]
+    assert sequence in auth
+    restored = spa[spa.index("sbAuth.auth.getSession().then(function(res)"):]
+    restored = restored[:restored.index("_startNotifPolling();")]
+    assert sequence in restored, "a restored session must flush the queued role too"
+
+
+def test_a_failed_type_read_drops_the_cached_answer(spa):
+    body = _fn(spa, "function loadAccountType()")
+    assert body.count("localStorage.removeItem('ab_account_type')") == 2
+    assert body.count("_accountType = null;") >= 2
+    assert "return null;" in body
+
+
+def test_saving_the_profile_clears_the_pending_queue(spa):
+    body = _fn(spa, "async function saveProfile()")
+    assert "localStorage.removeItem('ab_pending_profile')" in body
+    assert body.index("if(!res.ok)") < body.index("localStorage.removeItem('ab_pending_profile')")
 
 
 def test_the_oauth_flow_queues_the_same_pending_profile_as_email_signup(spa):

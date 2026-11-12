@@ -170,7 +170,7 @@ def _sync(monkeypatch, *, marker_present, created_at, meta=None, farmer_row=None
         return ("u1", None)
 
     monkeypatch.setattr(app_mod, "verify_supabase_user", _verify)
-    monkeypatch.setattr(app_mod, "_auth_role", lambda: "farmer")
+    monkeypatch.setattr(app_mod, "_legal_role", lambda uid: ("farmer", None))
     monkeypatch.setattr(app_mod, "LEGAL_SERVICE",
                         type("L", (), {"sync_signup": lambda *a, **k: _Res(data={}),
                                        "status": lambda *a, **k: _Res(data={})})())
