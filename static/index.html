@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- AB_BUILD:20261112_CLEAN -->
+<!-- AB_BUILD:20261112_BROWSE -->
 <html lang="en">
 <head>
 <script src="business-config.js"></script>
@@ -2192,7 +2192,7 @@ html.is-web:not(.app-entered) body{overflow:hidden}
   <!-- ══ QUICK LINKS STRIP ══ -->
   <nav class="wl-strip" aria-label="Quick links">
     <div class="wl-strip-inner">
-      <button class="wl-strip-link" onclick="enterApp()"><span>🛒</span> Shop Now</button>
+      <button class="wl-strip-link" onclick="enterApp('market')"><span>🛒</span> Shop Now</button>
       <button class="wl-strip-link" onclick="enterApp('register')"><span>🌾</span> Sell Produce</button>
       <button class="wl-strip-link" onclick="window.location='/transporter'"><span>🚚</span> Driver Portal</button>
       <button class="wl-strip-link" onclick="enterApp()"><span>🤖</span> AI Assistant</button>
@@ -5262,7 +5262,7 @@ async function loadListings() {
   const container = document.getElementById('marketListings');
   container.innerHTML = '<div class="loader"><div class="spinner"></div>Loading…</div>';
   const data = await sb('listings', {
-    select:'id,farmer_id,crop_name,category,quantity_kg,reserved_qty,price_per_kg,unit,district,is_organic,is_verified,description,discount_pct,sale_unit,min_order_kg,delivery_available,payment_terms,image_url,video_url,created_at,farmers(full_name,is_verified)',
+    select:'id,farmer_id,crop_name,category,quantity_kg,reserved_qty,price_per_kg,unit,district,is_organic,is_verified,description,discount_pct,sale_unit,min_order_kg,delivery_available,payment_terms,image_url,video_url,created_at',
     filters:[['is_available','eq.true']]
   });
   if (data === null) {
@@ -8149,7 +8149,7 @@ async function loadAdminFeaturedPicker() {
   const settingsRows = await sb('site_settings', { select:'value', filters:[['key','eq.landing_featured_ids']] });
   const featuredIds = (Array.isArray(settingsRows) && settingsRows[0]?.value) ? JSON.parse(settingsRows[0].value) : [];
   // Load all available listings
-  const listings = await sb('listings', { select:'id,crop_name,price_per_kg,unit,district,farmers(full_name)', filters:[['is_available','eq.true'],['order','created_at.desc'],['limit','30']] });
+  const listings = await sb('listings', { select:'id,crop_name,price_per_kg,unit,district', filters:[['is_available','eq.true'],['order','created_at.desc'],['limit','30']] });
   if (!Array.isArray(listings)) { el.innerHTML='<div style="color:var(--text2);font-size:.86rem">Could not load listings.</div>'; return; }
   el.innerHTML = listings.map(l => {
     const checked = featuredIds.includes(l.id) ? 'checked' : '';
@@ -8356,7 +8356,7 @@ async function wlRefreshProducts() {
   try {
     const now = new Date().toISOString();
     const boostRows = await sb('listing_boosts', {
-      select:'listing_id,slot_position,listings(id,crop_name,category,price_per_kg,unit,district,is_organic,is_verified,image_url,quantity_kg,reserved_qty,farmers(full_name))',
+      select:'listing_id,slot_position,listings(id,crop_name,category,price_per_kg,unit,district,is_organic,is_verified,image_url,quantity_kg,reserved_qty)',
       filters:[['status','eq.approved'],['starts_at','lte.'+now],['ends_at','gte.'+now],['order','slot_position.asc'],['limit','4']]
     });
     if (Array.isArray(boostRows) && boostRows.length) {
@@ -8375,7 +8375,7 @@ async function wlRefreshProducts() {
         const ids = JSON.parse(s[0].value).filter(id => !listings.find(l => l.id === id));
         if (ids.length) {
           const pinned = await sb('listings', {
-            select:'id,crop_name,category,price_per_kg,unit,district,is_organic,is_verified,image_url,quantity_kg,reserved_qty,farmers(full_name)',
+            select:'id,crop_name,category,price_per_kg,unit,district,is_organic,is_verified,image_url,quantity_kg,reserved_qty',
             filters:[['is_available','eq.true'],['id','in.('+ids.join(',')+')'],['limit',String(4-listings.length)]]
           });
           if (Array.isArray(pinned)) listings = listings.concat(pinned);
@@ -8389,7 +8389,7 @@ async function wlRefreshProducts() {
     try {
       const usedIds = listings.map(l => l.id);
       const newest = await sb('listings', {
-        select:'id,crop_name,category,price_per_kg,unit,district,is_organic,is_verified,image_url,quantity_kg,reserved_qty,farmers(full_name)',
+        select:'id,crop_name,category,price_per_kg,unit,district,is_organic,is_verified,image_url,quantity_kg,reserved_qty',
         filters:[['is_available','eq.true'],['order','created_at.desc'],['limit','12']]
       });
       if (Array.isArray(newest)) {
@@ -8421,7 +8421,7 @@ async function wlRefreshProducts() {
 async function wlRefreshProductsLegacy() {
   let listings;
   listings = await sb('listings', {
-    select:'id,crop_name,category,price_per_kg,unit,district,is_organic,is_verified,image_url,quantity_kg,reserved_qty,farmers(full_name)',
+    select:'id,crop_name,category,price_per_kg,unit,district,is_organic,is_verified,image_url,quantity_kg,reserved_qty',
     filters:[['is_available','eq.true'],['order','created_at.desc'],['limit','4']]
   });
   if (!Array.isArray(listings) || !listings.length) return;
@@ -8612,7 +8612,7 @@ async function admSaveBoostPrices(days) {
 async function wlRefreshProductsLegacy() {
   let listings;
   listings = await sb('listings', {
-    select:'id,crop_name,category,price_per_kg,unit,district,is_organic,is_verified,image_url,quantity_kg,reserved_qty,farmers(full_name)',
+    select:'id,crop_name,category,price_per_kg,unit,district,is_organic,is_verified,image_url,quantity_kg,reserved_qty',
     filters:[['is_available','eq.true'],['order','created_at.desc'],['limit','4']]
   });
   if (!Array.isArray(listings) || !listings.length) return;
@@ -10271,8 +10271,7 @@ function splashLogin() {
 function splashBrowseGuest() {
   hideSplash();
   try { localStorage.setItem('ab_seen_splash', '1'); } catch(e) {}
-  // Fix: load home products after guest dismisses splash (was showing dark skeleton cards)
-  try { if(typeof loadHomeStats==='function') setTimeout(loadHomeStats, 100); } catch(e) {}
+  try { if(typeof showPage==='function') setTimeout(function(){ showPage('market'); }, 100); } catch(e) {}
 }
 
 // ─────────────────────────────────────────────────────────────────
@@ -13485,9 +13484,10 @@ function enterApp(target){
   try{ window.scrollTo(0,0); }catch(e){}
   // Always navigate to home and load products first
   try { if(typeof showPage==='function') showPage('home'); } catch(e) {}
-  // Open modal immediately if a target was given — never show splash in that case
+  // Open modal or navigate immediately if a target was given — never show splash in that case
   if(target==='login' && typeof openModal==='function'){ setTimeout(function(){ openModal('loginModal'); },100); return; }
   if(target==='register' && typeof openModal==='function'){ setTimeout(function(){ openModal('registerModal'); },100); return; }
+  if(target==='market' && typeof showPage==='function'){ setTimeout(function(){ showPage('market'); },100); return; }
   // Show splash for first-time visitors with no specific target
   try {
     var seenSplash = localStorage.getItem('ab_seen_splash');
