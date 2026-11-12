@@ -253,6 +253,22 @@ def test_detail_shows_real_listing_facts_and_disables_out_of_stock(env):
 
 def test_cart_totals_are_honest_and_survive_a_reload(env, site):
     page, _ = env
+    # The owner auth-gates the basket and cart for guests (commit 43f41cb), so a
+    # buyer must be signed in before items can be added. currentUser is persisted
+    # to localStorage, which restores the session after the reload below too.
+    page.evaluate("""() => {
+      const user = {id:'buyer-1', email:'buyer@example.com',
+        user_metadata:{name:'Buyer', role:'vendor', phone:'', district:'Kampala'}};
+      window.__sb.emit('SIGNED_IN', {access_token:'tok', user:user});
+    }""")
+    # Sign-in re-renders the role nav and lands the buyer on the shopping home
+    # (applyRoleUI calls showPage('home') for vendors). Wait for that pass to
+    # finish — the role indicator flips to 'vendor' inside applyRoleUI — so it
+    # cannot eject the product detail page opened next.
+    page.wait_for_function(
+        "(() => { const r=document.getElementById('roleIndicator');"
+        " return r && r.classList.contains('vendor'); })()",
+        timeout=5000, polling=100)
     page.evaluate("openProductDetail(107)")       # 10% discount: 8,100/kg
     # openProductDetail, pdAddToCart and showPage('cart') all run synchronously,
     # so each step is asserted directly. A 30 s wait_for_function timeout used to

@@ -198,7 +198,12 @@ def test_notification_failure_does_not_report_the_payment_as_failed(monkeypatch)
 
 
 def test_no_fake_bank_account_left():
+    import re
     from pathlib import Path
     repo = Path(app_mod.__file__).resolve().parent
+    # Match a standalone fabricated account number (old 9030 prefix), not a hex
+    # image-hash substring such as a89030c2….jpg.
+    pattern = re.compile(r"(?<!\w)9030(?: ?\d){3,}(?!\w)")
     for f in ("app.py", "static/index.html"):
-        assert "9030" not in (repo / f).read_text(encoding="utf-8")
+        m = pattern.search((repo / f).read_text(encoding="utf-8"))
+        assert m is None, f"fake bank account in {f}: {m.group(0)}"

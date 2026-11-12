@@ -40,10 +40,16 @@ def test_providers_expose_configured_accounts_only(client, monkeypatch):
 
 
 def test_no_hardcoded_bank_account_in_source():
+    import re
     from pathlib import Path
     repo = Path(app_mod.__file__).resolve().parent
     html = (repo / "static" / "index.html").read_text(encoding="utf-8")
-    assert "9030" not in html and "Stanbic" not in html
+    # A fabricated account is a standalone number carrying the old 9030 prefix.
+    # A hex image-hash substring (e.g. a89030c2….jpg) is not an account number,
+    # so anchor on a non-word boundary instead of a blunt "9030" substring.
+    account = re.search(r"(?<!\w)9030(?: ?\d){3,}(?!\w)", html)
+    assert account is None, f"hardcoded bank account: {account.group(0)}"
+    assert "Stanbic" not in html
 
 
 # ── Initiate is a no-op for bank ──────────────────────────────────────────────
