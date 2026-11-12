@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- AB_BUILD:20261112_BROWSE -->
+<!-- AB_BUILD:20261112_WEBSHOP -->
 <html lang="en">
 <head>
 <script src="business-config.js"></script>
@@ -1413,6 +1413,137 @@ html.is-web:not(.app-entered) body{overflow:hidden}
 @keyframes wl-pulse{0%,100%{opacity:.6}50%{opacity:1}}
 .wl-slide-art{animation:wl-pulse 3.5s ease-in-out infinite}
 
+/* ── WEB BROWSE PAGE (inside webLanding) ── */
+#wl-browse{display:none;min-height:100vh;background:var(--wl-cream)}
+#wl-browse.open{display:block}
+.wlb-topbar{
+  display:flex;align-items:center;gap:12px;
+  padding:14px clamp(16px,5vw,52px);
+  background:rgba(255,253,247,.96);backdrop-filter:blur(16px);
+  border-bottom:1.5px solid var(--wl-border);position:sticky;top:60px;z-index:9
+}
+.wlb-back{display:flex;align-items:center;gap:6px;background:none;border:none;
+  color:var(--wl-green);font-weight:700;font-size:.9rem;cursor:pointer;padding:6px 10px;
+  border-radius:8px;transition:.2s}
+.wlb-back:hover{background:var(--wl-green-lt)}
+.wlb-search{
+  flex:1;max-width:400px;position:relative
+}
+.wlb-search input{
+  width:100%;padding:9px 14px 9px 36px;border:1.5px solid var(--wl-border);
+  border-radius:10px;background:#fff;font-size:.9rem;color:var(--wl-text);
+  font-family:inherit;outline:none;transition:.2s
+}
+.wlb-search input:focus{border-color:var(--wl-green);box-shadow:0 0 0 3px rgba(26,122,60,.1)}
+.wlb-search::before{content:'🔍';position:absolute;left:10px;top:50%;transform:translateY(-50%);font-size:.85rem}
+.wlb-count{font-size:.82rem;color:var(--wl-text3);white-space:nowrap;margin-left:auto}
+.wlb-body{max-width:1180px;margin:0 auto;padding:24px clamp(16px,5vw,52px)}
+.wlb-filters{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:24px}
+.wlb-filter{
+  padding:7px 16px;border-radius:20px;border:1.5px solid var(--wl-border);
+  background:#fff;color:var(--wl-text2);font-size:.82rem;font-weight:600;
+  cursor:pointer;transition:.18s;font-family:inherit
+}
+.wlb-filter:hover{border-color:var(--wl-green);color:var(--wl-green)}
+.wlb-filter.active{background:var(--wl-green);color:#fff;border-color:var(--wl-green)}
+.wlb-grid{
+  display:grid;grid-template-columns:repeat(2,1fr);gap:16px
+}
+@media(min-width:480px){.wlb-grid{grid-template-columns:repeat(3,1fr)}}
+@media(min-width:760px){.wlb-grid{grid-template-columns:repeat(4,1fr)}}
+@media(min-width:1024px){.wlb-grid{grid-template-columns:repeat(5,1fr)}}
+.wlb-card{
+  background:#fff;border-radius:14px;overflow:hidden;cursor:pointer;
+  border:1.5px solid var(--wl-border);transition:.22s;display:flex;flex-direction:column
+}
+.wlb-card:hover{transform:translateY(-3px);box-shadow:0 8px 28px rgba(26,122,60,.14);border-color:var(--wl-green)}
+.wlb-card-img{
+  width:100%;aspect-ratio:4/3;overflow:hidden;background:var(--wl-cream2);
+  display:flex;align-items:center;justify-content:center;position:relative
+}
+.wlb-card-img img{width:100%;height:100%;object-fit:cover;display:block;transition:transform .4s}
+.wlb-card:hover .wlb-card-img img{transform:scale(1.06)}
+.wlb-card-emoji{font-size:2.6rem}
+.wlb-card-badge{position:absolute;top:8px;left:8px;padding:3px 9px;border-radius:20px;
+  font-size:.68rem;font-weight:700;text-transform:uppercase;letter-spacing:.5px}
+.wlb-card-badge.organic{background:#2db55d;color:#fff}
+.wlb-card-badge.verified{background:#1565C0;color:#fff}
+.wlb-card-body{padding:12px 12px 4px;flex:1}
+.wlb-card-name{font-weight:700;font-size:.92rem;color:var(--wl-text);margin-bottom:3px}
+.wlb-card-meta{font-size:.74rem;color:var(--wl-text3);display:flex;align-items:center;gap:4px}
+.wlb-card-price{font-size:1rem;font-weight:800;color:var(--wl-green);margin-top:6px}
+.wlb-card-price small{font-size:.7rem;color:var(--wl-text3);font-weight:500}
+.wlb-card-foot{padding:8px 12px 12px}
+.wlb-card-btn{
+  width:100%;padding:8px 0;background:var(--wl-green);color:#fff;border:none;
+  border-radius:8px;font-weight:700;font-size:.82rem;cursor:pointer;font-family:inherit;
+  transition:.18s
+}
+.wlb-card-btn:hover{background:var(--wl-green2)}
+.wlb-empty{text-align:center;padding:60px 20px;color:var(--wl-text3)}
+.wlb-empty-icon{font-size:3rem;margin-bottom:12px}
+.wlb-loader{display:flex;align-items:center;justify-content:center;gap:10px;padding:48px;color:var(--wl-text3)}
+/* Product detail modal */
+#wl-prod-modal{
+  display:none;position:fixed;inset:0;z-index:7000;
+  background:rgba(28,43,31,.55);backdrop-filter:blur(4px);
+  align-items:center;justify-content:center;padding:16px
+}
+#wl-prod-modal.open{display:flex}
+.wl-pm-box{
+  background:#fff;border-radius:20px;max-width:620px;width:100%;
+  max-height:90vh;overflow-y:auto;position:relative;
+  box-shadow:0 24px 64px rgba(0,0,0,.22)
+}
+.wl-pm-img{width:100%;aspect-ratio:16/9;overflow:hidden;background:var(--wl-cream2);
+  display:flex;align-items:center;justify-content:center;border-radius:20px 20px 0 0}
+.wl-pm-img img{width:100%;height:100%;object-fit:cover}
+.wl-pm-emoji{font-size:4rem}
+.wl-pm-body{padding:20px 24px 28px}
+.wl-pm-close{position:absolute;top:12px;right:12px;background:rgba(0,0,0,.35);
+  color:#fff;border:none;border-radius:50%;width:34px;height:34px;font-size:1.1rem;
+  cursor:pointer;display:flex;align-items:center;justify-content:center;z-index:2}
+.wl-pm-name{font-family:'Syne',sans-serif;font-weight:800;font-size:1.5rem;color:var(--wl-text);margin-bottom:4px}
+.wl-pm-price{font-size:1.6rem;font-weight:800;color:var(--wl-green);margin:8px 0}
+.wl-pm-price small{font-size:.85rem;color:var(--wl-text3);font-weight:500}
+.wl-pm-row{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px}
+.wl-pm-pill{padding:4px 12px;border-radius:20px;background:var(--wl-green-lt);
+  color:var(--wl-green);font-size:.78rem;font-weight:700}
+.wl-pm-pill.district{background:#f0f4ff;color:#1565C0}
+.wl-pm-desc{font-size:.88rem;color:var(--wl-text2);line-height:1.7;margin:12px 0}
+.wl-pm-actions{display:flex;gap:10px;margin-top:16px}
+.wl-pm-btn-order{flex:1;padding:14px 20px;background:var(--wl-green);color:#fff;
+  border:none;border-radius:12px;font-size:1rem;font-weight:800;cursor:pointer;
+  font-family:inherit;transition:.18s}
+.wl-pm-btn-order:hover{background:var(--wl-green2);transform:translateY(-1px)}
+.wl-pm-signin-note{font-size:.8rem;color:var(--wl-text3);text-align:center;margin-top:8px}
+/* Sign-in gate prompt */
+#wl-signin-gate{
+  display:none;position:fixed;inset:0;z-index:8000;
+  background:rgba(28,43,31,.65);backdrop-filter:blur(6px);
+  align-items:center;justify-content:center;padding:16px
+}
+#wl-signin-gate.open{display:flex}
+.wl-sg-box{
+  background:#fff;border-radius:20px;max-width:420px;width:100%;
+  padding:32px 28px;text-align:center;
+  box-shadow:0 24px 64px rgba(0,0,0,.22)
+}
+.wl-sg-icon{font-size:2.6rem;margin-bottom:12px}
+.wl-sg-title{font-family:'Syne',sans-serif;font-weight:800;font-size:1.3rem;color:var(--wl-text);margin-bottom:8px}
+.wl-sg-sub{font-size:.88rem;color:var(--wl-text2);line-height:1.6;margin-bottom:24px}
+.wl-sg-actions{display:flex;flex-direction:column;gap:10px}
+.wl-sg-btn-primary{padding:14px 20px;background:var(--wl-green);color:#fff;border:none;
+  border-radius:12px;font-size:1rem;font-weight:800;cursor:pointer;font-family:inherit;transition:.18s}
+.wl-sg-btn-primary:hover{background:var(--wl-green2)}
+.wl-sg-btn-ghost{padding:12px 20px;background:transparent;color:var(--wl-green);
+  border:1.5px solid var(--wl-green);border-radius:12px;font-size:.92rem;font-weight:700;
+  cursor:pointer;font-family:inherit;transition:.18s}
+.wl-sg-btn-ghost:hover{background:var(--wl-green-lt)}
+.wl-sg-cancel{background:none;border:none;color:var(--wl-text3);font-size:.82rem;
+  cursor:pointer;margin-top:8px;padding:6px;font-family:inherit}
+.wl-sg-cancel:hover{color:var(--wl-text)}
+
 /* ═══════════════════════════════════════════════════════════════
    BUYER INTERFACE v2 — Premium farm-to-table shopping experience
    Matches 10-screen mockup: home/categories/cards/cart/checkout/
@@ -2087,6 +2218,7 @@ html.is-web:not(.app-entered) body{overflow:hidden}
     <nav class="wl-navlinks">
       <a href="#wl-how">How it works</a>
       <a href="#wl-roles">Who it's for</a>
+      <a href="#" onclick="wlOpenBrowse();return false" style="font-weight:700;color:var(--wl-green)">Browse Produce</a>
       <button class="wl-btn ghost" onclick="enterApp('login')">Log In</button>
       <button class="wl-btn" onclick="enterApp('register')">Join Free</button>
     </nav>
@@ -2192,7 +2324,7 @@ html.is-web:not(.app-entered) body{overflow:hidden}
   <!-- ══ QUICK LINKS STRIP ══ -->
   <nav class="wl-strip" aria-label="Quick links">
     <div class="wl-strip-inner">
-      <button class="wl-strip-link" onclick="enterApp('market')"><span>🛒</span> Shop Now</button>
+      <button class="wl-strip-link" onclick="wlOpenBrowse()"><span>🛒</span> Shop Now</button>
       <button class="wl-strip-link" onclick="enterApp('register')"><span>🌾</span> Sell Produce</button>
       <button class="wl-strip-link" onclick="window.location='/transporter'"><span>🚚</span> Driver Portal</button>
       <button class="wl-strip-link" onclick="enterApp()"><span>🤖</span> AI Assistant</button>
@@ -2207,11 +2339,11 @@ html.is-web:not(.app-entered) body{overflow:hidden}
         <h2 class="wl-h2">Fresh from the Farm</h2>
         <p class="wl-h2-sub">Sourced directly from verified farmers across Uganda</p>
       </div>
-      <button class="wl-see-all" onclick="enterApp()">See all produce →</button>
+      <button class="wl-see-all" onclick="wlOpenBrowse()">See all produce →</button>
     </div>
     <!-- live product cards injected here by wlRefreshProducts() -->
     <div class="wl-prod-grid">
-      <div class="wl-prod-card" onclick="enterApp()">
+      <div class="wl-prod-card" onclick="wlShowGate()">
         <div class="wl-prod-img" style="padding:0">
           <img src="https://lvloaweijidgcuezdnmu.supabase.co/storage/v1/object/public/uploads/admin-listings/2473aaaa15c64afd9e9dd5c6dff485aa.jpg" alt="Cassava" style="width:100%;height:100%;object-fit:cover;display:block" loading="lazy">
           <div class="wl-prod-badge fresh">Fresh</div>
@@ -2221,9 +2353,9 @@ html.is-web:not(.app-entered) body{overflow:hidden}
           <div class="wl-prod-farm">Northern Uganda</div>
           <div class="wl-prod-price">UGX 400–700<small>/kg</small></div>
         </div>
-        <div class="wl-prod-foot"><button class="wl-prod-btn" onclick="enterApp();event.stopPropagation()">Order now</button></div>
+        <div class="wl-prod-foot"><button class="wl-prod-btn" onclick="wlShowGate();event.stopPropagation()">Order now</button></div>
       </div>
-      <div class="wl-prod-card" onclick="enterApp()">
+      <div class="wl-prod-card" onclick="wlShowGate()">
         <div class="wl-prod-img" style="padding:0">
           <img src="https://lvloaweijidgcuezdnmu.supabase.co/storage/v1/object/public/uploads/admin-listings/d9776a4041234f1db41fb90f4a60f8b8.jpg" alt="Mango" style="width:100%;height:100%;object-fit:cover;display:block" loading="lazy">
           <div class="wl-prod-badge fresh">Fresh</div>
@@ -2233,9 +2365,9 @@ html.is-web:not(.app-entered) body{overflow:hidden}
           <div class="wl-prod-farm">Eastern Uganda</div>
           <div class="wl-prod-price">UGX 500<small>/kg</small></div>
         </div>
-        <div class="wl-prod-foot"><button class="wl-prod-btn" onclick="enterApp();event.stopPropagation()">Order now</button></div>
+        <div class="wl-prod-foot"><button class="wl-prod-btn" onclick="wlShowGate();event.stopPropagation()">Order now</button></div>
       </div>
-      <div class="wl-prod-card" onclick="enterApp()">
+      <div class="wl-prod-card" onclick="wlShowGate()">
         <div class="wl-prod-img" style="padding:0">
           <img src="https://lvloaweijidgcuezdnmu.supabase.co/storage/v1/object/public/uploads/admin-listings/a89030c2212b430b9730d22721295bd5.jpg" alt="Green Pepper" style="width:100%;height:100%;object-fit:cover;display:block" loading="lazy">
           <div class="wl-prod-badge fresh">Fresh</div>
@@ -2245,9 +2377,9 @@ html.is-web:not(.app-entered) body{overflow:hidden}
           <div class="wl-prod-farm">Central Uganda</div>
           <div class="wl-prod-price">UGX 3,000<small>/kg</small></div>
         </div>
-        <div class="wl-prod-foot"><button class="wl-prod-btn" onclick="enterApp();event.stopPropagation()">Order now</button></div>
+        <div class="wl-prod-foot"><button class="wl-prod-btn" onclick="wlShowGate();event.stopPropagation()">Order now</button></div>
       </div>
-      <div class="wl-prod-card" onclick="enterApp()">
+      <div class="wl-prod-card" onclick="wlShowGate()">
         <div class="wl-prod-img" style="padding:0">
           <img src="https://lvloaweijidgcuezdnmu.supabase.co/storage/v1/object/public/uploads/admin-listings/b3bda803b8404714866bf33c6d0d0cba.jpg" alt="Pumpkin" style="width:100%;height:100%;object-fit:cover;display:block" loading="lazy">
           <div class="wl-prod-badge new">New</div>
@@ -2257,7 +2389,7 @@ html.is-web:not(.app-entered) body{overflow:hidden}
           <div class="wl-prod-farm">Western Uganda</div>
           <div class="wl-prod-price">UGX 1,500<small>/kg</small></div>
         </div>
-        <div class="wl-prod-foot"><button class="wl-prod-btn" onclick="enterApp();event.stopPropagation()">Order now</button></div>
+        <div class="wl-prod-foot"><button class="wl-prod-btn" onclick="wlShowGate();event.stopPropagation()">Order now</button></div>
       </div>
     </div>
     <!-- Advertise-here strip — shown when paid slots are free -->
@@ -2278,32 +2410,32 @@ html.is-web:not(.app-entered) body{overflow:hidden}
         <p class="wl-h2-sub">Fresh produce from every corner of Uganda</p>
       </div>
       <div class="wl-cats-grid">
-        <div class="wl-cat-tile" onclick="enterApp('vegetables')">
+        <div class="wl-cat-tile" onclick="wlOpenBrowse('vegetables')">
           <img src="/img/cat-vegetables.jpg" alt="Vegetables" loading="lazy">
           <div class="wl-cat-overlay"></div>
           <div class="wl-cat-label"><b>Vegetables</b><small>Tomatoes, pepper, greens &amp; more</small></div>
         </div>
-        <div class="wl-cat-tile" onclick="enterApp('fruits')">
+        <div class="wl-cat-tile" onclick="wlOpenBrowse('fruits')">
           <img src="/img/cat-fruits.jpg" alt="Fruits" loading="lazy">
           <div class="wl-cat-overlay"></div>
           <div class="wl-cat-label"><b>Fruits</b><small>Mangoes, bananas, pawpaw &amp; more</small></div>
         </div>
-        <div class="wl-cat-tile" onclick="enterApp('grains')">
+        <div class="wl-cat-tile" onclick="wlOpenBrowse('grains')">
           <img src="/img/cat-grains.jpg" alt="Grains" loading="lazy">
           <div class="wl-cat-overlay"></div>
           <div class="wl-cat-label"><b>Grains</b><small>Maize, millet, sorghum &amp; rice</small></div>
         </div>
-        <div class="wl-cat-tile" onclick="enterApp('livestock')">
+        <div class="wl-cat-tile" onclick="wlOpenBrowse('livestock')">
           <img src="/img/cat-livestock.jpg" alt="Livestock" loading="lazy">
           <div class="wl-cat-overlay"></div>
           <div class="wl-cat-label"><b>Livestock</b><small>Cattle, goats, poultry &amp; eggs</small></div>
         </div>
-        <div class="wl-cat-tile" onclick="enterApp('dairy')">
+        <div class="wl-cat-tile" onclick="wlOpenBrowse('dairy')">
           <img src="/img/cat-dairy.jpg" alt="Dairy" loading="lazy">
           <div class="wl-cat-overlay"></div>
           <div class="wl-cat-label"><b>Dairy</b><small>Fresh milk, yoghurt &amp; cheese</small></div>
         </div>
-        <div class="wl-cat-tile" onclick="enterApp('staples')">
+        <div class="wl-cat-tile" onclick="wlOpenBrowse('staples')">
           <img src="/img/cat-staples.jpg" alt="Staples" loading="lazy">
           <div class="wl-cat-overlay"></div>
           <div class="wl-cat-label"><b>Staples</b><small>Beans, cassava, sweet potato</small></div>
@@ -2549,6 +2681,14 @@ html.is-web:not(.app-entered) body{overflow:hidden}
       });
     }
 
+    // ── ESC closes browse modals ──
+    document.addEventListener('keydown', function(e){
+      if(e.key==='Escape'){
+        if(typeof wlCloseGate==='function') wlCloseGate();
+        if(typeof wlCloseProdModal==='function') wlCloseProdModal();
+      }
+    });
+
     // ── Scroll-reveal for category tiles ──
     (function(){
       if(!window.IntersectionObserver) return;
@@ -2561,6 +2701,55 @@ html.is-web:not(.app-entered) body{overflow:hidden}
     })();
   })();
   </script>
+
+  <!-- ══ WEB BROWSE PAGE ══ -->
+  <div id="wl-browse">
+    <div class="wlb-topbar">
+      <button class="wlb-back" onclick="wlCloseBrowse()">← Back</button>
+      <div class="wlb-search">
+        <input type="text" id="wlbSearch" placeholder="Search produce, district…" oninput="wlbFilterCards()" autocomplete="off">
+      </div>
+      <span class="wlb-count" id="wlbCount"></span>
+    </div>
+    <div class="wlb-body">
+      <div class="wlb-filters" id="wlbFilters">
+        <button class="wlb-filter active" onclick="wlbSetCat('all',this)">All</button>
+        <button class="wlb-filter" onclick="wlbSetCat('vegetables',this)">🥦 Veggies</button>
+        <button class="wlb-filter" onclick="wlbSetCat('fruits',this)">🍎 Fruits</button>
+        <button class="wlb-filter" onclick="wlbSetCat('grains',this)">🌾 Grains</button>
+        <button class="wlb-filter" onclick="wlbSetCat('staples',this)">🍠 Staples</button>
+        <button class="wlb-filter" onclick="wlbSetCat('livestock',this)">🐄 Livestock</button>
+        <button class="wlb-filter" onclick="wlbSetCat('dairy',this)">🥛 Dairy</button>
+        <button class="wlb-filter" onclick="wlbSetCat('organic',this)">🌿 Organic</button>
+      </div>
+      <div id="wlbGrid" class="wlb-grid">
+        <div class="wlb-loader">Loading fresh produce…</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══ PRODUCT DETAIL MODAL ══ -->
+  <div id="wl-prod-modal" onclick="if(event.target===this)wlCloseProdModal()">
+    <div class="wl-pm-box" id="wlPmBox">
+      <button class="wl-pm-close" onclick="wlCloseProdModal()">✕</button>
+      <div class="wl-pm-img" id="wlPmImg"></div>
+      <div class="wl-pm-body" id="wlPmBody"></div>
+    </div>
+  </div>
+
+  <!-- ══ SIGN-IN GATE ══ -->
+  <div id="wl-signin-gate" onclick="if(event.target===this)wlCloseGate()">
+    <div class="wl-sg-box">
+      <div class="wl-sg-icon">🌱</div>
+      <div class="wl-sg-title">Create a free account to order</div>
+      <div class="wl-sg-sub">Join thousands of Ugandans buying fresh produce directly from verified farmers — no middlemen, farm-fresh prices.</div>
+      <div class="wl-sg-actions">
+        <button class="wl-sg-btn-primary" onclick="wlCloseGate();enterApp('register')">Create Free Account →</button>
+        <button class="wl-sg-btn-ghost" onclick="wlCloseGate();enterApp('login')">I Already Have an Account</button>
+        <button class="wl-sg-cancel" onclick="wlCloseGate()">Continue browsing</button>
+      </div>
+    </div>
+  </div>
 
 </div>
 
@@ -8344,7 +8533,8 @@ function wlProdCard(l) {
     ? `<img src="${escHtml(l.image_url)}" alt="${escHtml(l.crop_name)}" style="width:100%;height:100%;object-fit:cover;display:block" loading="lazy" onerror="this.style.display='none';this.parentElement.innerHTML='<span style=\\"font-size:3rem\\">${safeEmoji}</span>';">`
     : '';
   const bgStyle = hasImg ? 'padding:0' : 'padding:0;font-size:3rem;display:flex;align-items:center;justify-content:center';
-  return `<div class="wl-prod-card${l._boosted?' wl-boosted':''}" onclick="enterApp()">
+  const lid = l.id || '';
+  return `<div class="wl-prod-card${l._boosted?' wl-boosted':''}" onclick="wlOpenProdModal(${lid})">
     <div class="wl-prod-img" style="${bgStyle}">
       ${hasImg ? imgEl : cropEmoji(l.crop_name)}
       ${wlBadge(l)}
@@ -8354,7 +8544,7 @@ function wlProdCard(l) {
       <div class="wl-prod-farm">${escHtml(farm)}</div>
       <div class="wl-prod-price">UGX ${price}<small>/${unit}</small></div>
     </div>
-    <div class="wl-prod-foot"><button class="wl-prod-btn" onclick="enterApp();event.stopPropagation()">Order now</button></div>
+    <div class="wl-prod-foot"><button class="wl-prod-btn" onclick="wlShowGate();event.stopPropagation()">Order now</button></div>
   </div>`;
 }
 
@@ -8424,6 +8614,9 @@ async function wlRefreshProducts() {
   }
 
   if (!listings.length) return; // keep skeletons if DB totally unreachable
+
+  // Seed browse cache so product modals work from landing cards too
+  if (!_wlAllListings) _wlAllListings = listings;
 
   grid.innerHTML = listings.slice(0,4).map(wlProdCard).join('');
 
@@ -8698,7 +8891,152 @@ function wlStartTimer() {
   window._wlTimer = setInterval(() => wlSlide(1), 5000);
 }
 
-function escHtml(s) {
+// ─────────────────────────────────────────────────────────────────
+// WEB BROWSE — public product browsing (no app shell)
+// ─────────────────────────────────────────────────────────────────
+var _wlAllListings = null; // cached listing rows for browse page
+var _wlBrowseCat = 'all';
+
+async function wlOpenBrowse(cat) {
+  _wlBrowseCat = cat || 'all';
+  var browse = document.getElementById('wl-browse');
+  if (!browse) return;
+  browse.classList.add('open');
+  // Scroll webLanding to top so browse page is visible
+  var landing = document.getElementById('webLanding');
+  if (landing) landing.scrollTo({top: 0, behavior: 'smooth'});
+  // Set active filter button
+  var btns = document.querySelectorAll('#wlbFilters .wlb-filter');
+  btns.forEach(function(b){
+    b.classList.toggle('active', b.getAttribute('onclick').indexOf("'"+_wlBrowseCat+"'") > -1 || (_wlBrowseCat==='all' && b.getAttribute('onclick').indexOf("'all'") > -1));
+  });
+  if (_wlAllListings) { wlbRender(); return; }
+  // Load listings
+  document.getElementById('wlbGrid').innerHTML = '<div class="wlb-loader">🌾 Loading fresh produce…</div>';
+  var data = await sb('listings', {
+    select:'id,farmer_id,crop_name,category,quantity_kg,reserved_qty,price_per_kg,unit,district,is_organic,is_verified,description,discount_pct,sale_unit,image_url,created_at',
+    filters:[['is_available','eq.true'],['order','created_at.desc'],['limit','200']]
+  });
+  if (!Array.isArray(data)) {
+    document.getElementById('wlbGrid').innerHTML = '<div class="wlb-empty"><div class="wlb-empty-icon">⚠️</div><p>Could not load products. Check your connection.</p><button class="wlb-filter active" onclick="wlOpenBrowse()" style="margin-top:12px">Retry</button></div>';
+    return;
+  }
+  _wlAllListings = data;
+  wlbRender();
+}
+
+function wlCloseBrowse() {
+  var browse = document.getElementById('wl-browse');
+  if (browse) browse.classList.remove('open');
+}
+
+function wlbSetCat(cat, btn) {
+  _wlBrowseCat = cat;
+  document.querySelectorAll('#wlbFilters .wlb-filter').forEach(function(b){ b.classList.remove('active'); });
+  if (btn) btn.classList.add('active');
+  wlbRender();
+}
+
+function wlbFilterCards() { wlbRender(); }
+
+function wlbRender() {
+  var grid = document.getElementById('wlbGrid');
+  var countEl = document.getElementById('wlbCount');
+  if (!grid || !_wlAllListings) return;
+  var q = (document.getElementById('wlbSearch')?.value || '').toLowerCase().trim();
+  var list = _wlAllListings.filter(function(l) {
+    var catOk = _wlBrowseCat === 'all' || (_wlBrowseCat === 'organic' ? l.is_organic : (l.category||'').toLowerCase().includes(_wlBrowseCat) || (l.crop_name||'').toLowerCase().includes(_wlBrowseCat));
+    var qOk = !q || (l.crop_name||'').toLowerCase().includes(q) || (l.district||'').toLowerCase().includes(q) || (l.category||'').toLowerCase().includes(q);
+    return catOk && qOk;
+  });
+  if (countEl) countEl.textContent = list.length + ' product' + (list.length===1?'':'s');
+  if (!list.length) {
+    grid.innerHTML = '<div class="wlb-empty"><div class="wlb-empty-icon">🌾</div><p>No produce found in this category right now.</p></div>';
+    return;
+  }
+  grid.innerHTML = list.map(function(l) {
+    var price = typeof l.price_per_kg==='number' ? l.price_per_kg.toLocaleString() : (l.price_per_kg||'—');
+    var unit = l.sale_unit || l.unit || 'kg';
+    var hasImg = l.image_url && l.image_url.startsWith('http');
+    var imgHtml = hasImg
+      ? '<img src="'+escHtml(l.image_url)+'" alt="'+escHtml(l.crop_name)+'" loading="lazy">'
+      : '<div class="wlb-card-emoji">'+wlbEmoji(l.crop_name)+'</div>';
+    var badge = l.is_organic ? '<div class="wlb-card-badge organic">Organic</div>' : (l.is_verified ? '<div class="wlb-card-badge verified">✓ Verified</div>' : '');
+    return '<div class="wlb-card" onclick="wlOpenProdModal('+l.id+')">'
+      +'<div class="wlb-card-img">'+imgHtml+badge+'</div>'
+      +'<div class="wlb-card-body">'
+        +'<div class="wlb-card-name">'+escHtml(l.crop_name)+'</div>'
+        +'<div class="wlb-card-meta">📍 '+escHtml(l.district||'Uganda')+'</div>'
+        +'<div class="wlb-card-price">UGX '+price+'<small>/'+unit+'</small></div>'
+      +'</div>'
+      +'<div class="wlb-card-foot"><button class="wlb-card-btn" onclick="wlShowGate();event.stopPropagation()">Order Now</button></div>'
+      +'</div>';
+  }).join('');
+}
+
+function wlbEmoji(name) {
+  var n=(name||'').toLowerCase();
+  var map={maize:'🌽',beans:'🫘',tomato:'🍅',mango:'🥭',avocado:'🥑',banana:'🍌',coffee:'☕',vanilla:'🌿',cassava:'🍠',potato:'🥔',rice:'🍚',milk:'🥛',egg:'🥚',chicken:'🐔',goat:'🐐',cattle:'🐄',cow:'🐄',fish:'🐟',pepper:'🌶️',onion:'🧅',cabbage:'🥬',carrot:'🥕',pumpkin:'🎃',sorghum:'🌾',millet:'🌾',groundnut:'🥜',sunflower:'🌻',watermelon:'🍉',pineapple:'🍍',passion:'🍈',strawberry:'🍓'};
+  for(var k in map){if(n.includes(k))return map[k];}
+  return '🌿';
+}
+
+// Product detail modal (for both landing cards and browse page)
+var _wlProdCache = {};
+function wlOpenProdModal(id) {
+  if (!id) { wlShowGate(); return; }
+  var modal = document.getElementById('wl-prod-modal');
+  if (!modal) { wlShowGate(); return; }
+  // Find listing in cache
+  var l = (_wlAllListings || []).find(function(x){ return String(x.id)===String(id); });
+  if (!l) { wlShowGate(); return; }
+  var price = typeof l.price_per_kg==='number' ? l.price_per_kg.toLocaleString() : (l.price_per_kg||'—');
+  var unit = l.sale_unit || l.unit || 'kg';
+  var hasImg = l.image_url && l.image_url.startsWith('http');
+  document.getElementById('wlPmImg').innerHTML = hasImg
+    ? '<img src="'+escHtml(l.image_url)+'" alt="'+escHtml(l.crop_name)+'">'
+    : '<div style="font-size:5rem">'+wlbEmoji(l.crop_name)+'</div>';
+  var pills = '';
+  if (l.district) pills += '<span class="wl-pm-pill district">📍 '+escHtml(l.district)+'</span>';
+  if (l.is_organic) pills += '<span class="wl-pm-pill">🌿 Organic</span>';
+  if (l.is_verified) pills += '<span class="wl-pm-pill">✓ Verified Farmer</span>';
+  if (l.delivery_available) pills += '<span class="wl-pm-pill">🚚 Delivery</span>';
+  var qty = typeof l.quantity_kg==='number' ? (l.quantity_kg - (l.reserved_qty||0)).toLocaleString() + ' kg available' : '';
+  document.getElementById('wlPmBody').innerHTML =
+    '<div class="wl-pm-name">'+escHtml(l.crop_name)+'</div>'
+    +'<div class="wl-pm-price">UGX '+price+'<small> / '+unit+'</small></div>'
+    +(pills?'<div class="wl-pm-row">'+pills+'</div>':'')
+    +(l.description?'<div class="wl-pm-desc">'+escHtml(l.description)+'</div>':'')
+    +(qty?'<div style="font-size:.82rem;color:var(--wl-text3);margin-bottom:4px">📦 '+qty+'</div>':'')
+    +'<div class="wl-pm-actions">'
+      +'<button class="wl-pm-btn-order" onclick="wlShowGate()">Order Now 🛒</button>'
+    +'</div>'
+    +'<div class="wl-pm-signin-note">Sign up free — takes 30 seconds</div>';
+  modal.classList.add('open');
+  document.body.style.overflow = 'hidden';
+}
+
+function wlCloseProdModal() {
+  var modal = document.getElementById('wl-prod-modal');
+  if (modal) modal.classList.remove('open');
+  document.body.style.overflow = '';
+}
+
+function wlShowGate() {
+  wlCloseProdModal();
+  var gate = document.getElementById('wl-signin-gate');
+  if (gate) gate.classList.add('open');
+  document.body.style.overflow = 'hidden';
+}
+
+function wlCloseGate() {
+  var gate = document.getElementById('wl-signin-gate');
+  if (gate) gate.classList.remove('open');
+  document.body.style.overflow = '';
+}
+
+// (escHtml defined above)
+function _escHtmlDup(s) {
   return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
 }
 
