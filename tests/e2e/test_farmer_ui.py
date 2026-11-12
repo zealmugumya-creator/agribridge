@@ -292,6 +292,17 @@ def _handle(route, request):
         if path.endswith("/api/user/notifications"):
             return route.fulfill(status=200, headers=cors, content_type="application/json",
                                  body=json.dumps({"notifications": [], "unread": 0}))
+        # The post-sign-in legal check has to succeed quietly. A 500 here makes the
+        # SPA raise its fail-open toast ("We could not check the latest agreements"),
+        # which in CI lands on top of the "Profile saved" toast this suite asserts.
+        # No outstanding documents ⇒ no review modal and no toast. sync-signup wraps
+        # the status; /api/legal/status returns it bare (postAuthLegalCheck reads each).
+        if path.endswith("/api/legal/sync-signup"):
+            return route.fulfill(status=200, headers=cors, content_type="application/json",
+                                 body=json.dumps({"status": {"outstanding": []}}))
+        if path.endswith("/api/legal/status"):
+            return route.fulfill(status=200, headers=cors, content_type="application/json",
+                                 body=json.dumps({"outstanding": []}))
         return route.fulfill(status=500, headers=cors, content_type="application/json", body="{}")
 
     return route.abort()

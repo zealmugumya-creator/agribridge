@@ -256,19 +256,26 @@ def test_cart_totals_are_honest_and_survive_a_reload(env, site):
     # The owner auth-gates the basket and cart for guests (commit 43f41cb), so a
     # buyer must be signed in before items can be added. currentUser is persisted
     # to localStorage, which restores the session after the reload below too.
+    #
+    # Sign-in repaints the role nav, and applyRoleUI lands a vendor on the shopping
+    # home (showPage('home')). That repaint is re-scheduled on a timer — by the
+    # updateNavUser wrapper (+100ms) and by DOMContentLoaded (+300ms) — so a detail
+    # page opened before the last pass fires gets ejected mid-click. That was the
+    # CI flake: #pdQtyPlus went "not visible" when a late pass ran showPage('home').
+    # Stamp every pass and wait until the nav has been quiet for 500ms; the fixed
+    # +300ms load pass always precedes that window, so nothing is left to eject.
+    page.evaluate("""() => {
+      window.__rolePassAt = 0;
+      const orig = window.applyRoleUI;
+      window.applyRoleUI = function(){ window.__rolePassAt = Date.now(); return orig.apply(this, arguments); };
+    }""")
     page.evaluate("""() => {
       const user = {id:'buyer-1', email:'buyer@example.com',
         user_metadata:{name:'Buyer', role:'vendor', phone:'', district:'Kampala'}};
       window.__sb.emit('SIGNED_IN', {access_token:'tok', user:user});
     }""")
-    # Sign-in re-renders the role nav and lands the buyer on the shopping home
-    # (applyRoleUI calls showPage('home') for vendors). Wait for that pass to
-    # finish — the role indicator flips to 'vendor' inside applyRoleUI — so it
-    # cannot eject the product detail page opened next.
-    page.wait_for_function(
-        "(() => { const r=document.getElementById('roleIndicator');"
-        " return r && r.classList.contains('vendor'); })()",
-        timeout=5000, polling=100)
+    page.wait_for_function("window.__rolePassAt > 0", timeout=5000, polling=50)
+    page.wait_for_function("Date.now() - window.__rolePassAt > 500", timeout=5000, polling=50)
     page.evaluate("openProductDetail(107)")       # 10% discount: 8,100/kg
     # openProductDetail, pdAddToCart and showPage('cart') all run synchronously,
     # so each step is asserted directly. A 30 s wait_for_function timeout used to
