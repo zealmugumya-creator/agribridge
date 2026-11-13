@@ -8550,6 +8550,43 @@ async function renderAdminHome(panel, greet, aiCard) {
     <div style="margin:22px 0 10px;font-weight:800;font-size:1rem;color:var(--text)">💰 Boost Slot Pricing</div>
     <div id="admBoostPricing">Loading…</div>
 
+    <!-- ── Legal & Compliance ── -->
+    <div style="margin:26px 0 10px;display:flex;align-items:center;justify-content:space-between">
+      <div style="font-weight:800;font-size:1rem;color:var(--text)">⚖️ Legal & Compliance</div>
+      <button onclick="admLegalRefresh()" style="background:none;border:1px solid var(--border);padding:5px 11px;border-radius:8px;font-size:.78rem;color:var(--text2);cursor:pointer;font-family:inherit">↻ Refresh</button>
+    </div>
+
+    <!-- consent stats strip -->
+    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:14px" id="admLegalStats">
+      <div style="background:var(--card);border:1px solid var(--border);border-radius:14px;padding:12px;text-align:center">
+        <div style="font-size:1.4rem;font-weight:800;color:var(--green)" id="adml-accepted">–</div>
+        <div style="font-size:.72rem;color:var(--text2);margin-top:3px">Accepted</div>
+      </div>
+      <div style="background:var(--card);border:1px solid var(--border);border-radius:14px;padding:12px;text-align:center">
+        <div style="font-size:1.4rem;font-weight:800;color:var(--amber)" id="adml-pending">–</div>
+        <div style="font-size:.72rem;color:var(--text2);margin-top:3px">Outstanding</div>
+      </div>
+      <div style="background:var(--card);border:1px solid var(--border);border-radius:14px;padding:12px;text-align:center">
+        <div style="font-size:1.4rem;font-weight:800;color:var(--text)" id="adml-reqs">–</div>
+        <div style="font-size:.72rem;color:var(--text2);margin-top:3px">Doc versions</div>
+      </div>
+    </div>
+
+    <!-- document versions table -->
+    <div style="font-weight:700;font-size:.85rem;color:var(--text2);margin-bottom:8px;text-transform:uppercase;letter-spacing:.04em">Published documents</div>
+    <div id="admLegalDocs" style="display:flex;flex-direction:column;gap:7px;margin-bottom:16px">
+      <div style="font-size:.84rem;color:var(--text2)">Loading…</div>
+    </div>
+
+    <!-- privacy requests -->
+    <div style="font-weight:700;font-size:.85rem;color:var(--text2);margin-bottom:8px;text-transform:uppercase;letter-spacing:.04em">Privacy requests</div>
+    <div id="admPrivacyReqs" style="display:flex;flex-direction:column;gap:7px;margin-bottom:16px">
+      <div style="font-size:.84rem;color:var(--text2)">Loading…</div>
+    </div>
+
+    <!-- enforcement status banner -->
+    <div id="admLegalEnfBanner" style="border-radius:12px;padding:12px 14px;font-size:.83rem;margin-bottom:4px;display:none"></div>
+
     <div class="hd-sec-head" style="margin-top:22px"><span class="hd-section-label" style="margin:0">Quick actions</span></div>
     <div class="hd-qa">
       <button onclick="showPage('market')"><span>🛒</span>Market</button>
@@ -8563,6 +8600,7 @@ async function renderAdminHome(panel, greet, aiCard) {
   loadAdminFeaturedPicker();
   loadAdminBoosts();
   loadAdminBoostPricing();
+  admLegalRefresh();
   // Show pending count badge
   sb('listing_boosts',{count:true,filters:[['status','eq.pending']]}).then(n=>{
     const el=document.getElementById('adm-boost-pending');
@@ -9075,6 +9113,106 @@ async function admSaveBoostPrices(days) {
     body: JSON.stringify({key:'boost_prices', value:JSON.stringify(prices), updated_at:new Date().toISOString()})
   });
   showToast('Prices updated ✓');
+}
+
+// ── Admin: Legal & Compliance ─────────────────────────────────────────────────
+async function admLegalRefresh() {
+  admLegalLoadDocs();
+  admLegalLoadStats();
+  admLegalLoadPrivacyReqs();
+  admLegalCheckEnforcement();
+}
+
+async function admLegalLoadDocs() {
+  const el = document.getElementById('admLegalDocs'); if (!el) return;
+  try {
+    const res = await abApi('/api/legal/manifest');
+    if (!res.ok) throw new Error(res.status);
+    const data = res.json;
+    const docs = Object.values(data.documents||{});
+    if (!docs.length) { el.innerHTML='<div style="font-size:.82rem;color:var(--text2)">No documents found.</div>'; return; }
+    // Update doc count stat
+    const rc=document.getElementById('adml-reqs'); if(rc) rc.textContent=docs.length;
+    el.innerHTML = docs.map(d=>`
+      <div style="background:var(--card);border:1px solid var(--border);border-radius:12px;padding:11px 13px;display:flex;align-items:center;gap:10px">
+        <div style="flex:1;min-width:0">
+          <div style="font-weight:700;font-size:.87rem;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${escHtml(d.title)}</div>
+          <div style="font-size:.73rem;color:var(--text2);margin-top:2px">v${escHtml(d.version)} · ${escHtml(d.effective_date)} · ${(d.applies_to_roles||[]).join(', ')==='all'?'All users':escHtml((d.applies_to_roles||[]).join(', '))}</div>
+        </div>
+        <div style="display:flex;gap:5px;flex-shrink:0;align-items:center">
+          <span style="font-size:.7rem;padding:3px 8px;border-radius:20px;background:var(--green-dim);color:var(--green);font-weight:700">${d.requires_acceptance==='accept'?'Must accept':'Acknowledge'}</span>
+          <a href="${escHtml(d.url)}" target="_blank" rel="noopener" style="font-size:.78rem;padding:5px 10px;border-radius:8px;border:1px solid var(--border);color:var(--text);text-decoration:none">View</a>
+        </div>
+      </div>`).join('');
+  } catch(e) {
+    el.innerHTML=`<div style="font-size:.82rem;color:var(--text2)">Could not load documents (${e.message}).</div>`;
+  }
+}
+
+async function admLegalLoadStats() {
+  try {
+    const res = await abApi('/api/legal/status');
+    if (!res.ok) return;
+    const data = res.json;
+    // /api/legal/status returns current user's status; for admin aggregate we use the KPI approach
+    // We'll show total acceptances and pending from supabase direct
+    const [acceptRows, totalUsers] = await Promise.all([
+      sb('legal_acceptances',{count:true}),
+      sb('profiles',{count:true})
+    ]);
+    const accepted = typeof acceptRows==='number' ? acceptRows : '–';
+    const total = typeof totalUsers==='number' ? totalUsers : null;
+    const acc=document.getElementById('adml-accepted'); if(acc) acc.textContent=accepted;
+    if (total && typeof accepted==='number') {
+      const pend=document.getElementById('adml-pending');
+      if(pend) pend.textContent=Math.max(0,total-accepted);
+    }
+  } catch(e) {}
+}
+
+async function admLegalLoadPrivacyReqs() {
+  const el = document.getElementById('admPrivacyReqs'); if (!el) return;
+  try {
+    const rows = await sb('privacy_requests', {
+      select:'id,request_type,status,created_at,notes',
+      filters:[['order','created_at.desc'],['limit','20']]
+    });
+    if (!Array.isArray(rows) || !rows.length) {
+      el.innerHTML='<div style="font-size:.82rem;color:var(--text2)">No privacy requests on record.</div>';
+      return;
+    }
+    const statusColors={pending:'var(--amber)',in_review:'#2196F3',completed:'var(--green)',rejected:'#f44336'};
+    el.innerHTML = rows.map(r=>`
+      <div style="background:var(--card);border:1px solid var(--border);border-radius:12px;padding:11px 13px;display:flex;align-items:center;gap:10px">
+        <div style="flex:1;min-width:0">
+          <div style="font-weight:700;font-size:.85rem;color:var(--text)">${escHtml((r.request_type||'').replace(/_/g,' '))}</div>
+          <div style="font-size:.73rem;color:var(--text2);margin-top:2px">${new Date(r.created_at).toLocaleDateString('en-UG',{day:'numeric',month:'short',year:'numeric'})}${r.notes?` · ${escHtml(r.notes.slice(0,60))}…`:''}</div>
+        </div>
+        <span style="font-size:.72rem;padding:3px 9px;border-radius:20px;background:${statusColors[r.status]||'var(--border)'};color:#fff;font-weight:700;white-space:nowrap">${escHtml(r.status||'pending')}</span>
+      </div>`).join('');
+  } catch(e) {
+    el.innerHTML=`<div style="font-size:.82rem;color:var(--text2)">Could not load privacy requests.</div>`;
+  }
+}
+
+async function admLegalCheckEnforcement() {
+  const el=document.getElementById('admLegalEnfBanner'); if(!el) return;
+  try {
+    const res=await abApi('/api/legal/status');
+    if(!res.ok) return;
+    const data=res.json;
+    const enforced=data.enforcement_active===true;
+    el.style.display='block';
+    if(enforced){
+      el.style.background='var(--green-dim)';
+      el.style.borderLeft='4px solid var(--green)';
+      el.innerHTML='<strong style="color:var(--green)">✅ Enforcement is active.</strong> <span style="color:var(--text2)">The backend verifies consent before protected marketplace actions. The DB trigger (migration 0031) must also be applied in Supabase SQL Editor.</span>';
+    } else {
+      el.style.background='rgba(245,166,35,0.12)';
+      el.style.borderLeft='4px solid var(--amber)';
+      el.innerHTML='<strong style="color:var(--amber)">⚠️ Enforcement is OFF.</strong> <span style="color:var(--text2)">Set <code style="background:var(--bg3);padding:1px 5px;border-radius:4px">ENFORCE_LEGAL_ACCEPTANCE=true</code> in Render, and apply migration 0031 in the Supabase SQL Editor to activate full backend + DB enforcement.</span>';
+    }
+  } catch(e){ el.style.display='none'; }
 }
 
 async function wlLoadBanners() {
@@ -10467,8 +10605,73 @@ async function _pollNotifBadge(){
   } catch(e){}
 }
 
-function acceptCookies(){ localStorage.setItem('ab_cookies','1'); const b=document.getElementById('cookieBanner'); if(b) b.style.display='none'; }
-function checkCookieBanner(){ if(!localStorage.getItem('ab_cookies')) setTimeout(()=>{ const b=document.getElementById('cookieBanner'); if(b) b.style.display='flex'; },3000); }
+// ── Cookie preference centre ─────────────────────────────────────────────────
+// ab_cookie_prefs: JSON {essential:true, analytics:bool, marketing:bool, ts:iso, ver:'1.0'}
+// Legacy ab_cookies:'1' treated as accept-all.
+function _cpGet(){
+  try { const v=localStorage.getItem('ab_cookie_prefs'); if(v) return JSON.parse(v); } catch(e){}
+  // migrate legacy flag
+  if(localStorage.getItem('ab_cookies')==='1') return {essential:true,analytics:false,marketing:false,ts:new Date().toISOString(),ver:'1.0',migrated:true};
+  return null;
+}
+function _cpSave(prefs){
+  prefs.ts=new Date().toISOString(); prefs.ver='1.0'; prefs.essential=true;
+  try { localStorage.setItem('ab_cookie_prefs',JSON.stringify(prefs)); localStorage.setItem('ab_cookies','1'); } catch(e){}
+}
+function _cpApplyUI(prefs){
+  if(!prefs) return;
+  const at=document.getElementById('cpAnalyticsTrack'), am=document.getElementById('cpAnalyticsThumb');
+  const mt=document.getElementById('cpMarketingTrack'), mm=document.getElementById('cpMarketingThumb');
+  if(at){ at.style.background=prefs.analytics?'var(--green)':'var(--border)'; }
+  if(am){ am.style.transform=prefs.analytics?'translateX(18px)':'translateX(0)'; }
+  if(mt){ mt.style.background=prefs.marketing?'var(--green)':'var(--border)'; }
+  if(mm){ mm.style.transform=prefs.marketing?'translateX(18px)':'translateX(0)'; }
+}
+function cookiePrefToggle(type){
+  const prefs=_cpGet()||{essential:true,analytics:false,marketing:false};
+  prefs[type]=!prefs[type];
+  // update toggle UI without saving yet
+  const on=prefs[type];
+  const t=document.getElementById('cp'+type.charAt(0).toUpperCase()+type.slice(1)+'Track');
+  const b=document.getElementById('cp'+type.charAt(0).toUpperCase()+type.slice(1)+'Thumb');
+  if(t) t.style.background=on?'var(--green)':'var(--border)';
+  if(b) b.style.transform=on?'translateX(18px)':'translateX(0)';
+  // store temp state in element dataset so saveCookiePrefs can read it
+  if(t) t.dataset.pending=prefs[type]?'1':'0';
+}
+function saveCookiePrefs(){
+  const at=document.getElementById('cpAnalyticsTrack');
+  const mt=document.getElementById('cpMarketingTrack');
+  const prefs={
+    essential:true,
+    analytics: at ? (at.dataset.pending!=null ? at.dataset.pending==='1' : at.style.background.includes('green')) : false,
+    marketing: mt ? (mt.dataset.pending!=null ? mt.dataset.pending==='1' : mt.style.background.includes('green')) : false
+  };
+  _cpSave(prefs);
+  const b=document.getElementById('cookieBanner'); if(b) b.style.display='none';
+  showToast('Cookie preferences saved ✓');
+}
+function acceptAllCookies(){
+  _cpSave({essential:true,analytics:false,marketing:false}); // AgriBridge has no analytics/marketing trackers currently
+  const b=document.getElementById('cookieBanner'); if(b) b.style.display='none';
+}
+function acceptEssentialOnly(){
+  _cpSave({essential:true,analytics:false,marketing:false});
+  const b=document.getElementById('cookieBanner'); if(b) b.style.display='none';
+}
+// Legacy alias kept for any inline callers
+function acceptCookies(){ acceptAllCookies(); }
+function checkCookieBanner(){
+  const prefs=_cpGet();
+  if(!prefs){
+    setTimeout(()=>{
+      const b=document.getElementById('cookieBanner');
+      if(b){ b.style.display='flex'; const qr=document.getElementById('cookieQuickRow'); if(qr) qr.style.display='flex'; }
+    },3000);
+  } else {
+    _cpApplyUI(prefs);
+  }
+}
 function toggleFaq(qEl){ const aEl=qEl.nextElementSibling; const isOpen=aEl.classList.contains('open'); document.querySelectorAll('.faq-a.open').forEach(a=>{ a.classList.remove('open'); a.previousElementSibling?.classList.remove('open'); }); if(!isOpen){ aEl.classList.add('open'); qEl.classList.add('open'); } }
 function setLang(code){ localStorage.setItem('ab_lang',code); var langBtn=document.getElementById('langPickerBtn'); if(langBtn) langBtn.textContent={en:'🌐 EN',lg:'🇺🇬 LG',rn:'🌄 RN',ac:'🌾 AC'}[code]||'🌐'; closeModal('langModal'); showToast('Language updated ✓'); /* i18n engine overrides this below */ }
 // ── Settings hub (Telegram-style: home menu + one screen per section) ──────────
@@ -14079,10 +14282,60 @@ document.addEventListener('DOMContentLoaded', function() {
   <button class="pp-x" onclick="dismissPushPrompt()" aria-label="Not now">✕</button>
 </div>
 
-<div id="cookieBanner" style="display:none;position:fixed;bottom:70px;left:0;right:0;z-index:350;background:var(--bg2);border-top:1px solid var(--border);padding:12px 16px;gap:12px;align-items:center;flex-wrap:wrap;pointer-events:none">
-  <p style="flex:1;font-size:0.82rem;color:var(--text2);margin:0">🍪 AgriBridge stores small items in your browser to keep you signed in and remember your settings. No advertising trackers. <a href="legal/cookie-policy.html" target="_blank" rel="noopener" style="color:var(--green)">Cookie Policy</a> · <a href="legal/privacy-policy.html" target="_blank" rel="noopener" style="color:var(--green)">Privacy Policy</a></p>
-  <button class="btn-sm" style="pointer-events:auto" onclick="acceptCookies()">Accept</button>
-  <button class="btn-sm outline" style="pointer-events:auto" onclick="localStorage.setItem('ab_cookies','1');document.getElementById('cookieBanner').style.display='none'">Decline</button>
+<div id="cookieBanner" style="display:none;position:fixed;bottom:70px;left:0;right:0;z-index:350;background:var(--bg2);border-top:1px solid var(--border);padding:14px 16px;gap:10px;align-items:flex-start;flex-direction:column;pointer-events:none">
+  <div style="display:flex;align-items:flex-start;gap:10px;width:100%;pointer-events:auto">
+    <div style="flex:1">
+      <div style="font-weight:700;font-size:.88rem;color:var(--text);margin-bottom:3px">🍪 Cookie preferences</div>
+      <p style="font-size:0.8rem;color:var(--text2);margin:0">AgriBridge uses browser storage to keep you signed in and remember your settings. No advertising trackers. <a href="legal/cookie-policy.html" target="_blank" rel="noopener" style="color:var(--green)">Cookie Policy</a></p>
+    </div>
+    <button onclick="document.getElementById('cookiePrefPanel').style.display=document.getElementById('cookiePrefPanel').style.display==='none'?'block':'none'" style="pointer-events:auto;background:none;border:1px solid var(--border);border-radius:8px;padding:5px 10px;font-size:.78rem;color:var(--text2);cursor:pointer;white-space:nowrap;font-family:inherit">Manage</button>
+  </div>
+  <!-- Expandable preference panel -->
+  <div id="cookiePrefPanel" style="display:none;width:100%;pointer-events:auto">
+    <div style="background:var(--bg3);border-radius:12px;padding:12px;display:flex;flex-direction:column;gap:10px;margin-bottom:10px">
+      <!-- Essential — always on -->
+      <div style="display:flex;align-items:center;justify-content:space-between;gap:10px">
+        <div>
+          <div style="font-weight:700;font-size:.82rem;color:var(--text)">Essential</div>
+          <div style="font-size:.74rem;color:var(--text2)">Sign-in session, cart, language. Required to use AgriBridge.</div>
+        </div>
+        <div style="background:var(--green);color:#04160c;border-radius:20px;padding:3px 10px;font-size:.72rem;font-weight:700;white-space:nowrap">Always on</div>
+      </div>
+      <!-- Analytics -->
+      <div style="display:flex;align-items:center;justify-content:space-between;gap:10px">
+        <div>
+          <div style="font-weight:700;font-size:.82rem;color:var(--text)">Performance analytics</div>
+          <div style="font-size:.74rem;color:var(--text2)">Anonymous usage data to help us improve the platform.</div>
+        </div>
+        <label style="position:relative;width:40px;height:22px;flex-shrink:0">
+          <input type="checkbox" id="cpAnalytics" style="opacity:0;width:0;height:0;position:absolute">
+          <span onclick="cookiePrefToggle('analytics')" id="cpAnalyticsTrack" style="position:absolute;inset:0;border-radius:11px;background:var(--border);cursor:pointer;transition:background .2s"></span>
+          <span id="cpAnalyticsThumb" style="position:absolute;top:3px;left:3px;width:16px;height:16px;border-radius:50%;background:#fff;transition:transform .2s;pointer-events:none"></span>
+        </label>
+      </div>
+      <!-- Marketing -->
+      <div style="display:flex;align-items:center;justify-content:space-between;gap:10px">
+        <div>
+          <div style="font-weight:700;font-size:.82rem;color:var(--text)">Marketing messages</div>
+          <div style="font-size:.74rem;color:var(--text2)">Personalised offers and product recommendations.</div>
+        </div>
+        <label style="position:relative;width:40px;height:22px;flex-shrink:0">
+          <input type="checkbox" id="cpMarketing" style="opacity:0;width:0;height:0;position:absolute">
+          <span onclick="cookiePrefToggle('marketing')" id="cpMarketingTrack" style="position:absolute;inset:0;border-radius:11px;background:var(--border);cursor:pointer;transition:background .2s"></span>
+          <span id="cpMarketingThumb" style="position:absolute;top:3px;left:3px;width:16px;height:16px;border-radius:50%;background:#fff;transition:transform .2s;pointer-events:none"></span>
+        </label>
+      </div>
+    </div>
+    <div style="display:flex;gap:8px">
+      <button class="btn-sm" style="pointer-events:auto;flex:1" onclick="saveCookiePrefs()">Save preferences</button>
+      <button class="btn-sm" style="pointer-events:auto;flex:1;background:var(--green)" onclick="acceptAllCookies()">Accept all</button>
+    </div>
+  </div>
+  <!-- Quick action row (shown when panel collapsed) -->
+  <div id="cookieQuickRow" style="display:flex;gap:8px;width:100%;pointer-events:auto">
+    <button class="btn-sm" style="pointer-events:auto;flex:1" onclick="acceptAllCookies()">Accept all</button>
+    <button class="btn-sm outline" style="pointer-events:auto;flex:1" onclick="acceptEssentialOnly()">Essential only</button>
+  </div>
 </div>
 
 <!-- Web landing → app transition -->

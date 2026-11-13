@@ -6660,7 +6660,11 @@ def legal_status():
     role, err = _legal_role(uid)
     if err:
         return err
-    return _legal_response(LEGAL_SERVICE.status(uid, role))
+    result = LEGAL_SERVICE.status(uid, role)
+    # Append enforcement flag so the admin dashboard can display it.
+    if result.ok and isinstance(result.data, dict):
+        result.data['enforcement_active'] = LEGAL_ENFORCED
+    return _legal_response(result)
 
 
 @app.route('/api/legal/accept', methods=['POST'])
