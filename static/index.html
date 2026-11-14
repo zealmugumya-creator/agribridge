@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- AB_BUILD:20261115_SYNTAXFIX -->
+<!-- AB_BUILD:20261115_FULLCATALOGUE -->
 <html lang="en">
 <head>
 <script src="business-config.js"></script>
@@ -1379,13 +1379,19 @@ html.is-web:not(.app-entered) body{overflow:hidden}
 .wl-cat-tile{opacity:0;transform:translateY(24px);transition:opacity .5s,transform .5s,box-shadow .22s}
 .wl-cat-tile.wl-visible{opacity:1;transform:translateY(0)}
 .wl-cat-tile.wl-visible:hover{transform:translateY(-4px) scale(1.01)}
-/* stagger delays */
-.wl-cat-tile:nth-child(1){transition-delay:.05s}
-.wl-cat-tile:nth-child(2){transition-delay:.12s}
-.wl-cat-tile:nth-child(3){transition-delay:.19s}
-.wl-cat-tile:nth-child(4){transition-delay:.26s}
-.wl-cat-tile:nth-child(5){transition-delay:.33s}
-.wl-cat-tile:nth-child(6){transition-delay:.40s}
+/* stagger delays — 12 tiles */
+.wl-cat-tile:nth-child(1){transition-delay:.04s}
+.wl-cat-tile:nth-child(2){transition-delay:.08s}
+.wl-cat-tile:nth-child(3){transition-delay:.12s}
+.wl-cat-tile:nth-child(4){transition-delay:.16s}
+.wl-cat-tile:nth-child(5){transition-delay:.20s}
+.wl-cat-tile:nth-child(6){transition-delay:.24s}
+.wl-cat-tile:nth-child(7){transition-delay:.28s}
+.wl-cat-tile:nth-child(8){transition-delay:.32s}
+.wl-cat-tile:nth-child(9){transition-delay:.36s}
+.wl-cat-tile:nth-child(10){transition-delay:.40s}
+.wl-cat-tile:nth-child(11){transition-delay:.44s}
+.wl-cat-tile:nth-child(12){transition-delay:.48s}
 
 /* ── RESPONSIVE ── */
 @media(min-width:480px){
@@ -2834,34 +2840,64 @@ html.is-web:not(.app-entered) body{overflow:hidden}
       </div>
       <div class="wl-cats-grid">
         <div class="wl-cat-tile" onclick="wlOpenBrowse('vegetables')">
-          <img src="/img/cat-vegetables.jpg" alt="Vegetables" loading="lazy">
+          <img src="https://images.unsplash.com/photo-1540420773420-3366772f4999?w=400&q=80" alt="Vegetables" loading="lazy" onerror="this.style.display='none'">
           <div class="wl-cat-overlay"></div>
-          <div class="wl-cat-label"><b>Vegetables</b><small>Tomatoes, pepper, greens &amp; more</small></div>
+          <div class="wl-cat-label"><b>🥦 Vegetables</b><small>Tomatoes, greens, peppers &amp; more</small></div>
         </div>
         <div class="wl-cat-tile" onclick="wlOpenBrowse('fruits')">
-          <img src="/img/cat-fruits.jpg" alt="Fruits" loading="lazy">
+          <img src="https://images.unsplash.com/photo-1619566636858-adf3ef46400b?w=400&q=80" alt="Fruits" loading="lazy" onerror="this.style.display='none'">
           <div class="wl-cat-overlay"></div>
-          <div class="wl-cat-label"><b>Fruits</b><small>Mangoes, bananas, pawpaw &amp; more</small></div>
+          <div class="wl-cat-label"><b>🍋 Fruits</b><small>Mangoes, bananas, pawpaw &amp; more</small></div>
         </div>
-        <div class="wl-cat-tile" onclick="wlOpenBrowse('grains')">
-          <img src="/img/cat-grains.jpg" alt="Grains" loading="lazy">
+        <div class="wl-cat-tile" onclick="wlOpenBrowse('cereals-grains')">
+          <img src="https://images.unsplash.com/photo-1574323347407-f5e1ad6d020b?w=400&q=80" alt="Cereals" loading="lazy" onerror="this.style.display='none'">
           <div class="wl-cat-overlay"></div>
-          <div class="wl-cat-label"><b>Grains</b><small>Maize, millet, sorghum &amp; rice</small></div>
+          <div class="wl-cat-label"><b>🌾 Cereals &amp; Grains</b><small>Maize, rice, millet, sorghum</small></div>
         </div>
         <div class="wl-cat-tile" onclick="wlOpenBrowse('livestock')">
-          <img src="/img/cat-livestock.jpg" alt="Livestock" loading="lazy">
+          <img src="https://images.unsplash.com/photo-1500595046743-cd271d694d30?w=400&q=80" alt="Livestock" loading="lazy" onerror="this.style.display='none'">
           <div class="wl-cat-overlay"></div>
-          <div class="wl-cat-label"><b>Livestock</b><small>Cattle, goats, poultry &amp; eggs</small></div>
+          <div class="wl-cat-label"><b>🐄 Livestock</b><small>Cattle, goats, sheep, poultry</small></div>
         </div>
         <div class="wl-cat-tile" onclick="wlOpenBrowse('dairy')">
-          <img src="/img/cat-dairy.jpg" alt="Dairy" loading="lazy">
+          <img src="https://images.unsplash.com/photo-1550583724-b2692b85b150?w=400&q=80" alt="Dairy" loading="lazy" onerror="this.style.display='none'">
           <div class="wl-cat-overlay"></div>
-          <div class="wl-cat-label"><b>Dairy</b><small>Fresh milk, yoghurt &amp; cheese</small></div>
+          <div class="wl-cat-label"><b>🥛 Dairy</b><small>Fresh milk, yoghurt &amp; cheese</small></div>
         </div>
-        <div class="wl-cat-tile" onclick="wlOpenBrowse('staples')">
-          <img src="/img/cat-staples.jpg" alt="Staples" loading="lazy">
+        <div class="wl-cat-tile" onclick="wlOpenBrowse('roots-tubers')">
+          <img src="https://images.unsplash.com/photo-1518977676601-b53f82aba655?w=400&q=80" alt="Roots and Tubers" loading="lazy" onerror="this.style.display='none'">
           <div class="wl-cat-overlay"></div>
-          <div class="wl-cat-label"><b>Staples</b><small>Beans, cassava, sweet potato</small></div>
+          <div class="wl-cat-label"><b>🍠 Roots &amp; Tubers</b><small>Cassava, sweet potato, matooke</small></div>
+        </div>
+        <div class="wl-cat-tile" onclick="wlOpenBrowse('fish-aquaculture')">
+          <img src="https://images.unsplash.com/photo-1534482421-64566f976cfa?w=400&q=80" alt="Fish" loading="lazy" onerror="this.style.display='none'">
+          <div class="wl-cat-overlay"></div>
+          <div class="wl-cat-label"><b>🐟 Fish &amp; Aquaculture</b><small>Tilapia, Nile perch, mukene</small></div>
+        </div>
+        <div class="wl-cat-tile" onclick="wlOpenBrowse('honey-beekeeping')">
+          <img src="https://images.unsplash.com/photo-1587049352846-4a222e784d38?w=400&q=80" alt="Honey" loading="lazy" onerror="this.style.display='none'">
+          <div class="wl-cat-overlay"></div>
+          <div class="wl-cat-label"><b>🍯 Honey</b><small>Raw honey, beeswax &amp; bee products</small></div>
+        </div>
+        <div class="wl-cat-tile" onclick="wlOpenBrowse('cash-crops')">
+          <img src="https://images.unsplash.com/photo-1447933601403-0c6688de566e?w=400&q=80" alt="Cash Crops" loading="lazy" onerror="this.style.display='none'">
+          <div class="wl-cat-overlay"></div>
+          <div class="wl-cat-label"><b>☕ Cash Crops</b><small>Coffee, tea, cocoa, cotton</small></div>
+        </div>
+        <div class="wl-cat-tile" onclick="wlOpenBrowse('legumes-pulses')">
+          <img src="https://images.unsplash.com/photo-1515543904379-3d757afe72e4?w=400&q=80" alt="Legumes" loading="lazy" onerror="this.style.display='none'">
+          <div class="wl-cat-overlay"></div>
+          <div class="wl-cat-label"><b>🫘 Legumes &amp; Pulses</b><small>Beans, cowpeas, soybeans</small></div>
+        </div>
+        <div class="wl-cat-tile" onclick="wlOpenBrowse('herbs-spices')">
+          <img src="https://images.unsplash.com/photo-1466637574441-749b8f19452f?w=400&q=80" alt="Herbs and Spices" loading="lazy" onerror="this.style.display='none'">
+          <div class="wl-cat-overlay"></div>
+          <div class="wl-cat-label"><b>🌿 Herbs &amp; Spices</b><small>Ginger, turmeric, coriander</small></div>
+        </div>
+        <div class="wl-cat-tile" onclick="wlOpenBrowse('processed-products')">
+          <img src="https://images.unsplash.com/photo-1495195134817-aeb325a55b65?w=400&q=80" alt="Processed Products" loading="lazy" onerror="this.style.display='none'">
+          <div class="wl-cat-overlay"></div>
+          <div class="wl-cat-label"><b>🫙 Processed Products</b><small>Flour, oils, dried fruit &amp; more</small></div>
         </div>
       </div>
     </div>
@@ -3279,15 +3315,26 @@ html.is-web:not(.app-entered) body{overflow:hidden}
     <!-- Category nav (Café Javas top menu strip) -->
     <div class="wlb-cat-hero" id="wlbCatHero" role="tablist" aria-label="Browse categories">
       <button class="wlb-cat-btn active" onclick="wlbSetCat('all',this)" role="tab" aria-selected="true"><span class="cat-ic">🌍</span>All</button>
-      <button class="wlb-cat-btn" onclick="wlbSetCat('vegetables',this)" role="tab"><span class="cat-ic">🥦</span>Veggies</button>
-      <button class="wlb-cat-btn" onclick="wlbSetCat('fruits',this)" role="tab"><span class="cat-ic">🍎</span>Fruits</button>
-      <button class="wlb-cat-btn" onclick="wlbSetCat('grains',this)" role="tab"><span class="cat-ic">🌾</span>Grains</button>
-      <button class="wlb-cat-btn" onclick="wlbSetCat('staples',this)" role="tab"><span class="cat-ic">🍠</span>Staples</button>
+      <button class="wlb-cat-btn" onclick="wlbSetCat('vegetables',this)" role="tab"><span class="cat-ic">🥦</span>Vegetables</button>
+      <button class="wlb-cat-btn" onclick="wlbSetCat('fruits',this)" role="tab"><span class="cat-ic">🍋</span>Fruits</button>
+      <button class="wlb-cat-btn" onclick="wlbSetCat('cereals-grains',this)" role="tab"><span class="cat-ic">🌾</span>Cereals</button>
+      <button class="wlb-cat-btn" onclick="wlbSetCat('legumes-pulses',this)" role="tab"><span class="cat-ic">🫘</span>Legumes</button>
+      <button class="wlb-cat-btn" onclick="wlbSetCat('roots-tubers',this)" role="tab"><span class="cat-ic">🍠</span>Roots</button>
+      <button class="wlb-cat-btn" onclick="wlbSetCat('nuts-oilseeds',this)" role="tab"><span class="cat-ic">🥜</span>Nuts</button>
+      <button class="wlb-cat-btn" onclick="wlbSetCat('cash-crops',this)" role="tab"><span class="cat-ic">☕</span>Cash Crops</button>
+      <button class="wlb-cat-btn" onclick="wlbSetCat('herbs-spices',this)" role="tab"><span class="cat-ic">🌿</span>Herbs</button>
       <button class="wlb-cat-btn" onclick="wlbSetCat('livestock',this)" role="tab"><span class="cat-ic">🐄</span>Livestock</button>
+      <button class="wlb-cat-btn" onclick="wlbSetCat('meat-products',this)" role="tab"><span class="cat-ic">🥩</span>Meat</button>
       <button class="wlb-cat-btn" onclick="wlbSetCat('dairy',this)" role="tab"><span class="cat-ic">🥛</span>Dairy</button>
-      <button class="wlb-cat-btn" onclick="wlbSetCat('organic',this)" role="tab"><span class="cat-ic">🌿</span>Organic</button>
-      <button class="wlb-cat-btn" onclick="wlbSetCat('poultry',this)" role="tab"><span class="cat-ic">🐔</span>Poultry</button>
-      <button class="wlb-cat-btn" onclick="wlbSetCat('aqua',this)" role="tab"><span class="cat-ic">🐟</span>Aqua</button>
+      <button class="wlb-cat-btn" onclick="wlbSetCat('fish-aquaculture',this)" role="tab"><span class="cat-ic">🐟</span>Fish</button>
+      <button class="wlb-cat-btn" onclick="wlbSetCat('honey-beekeeping',this)" role="tab"><span class="cat-ic">🍯</span>Honey</button>
+      <button class="wlb-cat-btn" onclick="wlbSetCat('flowers-horticulture',this)" role="tab"><span class="cat-ic">🌸</span>Flowers</button>
+      <button class="wlb-cat-btn" onclick="wlbSetCat('processed-products',this)" role="tab"><span class="cat-ic">🫙</span>Processed</button>
+      <button class="wlb-cat-btn" onclick="wlbSetCat('animal-feed',this)" role="tab"><span class="cat-ic">🌱</span>Animal Feed</button>
+      <button class="wlb-cat-btn" onclick="wlbSetCat('seeds-planting',this)" role="tab"><span class="cat-ic">🌰</span>Seeds</button>
+      <button class="wlb-cat-btn" onclick="wlbSetCat('forestry',this)" role="tab"><span class="cat-ic">🪵</span>Forestry</button>
+      <button class="wlb-cat-btn" onclick="wlbSetCat('medicinal-plants',this)" role="tab"><span class="cat-ic">🌿</span>Medicinal</button>
+      <button class="wlb-cat-btn" onclick="wlbSetCat('agri-byproducts',this)" role="tab"><span class="cat-ic">♻️</span>By-products</button>
     </div>
 
     <!-- Section hero banner (changes with category) -->
@@ -9617,16 +9664,33 @@ var _wlBrowseCat = 'all';
 
 // ── WLB: Category meta (hero band colours + copy) ──
 var WLB_CAT_META = {
-  all:        { grad:'linear-gradient(135deg,#0d2a16 0%,#1a5c30 60%,#2db55d 100%)', label:'Fresh from Ugandan Farms', title:'All Produce', sub:'Browse & order directly from verified farmers' },
-  vegetables: { grad:'linear-gradient(135deg,#0a2a0a 0%,#1a5c1a 60%,#38a838 100%)', label:'Farm-fresh vegetables', title:'Vegetables', sub:'Leafy greens, roots & more — straight from the garden' },
-  fruits:     { grad:'linear-gradient(135deg,#2a1a05 0%,#7a3a05 60%,#d4700a 100%)', label:'Uganda finest fruits', title:'Fruits', sub:'Mangoes, avocados, pineapples & tropical picks' },
-  grains:     { grad:'linear-gradient(135deg,#1a1a05 0%,#4a4a0a 60%,#8a8a14 100%)', label:'Staple grains & cereals', title:'Grains & Cereals', sub:'Maize, rice, beans, sorghum — bulk or small orders' },
-  staples:    { grad:'linear-gradient(135deg,#2a1505 0%,#5c3a0d 60%,#9a6020 100%)', label:'Root crops & staples', title:'Staples', sub:'Cassava, sweet potato, yam — straight from the farm' },
-  livestock:  { grad:'linear-gradient(135deg,#1a0a0a 0%,#5c1a1a 60%,#9a3030 100%)', label:'Certified healthy animals', title:'Livestock', sub:'Cattle, goats, pigs — MAAIF certified & vaccinated' },
-  dairy:      { grad:'linear-gradient(135deg,#0a1a2a 0%,#1a4a6a 60%,#2a7aaa 100%)', label:'Fresh dairy produce', title:'Dairy', sub:'Milk, cheese, yoghurt from verified dairy farms' },
-  organic:    { grad:'linear-gradient(135deg,#0a2a14 0%,#1a6a3a 60%,#2aaa5a 100%)', label:'100% organic, certified', title:'Organic Produce', sub:'No pesticides, no chemicals — pure and natural' },
-  poultry:    { grad:'linear-gradient(135deg,#2a2a05 0%,#6a6a0a 60%,#aaaa14 100%)', label:'Healthy poultry & eggs', title:'Poultry', sub:'Chickens, eggs, ducks — free-range and farm-fresh' },
-  aqua:       { grad:'linear-gradient(135deg,#051a2a 0%,#0a4a6a 60%,#148aaa 100%)', label:'Fresh from Uganda lakes', title:'Aquaculture', sub:'Tilapia, catfish & fingerlings from certified farms' }
+  all:                  { grad:'linear-gradient(135deg,#0d2a16 0%,#1a5c30 60%,#2db55d 100%)', label:'Fresh from Ugandan Farms',         title:'All Produce',                  sub:'Browse & order directly from verified farmers' },
+  vegetables:           { grad:'linear-gradient(135deg,#0a2a0a 0%,#1a5c1a 60%,#38a838 100%)', label:'Farm-fresh vegetables',              title:'Vegetables',                   sub:'Leafy greens, roots & more — straight from the garden' },
+  fruits:               { grad:'linear-gradient(135deg,#2a1a05 0%,#7a3a05 60%,#d4700a 100%)', label:'Uganda finest fruits',               title:'Fruits',                       sub:'Mangoes, avocados, pineapples & tropical picks' },
+  'cereals-grains':     { grad:'linear-gradient(135deg,#1a1a05 0%,#4a4a0a 60%,#8a8a14 100%)', label:'Staple grains & cereals',            title:'Cereals and Grains',           sub:'Maize, rice, millet, sorghum — bulk or small orders' },
+  'legumes-pulses':     { grad:'linear-gradient(135deg,#1a0a05 0%,#5a2a0a 60%,#9a4a1a 100%)', label:'Protein-rich legumes',               title:'Legumes and Pulses',           sub:'Beans, cowpeas, soybeans and other pulses' },
+  'roots-tubers':       { grad:'linear-gradient(135deg,#2a1505 0%,#5c3a0d 60%,#9a6020 100%)', label:'Root crops & staples',               title:'Roots, Tubers and Bananas',    sub:'Cassava, sweet potato, yam, matooke — farm-fresh' },
+  'nuts-oilseeds':      { grad:'linear-gradient(135deg,#1a0a00 0%,#4a2a00 60%,#8a5a1a 100%)', label:'Nutritious nuts & seeds',            title:'Nuts and Oilseeds',            sub:'Groundnuts, sesame, sunflower, macadamia & more' },
+  'cash-crops':         { grad:'linear-gradient(135deg,#1a0d00 0%,#3a2000 60%,#6a4a10 100%)', label:'Ugandan premium cash crops',         title:'Cash and Industrial Crops',    sub:'Coffee, tea, cocoa, cotton, vanilla & more' },
+  'herbs-spices':       { grad:'linear-gradient(135deg,#0a2a14 0%,#1a6a3a 60%,#2aaa5a 100%)', label:'Aromatic herbs & spices',            title:'Herbs and Spices',             sub:'Fresh herbs, dried spices & aromatic plants' },
+  livestock:            { grad:'linear-gradient(135deg,#1a0a0a 0%,#5c1a1a 60%,#9a3030 100%)', label:'Certified healthy animals',          title:'Livestock and Farm Animals',   sub:'Cattle, goats, sheep, pigs, poultry — MAAIF certified' },
+  'meat-products':      { grad:'linear-gradient(135deg,#2a0505 0%,#6a1010 60%,#aa2020 100%)', label:'Fresh farm meat & products',         title:'Meat and Animal Products',     sub:'Beef, goat, pork, chicken, eggs, hides & more' },
+  dairy:                { grad:'linear-gradient(135deg,#0a1a2a 0%,#1a4a6a 60%,#2a7aaa 100%)', label:'Fresh dairy produce',                title:'Dairy and Milk Products',      sub:'Milk, yoghurt, cheese, butter from verified dairy farms' },
+  'fish-aquaculture':   { grad:'linear-gradient(135deg,#051a2a 0%,#0a4a6a 60%,#148aaa 100%)', label:'Fresh from Uganda lakes',            title:'Fish and Aquaculture',         sub:'Tilapia, Nile perch, mukene, catfish & fingerlings' },
+  'honey-beekeeping':   { grad:'linear-gradient(135deg,#2a1a00 0%,#6a4a00 60%,#c8900a 100%)', label:'Pure Ugandan honey',                 title:'Honey and Beekeeping',         sub:'Raw honey, beeswax, propolis, bee pollen & more' },
+  'flowers-horticulture':{ grad:'linear-gradient(135deg,#2a0a2a 0%,#6a1a6a 60%,#cc44cc 100%)', label:'Beautiful flowers & seedlings',    title:'Flowers and Horticulture',     sub:'Cut flowers, ornamentals, fruit seedlings & grafts' },
+  'processed-products': { grad:'linear-gradient(135deg,#1a1505 0%,#4a4010 60%,#8a7a20 100%)', label:'Value-added farm products',          title:'Processed Farm Products',      sub:'Flour, oils, dried fruit, juices, peanut butter & more' },
+  'animal-feed':        { grad:'linear-gradient(135deg,#0a1a0a 0%,#1a4a1a 60%,#2a8a2a 100%)', label:'Quality feed for your animals',      title:'Animal Feed and Fodder',       sub:'Napier grass, hay, silage, meal, mineral licks & more' },
+  'seeds-planting':     { grad:'linear-gradient(135deg,#0a0a1a 0%,#1a1a5a 60%,#2a2aaa 100%)', label:'Certified seeds & planting stock',   title:'Seeds and Planting Materials', sub:'Crop seeds, cuttings, suckers, seedlings & grafts' },
+  forestry:             { grad:'linear-gradient(135deg,#0d1a0a 0%,#2a4a1a 60%,#4a8a2a 100%)', label:'Legal timber & forest products',     title:'Forestry and Agroforestry',    sub:'Timber, bamboo, firewood, tree seedlings & resins' },
+  'medicinal-plants':   { grad:'linear-gradient(135deg,#0a1a10 0%,#1a4a2a 60%,#2a8a4a 100%)', label:'Natural herbal plant materials',     title:'Medicinal and Aromatic Plants',sub:'Moringa, aloe vera, neem, artemisia & traditional herbs' },
+  'agri-byproducts':    { grad:'linear-gradient(135deg,#1a1a1a 0%,#3a3a3a 60%,#5a5a5a 100%)', label:'Organic waste, full circle farming', title:'Agricultural By-products',     sub:'Manure, compost, biochar, husks & organic materials' },
+  /* legacy keys kept so old links still work */
+  grains:   { grad:'linear-gradient(135deg,#1a1a05 0%,#4a4a0a 60%,#8a8a14 100%)', label:'Staple grains & cereals', title:'Cereals and Grains', sub:'Maize, rice, millet, sorghum — bulk or small orders' },
+  staples:  { grad:'linear-gradient(135deg,#2a1505 0%,#5c3a0d 60%,#9a6020 100%)', label:'Root crops & staples',    title:'Roots and Tubers',   sub:'Cassava, sweet potato, yam — straight from the farm' },
+  organic:  { grad:'linear-gradient(135deg,#0a2a14 0%,#1a6a3a 60%,#2aaa5a 100%)', label:'100% organic, certified', title:'Organic Produce',    sub:'No pesticides, no chemicals — pure and natural' },
+  poultry:  { grad:'linear-gradient(135deg,#2a2a05 0%,#6a6a0a 60%,#aaaa14 100%)', label:'Healthy poultry & eggs', title:'Poultry',            sub:'Chickens, eggs, ducks — free-range and farm-fresh' },
+  aqua:     { grad:'linear-gradient(135deg,#051a2a 0%,#0a4a6a 60%,#148aaa 100%)', label:'Fresh from Uganda lakes', title:'Aquaculture',        sub:'Tilapia, catfish & fingerlings from certified farms' }
 };
 
 async function wlOpenBrowse(cat) {
@@ -9692,7 +9756,40 @@ function wlbRender() {
   var list = _wlAllListings.filter(function(l) {
     var catOk = _wlBrowseCat === 'all'
       || (_wlBrowseCat === 'organic' ? l.is_organic
-      : ((l.category||'').toLowerCase().includes(_wlBrowseCat) || (l.crop_name||'').toLowerCase().includes(_wlBrowseCat)));
+      : (function(){
+           var lcat = (l.category||'').toLowerCase();
+           var lname = (l.crop_name||'').toLowerCase();
+           var bc = _wlBrowseCat.toLowerCase();
+           /* exact slug match (new DB listings) */
+           if (lcat === bc) return true;
+           /* legacy text matches */
+           var legacyMap = {
+             'vegetables':'vegetable','fruits':'fruit','cereals-grains':'grain cereal maize rice millet sorghum wheat',
+             'legumes-pulses':'bean beans legume pulse cowpea soybean chickpea lentil',
+             'roots-tubers':'cassava sweet potato yam matooke plantain tuber root',
+             'nuts-oilseeds':'groundnut nut sesame sunflower oilseed',
+             'cash-crops':'coffee tea cocoa cotton tobacco vanilla sugarcane',
+             'herbs-spices':'herb spice ginger turmeric chilli pepper coriander',
+             'livestock':'cattle goat sheep pig livestock animal',
+             'meat-products':'meat beef pork chicken egg hide',
+             'dairy':'dairy milk yoghurt cheese butter cream',
+             'fish-aquaculture':'fish tilapia perch catfish mukene aqua',
+             'honey-beekeeping':'honey beeswax propolis bee',
+             'flowers-horticulture':'flower rose ornamental seedling',
+             'processed-products':'flour oil dried processed juice jam',
+             'animal-feed':'feed fodder napier hay silage meal',
+             'seeds-planting':'seed cutting sucker vine planting material',
+             'forestry':'timber bamboo firewood wood charcoal tree',
+             'medicinal-plants':'moringa aloe neem herbal medicinal aromatic',
+             'agri-byproducts':'manure compost biochar husk residue byproduct',
+             'grains':'grain cereal maize rice millet sorghum wheat',
+             'staples':'cassava sweet potato yam matooke tuber root',
+             'poultry':'chicken poultry duck turkey egg',
+             'aqua':'fish tilapia perch catfish mukene aqua'
+           };
+           var terms = (legacyMap[bc]||bc).split(' ');
+           return terms.some(function(t){ return lcat.includes(t) || lname.includes(t); });
+         })());
     var qOk = !q || (l.crop_name||'').toLowerCase().includes(q) || (l.district||'').toLowerCase().includes(q) || (l.category||'').toLowerCase().includes(q) || (l.farmer_name||'').toLowerCase().includes(q);
     return catOk && qOk;
   });
