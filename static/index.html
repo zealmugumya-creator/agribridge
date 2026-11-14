@@ -1483,56 +1483,360 @@ html.is-web:not(.app-entered) body{overflow:hidden}
 .wlb-empty{text-align:center;padding:60px 20px;color:var(--wl-text3)}
 .wlb-empty-icon{font-size:3rem;margin-bottom:12px}
 .wlb-loader{display:flex;align-items:center;justify-content:center;gap:10px;padding:48px;color:var(--wl-text3)}
-/* Product detail modal */
+/* ── BROWSE PAGE — Café Javas-inspired full experience ── */
+#wl-browse{
+  display:none;min-height:100vh;background:var(--wl-cream);
+  font-family:'Inter',sans-serif
+}
+#wl-browse.open{display:block}
+
+/* Sticky browse nav */
+.wlb-topbar{
+  display:flex;align-items:center;gap:12px;
+  padding:0 clamp(16px,4vw,48px);height:60px;
+  background:rgba(255,253,247,.97);backdrop-filter:blur(20px);
+  border-bottom:1.5px solid var(--wl-border);
+  position:sticky;top:0;z-index:50;
+  box-shadow:0 2px 12px rgba(26,122,60,.06)
+}
+.wlb-back{
+  display:flex;align-items:center;gap:5px;background:none;border:none;
+  color:var(--wl-green);font-weight:700;font-size:.88rem;cursor:pointer;
+  padding:7px 12px;border-radius:9px;transition:.18s;white-space:nowrap;flex-shrink:0
+}
+.wlb-back:hover{background:var(--wl-green-lt)}
+.wlb-search{flex:1;max-width:420px;position:relative}
+.wlb-search input{
+  width:100%;padding:9px 14px 9px 38px;border:1.5px solid var(--wl-border);
+  border-radius:22px;background:#fff;font-size:.88rem;color:var(--wl-text);
+  font-family:inherit;outline:none;transition:.2s
+}
+.wlb-search input:focus{border-color:var(--wl-green);box-shadow:0 0 0 3px rgba(26,122,60,.1)}
+.wlb-search::before{content:'🔍';position:absolute;left:12px;top:50%;transform:translateY(-50%);font-size:.82rem;pointer-events:none}
+.wlb-count{font-size:.8rem;color:var(--wl-text3);white-space:nowrap;margin-left:auto;flex-shrink:0}
+
+/* Category hero strip */
+.wlb-cat-hero{
+  display:flex;gap:0;overflow-x:auto;scrollbar-width:none;
+  padding:0;background:var(--wl-cream2);border-bottom:1.5px solid var(--wl-border)
+}
+.wlb-cat-hero::-webkit-scrollbar{display:none}
+.wlb-cat-btn{
+  flex-shrink:0;display:flex;flex-direction:column;align-items:center;
+  gap:4px;padding:14px 20px;cursor:pointer;border:none;background:transparent;
+  font-family:inherit;font-size:.78rem;font-weight:600;color:var(--wl-text3);
+  border-bottom:3px solid transparent;transition:.18s;white-space:nowrap
+}
+.wlb-cat-btn span.cat-ic{font-size:1.5rem;line-height:1}
+.wlb-cat-btn:hover{color:var(--wl-green);background:var(--wl-green-lt)}
+.wlb-cat-btn.active{color:var(--wl-green);border-bottom-color:var(--wl-green);background:#fff}
+
+/* Section hero banner */
+.wlb-hero-band{
+  position:relative;overflow:hidden;
+  height:clamp(140px,22vw,220px);
+  display:flex;align-items:flex-end;
+  padding:0 clamp(20px,5vw,52px) 20px
+}
+.wlb-hero-band-bg{
+  position:absolute;inset:0;
+  background:linear-gradient(135deg,#0d2a16 0%,#1a5c30 60%,#2db55d 100%);
+  transition:background .4s
+}
+.wlb-hero-band-overlay{position:absolute;inset:0;background:linear-gradient(to top,rgba(0,0,0,.55) 0%,transparent 60%)}
+.wlb-hero-band-content{position:relative;z-index:1;color:#fff}
+.wlb-hero-band-label{font-size:.74rem;font-weight:700;letter-spacing:1.2px;text-transform:uppercase;opacity:.75;margin-bottom:4px}
+.wlb-hero-band-title{font-family:'Playfair Display',serif;font-size:clamp(1.4rem,4vw,2.4rem);font-weight:800;line-height:1.1}
+.wlb-hero-band-sub{font-size:.82rem;opacity:.8;margin-top:4px}
+
+/* Body */
+.wlb-body{max-width:1200px;margin:0 auto;padding:28px clamp(16px,4vw,48px) 60px}
+.wlb-section-label{
+  font-size:.72rem;font-weight:700;letter-spacing:1.4px;text-transform:uppercase;
+  color:var(--wl-green);margin:0 0 16px
+}
+
+/* Product grid — Café Javas card style */
+.wlb-grid{
+  display:grid;
+  grid-template-columns:repeat(2,1fr);
+  gap:16px
+}
+@media(min-width:520px){.wlb-grid{grid-template-columns:repeat(3,1fr)}}
+@media(min-width:768px){.wlb-grid{grid-template-columns:repeat(4,1fr);gap:20px}}
+@media(min-width:1080px){.wlb-grid{grid-template-columns:repeat(5,1fr)}}
+
+.wlb-card{
+  background:#fff;border-radius:16px;overflow:hidden;cursor:pointer;
+  border:1.5px solid var(--wl-border);
+  transition:transform .22s,box-shadow .22s,border-color .22s;
+  display:flex;flex-direction:column;
+  box-shadow:0 2px 8px rgba(26,122,60,.06)
+}
+.wlb-card:hover{
+  transform:translateY(-4px);
+  box-shadow:0 12px 36px rgba(26,122,60,.16);
+  border-color:var(--wl-green)
+}
+.wlb-card-img{
+  width:100%;aspect-ratio:1/1;overflow:hidden;
+  background:var(--wl-cream2);
+  display:flex;align-items:center;justify-content:center;
+  position:relative
+}
+.wlb-card-img img{width:100%;height:100%;object-fit:cover;display:block;transition:transform .4s}
+.wlb-card:hover .wlb-card-img img{transform:scale(1.08)}
+.wlb-card-emoji{font-size:2.8rem}
+.wlb-card-badges{position:absolute;top:8px;left:8px;display:flex;flex-direction:column;gap:4px}
+.wlb-card-badge{padding:2px 8px;border-radius:20px;font-size:.62rem;font-weight:700;text-transform:uppercase;letter-spacing:.5px}
+.wlb-card-badge.organic{background:rgba(45,181,93,.9);color:#fff}
+.wlb-card-badge.verified{background:rgba(21,101,192,.9);color:#fff}
+.wlb-card-badge.sale{background:rgba(244,67,54,.9);color:#fff}
+.wlb-card-add{
+  position:absolute;bottom:8px;right:8px;
+  width:32px;height:32px;border-radius:50%;
+  background:var(--wl-green);color:#fff;border:none;
+  font-size:1.2rem;line-height:1;cursor:pointer;
+  display:flex;align-items:center;justify-content:center;
+  box-shadow:0 2px 8px rgba(26,122,60,.4);
+  transition:transform .18s,background .18s;
+  opacity:0;transform:scale(.8)
+}
+.wlb-card:hover .wlb-card-add{opacity:1;transform:scale(1)}
+.wlb-card-add:hover{background:var(--wl-green2);transform:scale(1.1)!important}
+.wlb-card-body{padding:11px 12px 4px;flex:1}
+.wlb-card-name{
+  font-weight:700;font-size:.88rem;color:var(--wl-text);
+  margin-bottom:3px;line-height:1.3;
+  display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden
+}
+.wlb-card-farmer{font-size:.72rem;color:var(--wl-text3);display:flex;align-items:center;gap:3px}
+.wlb-card-district{font-size:.7rem;color:var(--wl-text3)}
+.wlb-card-price{
+  font-size:1rem;font-weight:800;color:var(--wl-green);
+  margin-top:8px;line-height:1
+}
+.wlb-card-price small{font-size:.68rem;color:var(--wl-text3);font-weight:500}
+.wlb-card-price s{font-size:.74rem;color:#aaa;font-weight:500;margin-left:4px}
+.wlb-card-foot{padding:8px 12px 12px}
+.wlb-card-btn{
+  width:100%;padding:9px 0;
+  background:var(--wl-green);color:#fff;border:none;
+  border-radius:10px;font-weight:700;font-size:.82rem;
+  cursor:pointer;font-family:inherit;transition:.18s
+}
+.wlb-card-btn:hover{background:var(--wl-green2)}
+.wlb-empty{text-align:center;padding:72px 20px;color:var(--wl-text3)}
+.wlb-empty-icon{font-size:3.2rem;margin-bottom:14px}
+.wlb-loader{
+  display:flex;align-items:center;justify-content:center;gap:10px;
+  padding:60px;color:var(--wl-text3);font-size:.9rem
+}
+.wlb-loader::before{
+  content:'';width:22px;height:22px;border:2.5px solid var(--wl-border);
+  border-top-color:var(--wl-green);border-radius:50%;animation:wlb-spin 1s linear infinite
+}
+@keyframes wlb-spin{to{transform:rotate(360deg)}}
+
+/* ── PRODUCT DETAIL SLIDE-UP PANEL ── */
 #wl-prod-modal{
   display:none;position:fixed;inset:0;z-index:7000;
-  background:rgba(28,43,31,.55);backdrop-filter:blur(4px);
-  align-items:center;justify-content:center;padding:16px
+  background:rgba(10,24,14,.6);backdrop-filter:blur(6px);
+  align-items:flex-end;justify-content:center
 }
 #wl-prod-modal.open{display:flex}
-.wl-pm-box{
-  background:#fff;border-radius:20px;max-width:620px;width:100%;
-  max-height:90vh;overflow-y:auto;position:relative;
-  box-shadow:0 24px 64px rgba(0,0,0,.22)
+@media(min-width:600px){
+  #wl-prod-modal{align-items:center}
 }
-.wl-pm-img{width:100%;aspect-ratio:16/9;overflow:hidden;background:var(--wl-cream2);
-  display:flex;align-items:center;justify-content:center;border-radius:20px 20px 0 0}
+.wl-pm-box{
+  background:#fff;
+  border-radius:24px 24px 0 0;
+  width:100%;max-width:680px;
+  max-height:92vh;overflow-y:auto;
+  position:relative;
+  box-shadow:0 -8px 48px rgba(0,0,0,.24);
+  animation:wl-pm-rise .3s cubic-bezier(.34,1.1,.64,1)
+}
+@media(min-width:600px){
+  .wl-pm-box{border-radius:24px;max-height:88vh}
+}
+@keyframes wl-pm-rise{from{transform:translateY(80px);opacity:0}to{transform:translateY(0);opacity:1}}
+.wl-pm-img{
+  width:100%;aspect-ratio:16/9;overflow:hidden;
+  background:var(--wl-cream2);
+  display:flex;align-items:center;justify-content:center;
+  border-radius:24px 24px 0 0;position:relative
+}
 .wl-pm-img img{width:100%;height:100%;object-fit:cover}
-.wl-pm-emoji{font-size:4rem}
-.wl-pm-body{padding:20px 24px 28px}
-.wl-pm-close{position:absolute;top:12px;right:12px;background:rgba(0,0,0,.35);
-  color:#fff;border:none;border-radius:50%;width:34px;height:34px;font-size:1.1rem;
-  cursor:pointer;display:flex;align-items:center;justify-content:center;z-index:2}
-.wl-pm-name{font-family:'Syne',sans-serif;font-weight:800;font-size:1.5rem;color:var(--wl-text);margin-bottom:4px}
-.wl-pm-price{font-size:1.6rem;font-weight:800;color:var(--wl-green);margin:8px 0}
+.wl-pm-emoji{font-size:4.5rem}
+.wl-pm-img-grad{
+  position:absolute;bottom:0;left:0;right:0;height:60%;
+  background:linear-gradient(to top,rgba(0,0,0,.45),transparent);
+  pointer-events:none
+}
+.wl-pm-close{
+  position:absolute;top:12px;right:12px;
+  background:rgba(0,0,0,.38);color:#fff;border:none;
+  border-radius:50%;width:36px;height:36px;font-size:1rem;
+  cursor:pointer;display:flex;align-items:center;justify-content:center;z-index:2;
+  transition:.18s
+}
+.wl-pm-close:hover{background:rgba(0,0,0,.55)}
+.wl-pm-body{padding:20px 22px 32px}
+.wl-pm-toprow{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;margin-bottom:4px}
+.wl-pm-name{
+  font-family:'Playfair Display',serif;font-weight:800;
+  font-size:clamp(1.3rem,4vw,1.7rem);color:var(--wl-text);
+  line-height:1.15;flex:1
+}
+.wl-pm-badges{display:flex;flex-direction:column;gap:4px;align-items:flex-end}
+.wl-pm-badge{padding:4px 10px;border-radius:20px;font-size:.7rem;font-weight:700}
+.wl-pm-badge.org{background:var(--wl-green-lt);color:var(--wl-green)}
+.wl-pm-badge.ver{background:#e8f0fe;color:#1565C0}
+.wl-pm-price-row{display:flex;align-items:baseline;gap:10px;margin:10px 0 4px}
+.wl-pm-price{font-size:1.8rem;font-weight:800;color:var(--wl-green);line-height:1}
 .wl-pm-price small{font-size:.85rem;color:var(--wl-text3);font-weight:500}
-.wl-pm-row{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px}
-.wl-pm-pill{padding:4px 12px;border-radius:20px;background:var(--wl-green-lt);
-  color:var(--wl-green);font-size:.78rem;font-weight:700}
-.wl-pm-pill.district{background:#f0f4ff;color:#1565C0}
-.wl-pm-desc{font-size:.88rem;color:var(--wl-text2);line-height:1.7;margin:12px 0}
-.wl-pm-actions{display:flex;gap:10px;margin-top:16px}
-.wl-pm-btn-order{flex:1;padding:14px 20px;background:var(--wl-green);color:#fff;
-  border:none;border-radius:12px;font-size:1rem;font-weight:800;cursor:pointer;
-  font-family:inherit;transition:.18s}
-.wl-pm-btn-order:hover{background:var(--wl-green2);transform:translateY(-1px)}
-.wl-pm-signin-note{font-size:.8rem;color:var(--wl-text3);text-align:center;margin-top:8px}
-/* Sign-in gate prompt */
+.wl-pm-price-orig{font-size:1rem;color:#aaa;text-decoration:line-through}
+.wl-pm-sale-pct{
+  background:#ffeaea;color:#d32f2f;font-size:.72rem;
+  font-weight:700;padding:3px 9px;border-radius:20px
+}
+.wl-pm-pills{display:flex;gap:6px;flex-wrap:wrap;margin:10px 0}
+.wl-pm-pill{
+  padding:4px 12px;border-radius:20px;
+  background:var(--wl-cream2);color:var(--wl-text2);
+  font-size:.75rem;font-weight:600
+}
+.wl-pm-pill.district{background:#e8f0fe;color:#1565C0}
+.wl-pm-pill.delivery{background:#fff3e0;color:#e65100}
+.wl-pm-divider{border:none;border-top:1.5px solid var(--wl-border);margin:14px 0}
+.wl-pm-farmer-row{
+  display:flex;align-items:center;gap:12px;padding:12px 14px;
+  background:var(--wl-cream2);border-radius:12px;margin-bottom:14px
+}
+.wl-pm-farmer-av{
+  width:42px;height:42px;border-radius:50%;
+  background:var(--wl-green);color:#fff;
+  display:flex;align-items:center;justify-content:center;
+  font-size:1.3rem;flex-shrink:0
+}
+.wl-pm-farmer-info{flex:1;min-width:0}
+.wl-pm-farmer-name{font-weight:700;font-size:.88rem;color:var(--wl-text)}
+.wl-pm-farmer-meta{font-size:.74rem;color:var(--wl-text3);margin-top:1px}
+.wl-pm-farmer-rating{font-size:.74rem;color:var(--wl-green);font-weight:600}
+.wl-pm-desc{font-size:.88rem;color:var(--wl-text2);line-height:1.75;margin:0 0 16px}
+.wl-pm-stock{
+  display:flex;align-items:center;gap:8px;
+  font-size:.8rem;color:var(--wl-text3);margin-bottom:14px
+}
+.wl-pm-stock-dot{width:8px;height:8px;border-radius:50%;background:var(--wl-green3);flex-shrink:0}
+.wl-pm-qty-row{
+  display:flex;align-items:center;gap:14px;margin-bottom:16px
+}
+.wl-pm-qty-label{font-size:.82rem;color:var(--wl-text2);font-weight:600}
+.wl-pm-qty-ctrl{
+  display:flex;align-items:center;gap:0;
+  border:1.5px solid var(--wl-border);border-radius:10px;overflow:hidden
+}
+.wl-pm-qty-btn{
+  width:36px;height:36px;border:none;background:#fff;
+  font-size:1.2rem;cursor:pointer;color:var(--wl-green);
+  transition:background .15s;font-weight:700
+}
+.wl-pm-qty-btn:hover{background:var(--wl-green-lt)}
+.wl-pm-qty-val{
+  min-width:40px;text-align:center;font-weight:700;
+  font-size:.95rem;color:var(--wl-text);
+  border-left:1px solid var(--wl-border);border-right:1px solid var(--wl-border);
+  padding:0 8px;line-height:34px
+}
+.wl-pm-actions{display:flex;gap:10px;margin-top:4px}
+.wl-pm-btn-order{
+  flex:1;padding:16px 20px;
+  background:linear-gradient(135deg,var(--wl-green),var(--wl-green2));
+  color:#fff;border:none;border-radius:14px;
+  font-size:1rem;font-weight:800;cursor:pointer;
+  font-family:inherit;transition:.18s;
+  box-shadow:0 4px 20px rgba(26,122,60,.35)
+}
+.wl-pm-btn-order:hover{transform:translateY(-1px);box-shadow:0 6px 24px rgba(26,122,60,.45)}
+.wl-pm-btn-save{
+  width:52px;height:52px;border:1.5px solid var(--wl-border);
+  background:#fff;border-radius:14px;cursor:pointer;
+  font-size:1.3rem;transition:.18s;
+  display:flex;align-items:center;justify-content:center
+}
+.wl-pm-btn-save:hover{border-color:var(--wl-green);background:var(--wl-green-lt)}
+.wl-pm-signin-note{
+  font-size:.78rem;color:var(--wl-text3);text-align:center;
+  margin-top:10px;line-height:1.5
+}
+
+/* ── SIGN-IN GATE ── */
 #wl-signin-gate{
   display:none;position:fixed;inset:0;z-index:8000;
-  background:rgba(28,43,31,.65);backdrop-filter:blur(6px);
-  align-items:center;justify-content:center;padding:16px
+  background:rgba(10,24,14,.7);backdrop-filter:blur(8px);
+  align-items:flex-end;justify-content:center;padding:0
 }
 #wl-signin-gate.open{display:flex}
-.wl-sg-box{
-  background:#fff;border-radius:20px;max-width:420px;width:100%;
-  padding:32px 28px;text-align:center;
-  box-shadow:0 24px 64px rgba(0,0,0,.22)
+@media(min-width:600px){
+  #wl-signin-gate{align-items:center;padding:16px}
 }
-.wl-sg-icon{font-size:2.6rem;margin-bottom:12px}
-.wl-sg-title{font-family:'Syne',sans-serif;font-weight:800;font-size:1.3rem;color:var(--wl-text);margin-bottom:8px}
-.wl-sg-sub{font-size:.88rem;color:var(--wl-text2);line-height:1.6;margin-bottom:24px}
+.wl-sg-box{
+  background:#fff;
+  border-radius:24px 24px 0 0;
+  width:100%;max-width:440px;
+  padding:8px 0 0;
+  box-shadow:0 -8px 48px rgba(0,0,0,.24);
+  animation:wl-pm-rise .28s cubic-bezier(.34,1.1,.64,1)
+}
+@media(min-width:600px){.wl-sg-box{border-radius:24px;padding:0}}
+.wl-sg-handle{width:40px;height:4px;background:var(--wl-border);border-radius:2px;margin:0 auto 20px}
+@media(min-width:600px){.wl-sg-handle{display:none}}
+.wl-sg-inner{padding:4px 28px 32px}
+.wl-sg-product-row{
+  display:flex;align-items:center;gap:12px;
+  padding:12px;background:var(--wl-cream2);border-radius:12px;margin-bottom:20px
+}
+.wl-sg-product-img{
+  width:52px;height:52px;border-radius:10px;overflow:hidden;
+  background:var(--wl-cream3);display:flex;align-items:center;justify-content:center;flex-shrink:0
+}
+.wl-sg-product-img img{width:100%;height:100%;object-fit:cover}
+.wl-sg-product-name{font-weight:700;font-size:.9rem;color:var(--wl-text)}
+.wl-sg-product-price{font-size:.82rem;color:var(--wl-green);font-weight:600;margin-top:2px}
+.wl-sg-icon{font-size:2.4rem;text-align:center;margin-bottom:10px}
+.wl-sg-title{
+  font-family:'Playfair Display',serif;font-weight:800;
+  font-size:1.4rem;color:var(--wl-text);margin-bottom:8px;text-align:center
+}
+.wl-sg-sub{
+  font-size:.88rem;color:var(--wl-text2);line-height:1.6;
+  margin-bottom:22px;text-align:center
+}
 .wl-sg-actions{display:flex;flex-direction:column;gap:10px}
+.wl-sg-btn-primary{
+  padding:16px 20px;
+  background:linear-gradient(135deg,var(--wl-green),var(--wl-green2));
+  color:#fff;border:none;border-radius:14px;
+  font-size:1rem;font-weight:800;cursor:pointer;
+  font-family:inherit;transition:.18s;
+  box-shadow:0 4px 20px rgba(26,122,60,.3)
+}
+.wl-sg-btn-primary:hover{transform:translateY(-1px)}
+.wl-sg-btn-ghost{
+  padding:14px 20px;background:#fff;
+  border:1.5px solid var(--wl-border);color:var(--wl-text2);
+  border-radius:14px;font-size:.92rem;font-weight:700;
+  cursor:pointer;font-family:inherit;transition:.18s
+}
+.wl-sg-btn-ghost:hover{border-color:var(--wl-green);color:var(--wl-green)}
+.wl-sg-cancel{
+  background:none;border:none;color:var(--wl-text3);
+  font-size:.84rem;cursor:pointer;padding:8px;
+  font-family:inherit;transition:color .15s;text-align:center
+}
+.wl-sg-cancel:hover{color:var(--wl-text)}
 .wl-sg-btn-primary{padding:14px 20px;background:var(--wl-green);color:#fff;border:none;
   border-radius:12px;font-size:1rem;font-weight:800;cursor:pointer;font-family:inherit;transition:.18s}
 .wl-sg-btn-primary:hover{background:var(--wl-green2)}
@@ -2457,7 +2761,7 @@ html.is-web:not(.app-entered) body{overflow:hidden}
     </div>
     <!-- live product cards injected here by wlRefreshProducts() -->
     <div class="wl-prod-grid">
-      <div class="wl-prod-card" onclick="wlShowGate()">
+      <div class="wl-prod-card" onclick="wlOpenBrowse('vegetables')" style="cursor:pointer">
         <div class="wl-prod-img" style="padding:0">
           <img src="https://lvloaweijidgcuezdnmu.supabase.co/storage/v1/object/public/uploads/admin-listings/2473aaaa15c64afd9e9dd5c6dff485aa.jpg" alt="Cassava" style="width:100%;height:100%;object-fit:cover;display:block" loading="lazy">
           <div class="wl-prod-badge fresh">Fresh</div>
@@ -2467,9 +2771,9 @@ html.is-web:not(.app-entered) body{overflow:hidden}
           <div class="wl-prod-farm">Northern Uganda</div>
           <div class="wl-prod-price">UGX 400–700<small>/kg</small></div>
         </div>
-        <div class="wl-prod-foot"><button class="wl-prod-btn" onclick="wlShowGate();event.stopPropagation()">Order now</button></div>
+        <div class="wl-prod-foot"><button class="wl-prod-btn" onclick="wlOpenBrowse('vegetables');event.stopPropagation()">View listings →</button></div>
       </div>
-      <div class="wl-prod-card" onclick="wlShowGate()">
+      <div class="wl-prod-card" onclick="wlOpenBrowse('fruits')" style="cursor:pointer">
         <div class="wl-prod-img" style="padding:0">
           <img src="https://lvloaweijidgcuezdnmu.supabase.co/storage/v1/object/public/uploads/admin-listings/d9776a4041234f1db41fb90f4a60f8b8.jpg" alt="Mango" style="width:100%;height:100%;object-fit:cover;display:block" loading="lazy">
           <div class="wl-prod-badge fresh">Fresh</div>
@@ -2479,9 +2783,9 @@ html.is-web:not(.app-entered) body{overflow:hidden}
           <div class="wl-prod-farm">Eastern Uganda</div>
           <div class="wl-prod-price">UGX 500<small>/kg</small></div>
         </div>
-        <div class="wl-prod-foot"><button class="wl-prod-btn" onclick="wlShowGate();event.stopPropagation()">Order now</button></div>
+        <div class="wl-prod-foot"><button class="wl-prod-btn" onclick="wlOpenBrowse('fruits');event.stopPropagation()">View listings →</button></div>
       </div>
-      <div class="wl-prod-card" onclick="wlShowGate()">
+      <div class="wl-prod-card" onclick="wlOpenBrowse('vegetables')" style="cursor:pointer">
         <div class="wl-prod-img" style="padding:0">
           <img src="https://lvloaweijidgcuezdnmu.supabase.co/storage/v1/object/public/uploads/admin-listings/a89030c2212b430b9730d22721295bd5.jpg" alt="Green Pepper" style="width:100%;height:100%;object-fit:cover;display:block" loading="lazy">
           <div class="wl-prod-badge fresh">Fresh</div>
@@ -2491,9 +2795,9 @@ html.is-web:not(.app-entered) body{overflow:hidden}
           <div class="wl-prod-farm">Central Uganda</div>
           <div class="wl-prod-price">UGX 3,000<small>/kg</small></div>
         </div>
-        <div class="wl-prod-foot"><button class="wl-prod-btn" onclick="wlShowGate();event.stopPropagation()">Order now</button></div>
+        <div class="wl-prod-foot"><button class="wl-prod-btn" onclick="wlOpenBrowse('vegetables');event.stopPropagation()">View listings →</button></div>
       </div>
-      <div class="wl-prod-card" onclick="wlShowGate()">
+      <div class="wl-prod-card" onclick="wlOpenBrowse('all')" style="cursor:pointer">
         <div class="wl-prod-img" style="padding:0">
           <img src="https://lvloaweijidgcuezdnmu.supabase.co/storage/v1/object/public/uploads/admin-listings/b3bda803b8404714866bf33c6d0d0cba.jpg" alt="Pumpkin" style="width:100%;height:100%;object-fit:cover;display:block" loading="lazy">
           <div class="wl-prod-badge new">New</div>
@@ -2503,7 +2807,7 @@ html.is-web:not(.app-entered) body{overflow:hidden}
           <div class="wl-prod-farm">Western Uganda</div>
           <div class="wl-prod-price">UGX 1,500<small>/kg</small></div>
         </div>
-        <div class="wl-prod-foot"><button class="wl-prod-btn" onclick="wlShowGate();event.stopPropagation()">Order now</button></div>
+        <div class="wl-prod-foot"><button class="wl-prod-btn" onclick="wlOpenBrowse('all');event.stopPropagation()">View listings →</button></div>
       </div>
     </div>
     <!-- Advertise-here strip — shown when paid slots are free -->
@@ -2958,49 +3262,78 @@ html.is-web:not(.app-entered) body{overflow:hidden}
 
   <!-- ══ WEB BROWSE PAGE ══ -->
   <div id="wl-browse">
+    <!-- Sticky top bar -->
     <div class="wlb-topbar">
       <button class="wlb-back" onclick="wlCloseBrowse()">← Back</button>
       <div class="wlb-search">
-        <input type="text" id="wlbSearch" placeholder="Search produce, district…" oninput="wlbFilterCards()" autocomplete="off">
+        <input type="text" id="wlbSearch" placeholder="Search produce, farmer, district…" oninput="wlbFilterCards()" autocomplete="off">
       </div>
       <span class="wlb-count" id="wlbCount"></span>
     </div>
-    <div class="wlb-body">
-      <div class="wlb-filters" id="wlbFilters">
-        <button class="wlb-filter active" onclick="wlbSetCat('all',this)">All</button>
-        <button class="wlb-filter" onclick="wlbSetCat('vegetables',this)">🥦 Veggies</button>
-        <button class="wlb-filter" onclick="wlbSetCat('fruits',this)">🍎 Fruits</button>
-        <button class="wlb-filter" onclick="wlbSetCat('grains',this)">🌾 Grains</button>
-        <button class="wlb-filter" onclick="wlbSetCat('staples',this)">🍠 Staples</button>
-        <button class="wlb-filter" onclick="wlbSetCat('livestock',this)">🐄 Livestock</button>
-        <button class="wlb-filter" onclick="wlbSetCat('dairy',this)">🥛 Dairy</button>
-        <button class="wlb-filter" onclick="wlbSetCat('organic',this)">🌿 Organic</button>
+
+    <!-- Category nav (Café Javas top menu strip) -->
+    <div class="wlb-cat-hero" id="wlbCatHero" role="tablist" aria-label="Browse categories">
+      <button class="wlb-cat-btn active" onclick="wlbSetCat('all',this)" role="tab" aria-selected="true"><span class="cat-ic">🌍</span>All</button>
+      <button class="wlb-cat-btn" onclick="wlbSetCat('vegetables',this)" role="tab"><span class="cat-ic">🥦</span>Veggies</button>
+      <button class="wlb-cat-btn" onclick="wlbSetCat('fruits',this)" role="tab"><span class="cat-ic">🍎</span>Fruits</button>
+      <button class="wlb-cat-btn" onclick="wlbSetCat('grains',this)" role="tab"><span class="cat-ic">🌾</span>Grains</button>
+      <button class="wlb-cat-btn" onclick="wlbSetCat('staples',this)" role="tab"><span class="cat-ic">🍠</span>Staples</button>
+      <button class="wlb-cat-btn" onclick="wlbSetCat('livestock',this)" role="tab"><span class="cat-ic">🐄</span>Livestock</button>
+      <button class="wlb-cat-btn" onclick="wlbSetCat('dairy',this)" role="tab"><span class="cat-ic">🥛</span>Dairy</button>
+      <button class="wlb-cat-btn" onclick="wlbSetCat('organic',this)" role="tab"><span class="cat-ic">🌿</span>Organic</button>
+      <button class="wlb-cat-btn" onclick="wlbSetCat('poultry',this)" role="tab"><span class="cat-ic">🐔</span>Poultry</button>
+      <button class="wlb-cat-btn" onclick="wlbSetCat('aqua',this)" role="tab"><span class="cat-ic">🐟</span>Aqua</button>
+    </div>
+
+    <!-- Section hero banner (changes with category) -->
+    <div class="wlb-hero-band" id="wlbHeroBand" aria-hidden="true">
+      <div class="wlb-hero-band-bg" id="wlbHeroBg"></div>
+      <div class="wlb-hero-band-overlay"></div>
+      <div class="wlb-hero-band-content">
+        <div class="wlb-hero-band-label" id="wlbHeroLabel">Fresh from Ugandan Farms</div>
+        <div class="wlb-hero-band-title" id="wlbHeroTitle">All Produce</div>
+        <div class="wlb-hero-band-sub" id="wlbHeroSub">Browse &amp; order directly from verified farmers</div>
       </div>
+    </div>
+
+    <!-- Products -->
+    <div class="wlb-body">
+      <div class="wlb-section-label" id="wlbSectionLabel">FEATURED LISTINGS</div>
       <div id="wlbGrid" class="wlb-grid">
         <div class="wlb-loader">Loading fresh produce…</div>
       </div>
     </div>
   </div>
 
-  <!-- ══ PRODUCT DETAIL MODAL ══ -->
-  <div id="wl-prod-modal" onclick="if(event.target===this)wlCloseProdModal()">
+  <!-- ══ PRODUCT DETAIL PANEL (slide-up, Café Javas style) ══ -->
+  <div id="wl-prod-modal" onclick="if(event.target===this)wlCloseProdModal()" role="dialog" aria-modal="true" aria-label="Product detail">
     <div class="wl-pm-box" id="wlPmBox">
-      <button class="wl-pm-close" onclick="wlCloseProdModal()">✕</button>
+      <button class="wl-pm-close" onclick="wlCloseProdModal()" aria-label="Close">✕</button>
       <div class="wl-pm-img" id="wlPmImg"></div>
       <div class="wl-pm-body" id="wlPmBody"></div>
     </div>
   </div>
 
-  <!-- ══ SIGN-IN GATE ══ -->
-  <div id="wl-signin-gate" onclick="if(event.target===this)wlCloseGate()">
+  <!-- ══ SIGN-IN GATE (shown when guest taps Order) ══ -->
+  <div id="wl-signin-gate" onclick="if(event.target===this)wlCloseGate()" role="dialog" aria-modal="true" aria-label="Sign in to order">
     <div class="wl-sg-box">
-      <div class="wl-sg-icon">🌱</div>
-      <div class="wl-sg-title">Create a free account to order</div>
-      <div class="wl-sg-sub">Join thousands of Ugandans buying fresh produce directly from verified farmers — no middlemen, farm-fresh prices.</div>
-      <div class="wl-sg-actions">
-        <button class="wl-sg-btn-primary" onclick="wlCloseGate();enterApp('register')">Create Free Account →</button>
-        <button class="wl-sg-btn-ghost" onclick="wlCloseGate();enterApp('login')">I Already Have an Account</button>
-        <button class="wl-sg-cancel" onclick="wlCloseGate()">Continue browsing</button>
+      <div class="wl-sg-handle"></div>
+      <div class="wl-sg-inner">
+        <div id="wlSgProductRow" class="wl-sg-product-row" style="display:none">
+          <div class="wl-sg-product-img" id="wlSgProductImg"></div>
+          <div>
+            <div class="wl-sg-product-name" id="wlSgProductName"></div>
+            <div class="wl-sg-product-price" id="wlSgProductPrice"></div>
+          </div>
+        </div>
+        <div class="wl-sg-icon">🌱</div>
+        <div class="wl-sg-title">Sign in to place your order</div>
+        <div class="wl-sg-sub">Join thousands of Ugandans buying fresh produce directly from verified farmers — no middlemen, farm-fresh prices.</div>
+        <div class="wl-sg-actions">
+          <button class="wl-sg-btn-primary" onclick="wlCloseGate();enterApp('register')">Create Free Account →</button>
+          <button class="wl-sg-btn-ghost" onclick="wlCloseGate();enterApp('login')">Sign In to My Account</button>
+          <button class="wl-sg-cancel" onclick="wlCloseGate()">Continue browsing</button>
+        </div>
       </div>
     </div>
   </div>
@@ -9277,32 +9610,59 @@ function wlStartTimer() {
 var _wlAllListings = null; // cached listing rows for browse page
 var _wlBrowseCat = 'all';
 
+// ── WLB: Category meta (hero band colours + copy) ──
+var WLB_CAT_META = {
+  all:        { grad:'linear-gradient(135deg,#0d2a16 0%,#1a5c30 60%,#2db55d 100%)', label:'Fresh from Ugandan Farms', title:'All Produce', sub:'Browse & order directly from verified farmers' },
+  vegetables: { grad:'linear-gradient(135deg,#0a2a0a 0%,#1a5c1a 60%,#38a838 100%)', label:'Farm-fresh vegetables', title:'Vegetables', sub:'Leafy greens, roots & more — straight from the garden' },
+  fruits:     { grad:'linear-gradient(135deg,#2a1a05 0%,#7a3a05 60%,#d4700a 100%)', label:'Uganda's finest fruits', title:'Fruits', sub:'Mangoes, avocados, pineapples & tropical picks' },
+  grains:     { grad:'linear-gradient(135deg,#1a1a05 0%,#4a4a0a 60%,#8a8a14 100%)', label:'Staple grains & cereals', title:'Grains & Cereals', sub:'Maize, rice, beans, sorghum — bulk or small orders' },
+  staples:    { grad:'linear-gradient(135deg,#2a1505 0%,#5c3a0d 60%,#9a6020 100%)', label:'Root crops & staples', title:'Staples', sub:'Cassava, sweet potato, yam — straight from the farm' },
+  livestock:  { grad:'linear-gradient(135deg,#1a0a0a 0%,#5c1a1a 60%,#9a3030 100%)', label:'Certified healthy animals', title:'Livestock', sub:'Cattle, goats, pigs — MAAIF certified & vaccinated' },
+  dairy:      { grad:'linear-gradient(135deg,#0a1a2a 0%,#1a4a6a 60%,#2a7aaa 100%)', label:'Fresh dairy produce', title:'Dairy', sub:'Milk, cheese, yoghurt from verified dairy farms' },
+  organic:    { grad:'linear-gradient(135deg,#0a2a14 0%,#1a6a3a 60%,#2aaa5a 100%)', label:'100% organic, certified', title:'Organic Produce', sub:'No pesticides, no chemicals — pure and natural' },
+  poultry:    { grad:'linear-gradient(135deg,#2a2a05 0%,#6a6a0a 60%,#aaaa14 100%)', label:'Healthy poultry & eggs', title:'Poultry', sub:'Chickens, eggs, ducks — free-range and farm-fresh' },
+  aqua:       { grad:'linear-gradient(135deg,#051a2a 0%,#0a4a6a 60%,#148aaa 100%)', label:'Fresh from Uganda's lakes', title:'Aquaculture', sub:'Tilapia, catfish & fingerlings from certified farms' }
+};
+
 async function wlOpenBrowse(cat) {
   _wlBrowseCat = cat || 'all';
   var browse = document.getElementById('wl-browse');
   if (!browse) return;
   browse.classList.add('open');
-  // Scroll webLanding to top so browse page is visible
   var landing = document.getElementById('webLanding');
-  if (landing) landing.scrollTo({top: 0, behavior: 'smooth'});
-  // Set active filter button
-  var btns = document.querySelectorAll('#wlbFilters .wlb-filter');
-  btns.forEach(function(b){
-    b.classList.toggle('active', b.getAttribute('onclick').indexOf("'"+_wlBrowseCat+"'") > -1 || (_wlBrowseCat==='all' && b.getAttribute('onclick').indexOf("'all'") > -1));
+  if (landing) landing.scrollTo({top: 0, behavior: 'instant'});
+  // Activate correct category button
+  document.querySelectorAll('#wlbCatHero .wlb-cat-btn').forEach(function(b){
+    var oc = b.getAttribute('onclick') || '';
+    b.classList.toggle('active', oc.indexOf("'"+_wlBrowseCat+"'") > -1);
   });
+  _wlbUpdateHero(_wlBrowseCat);
   if (_wlAllListings) { wlbRender(); return; }
-  // Load listings
-  document.getElementById('wlbGrid').innerHTML = '<div class="wlb-loader">🌾 Loading fresh produce…</div>';
+  document.getElementById('wlbGrid').innerHTML = '<div class="wlb-loader">Loading fresh produce…</div>';
   var data = await sb('listings', {
-    select:'id,farmer_id,crop_name,category,quantity_kg,reserved_qty,price_per_kg,unit,district,is_organic,is_verified,description,discount_pct,sale_unit,image_url,created_at',
+    select:'id,farmer_id,farmer_name,crop_name,category,quantity_kg,reserved_qty,price_per_kg,unit,district,is_organic,is_verified,description,discount_pct,sale_unit,min_order_kg,delivery_available,payment_terms,image_url,created_at',
     filters:[['is_available','eq.true'],['order','created_at.desc'],['limit','200']]
   });
   if (!Array.isArray(data)) {
-    document.getElementById('wlbGrid').innerHTML = '<div class="wlb-empty"><div class="wlb-empty-icon">⚠️</div><p>Could not load products. Check your connection.</p><button class="wlb-filter active" onclick="wlOpenBrowse()" style="margin-top:12px">Retry</button></div>';
+    document.getElementById('wlbGrid').innerHTML = '<div class="wlb-empty"><div class="wlb-empty-icon">⚠️</div><p>Could not load products. Check your connection and try again.</p><button onclick="wlOpenBrowse()" style="margin-top:14px;padding:10px 20px;background:var(--wl-green);color:#fff;border:none;border-radius:10px;font-weight:700;cursor:pointer">Retry</button></div>';
     return;
   }
   _wlAllListings = data;
   wlbRender();
+}
+
+function _wlbUpdateHero(cat) {
+  var meta = WLB_CAT_META[cat] || WLB_CAT_META['all'];
+  var bg = document.getElementById('wlbHeroBg');
+  var label = document.getElementById('wlbHeroLabel');
+  var title = document.getElementById('wlbHeroTitle');
+  var sub = document.getElementById('wlbHeroSub');
+  var sectionLabel = document.getElementById('wlbSectionLabel');
+  if (bg) bg.style.background = meta.grad;
+  if (label) label.textContent = meta.label;
+  if (title) title.textContent = meta.title;
+  if (sub) sub.textContent = meta.sub;
+  if (sectionLabel) sectionLabel.textContent = cat === 'all' ? 'ALL LISTINGS' : (meta.title.toUpperCase() + ' LISTINGS');
 }
 
 function wlCloseBrowse() {
@@ -9312,8 +9672,9 @@ function wlCloseBrowse() {
 
 function wlbSetCat(cat, btn) {
   _wlBrowseCat = cat;
-  document.querySelectorAll('#wlbFilters .wlb-filter').forEach(function(b){ b.classList.remove('active'); });
+  document.querySelectorAll('#wlbCatHero .wlb-cat-btn').forEach(function(b){ b.classList.remove('active'); });
   if (btn) btn.classList.add('active');
+  _wlbUpdateHero(cat);
   wlbRender();
 }
 
@@ -9323,77 +9684,157 @@ function wlbRender() {
   var grid = document.getElementById('wlbGrid');
   var countEl = document.getElementById('wlbCount');
   if (!grid || !_wlAllListings) return;
-  var q = (document.getElementById('wlbSearch')?.value || '').toLowerCase().trim();
+  var q = ((document.getElementById('wlbSearch') || {}).value || '').toLowerCase().trim();
   var list = _wlAllListings.filter(function(l) {
-    var catOk = _wlBrowseCat === 'all' || (_wlBrowseCat === 'organic' ? l.is_organic : (l.category||'').toLowerCase().includes(_wlBrowseCat) || (l.crop_name||'').toLowerCase().includes(_wlBrowseCat));
-    var qOk = !q || (l.crop_name||'').toLowerCase().includes(q) || (l.district||'').toLowerCase().includes(q) || (l.category||'').toLowerCase().includes(q);
+    var catOk = _wlBrowseCat === 'all'
+      || (_wlBrowseCat === 'organic' ? l.is_organic
+      : ((l.category||'').toLowerCase().includes(_wlBrowseCat) || (l.crop_name||'').toLowerCase().includes(_wlBrowseCat)));
+    var qOk = !q || (l.crop_name||'').toLowerCase().includes(q) || (l.district||'').toLowerCase().includes(q) || (l.category||'').toLowerCase().includes(q) || (l.farmer_name||'').toLowerCase().includes(q);
     return catOk && qOk;
   });
   if (countEl) countEl.textContent = list.length + ' product' + (list.length===1?'':'s');
   if (!list.length) {
-    grid.innerHTML = '<div class="wlb-empty"><div class="wlb-empty-icon">🌾</div><p>No produce found in this category right now.</p></div>';
+    grid.innerHTML = '<div class="wlb-empty"><div class="wlb-empty-icon">🌾</div><p>No produce in this category right now.<br><small>Check back — farmers add new listings daily.</small></p></div>';
     return;
   }
   grid.innerHTML = list.map(function(l) {
-    var price = typeof l.price_per_kg==='number' ? l.price_per_kg.toLocaleString() : (l.price_per_kg||'—');
+    var rawPrice = Number(l.price_per_kg || 0);
+    var discPct = Number(l.discount_pct || 0);
+    var salePrice = discPct > 0 ? Math.round(rawPrice * (1 - discPct/100)) : rawPrice;
+    var priceStr = salePrice > 0 ? salePrice.toLocaleString() : '—';
+    var origStr = (discPct > 0 && rawPrice > 0) ? rawPrice.toLocaleString() : '';
     var unit = l.sale_unit || l.unit || 'kg';
     var hasImg = l.image_url && l.image_url.startsWith('http');
     var imgHtml = hasImg
-      ? '<img src="'+escHtml(l.image_url)+'" alt="'+escHtml(l.crop_name)+'" loading="lazy">'
+      ? '<img src="'+escHtml(l.image_url)+'" alt="'+escHtml(l.crop_name)+'" loading="lazy" onerror="this.style.display=\'none\';this.nextElementSibling.style.display=\'flex\'">'
+        +'<div class="wlb-card-emoji" style="display:none">'+wlbEmoji(l.crop_name)+'</div>'
       : '<div class="wlb-card-emoji">'+wlbEmoji(l.crop_name)+'</div>';
-    var badge = l.is_organic ? '<div class="wlb-card-badge organic">Organic</div>' : (l.is_verified ? '<div class="wlb-card-badge verified">✓ Verified</div>' : '');
-    return '<div class="wlb-card" onclick="wlOpenProdModal('+l.id+')">'
-      +'<div class="wlb-card-img">'+imgHtml+badge+'</div>'
+    var badges = '';
+    if (l.is_organic) badges += '<span class="wlb-card-badge organic">🌿 Organic</span>';
+    if (l.is_verified) badges += '<span class="wlb-card-badge verified">✓ Verified</span>';
+    if (discPct > 0) badges += '<span class="wlb-card-badge sale">−'+discPct+'%</span>';
+    var id = String(l.id||'').replace(/[^a-zA-Z0-9-]/g,'');
+    return '<div class="wlb-card" role="button" tabindex="0" aria-label="View '+escHtml(l.crop_name)+'"'
+      +' onclick="wlOpenProdModal(\''+id+'\')"'
+      +' onkeydown="if(event.key===\'Enter\'){wlOpenProdModal(\''+id+'\')}">'
+      +'<div class="wlb-card-img">'
+        +imgHtml
+        +(badges?'<div class="wlb-card-badges">'+badges+'</div>':'')
+        +'<button class="wlb-card-add" aria-label="Quick order" onclick="event.stopPropagation();wlShowGate(\''+id+'\')">+</button>'
+      +'</div>'
       +'<div class="wlb-card-body">'
         +'<div class="wlb-card-name">'+escHtml(l.crop_name)+'</div>'
-        +'<div class="wlb-card-meta">📍 '+escHtml(l.district||'Uganda')+'</div>'
-        +'<div class="wlb-card-price">UGX '+price+'<small>/'+unit+'</small></div>'
+        +(l.farmer_name ? '<div class="wlb-card-farmer">👨‍🌾 '+escHtml(l.farmer_name)+'</div>' : '')
+        +'<div class="wlb-card-district">📍 '+escHtml(l.district||'Uganda')+'</div>'
+        +'<div class="wlb-card-price">UGX '+priceStr+'<small> /'+unit+'</small>'+(origStr?'<s>'+origStr+'</s>':'')+'</div>'
       +'</div>'
-      +'<div class="wlb-card-foot"><button class="wlb-card-btn" onclick="wlShowGate();event.stopPropagation()">Order Now</button></div>'
+      +'<div class="wlb-card-foot">'
+        +'<button class="wlb-card-btn" onclick="event.stopPropagation();wlShowGate(\''+id+'\')">Order Now</button>'
+      +'</div>'
       +'</div>';
   }).join('');
 }
 
 function wlbEmoji(name) {
   var n=(name||'').toLowerCase();
-  var map={maize:'🌽',beans:'🫘',tomato:'🍅',mango:'🥭',avocado:'🥑',banana:'🍌',coffee:'☕',vanilla:'🌿',cassava:'🍠',potato:'🥔',rice:'🍚',milk:'🥛',egg:'🥚',chicken:'🐔',goat:'🐐',cattle:'🐄',cow:'🐄',fish:'🐟',pepper:'🌶️',onion:'🧅',cabbage:'🥬',carrot:'🥕',pumpkin:'🎃',sorghum:'🌾',millet:'🌾',groundnut:'🥜',sunflower:'🌻',watermelon:'🍉',pineapple:'🍍',passion:'🍈',strawberry:'🍓'};
+  var map={maize:'🌽',beans:'🫘',tomato:'🍅',mango:'🥭',avocado:'🥑',banana:'🍌',coffee:'☕',vanilla:'🌿',cassava:'🍠',potato:'🥔',rice:'🍚',milk:'🥛',egg:'🥚',chicken:'🐔',goat:'🐐',cattle:'🐄',cow:'🐄',fish:'🐟',tilapia:'🐟',pepper:'🌶️',onion:'🧅',cabbage:'🥬',carrot:'🥕',pumpkin:'🎃',sorghum:'🌾',millet:'🌾',groundnut:'🥜',sunflower:'🌻',watermelon:'🍉',pineapple:'🍍',passion:'🍈',strawberry:'🍓',honey:'🍯',bee:'🐝',rabbit:'🐇',pig:'🐖',sheep:'🐑',duck:'🦆'};
   for(var k in map){if(n.includes(k))return map[k];}
   return '🌿';
 }
 
-// Product detail modal (for both landing cards and browse page)
-var _wlProdCache = {};
+// ── PRODUCT DETAIL PANEL ──
+var _wlCurProdId = null;
+var _wlProdQty = 1;
+
 function wlOpenProdModal(id) {
-  if (!id) { wlShowGate(); return; }
+  if (!id) { wlShowGate(null); return; }
   var modal = document.getElementById('wl-prod-modal');
-  if (!modal) { wlShowGate(); return; }
-  // Find listing in cache
+  if (!modal) { wlShowGate(null); return; }
   var l = (_wlAllListings || []).find(function(x){ return String(x.id)===String(id); });
-  if (!l) { wlShowGate(); return; }
-  var price = typeof l.price_per_kg==='number' ? l.price_per_kg.toLocaleString() : (l.price_per_kg||'—');
+  if (!l) { wlShowGate(null); return; }
+  _wlCurProdId = id;
+  _wlProdQty = l.min_order_kg > 0 ? Number(l.min_order_kg) : 1;
+
+  var rawPrice = Number(l.price_per_kg || 0);
+  var discPct = Number(l.discount_pct || 0);
+  var salePrice = discPct > 0 ? Math.round(rawPrice * (1 - discPct/100)) : rawPrice;
   var unit = l.sale_unit || l.unit || 'kg';
   var hasImg = l.image_url && l.image_url.startsWith('http');
-  document.getElementById('wlPmImg').innerHTML = hasImg
+
+  // Image section
+  var imgEl = document.getElementById('wlPmImg');
+  imgEl.innerHTML = (hasImg
     ? '<img src="'+escHtml(l.image_url)+'" alt="'+escHtml(l.crop_name)+'">'
-    : '<div style="font-size:5rem">'+wlbEmoji(l.crop_name)+'</div>';
+    : '<div class="wl-pm-emoji">'+wlbEmoji(l.crop_name)+'</div>')
+    + '<div class="wl-pm-img-grad"></div>';
+
+  // Pills
   var pills = '';
   if (l.district) pills += '<span class="wl-pm-pill district">📍 '+escHtml(l.district)+'</span>';
   if (l.is_organic) pills += '<span class="wl-pm-pill">🌿 Organic</span>';
-  if (l.is_verified) pills += '<span class="wl-pm-pill">✓ Verified Farmer</span>';
-  if (l.delivery_available) pills += '<span class="wl-pm-pill">🚚 Delivery</span>';
-  var qty = typeof l.quantity_kg==='number' ? (l.quantity_kg - (l.reserved_qty||0)).toLocaleString() + ' kg available' : '';
+  if (l.delivery_available) pills += '<span class="wl-pm-pill delivery">🚚 Delivery</span>';
+  if (l.payment_terms) pills += '<span class="wl-pm-pill">💳 '+escHtml(l.payment_terms)+'</span>';
+  if (l.min_order_kg > 0) pills += '<span class="wl-pm-pill">📦 Min '+l.min_order_kg+' '+unit+'</span>';
+
+  // Availability
+  var avail = typeof l.quantity_kg==='number' ? Math.max(0, l.quantity_kg - (l.reserved_qty||0)) : null;
+  var stockHtml = avail !== null
+    ? '<div class="wl-pm-stock"><div class="wl-pm-stock-dot" style="background:'+(avail>0?'var(--wl-green3)':'#f44336')+'"></div>'+(avail>0 ? avail.toLocaleString()+' '+unit+' available' : 'Out of stock')+'</div>'
+    : '';
+
+  // Badges
+  var badgesHtml = '';
+  if (l.is_organic) badgesHtml += '<span class="wl-pm-badge org">🌿 Organic</span>';
+  if (l.is_verified) badgesHtml += '<span class="wl-pm-badge ver">✔ Verified</span>';
+
+  // Farmer row
+  var farmerHtml = l.farmer_name
+    ? '<div class="wl-pm-farmer-row">'
+        +'<div class="wl-pm-farmer-av">👨‍🌾</div>'
+        +'<div class="wl-pm-farmer-info">'
+          +'<div class="wl-pm-farmer-name">'+escHtml(l.farmer_name)+'</div>'
+          +'<div class="wl-pm-farmer-meta">📍 '+escHtml(l.district||'Uganda')+'&nbsp;·&nbsp;Verified Seller</div>'
+        +'</div>'
+      +'</div>'
+    : '';
+
   document.getElementById('wlPmBody').innerHTML =
-    '<div class="wl-pm-name">'+escHtml(l.crop_name)+'</div>'
-    +'<div class="wl-pm-price">UGX '+price+'<small> / '+unit+'</small></div>'
-    +(pills?'<div class="wl-pm-row">'+pills+'</div>':'')
-    +(l.description?'<div class="wl-pm-desc">'+escHtml(l.description)+'</div>':'')
-    +(qty?'<div style="font-size:.82rem;color:var(--wl-text3);margin-bottom:4px">📦 '+qty+'</div>':'')
-    +'<div class="wl-pm-actions">'
-      +'<button class="wl-pm-btn-order" onclick="wlShowGate()">Order Now 🛒</button>'
+    '<div class="wl-pm-toprow">'
+      +'<div class="wl-pm-name">'+escHtml(l.crop_name)+'</div>'
+      +(badgesHtml?'<div class="wl-pm-badges">'+badgesHtml+'</div>':'')
     +'</div>'
-    +'<div class="wl-pm-signin-note">Sign up free — takes 30 seconds</div>';
+    +'<div class="wl-pm-price-row">'
+      +'<div class="wl-pm-price">UGX '+salePrice.toLocaleString()+'<small> /'+unit+'</small></div>'
+      +(discPct>0?'<div class="wl-pm-price-orig">'+rawPrice.toLocaleString()+'</div><div class="wl-pm-sale-pct">−'+discPct+'% OFF</div>':'')
+    +'</div>'
+    +(pills?'<div class="wl-pm-pills">'+pills+'</div>':'')
+    +'<hr class="wl-pm-divider">'
+    +farmerHtml
+    +(l.description?'<div class="wl-pm-desc">'+escHtml(l.description)+'</div>':'')
+    +stockHtml
+    +'<div class="wl-pm-qty-row">'
+      +'<span class="wl-pm-qty-label">Quantity ('+unit+')</span>'
+      +'<div class="wl-pm-qty-ctrl">'
+        +'<button class="wl-pm-qty-btn" onclick="_wlQtyAdj(-1,'+JSON.stringify(unit)+','+JSON.stringify(l.min_order_kg||1)+')">−</button>'
+        +'<div class="wl-pm-qty-val" id="wlPmQtyVal">'+_wlProdQty+'</div>'
+        +'<button class="wl-pm-qty-btn" onclick="_wlQtyAdj(1,'+JSON.stringify(unit)+','+JSON.stringify(l.min_order_kg||1)+')">+</button>'
+      +'</div>'
+    +'</div>'
+    +'<div class="wl-pm-actions">'
+      +'<button class="wl-pm-btn-order" onclick="wlShowGate(\''+String(id)+'\')">Place Order 🛒</button>'
+      +'<button class="wl-pm-btn-save" onclick="wlShowGate(\''+String(id)+'\')" title="Save for later">🤍</button>'
+    +'</div>'
+    +'<div class="wl-pm-signin-note">Free to join · takes 30 seconds · pay via MTN MoMo or Airtel Money</div>';
+
   modal.classList.add('open');
   document.body.style.overflow = 'hidden';
+}
+
+function _wlQtyAdj(delta, unit, minQty) {
+  var step = Math.max(1, Number(minQty)||1);
+  _wlProdQty = Math.max(step, _wlProdQty + delta * step);
+  var el = document.getElementById('wlPmQtyVal');
+  if (el) el.textContent = _wlProdQty;
 }
 
 function wlCloseProdModal() {
@@ -9402,7 +9843,29 @@ function wlCloseProdModal() {
   document.body.style.overflow = '';
 }
 
-function wlShowGate() {
+function wlShowGate(id) {
+  // Populate the product preview row in the sign-in gate
+  var l = id ? (_wlAllListings||[]).find(function(x){return String(x.id)===String(id);}) : null;
+  var row = document.getElementById('wlSgProductRow');
+  if (row) {
+    if (l) {
+      var imgEl = document.getElementById('wlSgProductImg');
+      var nameEl = document.getElementById('wlSgProductName');
+      var priceEl = document.getElementById('wlSgProductPrice');
+      if (imgEl) imgEl.innerHTML = (l.image_url && l.image_url.startsWith('http'))
+        ? '<img src="'+escHtml(l.image_url)+'" alt="'+escHtml(l.crop_name)+'" style="width:100%;height:100%;object-fit:cover">'
+        : '<span style="font-size:1.8rem">'+wlbEmoji(l.crop_name)+'</span>';
+      if (nameEl) nameEl.textContent = l.crop_name;
+      if (priceEl) {
+        var rawP = Number(l.price_per_kg||0); var dsc = Number(l.discount_pct||0);
+        var sp = dsc>0 ? Math.round(rawP*(1-dsc/100)) : rawP;
+        priceEl.textContent = 'UGX '+(sp>0?sp.toLocaleString():'—')+' / '+(l.sale_unit||l.unit||'kg');
+      }
+      row.style.display = 'flex';
+    } else {
+      row.style.display = 'none';
+    }
+  }
   wlCloseProdModal();
   var gate = document.getElementById('wl-signin-gate');
   if (gate) gate.classList.add('open');
