@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- AB_BUILD:20261115_UNSPLASH -->
+<!-- AB_BUILD:20261115_BROWSEFIX -->
 <html lang="en">
 <head>
 <script src="business-config.js"></script>
@@ -1415,7 +1415,7 @@ html.is-web:not(.app-entered) body{overflow:hidden}
 
 /* ── WEB BROWSE PAGE (inside webLanding) ── */
 #wl-browse{display:none;min-height:100vh;background:var(--wl-cream)}
-#wl-browse.open{display:block}
+#wl-browse.open{display:block;position:fixed;inset:0;z-index:6500;overflow-y:auto;-webkit-overflow-scrolling:touch;background:var(--wl-cream);color:var(--wl-text)}
 .wlb-topbar{
   display:flex;align-items:center;gap:12px;
   padding:14px clamp(16px,5vw,52px);
@@ -1488,7 +1488,12 @@ html.is-web:not(.app-entered) body{overflow:hidden}
   display:none;min-height:100vh;background:var(--wl-cream);
   font-family:'Inter',sans-serif
 }
-#wl-browse.open{display:block}
+#wl-browse.open{
+  display:block;
+  position:fixed;inset:0;z-index:6500;
+  overflow-y:auto;-webkit-overflow-scrolling:touch;
+  background:var(--wl-cream);color:var(--wl-text)
+}
 
 /* Sticky browse nav */
 .wlb-topbar{
@@ -2763,7 +2768,7 @@ html.is-web:not(.app-entered) body{overflow:hidden}
     <div class="wl-prod-grid">
       <div class="wl-prod-card" onclick="wlOpenBrowse('vegetables')" style="cursor:pointer">
         <div class="wl-prod-img" style="padding:0;background:linear-gradient(135deg,#0d2a16,#1a5c30)">
-          <img src="https://images.unsplash.com/photo-1602940659805-770d1b3b9911?w=400&q=80" alt="Cassava" style="width:100%;height:100%;object-fit:cover;display:block" loading="lazy" onerror="this.style.display='none'">
+          <img src="https://images.unsplash.com/photo-1567306226416-28f0efdc88ce?w=400&q=80" alt="Cassava" style="width:100%;height:100%;object-fit:cover;display:block" loading="lazy" onerror="this.style.display='none'">
           <div class="wl-prod-badge fresh">Fresh</div>
         </div>
         <div class="wl-prod-body">
@@ -9629,8 +9634,7 @@ async function wlOpenBrowse(cat) {
   var browse = document.getElementById('wl-browse');
   if (!browse) return;
   browse.classList.add('open');
-  var landing = document.getElementById('webLanding');
-  if (landing) landing.scrollTo({top: 0, behavior: 'instant'});
+  browse.scrollTo({top: 0, behavior: 'instant'});
   // Activate correct category button
   document.querySelectorAll('#wlbCatHero .wlb-cat-btn').forEach(function(b){
     var oc = b.getAttribute('onclick') || '';
