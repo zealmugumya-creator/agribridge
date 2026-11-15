@@ -57,7 +57,7 @@ values
 
 -- HERBS & SPICES
 ('Nassazi Lydia',   'Fresh Ginger',      'herbs-spices',     200,  4000, 'Kamuli',    'Young fresh ginger rhizomes, clean and aromatic.',                     true, true,  false, true,  'Cash / MoMo',      'https://images.unsplash.com/photo-1615485500704-8e990f9900f7?w=600&q=80'),
-('Ayella Charles',  'Bird\'s Eye Chilli','herbs-spices',      80,  8000, 'Soroti',    'Dried red chilli, 50k SHU. Ground or whole available.',               true, false, false, false, 'Cash',             'https://images.unsplash.com/photo-1588252303782-cb80119abd6d?w=600&q=80'),
+('Ayella Charles',  'Birds Eye Chilli',  'herbs-spices',      80,  8000, 'Soroti',    'Dried red chilli, 50k SHU. Ground or whole available.',               true, false, false, false, 'Cash',             'https://images.unsplash.com/photo-1588252303782-cb80119abd6d?w=600&q=80'),
 
 -- LIVESTOCK
 ('Tumusiime Fred',  'Ankole Cattle',     'livestock',          5,950000, 'Mbarara',   'Pure Ankole long-horn cattle. MAAIF vaccinated. 3–4 years old.',       true, false, true,  false, 'Bank transfer',    'https://images.unsplash.com/photo-1500595046743-cd271d694d30?w=600&q=80'),
