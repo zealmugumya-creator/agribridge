@@ -1636,6 +1636,39 @@ def _fin_ledger_unavailable(detail):
     }), 503
 
 
+@app.route('/api/admin/legal/stats', methods=['GET'])
+def admin_legal_stats():
+    """Admin-authenticated legal dashboard stats (counts + privacy requests)."""
+    _payload, err = verify_token(required_role='admin')
+    if err:
+        return err
+
+    accepted_count, _ = supa_count('legal_acceptances')
+    # Count distinct users who have at least one acceptance
+    total_users, _ = supa_count('farmers')
+
+    # Fetch last 20 privacy requests
+    privacy_rows = []
+    try:
+        pr = supa_get_admin('privacy_requests',
+                            filters={'order': 'created_at.desc', 'limit': '20'},
+                            limit=20)
+        privacy_rows = pr or []
+    except Exception:
+        privacy_rows = []
+
+    # Legal manifest (public, no auth needed but we re-use it here for convenience)
+    manifest = LEGAL_SERVICE.public_manifest() if LEGAL_SERVICE else {}
+
+    return jsonify({
+        'accepted': accepted_count,
+        'total_users': total_users,
+        'documents': manifest.get('documents', {}),
+        'enforcement_active': LEGAL_ENFORCED,
+        'privacy_requests': privacy_rows,
+    })
+
+
 @app.route('/api/admin/finance/overview', methods=['GET'])
 def admin_finance_overview():
     _payload, err = verify_token(required_role='admin')

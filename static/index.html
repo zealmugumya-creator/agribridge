@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- AB_BUILD:20261115_AUTOIMAGES -->
+<!-- AB_BUILD:20261115_LEGALADMIN -->
 <html lang="en">
 <head>
 <script src="business-config.js"></script>
@@ -9631,102 +9631,73 @@ async function admSaveBoostPrices(days) {
 
 // ── Admin: Legal & Compliance ─────────────────────────────────────────────────
 async function admLegalRefresh() {
-  admLegalLoadDocs();
-  admLegalLoadStats();
-  admLegalLoadPrivacyReqs();
-  admLegalCheckEnforcement();
-}
-
-async function admLegalLoadDocs() {
-  const el = document.getElementById('admLegalDocs'); if (!el) return;
+  // Single admin-authed call gets everything
+  const elDocs = document.getElementById('admLegalDocs');
+  const elReqs = document.getElementById('admPrivacyReqs');
+  const elBanner = document.getElementById('admLegalEnfBanner');
   try {
-    const res = await abApi('/api/legal/manifest');
+    const res = await abApi('/api/admin/legal/stats');
     if (!res.ok) throw new Error(res.status);
-    const data = res.json;
-    const docs = Object.values(data.documents||{});
-    if (!docs.length) { el.innerHTML='<div style="font-size:.82rem;color:var(--text2)">No documents found.</div>'; return; }
-    // Update doc count stat
-    const rc=document.getElementById('adml-reqs'); if(rc) rc.textContent=docs.length;
-    el.innerHTML = docs.map(d=>`
-      <div style="background:var(--card);border:1px solid var(--border);border-radius:12px;padding:11px 13px;display:flex;align-items:center;gap:10px">
-        <div style="flex:1;min-width:0">
-          <div style="font-weight:700;font-size:.87rem;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${escHtml(d.title)}</div>
-          <div style="font-size:.73rem;color:var(--text2);margin-top:2px">v${escHtml(d.version)} · ${escHtml(d.effective_date)} · ${(d.applies_to_roles||[]).join(', ')==='all'?'All users':escHtml((d.applies_to_roles||[]).join(', '))}</div>
-        </div>
-        <div style="display:flex;gap:5px;flex-shrink:0;align-items:center">
-          <span style="font-size:.7rem;padding:3px 8px;border-radius:20px;background:var(--green-dim);color:var(--green);font-weight:700">${d.requires_acceptance==='accept'?'Must accept':'Acknowledge'}</span>
-          <a href="${escHtml(d.url)}" target="_blank" rel="noopener" style="font-size:.78rem;padding:5px 10px;border-radius:8px;border:1px solid var(--border);color:var(--text);text-decoration:none">View</a>
-        </div>
-      </div>`).join('');
+    const d = res.json;
+
+    // KPI counts
+    const acc = document.getElementById('adml-accepted');
+    const pend = document.getElementById('adml-pending');
+    const rc = document.getElementById('adml-reqs');
+    if (acc) acc.textContent = d.accepted != null ? d.accepted : '–';
+    if (pend && d.accepted != null && d.total_users != null) pend.textContent = Math.max(0, d.total_users - d.accepted);
+    const docs = Object.values(d.documents||{});
+    if (rc) rc.textContent = docs.length;
+
+    // Documents list
+    if (elDocs) {
+      if (!docs.length) { elDocs.innerHTML='<div style="font-size:.82rem;color:var(--text2)">No documents found.</div>'; }
+      else elDocs.innerHTML = docs.map(doc=>`
+        <div style="background:var(--card);border:1px solid var(--border);border-radius:12px;padding:11px 13px;display:flex;align-items:center;gap:10px">
+          <div style="flex:1;min-width:0">
+            <div style="font-weight:700;font-size:.87rem;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${escHtml(doc.title)}</div>
+            <div style="font-size:.73rem;color:var(--text2);margin-top:2px">v${escHtml(doc.version)} · ${escHtml(doc.effective_date)} · ${(doc.applies_to_roles||[]).join(', ')==='all'?'All users':escHtml((doc.applies_to_roles||[]).join(', '))}</div>
+          </div>
+          <div style="display:flex;gap:5px;flex-shrink:0;align-items:center">
+            <span style="font-size:.7rem;padding:3px 8px;border-radius:20px;background:var(--green-dim);color:var(--green);font-weight:700">${doc.requires_acceptance==='accept'?'Must accept':'Acknowledge'}</span>
+            <a href="${escHtml(doc.url)}" target="_blank" rel="noopener" style="font-size:.78rem;padding:5px 10px;border-radius:8px;border:1px solid var(--border);color:var(--text);text-decoration:none">View</a>
+          </div>
+        </div>`).join('');
+    }
+
+    // Privacy requests
+    if (elReqs) {
+      const rows = d.privacy_requests || [];
+      if (!rows.length) { elReqs.innerHTML='<div style="font-size:.82rem;color:var(--text2)">No privacy requests on record.</div>'; }
+      else {
+        const statusColors={pending:'var(--amber)',in_review:'#2196F3',completed:'var(--green)',rejected:'#f44336'};
+        elReqs.innerHTML = rows.map(r=>`
+          <div style="background:var(--card);border:1px solid var(--border);border-radius:12px;padding:11px 13px;display:flex;align-items:center;gap:10px">
+            <div style="flex:1;min-width:0">
+              <div style="font-weight:700;font-size:.85rem;color:var(--text)">${escHtml((r.request_type||'').replace(/_/g,' '))}</div>
+              <div style="font-size:.73rem;color:var(--text2);margin-top:2px">${new Date(r.created_at).toLocaleDateString('en-UG',{day:'numeric',month:'short',year:'numeric'})}${r.notes?` · ${escHtml(r.notes.slice(0,60))}…`:''}</div>
+            </div>
+            <span style="font-size:.72rem;padding:3px 9px;border-radius:20px;background:${statusColors[r.status]||'var(--border)'};color:#fff;font-weight:700;white-space:nowrap">${escHtml(r.status||'pending')}</span>
+          </div>`).join('');
+      }
+    }
+
+    // Enforcement banner
+    if (elBanner) {
+      elBanner.style.display='block';
+      if (d.enforcement_active) {
+        elBanner.style.background='var(--green-dim)';
+        elBanner.style.borderLeft='4px solid var(--green)';
+        elBanner.innerHTML='<strong style="color:var(--green)">✅ Enforcement is active.</strong> <span style="color:var(--text2)">The backend verifies consent before protected marketplace actions.</span>';
+      } else {
+        elBanner.style.background='rgba(245,166,35,0.12)';
+        elBanner.style.borderLeft='4px solid var(--amber)';
+        elBanner.innerHTML='<strong style="color:var(--amber)">⚠️ Enforcement is OFF.</strong> <span style="color:var(--text2)">Set <code style="background:var(--bg3);padding:1px 5px;border-radius:4px">ENFORCE_LEGAL_ACCEPTANCE=true</code> in Render to activate full backend enforcement.</span>';
+      }
+    }
   } catch(e) {
-    el.innerHTML=`<div style="font-size:.82rem;color:var(--text2)">Could not load documents (${e.message}).</div>`;
+    if (elDocs) elDocs.innerHTML=`<div style="font-size:.82rem;color:var(--text2)">Could not load legal data (${e.message}).</div>`;
   }
-}
-
-async function admLegalLoadStats() {
-  try {
-    const res = await abApi('/api/legal/status');
-    if (!res.ok) return;
-    const data = res.json;
-    // /api/legal/status returns current user's status; for admin aggregate we use the KPI approach
-    // We'll show total acceptances and pending from supabase direct
-    const [acceptRows, totalUsers] = await Promise.all([
-      sb('legal_acceptances',{count:true}),
-      sb('profiles',{count:true})
-    ]);
-    const accepted = typeof acceptRows==='number' ? acceptRows : '–';
-    const total = typeof totalUsers==='number' ? totalUsers : null;
-    const acc=document.getElementById('adml-accepted'); if(acc) acc.textContent=accepted;
-    if (total && typeof accepted==='number') {
-      const pend=document.getElementById('adml-pending');
-      if(pend) pend.textContent=Math.max(0,total-accepted);
-    }
-  } catch(e) {}
-}
-
-async function admLegalLoadPrivacyReqs() {
-  const el = document.getElementById('admPrivacyReqs'); if (!el) return;
-  try {
-    const rows = await sb('privacy_requests', {
-      select:'id,request_type,status,created_at,notes',
-      filters:[['order','created_at.desc'],['limit','20']]
-    });
-    if (!Array.isArray(rows) || !rows.length) {
-      el.innerHTML='<div style="font-size:.82rem;color:var(--text2)">No privacy requests on record.</div>';
-      return;
-    }
-    const statusColors={pending:'var(--amber)',in_review:'#2196F3',completed:'var(--green)',rejected:'#f44336'};
-    el.innerHTML = rows.map(r=>`
-      <div style="background:var(--card);border:1px solid var(--border);border-radius:12px;padding:11px 13px;display:flex;align-items:center;gap:10px">
-        <div style="flex:1;min-width:0">
-          <div style="font-weight:700;font-size:.85rem;color:var(--text)">${escHtml((r.request_type||'').replace(/_/g,' '))}</div>
-          <div style="font-size:.73rem;color:var(--text2);margin-top:2px">${new Date(r.created_at).toLocaleDateString('en-UG',{day:'numeric',month:'short',year:'numeric'})}${r.notes?` · ${escHtml(r.notes.slice(0,60))}…`:''}</div>
-        </div>
-        <span style="font-size:.72rem;padding:3px 9px;border-radius:20px;background:${statusColors[r.status]||'var(--border)'};color:#fff;font-weight:700;white-space:nowrap">${escHtml(r.status||'pending')}</span>
-      </div>`).join('');
-  } catch(e) {
-    el.innerHTML=`<div style="font-size:.82rem;color:var(--text2)">Could not load privacy requests.</div>`;
-  }
-}
-
-async function admLegalCheckEnforcement() {
-  const el=document.getElementById('admLegalEnfBanner'); if(!el) return;
-  try {
-    const res=await abApi('/api/legal/status');
-    if(!res.ok) return;
-    const data=res.json;
-    const enforced=data.enforcement_active===true;
-    el.style.display='block';
-    if(enforced){
-      el.style.background='var(--green-dim)';
-      el.style.borderLeft='4px solid var(--green)';
-      el.innerHTML='<strong style="color:var(--green)">✅ Enforcement is active.</strong> <span style="color:var(--text2)">The backend verifies consent before protected marketplace actions. The DB trigger (migration 0031) must also be applied in Supabase SQL Editor.</span>';
-    } else {
-      el.style.background='rgba(245,166,35,0.12)';
-      el.style.borderLeft='4px solid var(--amber)';
-      el.innerHTML='<strong style="color:var(--amber)">⚠️ Enforcement is OFF.</strong> <span style="color:var(--text2)">Set <code style="background:var(--bg3);padding:1px 5px;border-radius:4px">ENFORCE_LEGAL_ACCEPTANCE=true</code> in Render, and apply migration 0031 in the Supabase SQL Editor to activate full backend + DB enforcement.</span>';
-    }
-  } catch(e){ el.style.display='none'; }
 }
 
 async function wlLoadBanners() {
