@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- AB_BUILD:20261115_DRILLDOWN -->
+<!-- AB_BUILD:20261115_AUTOIMAGES -->
 <html lang="en">
 <head>
 <script src="business-config.js"></script>
@@ -9865,14 +9865,19 @@ async function wlOpenBrowse(cat) {
   if (_wlAllListings) { wlbSetCat(_wlBrowseCat, null); return; }
   document.getElementById('wlbGrid').innerHTML = '<div class="wlb-loader">Loading fresh produce…</div>';
   var data = await sb('listings', {
-    select:'id,farmer_id,crop_name,category,quantity_kg,reserved_qty,price_per_kg,unit,district,is_organic,is_verified,description,discount_pct,sale_unit,min_order_kg,delivery_available,payment_terms,image_url,created_at',
+    select:'id,farmer_id,crop_name,category,quantity_kg,reserved_qty,price_per_kg,unit,district,is_organic,is_verified,description,discount_pct,sale_unit,min_order_kg,delivery_available,payment_terms,image_url,created_at,farmers(full_name,district,is_verified)',
     filters:[['is_available','eq.true'],['order','created_at.desc'],['limit','200']]
   });
   if (!Array.isArray(data)) {
     document.getElementById('wlbGrid').innerHTML = '<div class="wlb-empty"><div class="wlb-empty-icon">⚠️</div><p>Could not load products. Check your connection and try again.</p><button onclick="wlOpenBrowse()" style="margin-top:14px;padding:10px 20px;background:var(--wl-green);color:#fff;border:none;border-radius:10px;font-weight:700;cursor:pointer">Retry</button></div>';
     return;
   }
-  _wlAllListings = data;
+  // Normalise: pull farmer name from joined row, auto-fill image if missing
+  _wlAllListings = data.map(function(l) {
+    var farmerName = (l.farmers && l.farmers.full_name) || l.farmer_name || 'Ugandan Farmer';
+    var img = l.image_url && String(l.image_url).startsWith('http') ? l.image_url : wlbAutoImage(l.crop_name, l.category);
+    return Object.assign({}, l, { farmer_name: farmerName, image_url: img });
+  });
   wlbSetCat(_wlBrowseCat, null);
 }
 
@@ -10204,6 +10209,92 @@ function wlbRender() {
       +'</div>'
       +'</div>';
   }).join('');
+}
+
+// Auto-pick a real Unsplash photo when the listing has no image
+var WLB_IMG_MAP = {
+  maize:        'photo-1601593346740-925612772716',
+  corn:         'photo-1601593346740-925612772716',
+  beans:        'photo-1515543904379-3d757afe72e4',
+  tomato:       'photo-1546094096-0df4bcaaa337',
+  tomatoes:     'photo-1546094096-0df4bcaaa337',
+  mango:        'photo-1601493700631-2b16ec4b4716',
+  avocado:      'photo-1601039641847-7857b994d704',
+  banana:       'photo-1571771894821-ce9b6c11b08e',
+  matooke:      'photo-1571771894821-ce9b6c11b08e',
+  pineapple:    'photo-1550258987-190a2d41a8ba',
+  coffee:       'photo-1495474472287-4d71bcdd2085',
+  vanilla:      'photo-1596040033229-a9821ebd058d',
+  cassava:      'photo-1518977676601-b53f82aba655',
+  'sweet potato':'photo-1518977676601-b53f82aba655',
+  groundnut:    'photo-1567306226416-28f0efdc88ce',
+  peanut:       'photo-1567306226416-28f0efdc88ce',
+  sunflower:    'photo-1597848212624-a19eb35e2651',
+  sesame:       'photo-1612450931597-7c76f72e6e28',
+  milk:         'photo-1550583724-b2692b85b150',
+  tilapia:      'photo-1510130387422-82bed34b37e9',
+  fish:         'photo-1510130387422-82bed34b37e9',
+  honey:        'photo-1587049352846-4a222e784d38',
+  chicken:      'photo-1587593810167-a84920ea0781',
+  egg:          'photo-1518492104633-130d0cc84637',
+  eggs:         'photo-1518492104633-130d0cc84637',
+  goat:         'photo-1548550023-2bdb3c5beed7',
+  cattle:       'photo-1570042225831-d98fa7577f1e',
+  cow:          'photo-1570042225831-d98fa7577f1e',
+  beef:         'photo-1559847844-5315695dadae',
+  pork:         'photo-1529692236671-f1f6cf9683ba',
+  onion:        'photo-1620574387735-3624d75b2dbc',
+  onions:       'photo-1620574387735-3624d75b2dbc',
+  cabbage:      'photo-1518977676601-b53f82aba655',
+  carrot:       'photo-1598170845058-32b9d6a5da37',
+  pepper:       'photo-1563565375-f3fdfdbefa83',
+  chilli:       'photo-1563565375-f3fdfdbefa83',
+  ginger:       'photo-1565557623262-b51c2513a641',
+  rice:         'photo-1536304929831-ee1ca9d44906',
+  sorghum:      'photo-1574323347407-f5e1ad6d020b',
+  millet:       'photo-1574323347407-f5e1ad6d020b',
+  wheat:        'photo-1574323347407-f5e1ad6d020b',
+  barley:       'photo-1574323347407-f5e1ad6d020b',
+  cotton:       'photo-1595351298020-038700609878',
+  passion:      'photo-1596591868231-05e808fd2e5d',
+  pumpkin:      'photo-1570586437263-ab629fccc818',
+  watermelon:   'photo-1587049332298-1c42e83937a7',
+  moringa:      'photo-1612450931597-7c76f72e6e28',
+  aloe:         'photo-1587049352846-4a222e784d38'
+};
+
+var WLB_CAT_IMG = {
+  'vegetables':          'photo-1518977676601-b53f82aba655',
+  'fruits':              'photo-1601493700631-2b16ec4b4716',
+  'cereals-grains':      'photo-1574323347407-f5e1ad6d020b',
+  'legumes-pulses':      'photo-1515543904379-3d757afe72e4',
+  'roots-tubers':        'photo-1518977676601-b53f82aba655',
+  'nuts-oilseeds':       'photo-1567306226416-28f0efdc88ce',
+  'cash-crops':          'photo-1495474472287-4d71bcdd2085',
+  'herbs-spices':        'photo-1596040033229-a9821ebd058d',
+  'livestock':           'photo-1570042225831-d98fa7577f1e',
+  'meat-products':       'photo-1559847844-5315695dadae',
+  'dairy':               'photo-1550583724-b2692b85b150',
+  'fish-aquaculture':    'photo-1510130387422-82bed34b37e9',
+  'honey-beekeeping':    'photo-1587049352846-4a222e784d38',
+  'flowers-horticulture':'photo-1490750967868-88df5691cc15',
+  'processed-products':  'photo-1612450931597-7c76f72e6e28',
+  'animal-feed':         'photo-1574323347407-f5e1ad6d020b',
+  'seeds-planting':      'photo-1416879595882-3373a0480b5b',
+  'forestry':            'photo-1448375240586-882707db888b',
+  'medicinal-plants':    'photo-1565557623262-b51c2513a641',
+  'agri-byproducts':     'photo-1416879595882-3373a0480b5b'
+};
+
+function wlbAutoImage(cropName, category) {
+  var n = (cropName||'').toLowerCase();
+  // Try exact crop name match first
+  for (var k in WLB_IMG_MAP) {
+    if (n.includes(k)) return 'https://images.unsplash.com/' + WLB_IMG_MAP[k] + '?w=600&q=80';
+  }
+  // Fall back to category image
+  var catImg = WLB_CAT_IMG[category] || WLB_CAT_IMG['vegetables'];
+  return 'https://images.unsplash.com/' + catImg + '?w=600&q=80';
 }
 
 function wlbEmoji(name) {
