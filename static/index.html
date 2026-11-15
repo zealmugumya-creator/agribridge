@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- AB_BUILD:20261115_FULLCATALOGUE -->
+<!-- AB_BUILD:20261115_DRILLDOWN -->
 <html lang="en">
 <head>
 <script src="business-config.js"></script>
@@ -1559,6 +1559,90 @@ html.is-web:not(.app-entered) body{overflow:hidden}
 .wlb-hero-band-label{font-size:.74rem;font-weight:700;letter-spacing:1.2px;text-transform:uppercase;opacity:.75;margin-bottom:4px}
 .wlb-hero-band-title{font-family:'Playfair Display',serif;font-size:clamp(1.4rem,4vw,2.4rem);font-weight:800;line-height:1.1}
 .wlb-hero-band-sub{font-size:.82rem;opacity:.8;margin-top:4px}
+
+/* Ad carousel */
+.wlb-ad-carousel{position:relative;overflow:hidden;height:clamp(150px,24vw,240px)}
+.wlb-ad-track{display:flex;height:100%;transition:transform .5s cubic-bezier(.4,0,.2,1)}
+.wlb-ad-slide{
+  flex-shrink:0;width:100%;height:100%;
+  display:flex;flex-direction:column;justify-content:flex-end;
+  padding:clamp(16px,4vw,36px) clamp(20px,5vw,52px);
+  color:#fff;position:relative;overflow:hidden
+}
+.wlb-ad-slide::after{
+  content:'';position:absolute;inset:0;
+  background:linear-gradient(to top,rgba(0,0,0,.55) 0%,transparent 55%);pointer-events:none
+}
+.wlb-ad-badge{
+  font-size:.7rem;font-weight:800;letter-spacing:1.4px;text-transform:uppercase;
+  background:rgba(255,255,255,.18);backdrop-filter:blur(6px);
+  border:1px solid rgba(255,255,255,.25);border-radius:20px;
+  padding:3px 12px;width:fit-content;margin-bottom:8px;position:relative;z-index:1
+}
+.wlb-ad-title{
+  font-family:'Playfair Display',serif;font-size:clamp(1.1rem,3.5vw,2rem);
+  font-weight:800;line-height:1.15;margin-bottom:4px;position:relative;z-index:1
+}
+.wlb-ad-sub{font-size:.8rem;opacity:.85;margin-bottom:12px;position:relative;z-index:1}
+.wlb-ad-btn{
+  font-family:inherit;font-size:.82rem;font-weight:700;
+  background:#fff;color:#1a4a2a;border:none;border-radius:20px;
+  padding:7px 18px;cursor:pointer;width:fit-content;transition:.18s;position:relative;z-index:1
+}
+.wlb-ad-btn:hover{background:var(--wl-green);color:#fff}
+.wlb-ad-dots{
+  position:absolute;bottom:10px;right:16px;display:flex;gap:6px;z-index:5
+}
+.wlb-ad-dot{
+  width:7px;height:7px;border-radius:50%;background:rgba(255,255,255,.45);
+  cursor:pointer;transition:.2s
+}
+.wlb-ad-dot.active{background:#fff;width:20px;border-radius:4px}
+
+/* Breadcrumb */
+.wlb-breadcrumb{display:flex;align-items:center;gap:8px;margin-bottom:16px;flex-wrap:wrap}
+.wlb-bread-btn{
+  background:none;border:none;color:var(--wl-green);font-weight:700;
+  font-size:.85rem;cursor:pointer;font-family:inherit;padding:4px 0
+}
+.wlb-bread-sep{color:var(--wl-text3);font-size:.85rem}
+.wlb-bread-cur{font-size:.85rem;font-weight:700;color:var(--wl-text)}
+
+/* Subcategory tile grid */
+.wlb-sub-grid{
+  display:grid;
+  grid-template-columns:repeat(2,1fr);
+  gap:14px;margin-bottom:32px
+}
+@media(min-width:480px){.wlb-sub-grid{grid-template-columns:repeat(3,1fr)}}
+@media(min-width:760px){.wlb-sub-grid{grid-template-columns:repeat(4,1fr);gap:18px}}
+@media(min-width:1024px){.wlb-sub-grid{grid-template-columns:repeat(5,1fr)}}
+.wlb-sub-tile{
+  border-radius:14px;overflow:hidden;cursor:pointer;
+  border:1.5px solid var(--wl-border);background:#fff;
+  transition:transform .2s,box-shadow .2s,border-color .2s;
+  display:flex;flex-direction:column;align-items:center;
+  box-shadow:0 2px 8px rgba(26,122,60,.05)
+}
+.wlb-sub-tile:hover{
+  transform:translateY(-4px);border-color:var(--wl-green);
+  box-shadow:0 10px 30px rgba(26,122,60,.14)
+}
+.wlb-sub-tile-img{
+  width:100%;aspect-ratio:4/3;overflow:hidden;
+  background:var(--wl-cream2);position:relative
+}
+.wlb-sub-tile-img img{width:100%;height:100%;object-fit:cover;display:block;transition:transform .4s}
+.wlb-sub-tile:hover .wlb-sub-tile-img img{transform:scale(1.07)}
+.wlb-sub-tile-img-placeholder{
+  width:100%;aspect-ratio:4/3;
+  display:flex;align-items:center;justify-content:center;
+  background:var(--wl-green-lt);font-size:2.4rem
+}
+.wlb-sub-tile-label{
+  padding:10px 10px 12px;font-weight:700;font-size:.82rem;
+  text-align:center;color:var(--wl-text);line-height:1.25;width:100%
+}
 
 /* Body */
 .wlb-body{max-width:1200px;margin:0 auto;padding:28px clamp(16px,4vw,48px) 60px}
@@ -3337,8 +3421,44 @@ html.is-web:not(.app-entered) body{overflow:hidden}
       <button class="wlb-cat-btn" onclick="wlbSetCat('agri-byproducts',this)" role="tab"><span class="cat-ic">♻️</span>By-products</button>
     </div>
 
-    <!-- Section hero banner (changes with category) -->
-    <div class="wlb-hero-band" id="wlbHeroBand" aria-hidden="true">
+    <!-- Ad/Deals carousel banner -->
+    <div class="wlb-ad-carousel" id="wlbAdCarousel">
+      <div class="wlb-ad-track" id="wlbAdTrack">
+        <div class="wlb-ad-slide" style="background:linear-gradient(135deg,#0d2a16,#1a7a3c,#2db55d)">
+          <div class="wlb-ad-badge">🔥 DEALS TODAY</div>
+          <div class="wlb-ad-title">Fresh Tilapia — UGX 8,000/kg</div>
+          <div class="wlb-ad-sub">Cage-farmed, Lake Victoria • Delivery available • Jinja</div>
+          <button class="wlb-ad-btn" onclick="wlbSetCat('fish-aquaculture',null)">Order Now →</button>
+        </div>
+        <div class="wlb-ad-slide" style="background:linear-gradient(135deg,#2a1a00,#7a4a00,#c8900a)">
+          <div class="wlb-ad-badge">🍯 HARVEST SEASON</div>
+          <div class="wlb-ad-title">Raw Forest Honey — UGX 15,000/kg</div>
+          <div class="wlb-ad-sub">Unfiltered, dark &amp; aromatic • Madi-Okollo forest hives</div>
+          <button class="wlb-ad-btn" onclick="wlbSetCat('honey-beekeeping',null)">Shop Honey →</button>
+        </div>
+        <div class="wlb-ad-slide" style="background:linear-gradient(135deg,#1a0d00,#3a2000,#6a4a10)">
+          <div class="wlb-ad-badge">☕ EXPORT QUALITY</div>
+          <div class="wlb-ad-title">Robusta Coffee — UGX 10,000/kg</div>
+          <div class="wlb-ad-sub">Washed FAQ grade • Moisture 12.5% • Masaka district</div>
+          <button class="wlb-ad-btn" onclick="wlbSetCat('cash-crops',null)">Buy Direct →</button>
+        </div>
+        <div class="wlb-ad-slide" style="background:linear-gradient(135deg,#0a1a2a,#1a4a6a,#2a7aaa)">
+          <div class="wlb-ad-badge">🥛 DAIRY FRESH</div>
+          <div class="wlb-ad-title">Fresh Milk — UGX 1,200/litre</div>
+          <div class="wlb-ad-sub">Zero-grazing Friesians • Daily collection • Mbarara</div>
+          <button class="wlb-ad-btn" onclick="wlbSetCat('dairy',null)">Order Milk →</button>
+        </div>
+      </div>
+      <div class="wlb-ad-dots" id="wlbAdDots">
+        <span class="wlb-ad-dot active" onclick="wlbAdGo(0)"></span>
+        <span class="wlb-ad-dot" onclick="wlbAdGo(1)"></span>
+        <span class="wlb-ad-dot" onclick="wlbAdGo(2)"></span>
+        <span class="wlb-ad-dot" onclick="wlbAdGo(3)"></span>
+      </div>
+    </div>
+
+    <!-- Category hero band (shown when a category is selected) -->
+    <div class="wlb-hero-band" id="wlbHeroBand" style="display:none" aria-hidden="true">
       <div class="wlb-hero-band-bg" id="wlbHeroBg"></div>
       <div class="wlb-hero-band-overlay"></div>
       <div class="wlb-hero-band-content">
@@ -3348,10 +3468,19 @@ html.is-web:not(.app-entered) body{overflow:hidden}
       </div>
     </div>
 
-    <!-- Products -->
+    <!-- Products / subcategory tiles -->
     <div class="wlb-body">
-      <div class="wlb-section-label" id="wlbSectionLabel">FEATURED LISTINGS</div>
-      <div id="wlbGrid" class="wlb-grid">
+      <!-- Breadcrumb -->
+      <div class="wlb-breadcrumb" id="wlbBreadcrumb" style="display:none">
+        <button onclick="wlbBackToSubs()" class="wlb-bread-btn">← Back to categories</button>
+        <span class="wlb-bread-sep">›</span>
+        <span class="wlb-bread-cur" id="wlbBreadCur"></span>
+      </div>
+      <div class="wlb-section-label" id="wlbSectionLabel">BROWSE CATEGORIES</div>
+      <!-- Subcategory tile grid (Café Javas style) -->
+      <div id="wlbSubGrid" class="wlb-sub-grid"></div>
+      <!-- Product card grid -->
+      <div id="wlbGrid" class="wlb-grid" style="display:none">
         <div class="wlb-loader">Loading fresh produce…</div>
       </div>
     </div>
@@ -9661,6 +9790,8 @@ function wlStartTimer() {
 // ─────────────────────────────────────────────────────────────────
 var _wlAllListings = null; // cached listing rows for browse page
 var _wlBrowseCat = 'all';
+var _wlBrowseSubKw = null;    // keyword filter from subcategory drill-down
+var _wlBrowseSubLabel = null;
 
 // ── WLB: Category meta (hero band colours + copy) ──
 var WLB_CAT_META = {
@@ -9695,20 +9826,46 @@ var WLB_CAT_META = {
 
 async function wlOpenBrowse(cat) {
   _wlBrowseCat = cat || 'all';
+  _wlBrowseSubKw = null;
   var browse = document.getElementById('wl-browse');
   if (!browse) return;
   browse.classList.add('open');
   browse.scrollTo({top: 0, behavior: 'instant'});
+
+  // Start ad carousel on first open
+  wlbAdGo(0);
+  wlbAdStart();
+  // Pause on hover
+  var carousel = document.getElementById('wlbAdCarousel');
+  if (carousel && !carousel._evtAdded) {
+    carousel._evtAdded = true;
+    carousel.addEventListener('mouseenter', function(){ clearInterval(_wlbAdTimer); });
+    carousel.addEventListener('mouseleave', wlbAdStart);
+    carousel.addEventListener('touchstart', function(){ clearInterval(_wlbAdTimer); }, {passive:true});
+    carousel.addEventListener('touchend', function(){ wlbAdStart(); }, {passive:true});
+  }
+
+  // Show ad carousel for 'all', hide for specific cat
+  var adCarousel = document.getElementById('wlbAdCarousel');
+  var heroBand = document.getElementById('wlbHeroBand');
+  if (_wlBrowseCat === 'all') {
+    if (adCarousel) adCarousel.style.display = '';
+    if (heroBand) heroBand.style.display = 'none';
+  } else {
+    if (adCarousel) adCarousel.style.display = 'none';
+    if (heroBand) { heroBand.style.display = ''; _wlbUpdateHero(_wlBrowseCat); }
+  }
+
   // Activate correct category button
   document.querySelectorAll('#wlbCatHero .wlb-cat-btn').forEach(function(b){
     var oc = b.getAttribute('onclick') || '';
     b.classList.toggle('active', oc.indexOf("'"+_wlBrowseCat+"'") > -1);
   });
-  _wlbUpdateHero(_wlBrowseCat);
-  if (_wlAllListings) { wlbRender(); return; }
+
+  if (_wlAllListings) { wlbSetCat(_wlBrowseCat, null); return; }
   document.getElementById('wlbGrid').innerHTML = '<div class="wlb-loader">Loading fresh produce…</div>';
   var data = await sb('listings', {
-    select:'id,farmer_id,farmer_name,crop_name,category,quantity_kg,reserved_qty,price_per_kg,unit,district,is_organic,is_verified,description,discount_pct,sale_unit,min_order_kg,delivery_available,payment_terms,image_url,created_at',
+    select:'id,farmer_id,crop_name,category,quantity_kg,reserved_qty,price_per_kg,unit,district,is_organic,is_verified,description,discount_pct,sale_unit,min_order_kg,delivery_available,payment_terms,image_url,created_at',
     filters:[['is_available','eq.true'],['order','created_at.desc'],['limit','200']]
   });
   if (!Array.isArray(data)) {
@@ -9716,7 +9873,7 @@ async function wlOpenBrowse(cat) {
     return;
   }
   _wlAllListings = data;
-  wlbRender();
+  wlbSetCat(_wlBrowseCat, null);
 }
 
 function _wlbUpdateHero(cat) {
@@ -9738,12 +9895,219 @@ function wlCloseBrowse() {
   if (browse) browse.classList.remove('open');
 }
 
+// ── Subcategory data: category slug → array of subcategories ──
+var WLB_SUBCATS = {
+  'vegetables':          [{slug:'leafy-greens',  name:'Leafy Greens',       emoji:'🥬', kw:'spinach kale sukuma cabbage lettuce amaranth'},
+                          {slug:'nightshades',   name:'Tomatoes & Peppers', emoji:'🍅', kw:'tomato pepper eggplant aubergine'},
+                          {slug:'root-veg',      name:'Root Vegetables',    emoji:'🥕', kw:'carrot onion beetroot turnip radish'},
+                          {slug:'cucurbits',     name:'Cucurbits',          emoji:'🥒', kw:'cucumber pumpkin courgette squash watermelon'},
+                          {slug:'other-veg',     name:'Other Vegetables',   emoji:'🌿', kw:'broccoli cauliflower leek celery asparagus'}],
+  'fruits':              [{slug:'tropical-fruit',name:'Tropical Fruits',    emoji:'🥭', kw:'mango pineapple papaya jackfruit'},
+                          {slug:'citrus',        name:'Citrus Fruits',      emoji:'🍊', kw:'orange lemon lime tangerine grapefruit'},
+                          {slug:'avocado',       name:'Avocado',            emoji:'🥑', kw:'avocado'},
+                          {slug:'passion',       name:'Passion Fruit',      emoji:'🍈', kw:'passion granadilla'},
+                          {slug:'berries-misc',  name:'Berries & Other',    emoji:'🍓', kw:'strawberry tamarind guava banana plantain'}],
+  'cereals-grains':      [{slug:'maize',         name:'Maize',              emoji:'🌽', kw:'maize corn'},
+                          {slug:'rice',          name:'Rice',               emoji:'🍚', kw:'rice'},
+                          {slug:'millet-sorghum',name:'Millet & Sorghum',   emoji:'🌾', kw:'millet sorghum'},
+                          {slug:'wheat-barley',  name:'Wheat & Barley',     emoji:'🌾', kw:'wheat barley'},
+                          {slug:'other-grains',  name:'Other Grains',       emoji:'🌾', kw:'oats teff amaranth quinoa'}],
+  'legumes-pulses':      [{slug:'beans',         name:'Beans',              emoji:'🫘', kw:'bean beans'},
+                          {slug:'cowpeas',       name:'Cowpeas',            emoji:'🫘', kw:'cowpea'},
+                          {slug:'soybeans',      name:'Soybeans',           emoji:'🫘', kw:'soybean soya'},
+                          {slug:'groundnuts',    name:'Groundnuts',         emoji:'🥜', kw:'groundnut peanut'},
+                          {slug:'other-pulses',  name:'Other Pulses',       emoji:'🫘', kw:'chickpea lentil pigeon pea'}],
+  'roots-tubers':        [{slug:'cassava',       name:'Cassava',            emoji:'🍠', kw:'cassava'},
+                          {slug:'sweet-potato',  name:'Sweet Potato',       emoji:'🍠', kw:'sweet potato'},
+                          {slug:'yam',           name:'Yam',                emoji:'🍠', kw:'yam'},
+                          {slug:'matooke',       name:'Matooke / Banana',   emoji:'🍌', kw:'matooke banana plantain'},
+                          {slug:'other-roots',   name:'Other Root Crops',   emoji:'🌱', kw:'cocoyam tannia dasheen taro'}],
+  'nuts-oilseeds':       [{slug:'groundnut-oil', name:'Groundnuts & Oil',   emoji:'🥜', kw:'groundnut peanut'},
+                          {slug:'sesame',        name:'Sesame (Simsim)',     emoji:'🌿', kw:'sesame simsim'},
+                          {slug:'sunflower',     name:'Sunflower',          emoji:'🌻', kw:'sunflower'},
+                          {slug:'macadamia',     name:'Macadamia Nuts',     emoji:'🌰', kw:'macadamia'},
+                          {slug:'other-nuts',    name:'Other Nuts & Seeds', emoji:'🌰', kw:'cashew almond walnut shea'}],
+  'cash-crops':          [{slug:'coffee',        name:'Coffee',             emoji:'☕', kw:'coffee arabica robusta'},
+                          {slug:'tea',           name:'Tea',                emoji:'🍵', kw:'tea'},
+                          {slug:'cocoa',         name:'Cocoa',              emoji:'🍫', kw:'cocoa cacao'},
+                          {slug:'vanilla',       name:'Vanilla',            emoji:'🌿', kw:'vanilla'},
+                          {slug:'other-cash',    name:'Other Cash Crops',   emoji:'🌿', kw:'tobacco cotton sugarcane pyrethrum'}],
+  'herbs-spices':        [{slug:'fresh-herbs',   name:'Fresh Herbs',        emoji:'🌿', kw:'basil coriander parsley mint rosemary thyme'},
+                          {slug:'chilli',        name:'Chilli & Pepper',    emoji:'🌶️', kw:'chilli pepper'},
+                          {slug:'ginger-turmeric',name:'Ginger & Turmeric', emoji:'🫚', kw:'ginger turmeric'},
+                          {slug:'dried-spices',  name:'Dried Spices',       emoji:'🌿', kw:'cumin cinnamon cardamom clove'},
+                          {slug:'lemongrass',    name:'Lemongrass & Citrus',emoji:'🌿', kw:'lemongrass citronella'}],
+  'livestock':           [{slug:'cattle',        name:'Cattle',             emoji:'🐄', kw:'cattle cow bull heifer'},
+                          {slug:'goats',         name:'Goats',              emoji:'🐐', kw:'goat'},
+                          {slug:'sheep',         name:'Sheep',              emoji:'🐑', kw:'sheep lamb'},
+                          {slug:'pigs',          name:'Pigs',               emoji:'🐖', kw:'pig pork'},
+                          {slug:'poultry-live',  name:'Poultry & Birds',    emoji:'🐔', kw:'chicken poultry duck turkey'}],
+  'meat-products':       [{slug:'beef',          name:'Beef',               emoji:'🥩', kw:'beef steak'},
+                          {slug:'goat-meat',     name:'Goat & Mutton',      emoji:'🥩', kw:'goat mutton lamb'},
+                          {slug:'pork',          name:'Pork',               emoji:'🥩', kw:'pork'},
+                          {slug:'chicken-meat',  name:'Chicken & Poultry',  emoji:'🍗', kw:'chicken poultry'},
+                          {slug:'eggs-hides',    name:'Eggs & Hides',       emoji:'🥚', kw:'egg hide leather'}],
+  'dairy':               [{slug:'fresh-milk',    name:'Fresh Milk',         emoji:'🥛', kw:'milk fresh'},
+                          {slug:'yoghurt',       name:'Yoghurt',            emoji:'🥛', kw:'yoghurt yogurt'},
+                          {slug:'cheese',        name:'Cheese & Butter',    emoji:'🧀', kw:'cheese butter cream'},
+                          {slug:'powdered-milk', name:'Powdered Milk',      emoji:'🥛', kw:'powdered dried milk'},
+                          {slug:'other-dairy',   name:'Other Dairy',        emoji:'🥛', kw:'ghee whey lactose'}],
+  'fish-aquaculture':    [{slug:'tilapia',       name:'Tilapia',            emoji:'🐟', kw:'tilapia'},
+                          {slug:'nile-perch',    name:'Nile Perch',         emoji:'🐟', kw:'nile perch mpuuta'},
+                          {slug:'catfish',       name:'Catfish',            emoji:'🐟', kw:'catfish'},
+                          {slug:'mukene',        name:'Mukene (Omena)',      emoji:'🐟', kw:'mukene omena dagaa'},
+                          {slug:'fingerlings',   name:'Fingerlings & Feed', emoji:'🐠', kw:'fingerling fry feed aqua'}],
+  'honey-beekeeping':    [{slug:'raw-honey',     name:'Raw Honey',          emoji:'🍯', kw:'honey raw'},
+                          {slug:'beeswax',       name:'Beeswax',            emoji:'🕯️', kw:'beeswax wax'},
+                          {slug:'propolis',      name:'Propolis',           emoji:'🌿', kw:'propolis'},
+                          {slug:'bee-pollen',    name:'Bee Pollen',         emoji:'🌼', kw:'pollen bee pollen'},
+                          {slug:'bee-colonies',  name:'Bee Colonies & Hives',emoji:'🐝',kw:'colony hive bee'}],
+  'flowers-horticulture':[{slug:'cut-flowers',   name:'Cut Flowers',        emoji:'🌹', kw:'rose flower cut'},
+                           {slug:'ornamental',   name:'Ornamental Plants',  emoji:'🌺', kw:'ornamental pot plant'},
+                           {slug:'fruit-seedlings',name:'Fruit Seedlings',  emoji:'🌱', kw:'seedling fruit graft'},
+                           {slug:'veg-seedlings', name:'Vegetable Seedlings',emoji:'🌱',kw:'seedling vegetable'},
+                           {slug:'dried-flowers', name:'Dried Flowers',     emoji:'💐', kw:'dried flower wreath'}],
+  'processed-products':  [{slug:'flour-meal',    name:'Flours & Meal',      emoji:'🌾', kw:'flour meal posho maize'},
+                           {slug:'oils-fats',    name:'Oils & Fats',        emoji:'🫙', kw:'oil fat cooking'},
+                           {slug:'dried-fruit',  name:'Dried Fruit & Veg',  emoji:'🍇', kw:'dried fruit vegetable'},
+                           {slug:'juices-jams',  name:'Juices & Jams',      emoji:'🍹', kw:'juice jam preserve'},
+                           {slug:'nut-butter',   name:'Peanut Butter & Pastes',emoji:'🥜',kw:'peanut butter groundnut paste'}],
+  'animal-feed':         [{slug:'napier-hay',    name:'Napier & Hay',       emoji:'🌿', kw:'napier hay grass'},
+                           {slug:'silage',       name:'Silage',             emoji:'🌿', kw:'silage'},
+                           {slug:'feed-meal',    name:'Feed Meal & Pellets',emoji:'🥣', kw:'meal pellet feed concentrate'},
+                           {slug:'mineral-licks', name:'Mineral Licks',     emoji:'🧂', kw:'mineral lick salt block'},
+                           {slug:'crop-residues', name:'Crop Residues',     emoji:'🌾', kw:'residue bran husk straw stover'}],
+  'seeds-planting':      [{slug:'crop-seeds',    name:'Crop Seeds',         emoji:'🌱', kw:'seed certified'},
+                           {slug:'cuttings',     name:'Cuttings & Suckers', emoji:'🌿', kw:'cutting sucker vine'},
+                           {slug:'seedlings-veg', name:'Vegetable Seedlings',emoji:'🥬',kw:'seedling vegetable'},
+                           {slug:'tree-seedlings',name:'Tree Seedlings',    emoji:'🌳', kw:'tree seedling forestry'},
+                           {slug:'planting-materials',name:'Other Planting',emoji:'🌱',kw:'bulb tuber rhizome'}],
+  'forestry':            [{slug:'timber',        name:'Timber & Logs',      emoji:'🪵', kw:'timber log wood'},
+                           {slug:'bamboo',       name:'Bamboo',             emoji:'🎋', kw:'bamboo'},
+                           {slug:'firewood',     name:'Firewood & Charcoal',emoji:'🪵', kw:'firewood charcoal'},
+                           {slug:'tree-seed',    name:'Tree Seeds & Seedlings',emoji:'🌳',kw:'tree seed seedling'},
+                           {slug:'gum-resin',    name:'Gums & Resins',      emoji:'🫙', kw:'gum resin latex'}],
+  'medicinal-plants':    [{slug:'moringa',       name:'Moringa',            emoji:'🌿', kw:'moringa'},
+                           {slug:'aloe-vera',    name:'Aloe Vera',          emoji:'🌵', kw:'aloe vera'},
+                           {slug:'neem',         name:'Neem',               emoji:'🌿', kw:'neem'},
+                           {slug:'artemisia',    name:'Artemisia',          emoji:'🌿', kw:'artemisia malaria herb'},
+                           {slug:'other-herbal', name:'Other Herbal Plants',emoji:'🌿', kw:'herbal traditional plant medicinal'}],
+  'agri-byproducts':     [{slug:'manure',        name:'Manure & Compost',   emoji:'♻️', kw:'manure compost'},
+                           {slug:'biochar',      name:'Biochar',            emoji:'⚫', kw:'biochar'},
+                           {slug:'husks-shells', name:'Husks & Shells',     emoji:'🌾', kw:'husk shell cob rice hull'},
+                           {slug:'crop-residue', name:'Crop Residues',      emoji:'🌾', kw:'residue straw stover'},
+                           {slug:'organic-waste', name:'Organic Waste',     emoji:'♻️', kw:'organic waste'}]
+};
+
 function wlbSetCat(cat, btn) {
   _wlBrowseCat = cat;
+  _wlBrowseSubKw = null; // clear any sub-filter
   document.querySelectorAll('#wlbCatHero .wlb-cat-btn').forEach(function(b){ b.classList.remove('active'); });
   if (btn) btn.classList.add('active');
-  _wlbUpdateHero(cat);
+
+  // Show/hide ad carousel vs hero band
+  var adCarousel = document.getElementById('wlbAdCarousel');
+  var heroBand = document.getElementById('wlbHeroBand');
+  if (cat === 'all') {
+    if (adCarousel) adCarousel.style.display = '';
+    if (heroBand) heroBand.style.display = 'none';
+  } else {
+    if (adCarousel) adCarousel.style.display = 'none';
+    if (heroBand) {
+      heroBand.style.display = '';
+      _wlbUpdateHero(cat);
+    }
+  }
+
+  // Show sub-category grid if this cat has subcategories
+  var subs = WLB_SUBCATS[cat];
+  var subGrid = document.getElementById('wlbSubGrid');
+  var prodGrid = document.getElementById('wlbGrid');
+  var breadcrumb = document.getElementById('wlbBreadcrumb');
+  var sectionLabel = document.getElementById('wlbSectionLabel');
+
+  if (subs && subs.length && subGrid) {
+    // Render subcategory tiles
+    wlbRenderSubGrid(cat, subs);
+    if (subGrid) subGrid.style.display = '';
+    if (prodGrid) prodGrid.style.display = 'none';
+    if (breadcrumb) breadcrumb.style.display = 'none';
+    if (sectionLabel) sectionLabel.textContent = (WLB_CAT_META[cat]||{}).title || 'CATEGORIES';
+  } else {
+    // No subcategories — go straight to products
+    if (subGrid) subGrid.style.display = 'none';
+    if (prodGrid) prodGrid.style.display = '';
+    if (breadcrumb) breadcrumb.style.display = 'none';
+    if (sectionLabel) sectionLabel.textContent = cat === 'all' ? 'ALL LISTINGS' : ((WLB_CAT_META[cat]||{}).title||'').toUpperCase() + ' LISTINGS';
+    wlbRender();
+  }
+}
+
+function wlbRenderSubGrid(cat, subs) {
+  var subGrid = document.getElementById('wlbSubGrid');
+  if (!subGrid) return;
+  subGrid.innerHTML = subs.map(function(s) {
+    return '<div class="wlb-sub-tile" onclick="wlbOpenSub(\''+cat+'\',\''+escHtml(s.slug)+'\',\''+escHtml(s.name)+'\',\''+escHtml(s.kw||s.name)+'\')">'+
+      '<div class="wlb-sub-tile-img-placeholder">'+s.emoji+'</div>'+
+      '<div class="wlb-sub-tile-label">'+escHtml(s.name)+'</div>'+
+    '</div>';
+  }).join('');
+}
+
+function wlbOpenSub(cat, slug, label, keywords) {
+  _wlBrowseCat = cat;
+  _wlBrowseSubKw = (keywords||label||'').toLowerCase();
+  _wlBrowseSubLabel = label;
+
+  var subGrid = document.getElementById('wlbSubGrid');
+  var prodGrid = document.getElementById('wlbGrid');
+  var breadcrumb = document.getElementById('wlbBreadcrumb');
+  var breadCur = document.getElementById('wlbBreadCur');
+  var sectionLabel = document.getElementById('wlbSectionLabel');
+
+  if (subGrid) subGrid.style.display = 'none';
+  if (prodGrid) prodGrid.style.display = '';
+  if (breadcrumb) breadcrumb.style.display = 'flex';
+  if (breadCur) breadCur.textContent = label;
+  if (sectionLabel) sectionLabel.textContent = label.toUpperCase();
+
   wlbRender();
+}
+
+function wlbBackToSubs() {
+  _wlBrowseSubKw = null;
+  var cat = _wlBrowseCat;
+  var subs = WLB_SUBCATS[cat];
+  var subGrid = document.getElementById('wlbSubGrid');
+  var prodGrid = document.getElementById('wlbGrid');
+  var breadcrumb = document.getElementById('wlbBreadcrumb');
+  var sectionLabel = document.getElementById('wlbSectionLabel');
+
+  if (subGrid) subGrid.style.display = '';
+  if (prodGrid) prodGrid.style.display = 'none';
+  if (breadcrumb) breadcrumb.style.display = 'none';
+  if (sectionLabel) sectionLabel.textContent = (WLB_CAT_META[cat]||{}).title || 'CATEGORIES';
+  if (subs) wlbRenderSubGrid(cat, subs);
+}
+
+// Ad carousel state
+var _wlbAdIdx = 0;
+var _wlbAdTimer = null;
+
+function wlbAdGo(idx) {
+  var track = document.getElementById('wlbAdTrack');
+  var slides = track ? track.querySelectorAll('.wlb-ad-slide') : [];
+  if (!slides.length) return;
+  _wlbAdIdx = ((idx % slides.length) + slides.length) % slides.length;
+  track.style.transform = 'translateX(-' + (_wlbAdIdx * 100) + '%)';
+  document.querySelectorAll('#wlbAdDots .wlb-ad-dot').forEach(function(d, i) {
+    d.classList.toggle('active', i === _wlbAdIdx);
+  });
+}
+
+function wlbAdStart() {
+  if (_wlbAdTimer) clearInterval(_wlbAdTimer);
+  _wlbAdTimer = setInterval(function() { wlbAdGo(_wlbAdIdx + 1); }, 4000);
 }
 
 function wlbFilterCards() { wlbRender(); }
@@ -9791,7 +10155,13 @@ function wlbRender() {
            return terms.some(function(t){ return lcat.includes(t) || lname.includes(t); });
          })());
     var qOk = !q || (l.crop_name||'').toLowerCase().includes(q) || (l.district||'').toLowerCase().includes(q) || (l.category||'').toLowerCase().includes(q) || (l.farmer_name||'').toLowerCase().includes(q);
-    return catOk && qOk;
+    // subcategory drill-down: filter by keyword set
+    var subOk = !_wlBrowseSubKw || (function(){
+      var lname = (l.crop_name||'').toLowerCase();
+      var ldesc = (l.description||'').toLowerCase();
+      return _wlBrowseSubKw.split(' ').some(function(kw){ return kw && (lname.includes(kw) || ldesc.includes(kw)); });
+    })();
+    return catOk && qOk && subOk;
   });
   if (countEl) countEl.textContent = list.length + ' product' + (list.length===1?'':'s');
   if (!list.length) {
