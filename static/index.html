@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- AB_BUILD:20261116_SUBCATFIX -->
+<!-- AB_BUILD:20261116_NOJOIN -->
 <html lang="en">
 <head>
 <script src="business-config.js"></script>
@@ -9838,7 +9838,7 @@ async function wlOpenBrowse(cat) {
   if (window._wlFetchPromise) { await window._wlFetchPromise; wlbSetCat(_wlBrowseCat, null); return; }
   document.getElementById('wlbGrid').innerHTML = '<div class="wlb-loader">Loading fresh produce…</div>';
   window._wlFetchPromise = sb('listings', {
-    select:'id,farmer_id,crop_name,category,quantity_kg,reserved_qty,price_per_kg,unit,district,is_organic,is_verified,description,discount_pct,sale_unit,min_order_kg,delivery_available,payment_terms,image_url,created_at,farmers(full_name,district,is_verified)',
+    select:'id,farmer_id,farmer_name,crop_name,category,quantity_kg,reserved_qty,price_per_kg,unit,district,is_organic,is_verified,description,discount_pct,sale_unit,min_order_kg,delivery_available,payment_terms,image_url,created_at',
     filters:[['is_available','eq.true'],['order','created_at.desc'],['limit','200']]
   });
   var data = await window._wlFetchPromise;
@@ -9847,9 +9847,9 @@ async function wlOpenBrowse(cat) {
     document.getElementById('wlbGrid').innerHTML = '<div class="wlb-empty"><div class="wlb-empty-icon">⚠️</div><p>Could not load products. Check your connection and try again.</p><button onclick="wlOpenBrowse()" style="margin-top:14px;padding:10px 20px;background:var(--wl-green);color:#fff;border:none;border-radius:10px;font-weight:700;cursor:pointer">Retry</button></div>';
     return;
   }
-  // Normalise: pull farmer name from joined row, auto-fill image if missing
+  // Normalise: use farmer_name column, auto-fill image if missing
   _wlAllListings = data.map(function(l) {
-    var farmerName = (l.farmers && l.farmers.full_name) || l.farmer_name || 'Ugandan Farmer';
+    var farmerName = l.farmer_name || 'Ugandan Farmer';
     var img = l.image_url && String(l.image_url).startsWith('http') ? l.image_url : wlbAutoImage(l.crop_name, l.category);
     return Object.assign({}, l, { farmer_name: farmerName, image_url: img });
   });
@@ -10057,21 +10057,21 @@ async function wlbOpenSub(cat, slug, label, keywords) {
     window._wlFetchPromise = null;
     if (Array.isArray(data) && !_wlAllListings) {
       _wlAllListings = data.map(function(l) {
-        var farmerName = (l.farmers && l.farmers.full_name) || l.farmer_name || 'Ugandan Farmer';
+        var farmerName = l.farmer_name || 'Ugandan Farmer';
         var img = l.image_url && String(l.image_url).startsWith('http') ? l.image_url : wlbAutoImage(l.crop_name, l.category);
         return Object.assign({}, l, { farmer_name: farmerName, image_url: img });
       });
     }
   }
-  // If still no data, fetch now
+  // If still no data, fetch now (no FK join to avoid PostgREST 400)
   if (!_wlAllListings) {
     var data2 = await sb('listings', {
-      select:'id,farmer_id,crop_name,category,quantity_kg,reserved_qty,price_per_kg,unit,district,is_organic,is_verified,description,discount_pct,sale_unit,min_order_kg,delivery_available,payment_terms,image_url,created_at,farmers(full_name,district,is_verified)',
+      select:'id,farmer_id,farmer_name,crop_name,category,quantity_kg,reserved_qty,price_per_kg,unit,district,is_organic,is_verified,description,discount_pct,sale_unit,min_order_kg,delivery_available,payment_terms,image_url,created_at',
       filters:[['is_available','eq.true'],['order','created_at.desc'],['limit','200']]
     });
     if (Array.isArray(data2)) {
       _wlAllListings = data2.map(function(l) {
-        var farmerName = (l.farmers && l.farmers.full_name) || l.farmer_name || 'Ugandan Farmer';
+        var farmerName = l.farmer_name || 'Ugandan Farmer';
         var img = l.image_url && String(l.image_url).startsWith('http') ? l.image_url : wlbAutoImage(l.crop_name, l.category);
         return Object.assign({}, l, { farmer_name: farmerName, image_url: img });
       });
