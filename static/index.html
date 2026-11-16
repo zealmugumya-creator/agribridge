@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- AB_BUILD:20261116_NOJOIN -->
+<!-- AB_BUILD:20261116_SUBCATFALLBACK -->
 <html lang="en">
 <head>
 <script src="business-config.js"></script>
@@ -10169,6 +10169,40 @@ function wlbRender() {
     })();
     return catOk && qOk && subOk;
   });
+  // If subcategory keyword filter gave 0 results, fall back to all items in this parent category
+  if (!list.length && _wlBrowseSubKw) {
+    list = _wlAllListings.filter(function(l) {
+      var catOk2 = _wlBrowseCat === 'all' || (function(){
+        var lcat = (l.category||'').toLowerCase();
+        var lname2 = (l.crop_name||'').toLowerCase();
+        var bc = _wlBrowseCat.toLowerCase();
+        if (lcat === bc) return true;
+        var legacyMap2 = {
+          'vegetables':'vegetable','fruits':'fruit','cereals-grains':'grain cereal maize rice millet sorghum wheat',
+          'legumes-pulses':'bean beans legume pulse cowpea soybean chickpea lentil',
+          'roots-tubers':'cassava sweet potato yam matooke plantain tuber root',
+          'nuts-oilseeds':'groundnut nut sesame sunflower oilseed',
+          'cash-crops':'coffee tea cocoa cotton tobacco vanilla sugarcane',
+          'herbs-spices':'herb spice ginger turmeric chilli pepper coriander',
+          'livestock':'cattle goat sheep pig livestock animal',
+          'meat-products':'meat beef pork chicken egg hide',
+          'dairy':'dairy milk yoghurt cheese butter cream',
+          'fish-aquaculture':'fish tilapia perch catfish mukene aqua',
+          'honey-beekeeping':'honey beeswax propolis bee',
+          'processed-products':'flour oil dried processed juice jam',
+          'animal-feed':'feed fodder napier hay silage meal',
+          'seeds-planting':'seed cutting sucker vine planting material',
+          'medicinal-plants':'moringa aloe neem herbal medicinal aromatic',
+          'agri-byproducts':'manure compost biochar husk residue byproduct',
+          'grains':'grain cereal maize rice millet sorghum wheat',
+          'staples':'cassava sweet potato yam matooke tuber root'
+        };
+        var terms2 = (legacyMap2[bc]||bc).split(' ');
+        return terms2.some(function(t){ return lcat.includes(t) || lname2.includes(t); });
+      })();
+      return catOk2;
+    });
+  }
   if (countEl) countEl.textContent = list.length + ' product' + (list.length===1?'':'s');
   if (!list.length) {
     grid.innerHTML = '<div class="wlb-empty"><div class="wlb-empty-icon">🌾</div><p>No produce in this category right now.<br><small>Check back — farmers add new listings daily.</small></p></div>';
