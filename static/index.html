@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- AB_BUILD:20261118_CLEAN -->
+<!-- AB_BUILD:20261118_FINAL -->
 <html lang="en">
 <head>
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
@@ -9,7 +9,7 @@
 // Self-update: if this page is served from browser cache, force a fresh reload.
 // We store the build stamp in sessionStorage; if it mismatches we reload once.
 (function(){
-  var STAMP = '20261118_CLEAN';
+  var STAMP = '20261118_FINAL';
   var key = '_ab_stamp';
   try {
     if (sessionStorage.getItem(key) !== STAMP) {
@@ -9818,6 +9818,8 @@ var WLB_CAT_META = {
 async function wlOpenBrowse(cat) {
   _wlBrowseCat = cat || 'all';
   _wlBrowseSubKw = null;
+  // Always fetch fresh data so new farmer listings appear immediately
+  _wlAllListings = null;
   var browse = document.getElementById('wl-browse');
   if (!browse) return;
   browse.classList.add('open');
@@ -9933,55 +9935,55 @@ var WLB_SUBCATS = {
                           {slug:'macadamia',     name:'Macadamia Nuts',     emoji:'🌰', kw:'macadamia'},
                           {slug:'other-nuts',    name:'Other Nuts & Seeds', emoji:'🌰', kw:'cashew almond walnut shea'}],
   'cash-crops':          [{slug:'coffee',        name:'Coffee',             emoji:'☕', kw:'coffee arabica robusta'},
+                          {slug:'vanilla',       name:'Vanilla',            emoji:'🌿', kw:'vanilla beans'},
+                          {slug:'cocoa',         name:'Cocoa',              emoji:'🍫', kw:'cocoa wet beans'},
                           {slug:'tea',           name:'Tea',                emoji:'🍵', kw:'tea'},
-                          {slug:'cocoa',         name:'Cocoa',              emoji:'🍫', kw:'cocoa cacao'},
-                          {slug:'vanilla',       name:'Vanilla',            emoji:'🌿', kw:'vanilla'},
-                          {slug:'other-cash',    name:'Other Cash Crops',   emoji:'🌿', kw:'tobacco cotton sugarcane pyrethrum'}],
-  'herbs-spices':        [{slug:'fresh-herbs',   name:'Fresh Herbs',        emoji:'🌿', kw:'basil coriander parsley mint rosemary thyme'},
-                          {slug:'chilli',        name:'Chilli & Pepper',    emoji:'🌶️', kw:'chilli pepper'},
-                          {slug:'ginger-turmeric',name:'Ginger & Turmeric', emoji:'🫚', kw:'ginger turmeric'},
+                          {slug:'other-cash',    name:'Other Cash Crops',   emoji:'🌿', kw:'tobacco cotton sugarcane sesame sunflower'}],
+  'herbs-spices':        [{slug:'chilli',        name:'Chilli & Pepper',    emoji:'🌶️', kw:'chilli birds eye pepper'},
+                          {slug:'ginger',        name:'Ginger',             emoji:'🫚', kw:'ginger fresh'},
+                          {slug:'turmeric',      name:'Turmeric',           emoji:'🌿', kw:'turmeric'},
                           {slug:'dried-spices',  name:'Dried Spices',       emoji:'🌿', kw:'cumin cinnamon cardamom clove'},
-                          {slug:'lemongrass',    name:'Lemongrass & Citrus',emoji:'🌿', kw:'lemongrass citronella'}],
-  'livestock':           [{slug:'cattle',        name:'Cattle',             emoji:'🐄', kw:'cattle cow bull heifer'},
-                          {slug:'goats',         name:'Goats',              emoji:'🐐', kw:'goat'},
+                          {slug:'other-herbs',   name:'Other Herbs',        emoji:'🌿', kw:'basil coriander parsley mint rosemary'}],
+  'livestock':           [{slug:'cattle',        name:'Cattle',             emoji:'🐄', kw:'cattle ankole cow bull heifer'},
+                          {slug:'goats',         name:'Goats',              emoji:'🐐', kw:'goat boer'},
                           {slug:'sheep',         name:'Sheep',              emoji:'🐑', kw:'sheep lamb'},
                           {slug:'pigs',          name:'Pigs',               emoji:'🐖', kw:'pig pork'},
                           {slug:'poultry-live',  name:'Poultry & Birds',    emoji:'🐔', kw:'chicken poultry duck turkey'}],
-  'meat-products':       [{slug:'beef',          name:'Beef',               emoji:'🥩', kw:'beef steak'},
-                          {slug:'goat-meat',     name:'Goat & Mutton',      emoji:'🥩', kw:'goat mutton lamb'},
+  'meat-products':       [{slug:'goat-meat',     name:'Goat Meat',          emoji:'🥩', kw:'goat meat'},
+                          {slug:'eggs',          name:'Eggs',               emoji:'🥚', kw:'egg eggs free-range'},
+                          {slug:'beef',          name:'Beef',               emoji:'🥩', kw:'beef steak'},
                           {slug:'pork',          name:'Pork',               emoji:'🥩', kw:'pork'},
-                          {slug:'chicken-meat',  name:'Chicken & Poultry',  emoji:'🍗', kw:'chicken poultry'},
-                          {slug:'eggs-hides',    name:'Eggs & Hides',       emoji:'🥚', kw:'egg hide leather'}],
-  'dairy':               [{slug:'fresh-milk',    name:'Fresh Milk',         emoji:'🥛', kw:'milk fresh'},
-                          {slug:'yoghurt',       name:'Yoghurt',            emoji:'🥛', kw:'yoghurt yogurt'},
-                          {slug:'cheese',        name:'Cheese & Butter',    emoji:'🧀', kw:'cheese butter cream'},
-                          {slug:'powdered-milk', name:'Powdered Milk',      emoji:'🥛', kw:'powdered dried milk'},
-                          {slug:'other-dairy',   name:'Other Dairy',        emoji:'🥛', kw:'ghee whey lactose'}],
-  'fish-aquaculture':    [{slug:'tilapia',       name:'Tilapia',            emoji:'🐟', kw:'tilapia'},
-                          {slug:'nile-perch',    name:'Nile Perch',         emoji:'🐟', kw:'nile perch mpuuta'},
+                          {slug:'chicken-meat',  name:'Chicken',            emoji:'🍗', kw:'chicken poultry'}],
+  'dairy':               [{slug:'fresh-milk',    name:'Fresh Milk',         emoji:'🥛', kw:'milk whole fresh'},
+                          {slug:'yoghurt',       name:'Yoghurt',            emoji:'🥛', kw:'yoghurt yogurt natural'},
+                          {slug:'ghee',          name:'Ghee & Butter',      emoji:'🧈', kw:'ghee butter local'},
+                          {slug:'cheese',        name:'Cheese & Cream',     emoji:'🧀', kw:'cheese cream'},
+                          {slug:'other-dairy',   name:'Other Dairy',        emoji:'🥛', kw:'powdered dried milk'}],
+  'fish-aquaculture':    [{slug:'tilapia',       name:'Fresh Tilapia',      emoji:'🐟', kw:'tilapia fresh'},
+                          {slug:'mukene',        name:'Mukene (Dried)',      emoji:'🐟', kw:'mukene dried omena'},
+                          {slug:'nile-perch',    name:'Nile Perch',         emoji:'🐟', kw:'perch nile mpuuta'},
                           {slug:'catfish',       name:'Catfish',            emoji:'🐟', kw:'catfish'},
-                          {slug:'mukene',        name:'Mukene (Omena)',      emoji:'🐟', kw:'mukene omena dagaa'},
-                          {slug:'fingerlings',   name:'Fingerlings & Feed', emoji:'🐠', kw:'fingerling fry feed aqua'}],
-  'honey-beekeeping':    [{slug:'raw-honey',     name:'Raw Honey',          emoji:'🍯', kw:'honey raw'},
-                          {slug:'beeswax',       name:'Beeswax',            emoji:'🕯️', kw:'beeswax wax'},
+                          {slug:'fingerlings',   name:'Fingerlings',        emoji:'🐠', kw:'fingerling fry'}],
+  'honey-beekeeping':    [{slug:'raw-honey',     name:'Raw Honey',          emoji:'🍯', kw:'honey raw forest'},
+                          {slug:'beeswax',       name:'Beeswax',            emoji:'🕯️', kw:'beeswax raw wax'},
                           {slug:'propolis',      name:'Propolis',           emoji:'🌿', kw:'propolis'},
-                          {slug:'bee-pollen',    name:'Bee Pollen',         emoji:'🌼', kw:'pollen bee pollen'},
-                          {slug:'bee-colonies',  name:'Bee Colonies & Hives',emoji:'🐝',kw:'colony hive bee'}],
+                          {slug:'bee-pollen',    name:'Bee Pollen',         emoji:'🌼', kw:'pollen'},
+                          {slug:'bee-colonies',  name:'Bee Colonies & Hives',emoji:'🐝',kw:'colony hive'}],
   'flowers-horticulture':[{slug:'cut-flowers',   name:'Cut Flowers',        emoji:'🌹', kw:'rose flower cut'},
                            {slug:'ornamental',   name:'Ornamental Plants',  emoji:'🌺', kw:'ornamental pot plant'},
                            {slug:'fruit-seedlings',name:'Fruit Seedlings',  emoji:'🌱', kw:'seedling fruit graft'},
                            {slug:'veg-seedlings', name:'Vegetable Seedlings',emoji:'🌱',kw:'seedling vegetable'},
                            {slug:'dried-flowers', name:'Dried Flowers',     emoji:'💐', kw:'dried flower wreath'}],
-  'processed-products':  [{slug:'flour-meal',    name:'Flours & Meal',      emoji:'🌾', kw:'flour meal posho maize'},
+  'processed-products':  [{slug:'nut-butter',    name:'Peanut Butter',      emoji:'🥜', kw:'peanut butter'},
+                           {slug:'simsim-paste', name:'Simsim Paste',       emoji:'🫙', kw:'simsim paste'},
+                           {slug:'flour-meal',   name:'Flours & Meal',      emoji:'🌾', kw:'flour meal posho'},
                            {slug:'oils-fats',    name:'Oils & Fats',        emoji:'🫙', kw:'oil fat cooking'},
-                           {slug:'dried-fruit',  name:'Dried Fruit & Veg',  emoji:'🍇', kw:'dried fruit vegetable'},
-                           {slug:'juices-jams',  name:'Juices & Jams',      emoji:'🍹', kw:'juice jam preserve'},
-                           {slug:'nut-butter',   name:'Peanut Butter & Pastes',emoji:'🥜',kw:'peanut butter groundnut paste'}],
-  'animal-feed':         [{slug:'napier-hay',    name:'Napier & Hay',       emoji:'🌿', kw:'napier hay grass'},
+                           {slug:'juices-jams',  name:'Juices & Jams',      emoji:'🍹', kw:'juice jam preserve dried'}],
+  'animal-feed':         [{slug:'napier',        name:'Napier Grass',       emoji:'🌿', kw:'napier grass'},
+                           {slug:'layers-mash',  name:'Layers Mash',        emoji:'🥣', kw:'layers mash'},
                            {slug:'silage',       name:'Silage',             emoji:'🌿', kw:'silage'},
                            {slug:'feed-meal',    name:'Feed Meal & Pellets',emoji:'🥣', kw:'meal pellet feed concentrate'},
-                           {slug:'mineral-licks', name:'Mineral Licks',     emoji:'🧂', kw:'mineral lick salt block'},
-                           {slug:'crop-residues', name:'Crop Residues',     emoji:'🌾', kw:'residue bran husk straw stover'}],
+                           {slug:'crop-residues', name:'Crop Residues',     emoji:'🌾', kw:'residue bran husk straw'}],
   'seeds-planting':      [{slug:'crop-seeds',    name:'Crop Seeds',         emoji:'🌱', kw:'seed certified'},
                            {slug:'cuttings',     name:'Cuttings & Suckers', emoji:'🌿', kw:'cutting sucker vine'},
                            {slug:'seedlings-veg', name:'Vegetable Seedlings',emoji:'🥬',kw:'seedling vegetable'},
@@ -9997,10 +9999,10 @@ var WLB_SUBCATS = {
                            {slug:'neem',         name:'Neem',               emoji:'🌿', kw:'neem'},
                            {slug:'artemisia',    name:'Artemisia',          emoji:'🌿', kw:'artemisia malaria herb'},
                            {slug:'other-herbal', name:'Other Herbal Plants',emoji:'🌿', kw:'herbal traditional plant medicinal'}],
-  'agri-byproducts':     [{slug:'manure',        name:'Manure & Compost',   emoji:'♻️', kw:'manure compost'},
+  'agri-byproducts':     [{slug:'manure',        name:'Compost & Manure',   emoji:'♻️', kw:'compost manure'},
+                           {slug:'husks',        name:'Rice Husks',         emoji:'🌾', kw:'husk husks rice'},
                            {slug:'biochar',      name:'Biochar',            emoji:'⚫', kw:'biochar'},
-                           {slug:'husks-shells', name:'Husks & Shells',     emoji:'🌾', kw:'husk shell cob rice hull'},
-                           {slug:'crop-residue', name:'Crop Residues',      emoji:'🌾', kw:'residue straw stover'},
+                           {slug:'crop-residue', name:'Crop Residues',      emoji:'🌾', kw:'residue straw stover bran'},
                            {slug:'organic-waste', name:'Organic Waste',     emoji:'♻️', kw:'organic waste'}]
 };
 
