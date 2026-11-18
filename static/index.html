@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- AB_BUILD:20261118_SUBFIX -->
+<!-- AB_BUILD:20261118_FILTERFIX -->
 <html lang="en">
 <head>
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
@@ -9,7 +9,7 @@
 // Self-update: if this page is served from browser cache, force a fresh reload.
 // We store the build stamp in sessionStorage; if it mismatches we reload once.
 (function(){
-  var STAMP = '20261118_SUBFIX';
+  var STAMP = '20261118_FILTERFIX';
   var key = '_ab_stamp';
   try {
     if (sessionStorage.getItem(key) !== STAMP) {
@@ -9873,7 +9873,7 @@ async function wlOpenBrowse(cat) {
     var isArr = Array.isArray(result);
     var cats = isArr ? [...new Set(result.map(function(l){return l.category;}))].join(', ') : 'N/A';
     b.innerHTML = (isArr ? '✅' : '❌') + ' sb() returned: ' + (isArr ? 'array['+result.length+']' : (result===null?'null':typeof result))
-      + ' | Build: 20261118_SUBFIX'
+      + ' | Build: 20261118_FILTERFIX'
       + (isArr && result.length ? '<br>📂 '+cats : '')
       + '<br><small>tap to dismiss</small>';
     b.onclick = function(){ b.remove(); };
@@ -10130,7 +10130,7 @@ async function wlbOpenSub(cat, slug, label, keywords) {
       b2.style.cssText = 'position:fixed;bottom:0;left:0;right:0;background:#1a1a2e;color:#00ff88;font-size:11px;padding:8px 12px;z-index:99999;font-family:monospace;border-top:2px solid #00ff88';
       var isArr2 = Array.isArray(r2);
       b2.innerHTML = (isArr2 ? '✅' : '❌') + ' SUB fetch: ' + (isArr2 ? 'array['+r2.length+']' : (r2===null?'null':typeof r2))
-        + ' | Build: 20261118_SUBFIX | kw:'+(_wlBrowseSubKw||'?')
+        + ' | Build: 20261118_FILTERFIX | kw:'+(_wlBrowseSubKw||'?')
         + '<br><small>tap to dismiss</small>';
       b2.onclick = function(){ b2.remove(); };
       document.body.appendChild(b2);
@@ -10201,85 +10201,75 @@ function wlbRender() {
   var countEl = document.getElementById('wlbCount');
   if (!grid || !_wlAllListings) return;
   var q = ((document.getElementById('wlbSearch') || {}).value || '').toLowerCase().trim();
+
+  // Maps new category slugs → keywords that also match old-format DB categories and crop names
+  // Old DB categories: 'staples', 'vegetables', 'fruits', 'cash crops', 'other'
+  var legacyMap = {
+    'vegetables':'vegetable tomato onion cabbage spinach kale sukuma pepper eggplant aubergine leek',
+    'fruits':'fruit mango banana passion pineapple avocado watermelon papaya jackfruit citrus orange lemon',
+    'cereals-grains':'grain cereal maize rice millet sorghum wheat teff oat barley staples',
+    'legumes-pulses':'bean beans legume pulse cowpea soybean soya chickpea lentil pigeon pea',
+    'roots-tubers':'cassava sweet potato yam matooke plantain tuber root staples',
+    'nuts-oilseeds':'groundnut nut sesame simsim sunflower oilseed',
+    'cash-crops':'coffee tea cocoa cotton tobacco vanilla sugarcane cash crops',
+    'herbs-spices':'herb spice ginger turmeric chilli pepper coriander rosemary basil',
+    'livestock':'cattle goat sheep pig livestock animal cow heifer bull ram ewe',
+    'meat-products':'meat beef pork chicken mutton goat hide skin',
+    'dairy':'dairy milk yoghurt cheese butter cream',
+    'fish-aquaculture':'fish tilapia perch catfish mukene nile aqua',
+    'honey-beekeeping':'honey beeswax propolis bee',
+    'flowers-horticulture':'flower rose ornamental seedling cutting',
+    'processed-products':'flour oil dried processed juice jam powder',
+    'animal-feed':'feed fodder napier hay silage meal bran',
+    'seeds-planting':'seed cutting sucker vine planting material',
+    'forestry':'timber bamboo firewood wood charcoal tree',
+    'medicinal-plants':'moringa aloe neem herbal medicinal aromatic',
+    'agri-byproducts':'manure compost biochar husk residue byproduct',
+    'poultry':'chicken poultry duck turkey egg broiler layer',
+    'aqua':'fish tilapia perch catfish mukene aqua'
+  };
+
+  function catMatches(l, bc) {
+    if (bc === 'all') return true;
+    if (bc === 'organic') return !!l.is_organic;
+    var lcat = (l.category||'').toLowerCase().trim();
+    var lname = (l.crop_name||'').toLowerCase();
+    if (lcat === bc) return true;
+    // old 5-category slugs map to new slugs
+    var oldMap = {
+      'staples': 'cereals-grains roots-tubers legumes-pulses',
+      'cash crops': 'cash-crops',
+      'other': 'livestock meat-products dairy fish-aquaculture honey-beekeeping processed-products'
+    };
+    // check if old category is compatible with browsed new category
+    if (oldMap[lcat]) {
+      if (oldMap[lcat].includes(bc)) return true;
+    }
+    // keyword match against crop name and DB category value
+    var terms = (legacyMap[bc]||bc).split(' ');
+    return terms.some(function(t){ return t && (lcat.includes(t) || lname.includes(t)); });
+  }
+
   var list = _wlAllListings.filter(function(l) {
-    var catOk = _wlBrowseCat === 'all'
-      || (_wlBrowseCat === 'organic' ? l.is_organic
-      : (function(){
-           var lcat = (l.category||'').toLowerCase();
-           var lname = (l.crop_name||'').toLowerCase();
-           var bc = _wlBrowseCat.toLowerCase();
-           /* exact slug match (new DB listings) */
-           if (lcat === bc) return true;
-           /* legacy text matches */
-           var legacyMap = {
-             'vegetables':'vegetable','fruits':'fruit','cereals-grains':'grain cereal maize rice millet sorghum wheat',
-             'legumes-pulses':'bean beans legume pulse cowpea soybean chickpea lentil',
-             'roots-tubers':'cassava sweet potato yam matooke plantain tuber root',
-             'nuts-oilseeds':'groundnut nut sesame sunflower oilseed',
-             'cash-crops':'coffee tea cocoa cotton tobacco vanilla sugarcane',
-             'herbs-spices':'herb spice ginger turmeric chilli pepper coriander',
-             'livestock':'cattle goat sheep pig livestock animal',
-             'meat-products':'meat beef pork chicken egg hide',
-             'dairy':'dairy milk yoghurt cheese butter cream',
-             'fish-aquaculture':'fish tilapia perch catfish mukene aqua',
-             'honey-beekeeping':'honey beeswax propolis bee',
-             'flowers-horticulture':'flower rose ornamental seedling',
-             'processed-products':'flour oil dried processed juice jam',
-             'animal-feed':'feed fodder napier hay silage meal',
-             'seeds-planting':'seed cutting sucker vine planting material',
-             'forestry':'timber bamboo firewood wood charcoal tree',
-             'medicinal-plants':'moringa aloe neem herbal medicinal aromatic',
-             'agri-byproducts':'manure compost biochar husk residue byproduct',
-             'grains':'grain cereal maize rice millet sorghum wheat',
-             'staples':'cassava sweet potato yam matooke tuber root',
-             'poultry':'chicken poultry duck turkey egg',
-             'aqua':'fish tilapia perch catfish mukene aqua'
-           };
-           var terms = (legacyMap[bc]||bc).split(' ');
-           return terms.some(function(t){ return lcat.includes(t) || lname.includes(t); });
-         })());
+    var catOk = catMatches(l, _wlBrowseCat);
     var qOk = !q || (l.crop_name||'').toLowerCase().includes(q) || (l.district||'').toLowerCase().includes(q) || (l.category||'').toLowerCase().includes(q) || (l.farmer_name||'').toLowerCase().includes(q);
-    // subcategory drill-down: filter by keyword set
+    // subcategory drill-down: match keyword against crop_name OR description OR category
     var subOk = !_wlBrowseSubKw || (function(){
       var lname = (l.crop_name||'').toLowerCase();
       var ldesc = (l.description||'').toLowerCase();
-      return _wlBrowseSubKw.split(' ').some(function(kw){ return kw && (lname.includes(kw) || ldesc.includes(kw)); });
+      var lcat2 = (l.category||'').toLowerCase();
+      return _wlBrowseSubKw.split(' ').some(function(kw){ return kw && (lname.includes(kw) || ldesc.includes(kw) || lcat2.includes(kw)); });
     })();
     return catOk && qOk && subOk;
   });
-  // If subcategory keyword filter gave 0 results, fall back to all items in this parent category
+
+  // Fallback 1: subcategory keyword matched nothing → show all parent-category items
   if (!list.length && _wlBrowseSubKw) {
-    list = _wlAllListings.filter(function(l) {
-      var catOk2 = _wlBrowseCat === 'all' || (function(){
-        var lcat = (l.category||'').toLowerCase();
-        var lname2 = (l.crop_name||'').toLowerCase();
-        var bc = _wlBrowseCat.toLowerCase();
-        if (lcat === bc) return true;
-        var legacyMap2 = {
-          'vegetables':'vegetable','fruits':'fruit','cereals-grains':'grain cereal maize rice millet sorghum wheat',
-          'legumes-pulses':'bean beans legume pulse cowpea soybean chickpea lentil',
-          'roots-tubers':'cassava sweet potato yam matooke plantain tuber root',
-          'nuts-oilseeds':'groundnut nut sesame sunflower oilseed',
-          'cash-crops':'coffee tea cocoa cotton tobacco vanilla sugarcane',
-          'herbs-spices':'herb spice ginger turmeric chilli pepper coriander',
-          'livestock':'cattle goat sheep pig livestock animal',
-          'meat-products':'meat beef pork chicken egg hide',
-          'dairy':'dairy milk yoghurt cheese butter cream',
-          'fish-aquaculture':'fish tilapia perch catfish mukene aqua',
-          'honey-beekeeping':'honey beeswax propolis bee',
-          'processed-products':'flour oil dried processed juice jam',
-          'animal-feed':'feed fodder napier hay silage meal',
-          'seeds-planting':'seed cutting sucker vine planting material',
-          'medicinal-plants':'moringa aloe neem herbal medicinal aromatic',
-          'agri-byproducts':'manure compost biochar husk residue byproduct',
-          'grains':'grain cereal maize rice millet sorghum wheat',
-          'staples':'cassava sweet potato yam matooke tuber root'
-        };
-        var terms2 = (legacyMap2[bc]||bc).split(' ');
-        return terms2.some(function(t){ return lcat.includes(t) || lname2.includes(t); });
-      })();
-      return catOk2;
-    });
+    list = _wlAllListings.filter(function(l) { return catMatches(l, _wlBrowseCat); });
+  }
+  // Fallback 2: parent-category matched nothing (all old-format data) → show ALL listings
+  if (!list.length && _wlBrowseCat !== 'all') {
+    list = _wlAllListings.slice();
   }
   if (countEl) countEl.textContent = list.length + ' product' + (list.length===1?'':'s');
   if (!list.length) {
