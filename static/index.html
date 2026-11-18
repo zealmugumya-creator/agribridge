@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- AB_BUILD:20261118_DIAGNOSE -->
+<!-- AB_BUILD:20261118_SUBFIX -->
 <html lang="en">
 <head>
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
@@ -9,7 +9,7 @@
 // Self-update: if this page is served from browser cache, force a fresh reload.
 // We store the build stamp in sessionStorage; if it mismatches we reload once.
 (function(){
-  var STAMP = '20261118_DIAGNOSE';
+  var STAMP = '20261118_SUBFIX';
   var key = '_ab_stamp';
   try {
     if (sessionStorage.getItem(key) !== STAMP) {
@@ -9873,7 +9873,7 @@ async function wlOpenBrowse(cat) {
     var isArr = Array.isArray(result);
     var cats = isArr ? [...new Set(result.map(function(l){return l.category;}))].join(', ') : 'N/A';
     b.innerHTML = (isArr ? '✅' : '❌') + ' sb() returned: ' + (isArr ? 'array['+result.length+']' : (result===null?'null':typeof result))
-      + ' | Build: 20261118_DIAGNOSE'
+      + ' | Build: 20261118_SUBFIX'
       + (isArr && result.length ? '<br>📂 '+cats : '')
       + '<br><small>tap to dismiss</small>';
     b.onclick = function(){ b.remove(); };
@@ -10121,6 +10121,31 @@ async function wlbOpenSub(cat, slug, label, keywords) {
       select:'id,farmer_id,farmer_name,crop_name,category,quantity_kg,reserved_qty,price_per_kg,unit,district,is_organic,is_verified,description,discount_pct,sale_unit,min_order_kg,delivery_available,payment_terms,image_url,created_at,is_available',
       filters:[['order','created_at.desc'],['limit','500']]
     });
+    // Debug banner — always visible
+    (function(r2){
+      var old2 = document.getElementById('_ab_dbg');
+      if (old2) old2.remove();
+      var b2 = document.createElement('div');
+      b2.id = '_ab_dbg';
+      b2.style.cssText = 'position:fixed;bottom:0;left:0;right:0;background:#1a1a2e;color:#00ff88;font-size:11px;padding:8px 12px;z-index:99999;font-family:monospace;border-top:2px solid #00ff88';
+      var isArr2 = Array.isArray(r2);
+      b2.innerHTML = (isArr2 ? '✅' : '❌') + ' SUB fetch: ' + (isArr2 ? 'array['+r2.length+']' : (r2===null?'null':typeof r2))
+        + ' | Build: 20261118_SUBFIX | kw:'+(_wlBrowseSubKw||'?')
+        + '<br><small>tap to dismiss</small>';
+      b2.onclick = function(){ b2.remove(); };
+      document.body.appendChild(b2);
+      if (!isArr2) {
+        fetch(SUPA_URL+'/rest/v1/listings?select=id&limit=1', {headers:{'apikey':SUPA_KEY,'Authorization':'Bearer '+SUPA_KEY}})
+          .then(function(r){ return r.text().then(function(t){ return {status:r.status,body:t.substring(0,300)}; }); })
+          .then(function(info){
+            var bb = document.getElementById('_ab_dbg');
+            if (bb) bb.innerHTML += '<br>🔍 HTTP '+info.status+' → '+info.body;
+          }).catch(function(e){
+            var bb = document.getElementById('_ab_dbg');
+            if (bb) bb.innerHTML += '<br>🔥 threw: '+e.message;
+          });
+      }
+    })(data2);
     if (Array.isArray(data2)) {
       var avail2 = data2.filter(function(l){ return l.is_available !== false; });
       _wlAllListings = (avail2.length ? avail2 : data2).map(function(l) {
