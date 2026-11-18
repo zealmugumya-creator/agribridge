@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- AB_BUILD:20261118_SELFUPDATE -->
+<!-- AB_BUILD:20261118_DIAGNOSE -->
 <html lang="en">
 <head>
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
@@ -9,7 +9,7 @@
 // Self-update: if this page is served from browser cache, force a fresh reload.
 // We store the build stamp in sessionStorage; if it mismatches we reload once.
 (function(){
-  var STAMP = '20261118_SELFUPDATE';
+  var STAMP = '20261118_DIAGNOSE';
   var key = '_ab_stamp';
   try {
     if (sessionStorage.getItem(key) !== STAMP) {
@@ -9863,27 +9863,39 @@ async function wlOpenBrowse(cat) {
   });
   var data = await window._wlFetchPromise;
   window._wlFetchPromise = null;
-  if (!Array.isArray(data)) {
-    document.getElementById('wlbGrid').innerHTML = '<div class="wlb-empty"><div class="wlb-empty-icon">⚠️</div><p>Could not load products. Check your connection and try again.</p><button onclick="wlOpenBrowse()" style="margin-top:14px;padding:10px 20px;background:var(--wl-green);color:#fff;border:none;border-radius:10px;font-weight:700;cursor:pointer">Retry</button></div>';
-    return;
-  }
-  // Filter to available listings client-side, and show debug info briefly
-  var allRaw = data;
-  var availableData = data.filter(function(l){ return l.is_available !== false; });
-  var cats = [...new Set(allRaw.map(function(l){return l.category;}))].join(', ');
-  console.log('[AB] Total fetched:', allRaw.length, '| Available:', availableData.length, '| Categories:', cats);
-  // Show a dismissible debug banner so we can confirm fetch is working
-  (function(){
+  // Always show debug banner regardless of fetch result
+  (function(result){
     var old = document.getElementById('_ab_dbg');
     if (old) old.remove();
     var b = document.createElement('div');
     b.id = '_ab_dbg';
-    b.style.cssText = 'position:fixed;bottom:10px;left:10px;right:10px;background:#1a1a2e;color:#00ff88;font-size:12px;padding:10px 14px;border-radius:8px;z-index:99999;font-family:monospace;border:1px solid #00ff88';
-    b.innerHTML = '✅ DB: '+allRaw.length+' listings fetched | '+availableData.length+' available<br>📂 Categories: '+cats+'<br><small style="opacity:.6">Tap to dismiss</small>';
+    b.style.cssText = 'position:fixed;bottom:0;left:0;right:0;background:#1a1a2e;color:#00ff88;font-size:11px;padding:8px 12px;z-index:99999;font-family:monospace;border-top:2px solid #00ff88';
+    var isArr = Array.isArray(result);
+    var cats = isArr ? [...new Set(result.map(function(l){return l.category;}))].join(', ') : 'N/A';
+    b.innerHTML = (isArr ? '✅' : '❌') + ' sb() returned: ' + (isArr ? 'array['+result.length+']' : (result===null?'null':typeof result))
+      + ' | Build: 20261118_DIAGNOSE'
+      + (isArr && result.length ? '<br>📂 '+cats : '')
+      + '<br><small>tap to dismiss</small>';
     b.onclick = function(){ b.remove(); };
     document.body.appendChild(b);
-    setTimeout(function(){ if(b.parentNode) b.remove(); }, 15000);
-  })();
+  })(data);
+
+  if (!Array.isArray(data)) {
+    // Also do a raw fetch to diagnose the error
+    fetch(SUPA_URL+'/rest/v1/listings?select=id&limit=1', {headers:{'apikey':SUPA_KEY,'Authorization':'Bearer '+SUPA_KEY}})
+      .then(function(r){ return r.text().then(function(t){ return {status:r.status,body:t.substring(0,200)}; }); })
+      .then(function(info){
+        var b = document.getElementById('_ab_dbg');
+        if (b) b.innerHTML += '<br>🔍 Direct fetch: HTTP '+info.status+' → '+info.body;
+      }).catch(function(e){
+        var b = document.getElementById('_ab_dbg');
+        if (b) b.innerHTML += '<br>🔥 Direct fetch threw: '+e.message;
+      });
+    document.getElementById('wlbGrid').innerHTML = '<div class="wlb-empty"><div class="wlb-empty-icon">⚠️</div><p>Could not load products. Check your connection and try again.</p><button onclick="wlOpenBrowse()" style="margin-top:14px;padding:10px 20px;background:var(--wl-green);color:#fff;border:none;border-radius:10px;font-weight:700;cursor:pointer">Retry</button></div>';
+    return;
+  }
+  var allRaw = data;
+  var availableData = data.filter(function(l){ return l.is_available !== false; });
   if (!availableData.length && allRaw.length > 0) {
     availableData = allRaw;
   }
