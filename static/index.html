@@ -1,7 +1,27 @@
 <!DOCTYPE html>
-<!-- AB_BUILD:20261118_DEBUGBANNER -->
+<!-- AB_BUILD:20261118_SELFUPDATE -->
 <html lang="en">
 <head>
+<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+<meta http-equiv="Pragma" content="no-cache">
+<meta http-equiv="Expires" content="0">
+<script>
+// Self-update: if this page is served from browser cache, force a fresh reload.
+// We store the build stamp in sessionStorage; if it mismatches we reload once.
+(function(){
+  var STAMP = '20261118_SELFUPDATE';
+  var key = '_ab_stamp';
+  try {
+    if (sessionStorage.getItem(key) !== STAMP) {
+      sessionStorage.setItem(key, STAMP);
+      // Only reload if this isn't already a cache-busted load
+      if (!location.search.includes('_cb=')) {
+        location.replace(location.href.split('?')[0] + '?_cb=' + STAMP + (location.hash || ''));
+      }
+    }
+  } catch(e) {}
+})();
+</script>
 <script src="business-config.js"></script>
 <meta http-equiv="Content-Security-Policy" content="default-src 'self' https: data: blob:; script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://fonts.googleapis.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://fonts.gstatic.com; img-src 'self' https: data: blob:; connect-src 'self' https://lvloaweijidgcuezdnmu.supabase.co https://agribridge-1-og7a.onrender.com wss://lvloaweijidgcuezdnmu.supabase.co https://nominatim.openstreetmap.org https://router.project-osrm.org; font-src 'self' https://fonts.gstatic.com; frame-src https://www.youtube.com;">
 <meta http-equiv="X-Content-Type-Options" content="nosniff">

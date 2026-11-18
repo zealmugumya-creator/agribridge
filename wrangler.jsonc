@@ -4,6 +4,11 @@
   "name": "agribridge",
   "compatibility_date": "2026-10-06",
   "assets": {
-    "directory": "./static"
-  }
+    "directory": "./static",
+    "html_handling": "auto-trailing-slash",
+    "not_found_handling": "single-page-application"
+  },
+  "rules": [
+    { "type": "Text", "globs": ["**/*.html"], "fallthrough": true }
+  ]
 }
