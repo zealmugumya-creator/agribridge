@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- AB_BUILD:20261118_DEBUGFETCH -->
+<!-- AB_BUILD:20261118_DEBUGBANNER -->
 <html lang="en">
 <head>
 <script src="business-config.js"></script>
@@ -9850,10 +9850,21 @@ async function wlOpenBrowse(cat) {
   // Filter to available listings client-side, and show debug info briefly
   var allRaw = data;
   var availableData = data.filter(function(l){ return l.is_available !== false; });
-  console.log('[AB] Total fetched:', allRaw.length, '| Available:', availableData.length,
-    '| Categories:', [...new Set(allRaw.map(function(l){return l.category;}))].join(', '));
+  var cats = [...new Set(allRaw.map(function(l){return l.category;}))].join(', ');
+  console.log('[AB] Total fetched:', allRaw.length, '| Available:', availableData.length, '| Categories:', cats);
+  // Show a dismissible debug banner so we can confirm fetch is working
+  (function(){
+    var old = document.getElementById('_ab_dbg');
+    if (old) old.remove();
+    var b = document.createElement('div');
+    b.id = '_ab_dbg';
+    b.style.cssText = 'position:fixed;bottom:10px;left:10px;right:10px;background:#1a1a2e;color:#00ff88;font-size:12px;padding:10px 14px;border-radius:8px;z-index:99999;font-family:monospace;border:1px solid #00ff88';
+    b.innerHTML = '✅ DB: '+allRaw.length+' listings fetched | '+availableData.length+' available<br>📂 Categories: '+cats+'<br><small style="opacity:.6">Tap to dismiss</small>';
+    b.onclick = function(){ b.remove(); };
+    document.body.appendChild(b);
+    setTimeout(function(){ if(b.parentNode) b.remove(); }, 15000);
+  })();
   if (!availableData.length && allRaw.length > 0) {
-    // All listings exist but none marked available — show all anyway so marketplace isn't empty
     availableData = allRaw;
   }
   // Normalise: use farmer_name column, auto-fill image if missing
