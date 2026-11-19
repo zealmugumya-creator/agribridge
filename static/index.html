@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- AB_BUILD:20261119_FIX5 -->
+<!-- AB_BUILD:20261119_FIX6 -->
 <html lang="en">
 <head>
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
@@ -9,7 +9,7 @@
 // Self-update: if this page is served from browser cache, force a fresh reload.
 // We store the build stamp in sessionStorage; if it mismatches we reload once.
 (function(){
-  var STAMP = '20261119_FIX5';
+  var STAMP = '20261119_FIX6';
   var key = '_ab_stamp';
   try {
     if (sessionStorage.getItem(key) !== STAMP) {
@@ -10247,27 +10247,29 @@ function wlbRender() {
   // Maps new category slugs → keywords that also match old-format DB categories and crop names
   // Old DB categories: 'staples', 'vegetables', 'fruits', 'cash crops', 'other'
   var legacyMap = {
-    'vegetables':'vegetable tomato onion cabbage spinach kale sukuma pepper eggplant aubergine leek',
-    'fruits':'fruit mango banana passion pineapple avocado watermelon papaya jackfruit citrus orange lemon',
-    'cereals-grains':'grain cereal maize rice millet sorghum wheat teff oat barley staples',
-    'legumes-pulses':'bean beans legume pulse cowpea soybean soya chickpea lentil pigeon pea',
+    'vegetables':'vegetable tomato onion cabbage spinach kale sukuma pepper eggplant aubergine leek courgette zucchini broccoli cauliflower lettuce cucumber',
+    'fruits':'fruit mango banana passion pineapple avocado watermelon papaya jackfruit citrus orange lemon strawberry guava tamarind',
+    'cereals-grains':'grain cereal maize rice millet sorghum wheat teff oat barley staples corn',
+    'legumes-pulses':'bean beans legume pulse cowpea soybean soya chickpea lentil pigeon pea groundbean',
     'roots-tubers':'cassava sweet potato yam matooke plantain tuber root staples',
-    'nuts-oilseeds':'groundnut nut sesame simsim sunflower oilseed',
+    'nuts-oilseeds':'groundnut nut sesame simsim sunflower oilseed peanut macadamia',
     'cash-crops':'coffee tea cocoa cotton tobacco vanilla sugarcane cash crops',
-    'herbs-spices':'herb spice ginger turmeric chilli pepper coriander rosemary basil',
-    'livestock':'cattle goat sheep pig livestock animal cow heifer bull ram ewe',
-    'meat-products':'meat beef pork chicken mutton goat hide skin',
+    'herbs-spices':'herb spice ginger turmeric chilli coriander rosemary basil thyme oregano',
+    // animal-feed MUST come BEFORE livestock so "napier grass", "layers mash", "dairy meal" etc
+    // are matched here first rather than leaking into the livestock/poultry buckets
+    'animal-feed':'feed fodder napier grass hay silage meal bran mash pellet premix saltlick salt lick dairy concentrate ration',
+    'livestock':'cattle goat sheep pig livestock cow heifer bull ram ewe boer ankole',
+    'meat-products':'meat beef pork mutton hide skin offal',
     'dairy':'dairy milk yoghurt cheese butter cream',
     'fish-aquaculture':'fish tilapia perch catfish mukene nile aqua',
     'honey-beekeeping':'honey beeswax propolis bee',
-    'flowers-horticulture':'flower rose ornamental seedling cutting',
+    'flowers-horticulture':'flower rose ornamental cutting',
     'processed-products':'flour oil dried processed juice jam powder',
-    'animal-feed':'feed fodder napier hay silage meal bran',
-    'seeds-planting':'seed cutting sucker vine planting material',
+    'seeds-planting':'seed cutting sucker vine planting material seedling',
     'forestry':'timber bamboo firewood wood charcoal tree',
     'medicinal-plants':'moringa aloe neem herbal medicinal aromatic',
     'agri-byproducts':'manure compost biochar husk residue byproduct',
-    'poultry':'chicken poultry duck turkey egg broiler layer',
+    'poultry':'chicken poultry duck turkey broiler layer kienyeji',
     'aqua':'fish tilapia perch catfish mukene aqua'
   };
 
@@ -10286,6 +10288,21 @@ function wlbRender() {
     // check if old category is compatible with browsed new category
     if (oldMap[lcat]) {
       if (oldMap[lcat].includes(bc)) return true;
+    }
+    // Priority guard: if crop name or DB category strongly matches a MORE-SPECIFIC category,
+    // don't let it bleed into a broader one (e.g. "napier grass" → animal-feed, not livestock)
+    var specificFirst = ['animal-feed','poultry','dairy','fish-aquaculture','honey-beekeeping',
+                         'processed-products','seeds-planting','forestry','medicinal-plants','agri-byproducts'];
+    if (!specificFirst.includes(bc)) {
+      // If browsing a broad category (livestock, vegetables…), block items that firmly belong to a specific one
+      for (var si = 0; si < specificFirst.length; si++) {
+        var sc = specificFirst[si];
+        if (sc === bc) break; // browsing this specific cat itself — allow
+        var scTerms = (legacyMap[sc]||'').split(' ');
+        if (scTerms.filter(function(t){ return t.length>3; }).some(function(t){ return lname.includes(t) || lcat.includes(t); })) {
+          return false; // belongs to a specific sub-category, not this broad one
+        }
+      }
     }
     // keyword match against crop name and DB category value
     var terms = (legacyMap[bc]||bc).split(' ');
@@ -10320,7 +10337,7 @@ function wlbRender() {
     var salePrice = discPct > 0 ? Math.round(rawPrice * (1 - discPct/100)) : rawPrice;
     var priceStr = salePrice > 0 ? 'UGX ' + salePrice.toLocaleString() : 'Ask for price';
     var origStr = (discPct > 0 && rawPrice > 0) ? 'UGX ' + rawPrice.toLocaleString() : '';
-    var unit = l.sale_unit || l.unit || 'kg';
+    var unit = (l.sale_unit || l.unit || 'kg').replace(/^per\s+/i,'');
     var farmerName = l.farmer_name || 'Ugandan Farmer';
     var district = l.district || 'Uganda';
     var hasImg = l.image_url && l.image_url.startsWith('http');
@@ -10360,54 +10377,96 @@ function wlbRender() {
 
 // Auto-pick a real Unsplash photo when the listing has no image
 var WLB_IMG_MAP = {
-  maize:        'photo-1601593346740-925612772716',
-  corn:         'photo-1601593346740-925612772716',
-  beans:        'photo-1515543904379-3d757afe72e4',
-  tomato:       'photo-1546094096-0df4bcaaa337',
-  tomatoes:     'photo-1546094096-0df4bcaaa337',
-  mango:        'photo-1601493700631-2b16ec4b4716',
-  avocado:      'photo-1601039641847-7857b994d704',
-  banana:       'photo-1571771894821-ce9b6c11b08e',
-  matooke:      'photo-1571771894821-ce9b6c11b08e',
-  pineapple:    'photo-1550258987-190a2d41a8ba',
-  coffee:       'photo-1495474472287-4d71bcdd2085',
-  vanilla:      'photo-1596040033229-a9821ebd058d',
-  cassava:      'photo-1518977676601-b53f82aba655',
+  // Cereals
+  maize:         'photo-1601593346740-925612772716',
+  corn:          'photo-1601593346740-925612772716',
+  rice:          'photo-1536304929831-ee1ca9d44906',
+  sorghum:       'photo-1574323347407-f5e1ad6d020b',
+  millet:        'photo-1574323347407-f5e1ad6d020b',
+  wheat:         'photo-1574323347407-f5e1ad6d020b',
+  barley:        'photo-1574323347407-f5e1ad6d020b',
+  oat:           'photo-1574323347407-f5e1ad6d020b',
+  // Legumes
+  beans:         'photo-1515543904379-3d757afe72e4',
+  soybean:       'photo-1515543904379-3d757afe72e4',
+  cowpea:        'photo-1515543904379-3d757afe72e4',
+  // Vegetables
+  tomato:        'photo-1546094096-0df4bcaaa337',
+  tomatoes:      'photo-1546094096-0df4bcaaa337',
+  onion:         'photo-1620574387735-3624d75b2dbc',
+  onions:        'photo-1620574387735-3624d75b2dbc',
+  cabbage:       'photo-1598030304960-6abb5ccffe7b',
+  carrot:        'photo-1598170845058-32b9d6a5da37',
+  pepper:        'photo-1563565375-f3fdfdbefa83',
+  chilli:        'photo-1563565375-f3fdfdbefa83',
+  pumpkin:       'photo-1570586437263-ab629fccc818',
+  spinach:       'photo-1540420773420-3366772f4999',
+  kale:          'photo-1540420773420-3366772f4999',
+  'sukuma wiki': 'photo-1540420773420-3366772f4999',
+  broccoli:      'photo-1459411621453-7b03977f4bfc',
+  cauliflower:   'photo-1459411621453-7b03977f4bfc',
+  cucumber:      'photo-1449300079323-02e209d9d3a6',
+  // Fruits
+  mango:         'photo-1601493700631-2b16ec4b4716',
+  avocado:       'photo-1601039641847-7857b994d704',
+  banana:        'photo-1571771894821-ce9b6c11b08e',
+  matooke:       'photo-1571771894821-ce9b6c11b08e',
+  pineapple:     'photo-1550258987-190a2d41a8ba',
+  passion:       'photo-1596591868231-05e808fd2e5d',
+  watermelon:    'photo-1587049332298-1c42e83937a7',
+  // Roots & tubers
+  cassava:       'photo-1518977676601-b53f82aba655',
   'sweet potato':'photo-1518977676601-b53f82aba655',
-  groundnut:    'photo-1567306226416-28f0efdc88ce',
-  peanut:       'photo-1567306226416-28f0efdc88ce',
-  sunflower:    'photo-1597848212624-a19eb35e2651',
-  sesame:       'photo-1612450931597-7c76f72e6e28',
-  milk:         'photo-1550583724-b2692b85b150',
-  tilapia:      'photo-1510130387422-82bed34b37e9',
-  fish:         'photo-1510130387422-82bed34b37e9',
-  honey:        'photo-1587049352846-4a222e784d38',
-  chicken:      'photo-1587593810167-a84920ea0781',
-  egg:          'photo-1518492104633-130d0cc84637',
-  eggs:         'photo-1518492104633-130d0cc84637',
-  goat:         'photo-1548550023-2bdb3c5beed7',
-  cattle:       'photo-1570042225831-d98fa7577f1e',
-  cow:          'photo-1570042225831-d98fa7577f1e',
-  beef:         'photo-1559847844-5315695dadae',
-  pork:         'photo-1529692236671-f1f6cf9683ba',
-  onion:        'photo-1620574387735-3624d75b2dbc',
-  onions:       'photo-1620574387735-3624d75b2dbc',
-  cabbage:      'photo-1518977676601-b53f82aba655',
-  carrot:       'photo-1598170845058-32b9d6a5da37',
-  pepper:       'photo-1563565375-f3fdfdbefa83',
-  chilli:       'photo-1563565375-f3fdfdbefa83',
-  ginger:       'photo-1565557623262-b51c2513a641',
-  rice:         'photo-1536304929831-ee1ca9d44906',
-  sorghum:      'photo-1574323347407-f5e1ad6d020b',
-  millet:       'photo-1574323347407-f5e1ad6d020b',
-  wheat:        'photo-1574323347407-f5e1ad6d020b',
-  barley:       'photo-1574323347407-f5e1ad6d020b',
-  cotton:       'photo-1595351298020-038700609878',
-  passion:      'photo-1596591868231-05e808fd2e5d',
-  pumpkin:      'photo-1570586437263-ab629fccc818',
-  watermelon:   'photo-1587049332298-1c42e83937a7',
-  moringa:      'photo-1612450931597-7c76f72e6e28',
-  aloe:         'photo-1587049352846-4a222e784d38'
+  yam:           'photo-1518977676601-b53f82aba655',
+  // Nuts & oilseeds
+  groundnut:     'photo-1567306226416-28f0efdc88ce',
+  peanut:        'photo-1567306226416-28f0efdc88ce',
+  sunflower:     'photo-1597848212624-a19eb35e2651',
+  sesame:        'photo-1612450931597-7c76f72e6e28',
+  // Cash crops
+  coffee:        'photo-1495474472287-4d71bcdd2085',
+  vanilla:       'photo-1596040033229-a9821ebd058d',
+  cotton:        'photo-1595351298020-038700609878',
+  tea:           'photo-1556742400-b5b7a512a7a3',
+  // Herbs & spices
+  ginger:        'photo-1565557623262-b51c2513a641',
+  turmeric:      'photo-1615485500704-8e990f9900f7',
+  // Dairy
+  milk:          'photo-1550583724-b2692b85b150',
+  yoghurt:       'photo-1488477181228-c2b65f99e56a',
+  // Fish
+  tilapia:       'photo-1510130387422-82bed34b37e9',
+  fish:          'photo-1510130387422-82bed34b37e9',
+  // Honey
+  honey:         'photo-1587049352846-4a222e784d38',
+  // Poultry
+  chicken:       'photo-1587593810167-a84920ea0781',
+  egg:           'photo-1518492104633-130d0cc84637',
+  eggs:          'photo-1518492104633-130d0cc84637',
+  broiler:       'photo-1587593810167-a84920ea0781',
+  // Livestock (animals themselves)
+  goat:          'photo-1548550023-2bdb3c5beed7',
+  sheep:         'photo-1548550023-2bdb3c5beed7',
+  cattle:        'photo-1570042225831-d98fa7577f1e',
+  cow:           'photo-1570042225831-d98fa7577f1e',
+  ankole:        'photo-1570042225831-d98fa7577f1e',
+  pig:           'photo-1516467508483-a7212febe31a',
+  // Meat
+  beef:          'photo-1559847844-5315695dadae',
+  pork:          'photo-1529692236671-f1f6cf9683ba',
+  // Animal feed — these MUST map before livestock keys
+  napier:        'photo-1500595046743-cd271d694d30',
+  'napier grass':'photo-1500595046743-cd271d694d30',
+  silage:        'photo-1500595046743-cd271d694d30',
+  hay:           'photo-1500595046743-cd271d694d30',
+  fodder:        'photo-1500595046743-cd271d694d30',
+  'layers mash': 'photo-1587593810167-a84920ea0781',
+  mash:          'photo-1587593810167-a84920ea0781',
+  'dairy meal':  'photo-1570042225831-d98fa7577f1e',
+  bran:          'photo-1574323347407-f5e1ad6d020b',
+  // Medicinal
+  moringa:       'photo-1612450931597-7c76f72e6e28',
+  aloe:          'photo-1587049352846-4a222e784d38'
 };
 
 var WLB_CAT_IMG = {
@@ -10426,7 +10485,7 @@ var WLB_CAT_IMG = {
   'honey-beekeeping':    'photo-1587049352846-4a222e784d38',
   'flowers-horticulture':'photo-1490750967868-88df5691cc15',
   'processed-products':  'photo-1612450931597-7c76f72e6e28',
-  'animal-feed':         'photo-1574323347407-f5e1ad6d020b',
+  'animal-feed':         'photo-1500595046743-cd271d694d30',
   'seeds-planting':      'photo-1416879595882-3373a0480b5b',
   'forestry':            'photo-1448375240586-882707db888b',
   'medicinal-plants':    'photo-1565557623262-b51c2513a641',
@@ -10435,12 +10494,13 @@ var WLB_CAT_IMG = {
 
 function wlbAutoImage(cropName, category) {
   var n = (cropName||'').toLowerCase();
-  // Try exact crop name match first
-  for (var k in WLB_IMG_MAP) {
-    if (n.includes(k)) return 'https://images.unsplash.com/' + WLB_IMG_MAP[k] + '?w=600&q=80';
+  // Try longest-match first so "napier grass" beats "grass" and "layers mash" beats "mash"
+  var keys = Object.keys(WLB_IMG_MAP).sort(function(a,b){ return b.length - a.length; });
+  for (var i = 0; i < keys.length; i++) {
+    if (n.includes(keys[i])) return 'https://images.unsplash.com/' + WLB_IMG_MAP[keys[i]] + '?w=600&q=80';
   }
   // Fall back to category image
-  var catImg = WLB_CAT_IMG[category] || WLB_CAT_IMG['vegetables'];
+  var catImg = WLB_CAT_IMG[category] || WLB_CAT_IMG[(category||'').replace(/_/g,'-')] || WLB_CAT_IMG['vegetables'];
   return 'https://images.unsplash.com/' + catImg + '?w=600&q=80';
 }
 
