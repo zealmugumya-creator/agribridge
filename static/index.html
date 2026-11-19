@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- AB_BUILD:20261119_SEC1 -->
+<!-- AB_BUILD:20261119_FIX3 -->
 <html lang="en">
 <head>
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
@@ -9,7 +9,7 @@
 // Self-update: if this page is served from browser cache, force a fresh reload.
 // We store the build stamp in sessionStorage; if it mismatches we reload once.
 (function(){
-  var STAMP = '20261119_SEC1';
+  var STAMP = '20261119_FIX3';
   var key = '_ab_stamp';
   try {
     if (sessionStorage.getItem(key) !== STAMP) {
@@ -9863,10 +9863,21 @@ async function wlOpenBrowse(cat) {
   // If a fetch is already running, wait for it then render
   if (window._wlFetchPromise) { await window._wlFetchPromise; wlbSetCat(_wlBrowseCat, null); return; }
   document.getElementById('wlbGrid').innerHTML = '<div class="wlb-loader">Loading fresh produce…</div>';
-  window._wlFetchPromise = sb('listings', {
-    select:'id,farmer_id,farmer_name,crop_name,category,quantity_kg,reserved_qty,price_per_kg,unit,district,is_organic,is_verified,description,discount_pct,sale_unit,min_order_kg,delivery_available,payment_terms,image_url,created_at,is_available',
-    filters:[['order','created_at.desc'],['limit','500']]
-  });
+  // Race the Supabase fetch against a 12-second timeout so the page never hangs forever
+  var _fetchAbort = new AbortController();
+  var _fetchTimeout = setTimeout(function(){ _fetchAbort.abort(); }, 12000);
+  window._wlFetchPromise = (async function(){
+    try {
+      var url = SUPA_URL + '/rest/v1/listings?select=id,farmer_id,farmer_name,crop_name,category,quantity_kg,reserved_qty,price_per_kg,unit,district,is_organic,is_verified,description,discount_pct,sale_unit,min_order_kg,delivery_available,payment_terms,image_url,created_at,is_available&order=created_at.desc&limit=500';
+      var res = await fetch(url, {
+        signal: _fetchAbort.signal,
+        headers: { 'apikey': SUPA_KEY, 'Authorization': 'Bearer ' + SUPA_KEY }
+      });
+      clearTimeout(_fetchTimeout);
+      if (!res.ok) return null;
+      return await res.json();
+    } catch(e) { clearTimeout(_fetchTimeout); return null; }
+  })();
   var data = await window._wlFetchPromise;
   window._wlFetchPromise = null;
   if (!Array.isArray(data)) {
