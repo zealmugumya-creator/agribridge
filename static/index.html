@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- AB_BUILD:20261118_FIX2 -->
+<!-- AB_BUILD:20261119_SEC1 -->
 <html lang="en">
 <head>
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
@@ -9,13 +9,13 @@
 // Self-update: if this page is served from browser cache, force a fresh reload.
 // We store the build stamp in sessionStorage; if it mismatches we reload once.
 (function(){
-  var STAMP = '20261118_FIX2';
+  var STAMP = '20261119_SEC1';
   var key = '_ab_stamp';
   try {
     if (sessionStorage.getItem(key) !== STAMP) {
       sessionStorage.setItem(key, STAMP);
-      // Only reload if this isn't already a cache-busted load
-      if (!location.search.includes('_cb=')) {
+      // Reload if URL doesn't already carry THIS exact stamp (old _cb values don't count)
+      if (!location.search.includes('_cb=' + STAMP)) {
         location.replace(location.href.split('?')[0] + '?_cb=' + STAMP + (location.hash || ''));
       }
     }
