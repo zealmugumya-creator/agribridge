@@ -380,7 +380,7 @@ async function gateLogin() {
   err.textContent = '';
   if (!pwd) { err.textContent = 'Enter the password.'; return; }
   try {
-    var r = await fetch(API + '/api/admin/login', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ password: pwd }) });
+    var r = await fetch(API + '/api/mgmt-ab19/login', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ password: pwd }) });
     var j = await r.json().catch(function() { return null; });
     if (r.ok && j && j.token) {
       TOKEN = j.token; sessionStorage.setItem('ab_admin_token', TOKEN);
@@ -437,14 +437,14 @@ function gpsAge(ts) {
 // ─── REFRESH ALL ──────────────────────────────────────────────────────────────
 async function refreshAll() {
   try {
-    var orders = await api('/api/admin/orders-full');
+    var orders = await api('/api/mgmt-ab19/orders-full');
     allOrders = Array.isArray(orders) ? orders : [];
     updateStats();
     renderRecentTable();
     updateBadges();
   } catch(e) { toast('Failed to load orders', 'error'); }
   try {
-    var active = await api('/api/admin/active-deliveries');
+    var active = await api('/api/mgmt-ab19/active-deliveries');
     activeDeliveries = Array.isArray(active) ? active : [];
   } catch(e) {}
 }
@@ -514,7 +514,7 @@ async function loadOrders() {
   if (t) params.set('date_to', t);
   if (q) params.set('q', q);
   try {
-    var rows = await api('/api/admin/orders-full?' + params.toString());
+    var rows = await api('/api/mgmt-ab19/orders-full?' + params.toString());
     tbl.innerHTML = rows && rows.length ? ordersTableHTML(rows) : '<div class="empty"><big>📭</big>No orders match filters</div>';
   } catch(e) { tbl.innerHTML = '<div class="empty">Failed to load</div>'; }
 }
@@ -525,7 +525,7 @@ async function loadActive() {
   var tbl = document.getElementById('activeTbl');
   tbl.innerHTML = '<div class="loading-row"><span class="spinner"></span> Loading…</div>';
   try {
-    var rows = await api('/api/admin/active-deliveries');
+    var rows = await api('/api/mgmt-ab19/active-deliveries');
     activeDeliveries = Array.isArray(rows) ? rows : [];
     if (!rows.length) { tbl.innerHTML = '<div class="empty"><big>🚚</big>No active deliveries</div>'; return; }
     var now = Date.now();
@@ -636,7 +636,7 @@ async function refreshMap() {
   var fallback = document.getElementById('mapFallbackList');
   fallback.innerHTML = '';
 
-  var rows = activeDeliveries.length ? activeDeliveries : (await api('/api/admin/active-deliveries').catch(function(){return[];}));
+  var rows = activeDeliveries.length ? activeDeliveries : (await api('/api/mgmt-ab19/active-deliveries').catch(function(){return[];}));
   activeDeliveries = Array.isArray(rows) ? rows : [];
 
   var noGPS = [];
@@ -683,7 +683,7 @@ async function loadTransporters() {
   var tbl = document.getElementById('transportersTbl');
   tbl.innerHTML = '<div class="loading-row"><span class="spinner"></span> Loading…</div>';
   try {
-    var rows = await api('/api/admin/transporters');
+    var rows = await api('/api/mgmt-ab19/transporters');
     if (!rows.length) { tbl.innerHTML = '<div class="empty"><big>🚛</big>No transporters registered</div>'; return; }
     var head = '<table><thead><tr><th>Name</th><th>Phone</th><th>Vehicle</th><th>Plate</th><th>District</th><th>Capacity</th><th>Available</th><th>Last GPS</th><th>Status</th></tr></thead><tbody>';
     var body = rows.map(function(t) {
@@ -716,7 +716,7 @@ async function openDetail(orderId) {
   var o = allOrders.find(function(x){ return x.id === orderId; });
   if (!o) {
     try {
-      var rows = await api('/api/admin/orders-full?q=' + encodeURIComponent(orderId));
+      var rows = await api('/api/mgmt-ab19/orders-full?q=' + encodeURIComponent(orderId));
       o = Array.isArray(rows) ? rows.find(function(x){ return x.id === orderId; }) : null;
     } catch(e) {}
   }
@@ -801,9 +801,9 @@ function adminAction(type, orderId) {
   };
   showConfirm(titles[type], msgs[type], function(reason) {
     var endpoints = {
-      approve: '/api/admin/orders/' + orderId + '/approve',
-      reject:  '/api/admin/orders/' + orderId + '/reject',
-      deliver: '/api/admin/orders/' + orderId + '/confirm-delivery',
+      approve: '/api/mgmt-ab19/orders/' + orderId + '/approve',
+      reject:  '/api/mgmt-ab19/orders/' + orderId + '/reject',
+      deliver: '/api/mgmt-ab19/orders/' + orderId + '/confirm-delivery',
     };
     api(endpoints[type], {
       method: 'POST',
@@ -823,7 +823,7 @@ async function loadSuggestedFarmers(orderId) {
   var panel = document.getElementById('farmerPanel');
   if (!panel) return;
   panel.innerHTML = '<div style="color:var(--text2);font-size:.8rem;padding:4px 0">Loading suggested farmers…</div>';
-  var farmers = await api('/api/admin/orders/' + orderId + '/suggested-farmers').catch(function(){return[];});
+  var farmers = await api('/api/mgmt-ab19/orders/' + orderId + '/suggested-farmers').catch(function(){return[];});
   if (!Array.isArray(farmers) || !farmers.length) {
     panel.innerHTML = '<div style="color:var(--text2);font-size:.8rem;padding:4px 0">No farmers found — all active farmers shown below may be contacted.</div>';
     return;
@@ -848,7 +848,7 @@ async function loadSuggestedFarmers(orderId) {
 
 function assignFarmer(orderId, farmerId, farmerName) {
   if (!confirm('Assign ' + farmerName + ' to this order?\n\nMake sure you have called them and confirmed availability.')) return;
-  api('/api/admin/orders/' + orderId + '/assign-farmer', {
+  api('/api/mgmt-ab19/orders/' + orderId + '/assign-farmer', {
     method: 'POST',
     body: JSON.stringify({ farmer_id: farmerId, note: 'Assigned by admin after call confirmation' })
   }).then(function(j) {
@@ -866,7 +866,7 @@ function assignFarmer(orderId, farmerId, farmerName) {
 
 // ─── ASSIGN TRANSPORTER ───────────────────────────────────────────────────────
 async function showAssignTransporter(orderId) {
-  var transporters = await api('/api/admin/transporters').catch(function(){return[];});
+  var transporters = await api('/api/mgmt-ab19/transporters').catch(function(){return[];});
   var avail = transporters.filter(function(t){ return t.is_available && t.status === 'active'; });
   if (!avail.length) { toast('No available transporters right now', 'warn'); return; }
 
@@ -900,7 +900,7 @@ async function showAssignTransporter(orderId) {
 
 function confirmAssignTransporter(orderId, transporterId, transporterName) {
   document.getElementById('transporterPickerOverlay')?.remove();
-  api('/api/admin/orders/' + orderId + '/assign-transporter', {
+  api('/api/mgmt-ab19/orders/' + orderId + '/assign-transporter', {
     method: 'POST', body: JSON.stringify({ transporter_id: transporterId })
   }).then(function(j) {
     if (j.ok) { toast('🚚 ' + transporterName + ' assigned — order is now in transit!'); closeDetail(); refreshAll(); }
@@ -931,7 +931,7 @@ async function fetchReceipt() {
   out.innerHTML = '<div class="loading-row"><span class="spinner"></span> Fetching…</div>';
 
   // Try to find the order by ref or ID
-  var rows = await api('/api/admin/orders-full?q=' + encodeURIComponent(q)).catch(function(){return[];});
+  var rows = await api('/api/mgmt-ab19/orders-full?q=' + encodeURIComponent(q)).catch(function(){return[];});
   if (!rows.length) { out.innerHTML = '<div class="empty"><big>🔍</big>No order found for: ' + h(q) + '</div>'; return; }
   var o = rows[0];
   out.innerHTML = renderReceiptHTML(o);
@@ -1005,7 +1005,7 @@ setInterval(function() { if (TOKEN) refreshAll(); }, 60000);
 (function init() {
   if (!TOKEN) { showGate(''); return; }
   // Verify the saved token before showing anything.
-  fetch(API + '/api/admin/verify', { headers: authHeaders() })
+  fetch(API + '/api/mgmt-ab19/verify', { headers: authHeaders() })
     .then(function(r) { return r.json().catch(function() { return null; }); })
     .then(function(v) {
       if (v && v.valid) { hideGate(); refreshAll(); }

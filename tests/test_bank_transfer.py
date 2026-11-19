@@ -73,12 +73,12 @@ def _order_rows(monkeypatch, target, checkout):
 
 
 def test_verify_bank_requires_admin(client):
-    assert client.post("/api/admin/orders/o1/verify-bank-transfer",
+    assert client.post("/api/mgmt-ab19/orders/o1/verify-bank-transfer",
                        json={"bank_reference": "TRX-123"}).status_code == 401
 
 
 def test_verify_bank_rejects_short_reference(client):
-    r = client.post("/api/admin/orders/o1/verify-bank-transfer",
+    r = client.post("/api/mgmt-ab19/orders/o1/verify-bank-transfer",
                     json={"bank_reference": "x"}, headers=_admin_headers())
     assert r.status_code == 400
     assert r.get_json()["code"] == "bank_reference_required"
@@ -87,7 +87,7 @@ def test_verify_bank_rejects_short_reference(client):
 def test_verify_bank_refuses_non_bank_order(client, monkeypatch):
     _order_rows(monkeypatch, [{"id": "o1", "payment_ref": "AB-1", "payment_method": "momo",
                                "payment_status": "unpaid", "status": "pending"}], [])
-    r = client.post("/api/admin/orders/o1/verify-bank-transfer",
+    r = client.post("/api/mgmt-ab19/orders/o1/verify-bank-transfer",
                     json={"bank_reference": "TRX-123"}, headers=_admin_headers())
     assert r.status_code == 409
     assert r.get_json()["code"] == "not_a_bank_order"
@@ -96,7 +96,7 @@ def test_verify_bank_refuses_non_bank_order(client, monkeypatch):
 def test_verify_bank_refuses_cancelled_order(client, monkeypatch):
     _order_rows(monkeypatch, [{"id": "o1", "payment_ref": "AB-1", "payment_method": "bank",
                                "payment_status": "unpaid", "status": "cancelled"}], [])
-    r = client.post("/api/admin/orders/o1/verify-bank-transfer",
+    r = client.post("/api/mgmt-ab19/orders/o1/verify-bank-transfer",
                     json={"bank_reference": "TRX-123"}, headers=_admin_headers())
     assert r.status_code == 409
     assert r.get_json()["code"] == "order_cancelled"
@@ -118,7 +118,7 @@ def test_verify_bank_marks_paid_with_stored_amount(client, monkeypatch):
     monkeypatch.setattr(app_mod, "_mark_checkout_paid", fake_mark)
     monkeypatch.setattr(app_mod, "_log_system_event", lambda *a, **k: None)
     monkeypatch.setattr(app_mod, "supa_insert", lambda *a, **k: None)
-    r = client.post("/api/admin/orders/o1/verify-bank-transfer",
+    r = client.post("/api/mgmt-ab19/orders/o1/verify-bank-transfer",
                     json={"bank_reference": "TRX-9001"}, headers=_admin_headers())
     assert r.status_code == 200 and r.get_json()["ok"] is True
     assert calls["tx_ref"] == "AB-1" and calls["provider"] == "bank"
@@ -136,7 +136,7 @@ def test_verify_bank_reports_already_paid(client, monkeypatch):
     monkeypatch.setattr(app_mod, "_mark_checkout_paid", lambda *a, **k: True)
     monkeypatch.setattr(app_mod, "_log_system_event", lambda *a, **k: None)
     monkeypatch.setattr(app_mod, "supa_insert", lambda *a, **k: None)
-    r = client.post("/api/admin/orders/o1/verify-bank-transfer",
+    r = client.post("/api/mgmt-ab19/orders/o1/verify-bank-transfer",
                     json={"bank_reference": "TRX-9001"}, headers=_admin_headers())
     assert r.status_code == 200 and r.get_json()["already_paid"] is True
 
@@ -152,7 +152,7 @@ def test_verify_bank_failure_is_not_success(client, monkeypatch):
     events = []
     monkeypatch.setattr(app_mod, "_log_system_event",
                         lambda et, d, **k: events.append(et))
-    r = client.post("/api/admin/orders/o1/verify-bank-transfer",
+    r = client.post("/api/mgmt-ab19/orders/o1/verify-bank-transfer",
                     json={"bank_reference": "TRX-9001"}, headers=_admin_headers())
     assert r.status_code == 503
     assert "bank_verify_failed" in events

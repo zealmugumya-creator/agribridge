@@ -185,20 +185,20 @@ def test_settlement_requires_a_provider_reference():
 
 # ── Endpoint guards ─────────────────────────────────────────────────────────
 def test_settle_requires_admin(client):
-    r = client.post(f'/api/admin/payouts/{PAYOUT_ID}/settle', json={'provider_ref': 'X'})
+    r = client.post(f'/api/mgmt-ab19/payouts/{PAYOUT_ID}/settle', json={'provider_ref': 'X'})
     assert r.status_code == 401
 
 
 def test_settle_rejects_a_non_uuid_payout(client, monkeypatch):
     monkeypatch.setattr(app_mod, 'supa_get_checked', _reads())
-    r = client.post('/api/admin/payouts/not-a-uuid/settle',
+    r = client.post('/api/mgmt-ab19/payouts/not-a-uuid/settle',
                     json={'provider_ref': 'X'}, headers=_admin_headers())
     assert r.status_code == 400
 
 
 def test_settle_requires_the_provider_reference(client, monkeypatch):
     monkeypatch.setattr(app_mod, 'supa_get_checked', _reads())
-    r = client.post(f'/api/admin/payouts/{PAYOUT_ID}/settle',
+    r = client.post(f'/api/mgmt-ab19/payouts/{PAYOUT_ID}/settle',
                     json={'provider_ref': '  '}, headers=_admin_headers())
     assert r.status_code == 400
     assert r.get_json()['code'] == 'provider_ref_required'
@@ -206,7 +206,7 @@ def test_settle_requires_the_provider_reference(client, monkeypatch):
 
 def test_settle_returns_404_for_an_unknown_payout(client, monkeypatch):
     monkeypatch.setattr(app_mod, 'supa_get_checked', _reads(payouts=[]))
-    r = client.post(f'/api/admin/payouts/{PAYOUT_ID}/settle',
+    r = client.post(f'/api/mgmt-ab19/payouts/{PAYOUT_ID}/settle',
                     json={'provider_ref': 'MP-1'}, headers=_admin_headers())
     assert r.status_code == 404
 
@@ -214,7 +214,7 @@ def test_settle_returns_404_for_an_unknown_payout(client, monkeypatch):
 def test_settle_is_idempotent_for_an_already_paid_payout(client, monkeypatch):
     monkeypatch.setattr(app_mod, 'supa_get_checked', _reads(
         payouts=[_payout(status='paid', provider_ref='MP-1', paid_at='2026-10-21T09:00:00Z')]))
-    r = client.post(f'/api/admin/payouts/{PAYOUT_ID}/settle',
+    r = client.post(f'/api/mgmt-ab19/payouts/{PAYOUT_ID}/settle',
                     json={'provider_ref': 'MP-1'}, headers=_admin_headers())
     body = r.get_json()
     assert r.status_code == 200 and body['already_settled'] is True
@@ -224,7 +224,7 @@ def test_settle_is_idempotent_for_an_already_paid_payout(client, monkeypatch):
 def test_settle_refuses_a_non_pending_payout(client, monkeypatch):
     monkeypatch.setattr(app_mod, 'supa_get_checked', _reads(
         payouts=[_payout(status='disputed')]))
-    r = client.post(f'/api/admin/payouts/{PAYOUT_ID}/settle',
+    r = client.post(f'/api/mgmt-ab19/payouts/{PAYOUT_ID}/settle',
                     json={'provider_ref': 'MP-1'}, headers=_admin_headers())
     assert r.status_code == 409
     assert r.get_json()['code'] == 'payout_not_pending'
@@ -233,7 +233,7 @@ def test_settle_refuses_a_non_pending_payout(client, monkeypatch):
 def test_settle_refuses_an_order_that_is_not_delivered_and_paid(client, monkeypatch):
     monkeypatch.setattr(app_mod, 'supa_get_checked', _reads(
         orders=[_order(status='in_transit')]))
-    r = client.post(f'/api/admin/payouts/{PAYOUT_ID}/settle',
+    r = client.post(f'/api/mgmt-ab19/payouts/{PAYOUT_ID}/settle',
                     json={'provider_ref': 'MP-1'}, headers=_admin_headers())
     assert r.status_code == 409
     assert r.get_json()['code'] == 'order_not_settleable'
@@ -242,7 +242,7 @@ def test_settle_refuses_an_order_that_is_not_delivered_and_paid(client, monkeypa
 def test_settle_refuses_a_payout_that_no_longer_matches_the_order(client, monkeypatch):
     monkeypatch.setattr(app_mod, 'supa_get_checked', _reads(
         orders=[_order(total_amount=90000, total_price=90000)]))
-    r = client.post(f'/api/admin/payouts/{PAYOUT_ID}/settle',
+    r = client.post(f'/api/mgmt-ab19/payouts/{PAYOUT_ID}/settle',
                     json={'provider_ref': 'MP-1'}, headers=_admin_headers())
     assert r.status_code == 409
     assert r.get_json()['code'] == 'payout_amount_mismatch'
@@ -250,7 +250,7 @@ def test_settle_refuses_a_payout_that_no_longer_matches_the_order(client, monkey
 
 def test_settle_refuses_when_the_customer_receipt_is_missing(client, monkeypatch):
     monkeypatch.setattr(app_mod, 'supa_get_checked', _reads(journals=[]))
-    r = client.post(f'/api/admin/payouts/{PAYOUT_ID}/settle',
+    r = client.post(f'/api/mgmt-ab19/payouts/{PAYOUT_ID}/settle',
                     json={'provider_ref': 'MP-1'}, headers=_admin_headers())
     assert r.status_code == 409
     assert r.get_json()['code'] == 'receipt_not_posted'
@@ -259,7 +259,7 @@ def test_settle_refuses_when_the_customer_receipt_is_missing(client, monkeypatch
 def test_settle_refuses_an_ambiguous_receipt(client, monkeypatch):
     monkeypatch.setattr(app_mod, 'supa_get_checked', _reads(
         journals=[_receipt(), _receipt(journal_id='j-rec-2')]))
-    r = client.post(f'/api/admin/payouts/{PAYOUT_ID}/settle',
+    r = client.post(f'/api/mgmt-ab19/payouts/{PAYOUT_ID}/settle',
                     json={'provider_ref': 'MP-1'}, headers=_admin_headers())
     assert r.status_code == 409
     assert r.get_json()['code'] == 'receipt_ambiguous'
@@ -269,7 +269,7 @@ def test_settle_refuses_an_unknown_receipt_channel(client, monkeypatch):
     monkeypatch.setattr(app_mod, 'supa_get_checked', _reads(
         lines=[{'journal_id': 'j-rec', 'account_code': 'FARMER_PAYABLE',
                 'side': 'credit', 'amount': 100000, 'memo': 'owed'}]))
-    r = client.post(f'/api/admin/payouts/{PAYOUT_ID}/settle',
+    r = client.post(f'/api/mgmt-ab19/payouts/{PAYOUT_ID}/settle',
                     json={'provider_ref': 'MP-1'}, headers=_admin_headers())
     assert r.status_code == 409
     assert r.get_json()['code'] == 'receipt_channel_unknown'
@@ -284,7 +284,7 @@ def test_settle_posts_the_journal_then_marks_the_payout_paid(client, monkeypatch
                         lambda table, data: audits.append((table, data)))
     monkeypatch.setattr(app_mod, '_log_system_event', lambda *a, **k: None)
 
-    r = client.post(f'/api/admin/payouts/{PAYOUT_ID}/settle',
+    r = client.post(f'/api/mgmt-ab19/payouts/{PAYOUT_ID}/settle',
                     json={'provider_ref': 'MP-1', 'provider': 'MTN MoMo'},
                     headers=_admin_headers())
     assert r.status_code == 200
@@ -307,7 +307,7 @@ def test_settle_uses_cod_cash_held_when_the_receipt_debited_it(client, monkeypat
     monkeypatch.setattr(app_mod, 'supa_insert', lambda *a, **k: None)
     monkeypatch.setattr(app_mod, '_log_system_event', lambda *a, **k: None)
 
-    r = client.post(f'/api/admin/payouts/{PAYOUT_ID}/settle',
+    r = client.post(f'/api/mgmt-ab19/payouts/{PAYOUT_ID}/settle',
                     json={'provider_ref': 'CASH-1'}, headers=_admin_headers())
     assert r.status_code == 200
     assert r.get_json()['channel_account'] == 'COD_CASH_HELD'
@@ -323,7 +323,7 @@ def test_settle_does_not_mark_paid_when_the_journal_fails(client, monkeypatch):
     monkeypatch.setattr(app_mod, 'supa_insert', lambda *a, **k: None)
     monkeypatch.setattr(app_mod, '_log_system_event', lambda *a, **k: None)
 
-    r = client.post(f'/api/admin/payouts/{PAYOUT_ID}/settle',
+    r = client.post(f'/api/mgmt-ab19/payouts/{PAYOUT_ID}/settle',
                     json={'provider_ref': 'MP-1'}, headers=_admin_headers())
     assert r.status_code == 503
     assert r.get_json()['code'] == 'settlement_posting_failed'
@@ -342,7 +342,7 @@ def test_settle_reports_a_status_update_failure_as_retryable(client, monkeypatch
     monkeypatch.setattr(app_mod, 'supa_insert', lambda *a, **k: None)
     monkeypatch.setattr(app_mod, '_log_system_event', lambda *a, **k: None)
 
-    r = client.post(f'/api/admin/payouts/{PAYOUT_ID}/settle',
+    r = client.post(f'/api/mgmt-ab19/payouts/{PAYOUT_ID}/settle',
                     json={'provider_ref': 'MP-1'}, headers=_admin_headers())
     assert r.status_code == 503
     body = r.get_json()
@@ -358,7 +358,7 @@ def test_settle_treats_a_concurrent_settlement_as_done(client, monkeypatch):
                         lambda table, data: audits.append((table, data)))
     monkeypatch.setattr(app_mod, '_log_system_event', lambda *a, **k: None)
 
-    r = client.post(f'/api/admin/payouts/{PAYOUT_ID}/settle',
+    r = client.post(f'/api/mgmt-ab19/payouts/{PAYOUT_ID}/settle',
                     json={'provider_ref': 'MP-1'}, headers=_admin_headers())
     assert r.status_code == 200
     assert r.get_json()['already_settled'] is True

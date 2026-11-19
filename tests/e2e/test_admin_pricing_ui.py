@@ -96,13 +96,13 @@ def _handle(route, request):
         return route.fulfill(status=status, headers=dict(cors, **{"content-type": "application/json"}),
                              body=json.dumps(payload))
 
-    if path == "/api/admin/stats":
+    if path == "/api/mgmt-ab19/stats":
         return send({"farmers": 0, "buyers": 0, "orders": 0, "listings": 0, "animals": 0,
                      "supplies": 0, "transporters": 0, "requests": 0, "offers": 0,
                      "cold_storage": 0, "cold_transport": 0, "loans": 0, "deliveries": 0})
-    if path == "/api/admin/transport-rates" and method == "GET":
+    if path == "/api/mgmt-ab19/transport-rates" and method == "GET":
         return send({"currency": "UGX", "rates": STATE["rates"], "count": len(STATE["rates"])})
-    if path.startswith("/api/admin/transport-rates/") and method == "PUT":
+    if path.startswith("/api/mgmt-ab19/transport-rates/") and method == "PUT":
         key = unquote(path.rsplit("/", 1)[-1]).lower()
         row = {"vehicle_type": key, "base_fee_ugx": body.get("base_fee_ugx"),
                "ugx_per_km": body.get("ugx_per_km"), "ugx_per_kg": body.get("ugx_per_kg"),
@@ -111,17 +111,17 @@ def _handle(route, request):
         STATE["rates"] = [r for r in STATE["rates"] if r["vehicle_type"] != key] + [row]
         WRITES.append(("rate", key, body))
         return send({"ok": True, "vehicle_type": key, "currency": "UGX"})
-    if path == "/api/admin/transport-quote" and method == "POST":
+    if path == "/api/mgmt-ab19/transport-quote" and method == "POST":
         WRITES.append(("quote", None, body))
         return send(_quote(body))
-    if path == "/api/admin/deliveries" and method == "GET":
+    if path == "/api/mgmt-ab19/deliveries" and method == "GET":
         return send(STATE["deliveries"])
-    if path.startswith("/api/admin/deliveries/") and path.endswith("/fee") and method == "POST":
+    if path.startswith("/api/mgmt-ab19/deliveries/") and path.endswith("/fee") and method == "POST":
         WRITES.append(("fee", path.split("/")[4], body))
         return send({"ok": True, "transport_fee_ugx": body.get("amount_ugx"),
                      "fee_basis": body.get("basis"),
                      "disclosed_to_buyer": body.get("disclose_to_buyer")})
-    if path == "/api/admin/orders":
+    if path == "/api/mgmt-ab19/orders":
         return send([])
     return send([])
 

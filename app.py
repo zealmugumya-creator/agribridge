@@ -235,7 +235,7 @@ _LEGAL_EXEMPT_ENDPOINTS = frozenset({
 @app.before_request
 def _enforce_marketplace_legal():
     if (not LEGAL_ENFORCED or request.method == 'OPTIONS' or request.url_rule is None
-            or not request.path.startswith('/api/') or request.path.startswith('/api/admin/')
+            or not request.path.startswith('/api/') or request.path.startswith('/api/mgmt-ab19/')
             or request.endpoint in _LEGAL_EXEMPT_ENDPOINTS):
         return None
     view = app.view_functions[request.endpoint]
@@ -687,21 +687,46 @@ def health_live():
     return jsonify({'status': 'ok'}), 200
 
 # ══════════════════════════════════════════════════════════════════════════════
-# ADMIN AUTH
+# ADMIN AUTH  (prefix: /api/mgmt-ab19/ — non-guessable; scanners find nothing)
+# Legacy /api/admin/* paths return 404 so probes reveal no information.
 # ══════════════════════════════════════════════════════════════════════════════
-@app.route('/api/admin/login', methods=['POST'])
+
+# ── Audit helper ─────────────────────────────────────────────────────────────
+def _admin_audit(action: str, detail: dict | None = None, success: bool = True):
+    """Write one row to admin_audit_log. Best-effort — never raises."""
+    try:
+        SUPA.table('admin_audit_log').insert({
+            'action':     action,
+            'detail':     _json.dumps(detail or {}),
+            'ip':         request.headers.get('CF-Connecting-IP') or request.remote_addr or 'unknown',
+            'user_agent': request.headers.get('User-Agent', '')[:255],
+            'success':    success,
+        }).execute()
+    except Exception as _e:
+        log.warning('audit.write_failed', action=action, error=str(_e))
+
+# ── Catch-all: old /api/admin/* → 404 (reveals nothing to scanners) ──────────
+@app.route('/api/admin/', defaults={'path': ''}, methods=['GET','POST','PUT','PATCH','DELETE'])
+@app.route('/api/admin/<path:path>',              methods=['GET','POST','PUT','PATCH','DELETE'])
+def admin_legacy_catchall(path=''):
+    return jsonify({'error': 'Not found'}), 404
+
+@app.route('/api/mgmt-ab19/login', methods=['POST'])
 @rate_limit(max_req=5, window=300)
 def admin_login():
     data = request.get_json(force=True, silent=True) or {}
     if not ADMIN_PASSWORD:
+        _admin_audit('login_attempt', {'reason': 'not_configured'}, success=False)
         return jsonify({'error': 'Admin login is disabled (ADMIN_PASSWORD not configured).'}), 503
     # Constant-time compare to avoid timing side-channels.
     if not hmac.compare_digest(str(data.get('password', '')), ADMIN_PASSWORD):
+        _admin_audit('login_failed', {}, success=False)
         return jsonify({'error': 'Invalid password'}), 401
     token = make_token({'sub': 'admin', 'role': 'admin'}, hours=24)
+    _admin_audit('login_success')
     return jsonify({'token': token, 'role': 'admin', 'message': 'Login successful'}), 200
 
-@app.route('/api/admin/verify', methods=['GET'])
+@app.route('/api/mgmt-ab19/verify', methods=['GET'])
 def admin_verify():
     payload, err = verify_token(required_role='admin')
     if err:
@@ -1545,11 +1570,13 @@ _ADMIN_STAT_COUNTS = (
 _ADMIN_REVENUE_CAP = 2000
 
 
-@app.route('/api/admin/stats', methods=['GET'])
+@app.route('/api/mgmt-ab19/stats', methods=['GET'])
 def admin_stats():
     payload, err = verify_token(required_role='admin')
     if err:
+        _admin_audit('stats_access', {}, success=False)
         return err
+    _admin_audit('stats_access')
     out, errors = {}, {}
 
     def _count(item):
@@ -1636,7 +1663,7 @@ def _fin_ledger_unavailable(detail):
     }), 503
 
 
-@app.route('/api/admin/legal/stats', methods=['GET'])
+@app.route('/api/mgmt-ab19/legal/stats', methods=['GET'])
 def admin_legal_stats():
     """Admin-authenticated legal dashboard stats (counts + privacy requests)."""
     _payload, err = verify_token(required_role='admin')
@@ -1669,7 +1696,7 @@ def admin_legal_stats():
     })
 
 
-@app.route('/api/admin/finance/overview', methods=['GET'])
+@app.route('/api/mgmt-ab19/finance/overview', methods=['GET'])
 def admin_finance_overview():
     _payload, err = verify_token(required_role='admin')
     if err:
@@ -1694,7 +1721,7 @@ def admin_finance_overview():
     return jsonify(result)
 
 
-@app.route('/api/admin/finance/journals', methods=['GET'])
+@app.route('/api/mgmt-ab19/finance/journals', methods=['GET'])
 def admin_finance_journals():
     _payload, err = verify_token(required_role='admin')
     if err:
@@ -1714,7 +1741,7 @@ def admin_finance_journals():
     return jsonify({'currency': 'UGX', 'count': len(rows), 'rows': rows})
 
 
-@app.route('/api/admin/finance/farmer-settlements', methods=['GET'])
+@app.route('/api/mgmt-ab19/finance/farmer-settlements', methods=['GET'])
 def admin_finance_farmer_settlements():
     _payload, err = verify_token(required_role='admin')
     if err:
@@ -1739,7 +1766,7 @@ def admin_finance_farmer_settlements():
     return jsonify(result)
 
 
-@app.route('/api/admin/payouts/<payout_id>/settle', methods=['POST'])
+@app.route('/api/mgmt-ab19/payouts/<payout_id>/settle', methods=['POST'])
 def admin_settle_payout(payout_id):
     """Settle a pending farmer payout against an operator-verified transfer.
 
@@ -1915,7 +1942,7 @@ def admin_settle_payout(payout_id):
     })
 
 
-@app.route('/api/admin/finance/transporter-settlements', methods=['GET'])
+@app.route('/api/mgmt-ab19/finance/transporter-settlements', methods=['GET'])
 def admin_finance_transporter_settlements():
     _payload, err = verify_token(required_role='admin')
     if err:
@@ -1935,7 +1962,7 @@ def admin_finance_transporter_settlements():
     return jsonify(result)
 
 
-@app.route('/api/admin/finance/reconciliation', methods=['GET'])
+@app.route('/api/mgmt-ab19/finance/reconciliation', methods=['GET'])
 def admin_finance_reconciliation():
     _payload, err = verify_token(required_role='admin')
     if err:
@@ -1958,7 +1985,7 @@ def admin_finance_reconciliation():
     return jsonify(result)
 
 
-@app.route('/api/admin/finance/recurring', methods=['GET'])
+@app.route('/api/mgmt-ab19/finance/recurring', methods=['GET'])
 def admin_finance_recurring():
     """Pesapal recurring subscriptions and charges.
 
@@ -2011,7 +2038,7 @@ def admin_finance_recurring():
     })
 
 
-@app.route('/api/admin/finance/reports', methods=['GET'])
+@app.route('/api/mgmt-ab19/finance/reports', methods=['GET'])
 def admin_finance_reports():
     _payload, err = verify_token(required_role='admin')
     if err:
@@ -2150,7 +2177,7 @@ def upload_media():
     return jsonify({'ok': True, 'url': stored.data['url']}), 201
 
 
-@app.route('/api/admin/upload', methods=['POST'])
+@app.route('/api/mgmt-ab19/upload', methods=['POST'])
 def admin_upload_media():
     """Upload media from the admin panel (authenticated via admin JWT)."""
     payload, err = verify_token(required_role='admin')
@@ -2413,14 +2440,14 @@ def public_listings():
     return jsonify(supa_get('listings', filters=filters, limit=200) or [])
 
 
-@app.route('/api/admin/listings', methods=['GET'])
+@app.route('/api/mgmt-ab19/listings', methods=['GET'])
 def admin_listings():
     payload, err = verify_token(required_role='admin')
     if err:
         return err
     return jsonify(supa_get('listings', limit=200) or [])
 
-@app.route('/api/admin/orders', methods=['GET'])
+@app.route('/api/mgmt-ab19/orders', methods=['GET'])
 def admin_orders():
     payload, err = verify_token(required_role='admin')
     if err:
@@ -2433,14 +2460,14 @@ def admin_orders():
         filters['payment_status'] = f'eq.{ps_filter}'
     return jsonify(supa_get('orders', filters=filters, limit=500) or [])
 
-@app.route('/api/admin/farmers', methods=['GET'])
+@app.route('/api/mgmt-ab19/farmers', methods=['GET'])
 def admin_farmers():
     payload, err = verify_token(required_role='admin')
     if err:
         return err
     return jsonify(supa_get('farmers', limit=500) or [])
 
-@app.route('/api/admin/order/<order_id>/status', methods=['PATCH'])
+@app.route('/api/mgmt-ab19/order/<order_id>/status', methods=['PATCH'])
 def update_order_status(order_id):
     """Advance an order through the server-side state machine.
 
@@ -2466,37 +2493,38 @@ def update_order_status(order_id):
     _log_system_event('order_status_changed',
                       {'order_id': order_id, 'status': new_status, 'actor': 'admin'},
                       severity='info')
+    _admin_audit('order_status_changed', {'order_id': order_id, 'new_status': new_status})
     return jsonify({'ok': True, 'status': new_status}), 200
 
-@app.route('/api/admin/animals', methods=['GET'])
+@app.route('/api/mgmt-ab19/animals', methods=['GET'])
 def admin_animals():
     payload, err = verify_token(required_role='admin')
     if err:
         return err
     return jsonify(supa_get('animal_listings', {'order': 'created_at.desc'}, limit=300) or [])
 
-@app.route('/api/admin/deliveries', methods=['GET'])
+@app.route('/api/mgmt-ab19/deliveries', methods=['GET'])
 def admin_deliveries():
     payload, err = verify_token(required_role='admin')
     if err:
         return err
     return jsonify(supa_get('deliveries', {'order': 'created_at.desc'}, limit=300) or [])
 
-@app.route('/api/admin/supplies', methods=['GET'])
+@app.route('/api/mgmt-ab19/supplies', methods=['GET'])
 def admin_supplies():
     payload, err = verify_token(required_role='admin')
     if err:
         return err
     return jsonify(supa_get('supplier_products', {'order': 'category.asc'}, limit=300) or [])
 
-@app.route('/api/admin/purchase-requests', methods=['GET'])
+@app.route('/api/mgmt-ab19/purchase-requests', methods=['GET'])
 def admin_purchase_requests():
     payload, err = verify_token(required_role='admin')
     if err:
         return err
     return jsonify(supa_get('purchase_requests', {'order': 'created_at.desc'}, limit=300) or [])
 
-@app.route('/api/admin/offers', methods=['GET'])
+@app.route('/api/mgmt-ab19/offers', methods=['GET'])
 def admin_offers():
     payload, err = verify_token(required_role='admin')
     if err:
@@ -2597,7 +2625,7 @@ def create_service_request():
     return jsonify({'ok': True, 'id': req_id, 'ref': req_id[:8].upper()}), 200
 
 
-@app.route('/api/admin/service-requests', methods=['GET'])
+@app.route('/api/mgmt-ab19/service-requests', methods=['GET'])
 def admin_service_requests():
     payload, err = verify_token(required_role='admin')
     if err:
@@ -2611,7 +2639,7 @@ def admin_service_requests():
     return jsonify(supa_get('service_requests', filters, limit=300) or [])
 
 
-@app.route('/api/admin/service-requests/<req_id>', methods=['PATCH'])
+@app.route('/api/mgmt-ab19/service-requests/<req_id>', methods=['PATCH'])
 def admin_update_service_request(req_id):
     payload, err = verify_token(required_role='admin')
     if err:
@@ -2748,7 +2776,7 @@ def _second_role_refusal(message: str):
     return jsonify(body), 409
 
 
-@app.route('/api/admin/row', methods=['POST', 'PATCH', 'DELETE'])
+@app.route('/api/mgmt-ab19/row', methods=['POST', 'PATCH', 'DELETE'])
 def admin_row():
     payload, err = verify_token(required_role='admin')
     if err:
@@ -2762,8 +2790,9 @@ def admin_row():
         row_id = data.get('id')
         if not row_id:
             return jsonify({'error': 'Missing id'}), 400
-        return (jsonify({'ok': True}), 200) if supa_delete(table, 'id', row_id) \
-            else (jsonify({'error': 'Delete failed'}), 500)
+        ok = supa_delete(table, 'id', row_id)
+        _admin_audit('row_delete', {'table': table, 'id': row_id}, success=bool(ok))
+        return (jsonify({'ok': True}), 200) if ok else (jsonify({'error': 'Delete failed'}), 500)
 
     raw_fields = data.get('fields') or {}
     if table == 'orders' and any(k in raw_fields for k in ('status', 'payment_status')):
@@ -2786,17 +2815,20 @@ def admin_row():
             row, code, message = supa_insert_checked(table, fields)
             if code == _ONE_ROLE_CODE:
                 return _second_role_refusal(message)
+            _admin_audit('row_create', {'table': table, 'fields': list(fields.keys())}, success=bool(row))
             return (jsonify({'ok': True, 'row': row}), 200) if row \
                 else (jsonify({'error': 'Create failed'}), 500)
         row = supa_insert(table, fields)
+        _admin_audit('row_create', {'table': table, 'fields': list(fields.keys())}, success=bool(row))
         return (jsonify({'ok': True, 'row': row}), 200) if row else (jsonify({'error': 'Create failed'}), 500)
 
     # PATCH
     row_id = data.get('id')
     if not row_id:
         return jsonify({'error': 'Missing id'}), 400
-    return (jsonify({'ok': True}), 200) if supa_update(table, fields, 'id', row_id) \
-        else (jsonify({'error': 'Update failed'}), 500)
+    ok = supa_update(table, fields, 'id', row_id)
+    _admin_audit('row_update', {'table': table, 'id': row_id, 'fields': list(fields.keys())}, success=bool(ok))
+    return (jsonify({'ok': True}), 200) if ok else (jsonify({'error': 'Update failed'}), 500)
 
 # ══════════════════════════════════════════════════════════════════════════════
 # PUBLIC PRICES
@@ -3465,7 +3497,7 @@ def _log_system_event(event_type: str, details: dict, severity: str = 'error',
         log.warning("system_event.write_failed", error=str(_e))
 
 
-@app.route('/api/admin/discord-test', methods=['POST'])
+@app.route('/api/mgmt-ab19/discord-test', methods=['POST'])
 def admin_discord_test():
     """Fire a test message to every configured Discord channel. Admin only."""
     payload, err = verify_token(required_role='admin')
@@ -3498,7 +3530,7 @@ def admin_discord_test():
     return jsonify({'ok': True, 'results': results})
 
 
-@app.route('/api/admin/contact-reply', methods=['POST'])
+@app.route('/api/mgmt-ab19/contact-reply', methods=['POST'])
 @rate_limit(max_req=20, window=60)
 def admin_contact_reply():
     """Admin replies to a contact_messages row.
@@ -3758,7 +3790,7 @@ def activity_event():
     return jsonify({'ok': True}), 200
 
 
-@app.route('/api/admin/inbox', methods=['GET'])
+@app.route('/api/mgmt-ab19/inbox', methods=['GET'])
 def admin_inbox():
     """Read-only view of the watched tables. No ?table => counts of the latest rows per table."""
     payload, err = verify_token(required_role='admin')
@@ -3778,7 +3810,7 @@ def admin_inbox():
                     'webhook_secret_set': bool(SUPABASE_WEBHOOK_SECRET)})
 
 
-@app.route('/api/admin/events', methods=['GET'])
+@app.route('/api/mgmt-ab19/events', methods=['GET'])
 def admin_events():
     """Recent system events — optionally one person's timeline, or only what is new.
 
@@ -3817,7 +3849,7 @@ def admin_events():
 # TRANSPORTERS — accounts, availability toggle, admin management
 # ══════════════════════════════════════════════════════════════════════════════
 
-@app.route('/api/admin/transporters', methods=['GET'])
+@app.route('/api/mgmt-ab19/transporters', methods=['GET'])
 def admin_transporters():
     payload, err = verify_token(required_role='admin')
     if err:
@@ -3829,7 +3861,7 @@ def admin_transporters():
     return jsonify(supa_get('transporters', filters=filters, limit=300) or [])
 
 
-@app.route('/api/admin/transporters', methods=['POST'])
+@app.route('/api/mgmt-ab19/transporters', methods=['POST'])
 def admin_create_transporter():
     """Admin creates a transporter account (stores profile; Supabase Auth signup done separately)."""
     payload, err = verify_token(required_role='admin')
@@ -3866,7 +3898,7 @@ def admin_create_transporter():
     return jsonify({'ok': True, 'transporter': inserted[0] if isinstance(inserted, list) else inserted}), 201
 
 
-@app.route('/api/admin/transporters/<transporter_id>', methods=['PATCH'])
+@app.route('/api/mgmt-ab19/transporters/<transporter_id>', methods=['PATCH'])
 def admin_update_transporter(transporter_id):
     payload, err = verify_token(required_role='admin')
     if err:
@@ -3881,7 +3913,7 @@ def admin_update_transporter(transporter_id):
     return (jsonify({'ok': True}), 200) if ok else (jsonify({'error': 'Update failed'}), 500)
 
 
-@app.route('/api/admin/transporters/<transporter_id>', methods=['DELETE'])
+@app.route('/api/mgmt-ab19/transporters/<transporter_id>', methods=['DELETE'])
 def admin_delete_transporter(transporter_id):
     payload, err = verify_token(required_role='admin')
     if err:
@@ -4601,7 +4633,7 @@ def transporter_dashboard():
     }), 200
 
 
-@app.route('/api/admin/active-deliveries', methods=['GET'])
+@app.route('/api/mgmt-ab19/active-deliveries', methods=['GET'])
 def admin_active_deliveries():
     """Return all orders currently in_transit with last GPS position."""
     payload, err = verify_token(required_role='admin')
@@ -4642,7 +4674,7 @@ def admin_active_deliveries():
     return jsonify(result), 200
 
 
-@app.route('/api/admin/orders-full', methods=['GET'])
+@app.route('/api/mgmt-ab19/orders-full', methods=['GET'])
 def admin_orders_full():
     """Full order list for the Logistics Command Center with rich filtering."""
     payload, err = verify_token(required_role='admin')
@@ -4678,7 +4710,7 @@ def admin_orders_full():
     return jsonify(orders), 200
 
 
-@app.route('/api/admin/orders/<order_id>/suggested-farmers', methods=['GET'])
+@app.route('/api/mgmt-ab19/orders/<order_id>/suggested-farmers', methods=['GET'])
 def admin_suggested_farmers(order_id):
     """Return farmers whose active listings match items in this order.
 
@@ -4797,7 +4829,7 @@ def admin_suggested_farmers(order_id):
     return jsonify(list(seen_farmers.values())), 200
 
 
-@app.route('/api/admin/orders/<order_id>/assign-farmer', methods=['POST'])
+@app.route('/api/mgmt-ab19/orders/<order_id>/assign-farmer', methods=['POST'])
 def admin_assign_farmer(order_id):
     """Attach a farmer to a pending order (before confirmation).
 
@@ -4866,7 +4898,7 @@ def admin_assign_farmer(order_id):
     return jsonify({'ok': True, 'order_ref': order_ref}), 200
 
 
-@app.route('/api/admin/orders/<order_id>/approve', methods=['POST'])
+@app.route('/api/mgmt-ab19/orders/<order_id>/approve', methods=['POST'])
 def admin_approve_order(order_id):
     """Admin approves an order (moves pending → confirmed).
 
@@ -4935,7 +4967,7 @@ def admin_approve_order(order_id):
     return jsonify({'error': 'Update failed'}), 500
 
 
-@app.route('/api/admin/orders/<order_id>/reject', methods=['POST'])
+@app.route('/api/mgmt-ab19/orders/<order_id>/reject', methods=['POST'])
 def admin_reject_order(order_id):
     """Admin rejects/cancels an order."""
     payload, err = verify_token(required_role='admin')
@@ -4984,7 +5016,7 @@ def admin_reject_order(order_id):
     return jsonify({'error': 'Update failed'}), 500
 
 
-@app.route('/api/admin/orders/<order_id>/assign-transporter', methods=['POST'])
+@app.route('/api/mgmt-ab19/orders/<order_id>/assign-transporter', methods=['POST'])
 def admin_assign_transporter(order_id):
     """Admin assigns a transporter to an order."""
     payload, err = verify_token(required_role='admin')
@@ -5117,7 +5149,7 @@ def _delivery_or_404(delivery_id, select):
     return rows[0], None
 
 
-@app.route('/api/admin/deliveries/<delivery_id>/proof-code', methods=['POST'])
+@app.route('/api/mgmt-ab19/deliveries/<delivery_id>/proof-code', methods=['POST'])
 @rate_limit(max_req=10, window=60)
 def admin_issue_proof_code(delivery_id):
     """Issue the recipient code for one delivery, shown exactly once.
@@ -5164,7 +5196,7 @@ def admin_issue_proof_code(delivery_id):
     }), 200
 
 
-@app.route('/api/admin/deliveries/<delivery_id>/proof', methods=['GET'])
+@app.route('/api/mgmt-ab19/deliveries/<delivery_id>/proof', methods=['GET'])
 @rate_limit(max_req=30, window=60)
 def admin_delivery_proof(delivery_id):
     """Everything recorded about the proof, plus a short-lived photo URL.
@@ -5211,7 +5243,7 @@ def admin_delivery_proof(delivery_id):
     }), 200
 
 
-@app.route('/api/admin/deliveries/<delivery_id>/proof/reject', methods=['POST'])
+@app.route('/api/mgmt-ab19/deliveries/<delivery_id>/proof/reject', methods=['POST'])
 @rate_limit(max_req=10, window=60)
 def admin_reject_proof(delivery_id):
     """Send a proof back so the driver can try again with the same code.
@@ -5253,7 +5285,7 @@ def admin_reject_proof(delivery_id):
     return jsonify({'ok': True, 'note': 'The driver can submit again with the same code.'}), 200
 
 
-@app.route('/api/admin/deliveries/<delivery_id>/offer', methods=['POST'])
+@app.route('/api/mgmt-ab19/deliveries/<delivery_id>/offer', methods=['POST'])
 @rate_limit(max_req=20, window=60)
 def admin_decide_offer(delivery_id):
     """Accept or reject the driver's counter-offer. Accepting is what sets a fee."""
@@ -5305,7 +5337,7 @@ def admin_decide_offer(delivery_id):
                     'fee_basis': fields.get('fee_basis')}), 200
 
 
-@app.route('/api/admin/deliveries/<delivery_id>/fee', methods=['POST'])
+@app.route('/api/mgmt-ab19/deliveries/<delivery_id>/fee', methods=['POST'])
 @rate_limit(max_req=20, window=60)
 def admin_set_transport_fee(delivery_id):
     """Set the agreed transport fee. This is the only path that writes one."""
@@ -5351,7 +5383,7 @@ def admin_set_transport_fee(delivery_id):
                     'disclosed_to_buyer': fields.get('fee_disclosed_to_buyer')}), 200
 
 
-@app.route('/api/admin/transport-quote', methods=['POST'])
+@app.route('/api/mgmt-ab19/transport-quote', methods=['POST'])
 @rate_limit(max_req=30, window=60)
 def admin_transport_quote():
     """Quote from stored rates, or say plainly that no rates exist.
@@ -5390,7 +5422,7 @@ def admin_transport_quote():
     return jsonify(res.data or {}), 200
 
 
-@app.route('/api/admin/transport-rates', methods=['GET'])
+@app.route('/api/mgmt-ab19/transport-rates', methods=['GET'])
 @rate_limit(max_req=30, window=60)
 def admin_transport_rates():
     """The rate table as stored. Empty means nothing can be quoted yet."""
@@ -5406,7 +5438,7 @@ def admin_transport_rates():
     }), 200
 
 
-@app.route('/api/admin/transport-rates/<vehicle_type>', methods=['PUT'])
+@app.route('/api/mgmt-ab19/transport-rates/<vehicle_type>', methods=['PUT'])
 @rate_limit(max_req=20, window=60)
 def admin_set_transport_rate(vehicle_type):
     """Record one vehicle type's rate. Figures come from the operator, not us."""
@@ -5462,7 +5494,7 @@ def admin_set_transport_rate(vehicle_type):
     return jsonify({'ok': True, 'vehicle_type': key, 'currency': 'UGX'}), 200
 
 
-@app.route('/api/admin/orders/<order_id>/confirm-delivery', methods=['POST'])
+@app.route('/api/mgmt-ab19/orders/<order_id>/confirm-delivery', methods=['POST'])
 def admin_confirm_delivery(order_id):
     """Confirm delivery and record payment honestly.
 
@@ -5601,7 +5633,7 @@ def admin_confirm_delivery(order_id):
                     'ledger_journal_id': journal_id, 'warning': warning}), 200
 
 
-@app.route('/api/admin/orders/<order_id>/verify-bank-transfer', methods=['POST'])
+@app.route('/api/mgmt-ab19/orders/<order_id>/verify-bank-transfer', methods=['POST'])
 def admin_verify_bank_transfer(order_id):
     """Mark a bank-transfer order paid after an operator confirms the money.
 
@@ -6438,7 +6470,7 @@ def _send_web_push(user_id: str, title: str, body: str, url: str = '/'):
 # SMART MATCHING — orders vs. farmer listings; admin approval workflow
 # ══════════════════════════════════════════════════════════════════════════════
 
-@app.route('/api/admin/match-candidates', methods=['GET'])
+@app.route('/api/mgmt-ab19/match-candidates', methods=['GET'])
 def admin_match_candidates():
     """Return pending orders paired with eligible farmer listings.
 
@@ -6511,7 +6543,7 @@ def admin_match_candidates():
     return jsonify({'ok': True, 'count': len(candidates), 'candidates': candidates}), 200
 
 
-@app.route('/api/admin/match-approve', methods=['POST'])
+@app.route('/api/mgmt-ab19/match-approve', methods=['POST'])
 def admin_approve_match():
     """Admin approves a farmer match for an order and optionally triggers SMS to farmer + transporter."""
     payload, err = verify_token(required_role='admin')
@@ -6593,7 +6625,7 @@ def admin_approve_match():
 # ── Admin push device registry (Phase 6) ──────────────────────────────────────
 # A device registers its FCM token only AFTER the API has verified — from the
 # Supabase session, never from the body — that the caller is an admin (Rule 9).
-@app.route('/api/admin/devices', methods=['POST'])
+@app.route('/api/mgmt-ab19/devices', methods=['POST'])
 @rate_limit(max_req=30, window=60)
 def register_admin_device():
     uid, err = require_admin_user()
@@ -6612,7 +6644,7 @@ def register_admin_device():
     return jsonify({'ok': True}), 200
 
 
-@app.route('/api/admin/devices', methods=['DELETE'])
+@app.route('/api/mgmt-ab19/devices', methods=['DELETE'])
 @rate_limit(max_req=30, window=60)
 def unregister_admin_device():
     uid, err = require_admin_user()

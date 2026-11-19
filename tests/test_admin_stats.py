@@ -2,7 +2,7 @@
 
 """Admin dashboard KPI counts.
 
-`/api/admin/stats` used to download up to five full tables (limit=1000, every
+`/api/mgmt-ab19/stats` used to download up to five full tables (limit=1000, every
 column) purely to call len() on them, and a failed read became a silent zero.
 These tests pin the replacement contract: exact counts from Content-Range, a
 failure reported as unavailable rather than 0, and revenue that admits when it is
@@ -106,7 +106,7 @@ def test_stats_uses_counts_and_never_pages_rows(client, monkeypatch, counts):
                         lambda *a, **k: pages.append(a) or [])
     monkeypatch.setattr(app_mod, 'supa_get_checked',
                         lambda t, f=None, limit=100: ([{'total_price': 50000}] * 3, None))
-    r = client.get('/api/admin/stats', headers=_admin_headers())
+    r = client.get('/api/mgmt-ab19/stats', headers=_admin_headers())
     assert r.status_code == 200
     body = r.get_json()
     assert body['farmers'] == 84 and body['transporters'] == 5
@@ -124,7 +124,7 @@ def test_stats_keeps_a_failed_count_as_unavailable(client, monkeypatch):
 
     monkeypatch.setattr(app_mod, 'supa_count', fake)
     monkeypatch.setattr(app_mod, 'supa_get_checked', lambda t, f=None, limit=100: ([], None))
-    body = client.get('/api/admin/stats', headers=_admin_headers()).get_json()
+    body = client.get('/api/mgmt-ab19/stats', headers=_admin_headers()).get_json()
     assert body['animals'] is None, 'a failed query must not be shown as zero'
     assert 'animals' in body['errors']
 
@@ -138,7 +138,7 @@ def test_stats_revenue_is_paid_orders_only(client, monkeypatch):
 
     monkeypatch.setattr(app_mod, 'supa_count', lambda t, f=None: (2, None))
     monkeypatch.setattr(app_mod, 'supa_get_checked', checked)
-    body = client.get('/api/admin/stats', headers=_admin_headers()).get_json()
+    body = client.get('/api/mgmt-ab19/stats', headers=_admin_headers()).get_json()
     assert body['revenue_ugx'] == 200000
     assert seen['payment_status'] == 'eq.paid', 'unpaid orders are not revenue'
     assert seen['select'] == 'total_price', 'only the summed column may be fetched'
@@ -151,7 +151,7 @@ def test_stats_flags_revenue_when_the_cap_was_reached(client, monkeypatch):
                                            else (10, None)))
     monkeypatch.setattr(app_mod, 'supa_get_checked',
                         lambda t, f=None, limit=100: ([{'total_price': 1000}] * limit, None))
-    body = client.get('/api/admin/stats', headers=_admin_headers()).get_json()
+    body = client.get('/api/mgmt-ab19/stats', headers=_admin_headers()).get_json()
     assert body['revenue_partial'] is True, 'a capped sum is a lower bound, not the total'
 
 
@@ -159,12 +159,12 @@ def test_stats_revenue_failure_is_reported_not_zeroed(client, monkeypatch):
     monkeypatch.setattr(app_mod, 'supa_count', lambda t, f=None: (4, None))
     monkeypatch.setattr(app_mod, 'supa_get_checked',
                         lambda t, f=None, limit=100: (None, '503: upstream unavailable'))
-    body = client.get('/api/admin/stats', headers=_admin_headers()).get_json()
+    body = client.get('/api/mgmt-ab19/stats', headers=_admin_headers()).get_json()
     assert body['revenue_ugx'] is None
     assert 'revenue_ugx' in body['errors']
 
 
 def test_stats_requires_an_admin_token(client):
-    assert client.get('/api/admin/stats').status_code == 401
+    assert client.get('/api/mgmt-ab19/stats').status_code == 401
     user = {'Authorization': f'Bearer {app_mod.make_token({"sub": "u", "role": "farmer"})}'}
-    assert client.get('/api/admin/stats', headers=user).status_code == 403
+    assert client.get('/api/mgmt-ab19/stats', headers=user).status_code == 403

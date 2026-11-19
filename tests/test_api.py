@@ -151,7 +151,7 @@ def test_is_admin_uuid_false_when_no_role(monkeypatch):
 
 def test_admin_login_disabled_without_password(client, monkeypatch):
     monkeypatch.setattr(app_mod, "ADMIN_PASSWORD", "")
-    r = client.post("/api/admin/login", json={"password": "anything"})
+    r = client.post("/api/mgmt-ab19/login", json={"password": "anything"})
     assert r.status_code == 503        # fails closed
 
 
@@ -172,7 +172,7 @@ def test_flutterwave_webhook_rejects_wrong_hash(client, monkeypatch):
 
 # ── admin push device registry (Phase 6) ──────────────────────────────────────
 def test_register_device_requires_auth(client):
-    r = client.post("/api/admin/devices", json={"token": "t"})
+    r = client.post("/api/mgmt-ab19/devices", json={"token": "t"})
     assert r.status_code == 401
 
 
@@ -180,7 +180,7 @@ def test_register_device_forbidden_for_non_admin(client, monkeypatch):
     """A verified non-admin cannot register a push token (Rule 9)."""
     monkeypatch.setattr(app_mod, "verify_supabase_user", lambda: ("normie", None))
     monkeypatch.setattr(app_mod, "is_admin_uuid", lambda uid: False)
-    r = client.post("/api/admin/devices", json={"token": "t"})
+    r = client.post("/api/mgmt-ab19/devices", json={"token": "t"})
     assert r.status_code == 403
 
 
@@ -193,7 +193,7 @@ def test_register_device_uses_verified_identity_and_upserts(client, monkeypatch)
             captured.update(kw)
             return RpcResult(ok=True, data=None)
     monkeypatch.setattr(app_mod, "PUSH_REGISTRY", _FakeReg())
-    r = client.post("/api/admin/devices",
+    r = client.post("/api/mgmt-ab19/devices",
                     json={"token": "fcm-tok", "platform": "android", "provider": "fcm"})
     assert r.status_code == 200
     assert captured["user_id"] == "admin-uid"      # identity from session, not body
@@ -203,12 +203,12 @@ def test_register_device_uses_verified_identity_and_upserts(client, monkeypatch)
 
 def test_register_device_rejects_missing_token(client, monkeypatch):
     monkeypatch.setattr(app_mod, "require_admin_user", lambda: ("admin-uid", None))
-    r = client.post("/api/admin/devices", json={"platform": "android"})
+    r = client.post("/api/mgmt-ab19/devices", json={"platform": "android"})
     assert r.status_code == 400
 
 
 def test_unregister_device_forbidden_for_non_admin(client, monkeypatch):
     monkeypatch.setattr(app_mod, "verify_supabase_user", lambda: ("normie", None))
     monkeypatch.setattr(app_mod, "is_admin_uuid", lambda uid: False)
-    r = client.delete("/api/admin/devices", json={"token": "t"})
+    r = client.delete("/api/mgmt-ab19/devices", json={"token": "t"})
     assert r.status_code == 403

@@ -529,11 +529,11 @@
     var timer=ctl?setTimeout(function(){ ctl.abort(); }, 60000):null;
     var t0=performance.now();
     try{
-      var res=await fetch(API+'/api/admin/login',{method:'POST',headers:{'Content-Type':'application/json'},
+      var res=await fetch(API+'/api/mgmt-ab19/login',{method:'POST',headers:{'Content-Type':'application/json'},
         body:JSON.stringify({password:v}), signal:ctl?ctl.signal:undefined});
       var j=await res.json().catch(function(){return null;});
       var ms=Math.round(performance.now()-t0);
-      recordPerf('/api/admin/login', ms, 'HTTP '+res.status);
+      recordPerf('/api/mgmt-ab19/login', ms, 'HTTP '+res.status);
       if(res.ok&&j&&j.token){
         TOKEN=j.token; sessionStorage.setItem('ab_admin_token',TOKEN);
         pwd.value=''; hint.textContent='Signed in in '+(ms/1000).toFixed(1)+' s.';
@@ -661,7 +661,7 @@
     if(!FIN_VIEWS.some(function(v){return v[0]===view;})) view='overview';
     FIN.view=view; FIN.loading=true; FIN.errors[view]=null;
     renderFinance();
-    var paths={overview:'/api/admin/finance/overview',ledger:'/api/admin/finance/journals?limit=100',farmers:'/api/admin/finance/farmer-settlements',transporters:'/api/admin/finance/transporter-settlements',reconciliation:'/api/admin/finance/reconciliation',recurring:'/api/admin/finance/recurring',reports:'/api/admin/finance/reports'};
+    var paths={overview:'/api/mgmt-ab19/finance/overview',ledger:'/api/mgmt-ab19/finance/journals?limit=100',farmers:'/api/mgmt-ab19/finance/farmer-settlements',transporters:'/api/mgmt-ab19/finance/transporter-settlements',reconciliation:'/api/mgmt-ab19/finance/reconciliation',recurring:'/api/mgmt-ab19/finance/recurring',reports:'/api/mgmt-ab19/finance/reports'};
     var path=paths[view];
     if(view==='reports'){
       var q=[];
@@ -798,7 +798,7 @@
     if(!ref){ alert('A provider reference is required.'); return; }
     if(!confirm('Settle '+finMoney(r.net_amount)+' to '+r.farmer_name+'?\n\nThis posts an immutable settlement journal and marks the payout paid.')) return;
     try{
-      var res=await api('/api/admin/payouts/'+encodeURIComponent(id)+'/settle',{
+      var res=await api('/api/mgmt-ab19/payouts/'+encodeURIComponent(id)+'/settle',{
         method:'POST',
         body:JSON.stringify({provider:provider,provider_ref:ref})
       });
@@ -1062,7 +1062,7 @@
       '<div class="grid2">'+
         '<div class="card"><div class="chead">'+icon('cart')+'Orders per month<small>last '+CHART_MONTHS+' months</small></div>'+chart+'</div>'+
         '<div class="card"><div class="chead">'+icon('grid')+'Quick actions</div>'+qa+
-          '<div class="chead" style="margin-top:14px">'+icon('pulse')+'All metrics<small>from /api/admin/stats</small></div>'+secondary+'</div>'+
+          '<div class="chead" style="margin-top:14px">'+icon('pulse')+'All metrics<small>from /api/mgmt-ab19/stats</small></div>'+secondary+'</div>'+
       '</div>';
     updateSvcCounts();
   }
@@ -1082,14 +1082,14 @@
       'its start-up to the first request after a quiet period.</div>'+
       (rows?'<div class="perf">'+rows+'</div>':'<div class="state">No requests recorded yet.</div>')+
       (slow.length?'<div class="cfoot">Total time spent waiting: '+(total/1000).toFixed(1)+' s across '+PERF.length+
-        ' requests. Slowest: '+slow.map(function(p){return p.path.replace('/api/admin/','')+' '+p.ms+'ms';}).slice(0,3).join(' · ')+'</div>':'')+
+        ' requests. Slowest: '+slow.map(function(p){return p.path.replace('/api/mgmt-ab19/','')+' '+p.ms+'ms';}).slice(0,3).join(' · ')+'</div>':'')+
       '</div>';
   }
 
   async function loadStats(){
     STATS_ERR=null;
     try{
-      var s=await api('/api/admin/stats');
+      var s=await api('/api/mgmt-ab19/stats');
       if(!s||typeof s!=='object'||!('farmers' in s)) throw new Error('unexpected response from the server');
       STATS=s; STATS_AT=Date.now();
     }catch(e){
@@ -1102,16 +1102,16 @@
   // One endpoint per section. Sections are only opened on demand, so nothing here
   // is fetched until the admin asks for it (or the browser goes idle).
   var PATHS = {
-    orders:'/api/admin/orders', listings:'/api/admin/listings', animals:'/api/admin/animals',
-    deliveries:'/api/admin/deliveries', supplies:'/api/admin/supplies', farmers:'/api/admin/farmers',
-    requests:'/api/admin/purchase-requests', offers:'/api/admin/offers',
-    transporters:'/api/admin/transporters',
-    cold_storage:'/api/admin/service-requests?kind=cold_storage',
-    cold_transport:'/api/admin/service-requests?kind=refrigerated_transport',
-    loans:'/api/admin/service-requests?kind=loan',
-    matching:'/api/admin/match-candidates',
-    errors:'/api/admin/events', scans:'/api/admin/events?event_type=scan',
-    activity:'/api/admin/events?severity=info'
+    orders:'/api/mgmt-ab19/orders', listings:'/api/mgmt-ab19/listings', animals:'/api/mgmt-ab19/animals',
+    deliveries:'/api/mgmt-ab19/deliveries', supplies:'/api/mgmt-ab19/supplies', farmers:'/api/mgmt-ab19/farmers',
+    requests:'/api/mgmt-ab19/purchase-requests', offers:'/api/mgmt-ab19/offers',
+    transporters:'/api/mgmt-ab19/transporters',
+    cold_storage:'/api/mgmt-ab19/service-requests?kind=cold_storage',
+    cold_transport:'/api/mgmt-ab19/service-requests?kind=refrigerated_transport',
+    loans:'/api/mgmt-ab19/service-requests?kind=loan',
+    matching:'/api/mgmt-ab19/match-candidates',
+    errors:'/api/mgmt-ab19/events', scans:'/api/mgmt-ab19/events?event_type=scan',
+    activity:'/api/mgmt-ab19/events?severity=info'
   };
 
   function hay(tab, r){
@@ -1132,9 +1132,9 @@
   async function load(tab, isRetry, force){
     if(!force && LOADING[tab]) return;                       // a duplicate read is already running
     if(!force && !isRetry && DATA[tab] && !DATA_ERR[tab]) return;  // reuse what was fetched minutes ago
-    var path = tab==='inbox' ? ('/api/admin/inbox?table='+encodeURIComponent(inboxTable))
-             : (tab==='activity' && ACT_USER) ? ('/api/admin/events?user_id='+encodeURIComponent(ACT_USER))
-                             : (PATHS[tab] || ('/api/admin/'+tab));
+    var path = tab==='inbox' ? ('/api/mgmt-ab19/inbox?table='+encodeURIComponent(inboxTable))
+             : (tab==='activity' && ACT_USER) ? ('/api/mgmt-ab19/events?user_id='+encodeURIComponent(ACT_USER))
+                             : (PATHS[tab] || ('/api/mgmt-ab19/'+tab));
     LOADING[tab]=true;
     if(currentTab===tab) renderCurrent();
     try{
@@ -1303,7 +1303,7 @@
     var notes=nIn?nIn.value.trim():'';
     if(!confirm('Approve match for order '+orderId.slice(0,8)+'?\nFarmer: '+farmerPhone+(transporterId?'\nTransporter assigned':''))) return;
     try{
-      var r=await api('/api/admin/match-approve',{method:'POST',body:JSON.stringify({order_id:orderId,farmer_phone:farmerPhone,farmer_name:farmerName,transporter_id:transporterId||null,notes:notes})});
+      var r=await api('/api/mgmt-ab19/match-approve',{method:'POST',body:JSON.stringify({order_id:orderId,farmer_phone:farmerPhone,farmer_name:farmerName,transporter_id:transporterId||null,notes:notes})});
       if(r&&r.ok){
         var sms=r.sms||{};
         alert('Match approved!\nSMS to farmer: '+(sms.farmer||'not sent (AT not configured)')+'\nSMS to transporter: '+(sms.transporter||'N/A'));
@@ -1427,7 +1427,7 @@
     var st=document.getElementById('replyStatus');
     st.textContent='Sending…';
     try{
-      var r=await api('/api/admin/contact-reply',{method:'POST',body:JSON.stringify({
+      var r=await api('/api/mgmt-ab19/contact-reply',{method:'POST',body:JSON.stringify({
         contact_message_id: _replyTarget.id,
         reply: body
       })});
@@ -1443,7 +1443,7 @@
   }
 
   async function discordTest(){
-    try{ var r=await api('/api/admin/discord-test',{method:'POST',body:'{}'}); var res=(r&&r.results)||{}; alert('Discord test:\n'+Object.keys(res).map(function(k){return k+': '+res[k];}).join('\n')); }catch(e){ alert('Test failed'); }
+    try{ var r=await api('/api/mgmt-ab19/discord-test',{method:'POST',body:'{}'}); var res=(r&&r.results)||{}; alert('Discord test:\n'+Object.keys(res).map(function(k){return k+': '+res[k];}).join('\n')); }catch(e){ alert('Test failed'); }
   }
   // ── Someone is on the site: the Activity badge and one person's timeline ────
   // The complaint on 2026-11-04 was silence, and this console had no idea what
@@ -1468,7 +1468,7 @@
   async function pollAct(){
     if(document.hidden) return;
     try{
-      var rows=await api('/api/admin/events?severity=info&since='+encodeURIComponent(actSince()));
+      var rows=await api('/api/mgmt-ab19/events?severity=info&since='+encodeURIComponent(actSince()));
       paintAct((rows||[]).length);
     }catch(e){ /* a failed poll leaves the badge alone; it is a hint, not a promise */ }
   }
@@ -1552,7 +1552,7 @@
     if(!status) return;
     if(!confirm('Move this order to "'+status+'"? Only legal transitions are accepted.')){ renderCurrent(); return; }
     try{
-      var r=await api('/api/admin/order/'+encodeURIComponent(id)+'/status',{method:'PATCH',body:JSON.stringify({status:status})});
+      var r=await api('/api/mgmt-ab19/order/'+encodeURIComponent(id)+'/status',{method:'PATCH',body:JSON.stringify({status:status})});
       if(r&&r.ok){ await load('orders',false,true); loadStats(); } else alert((r&&r.error)||'Status update failed.');
     }catch(e){ alert('Status update failed.'); }
     renderCurrent();
@@ -1572,7 +1572,7 @@
     if(!ref||!ref.trim()){ return; }
     if(!confirm('Mark this bank-transfer order PAID?\nReference: '+ref.trim()+'\nThe amount is taken from the stored order, not typed here.')) return;
     try{
-      var r=await api('/api/admin/orders/'+encodeURIComponent(orderId)+'/verify-bank-transfer',{method:'POST',body:JSON.stringify({bank_reference:ref.trim()})});
+      var r=await api('/api/mgmt-ab19/orders/'+encodeURIComponent(orderId)+'/verify-bank-transfer',{method:'POST',body:JSON.stringify({bank_reference:ref.trim()})});
       if(r&&r.ok){ alert(r.already_paid?'Already marked paid (no double entry).':'Bank transfer recorded and posted to the ledger.'); await Promise.all([load('orders',false,true), loadStats()]); }
       else alert('Error: '+((r&&r.error)||'unknown'));
     }catch(e){ alert('Request failed: '+e.message); }
@@ -1632,7 +1632,7 @@
     if(['admin_set','calculated','negotiated'].indexOf(basis)<0){ alert('Basis must be admin_set, calculated or negotiated.'); return; }
     var disclose=confirm('Show this fee to the buyer?\nOK = yes, Cancel = keep it internal.');
     try{
-      var r=await api('/api/admin/deliveries/'+encodeURIComponent(id)+'/fee',{method:'POST',body:JSON.stringify({amount_ugx:amount,basis:basis,disclose_to_buyer:disclose})});
+      var r=await api('/api/mgmt-ab19/deliveries/'+encodeURIComponent(id)+'/fee',{method:'POST',body:JSON.stringify({amount_ugx:amount,basis:basis,disclose_to_buyer:disclose})});
       if(r&&r.ok){ alert('Fee recorded: '+fmt(r.transport_fee_ugx)); await load('deliveries',false,true); }
       else alert('Error: '+((r&&r.error)||'unknown'));
     }catch(e){ alert('Could not save the fee: '+errText(e)); }
@@ -1641,7 +1641,7 @@
   async function deliveryCode(id){
     if(!confirm('Issue a new recipient code for this delivery?\nAny earlier code stops working.')) return;
     try{
-      var r=await api('/api/admin/deliveries/'+encodeURIComponent(id)+'/proof-code',{method:'POST',body:'{}'});
+      var r=await api('/api/mgmt-ab19/deliveries/'+encodeURIComponent(id)+'/proof-code',{method:'POST',body:'{}'});
       if(r&&r.ok){
         prompt('Give this code to the recipient only. It cannot be shown again.', r.code);
         await load('deliveries',false,true);
@@ -1651,7 +1651,7 @@
   }
   async function deliveryProof(id){
     try{
-      var r=await api('/api/admin/deliveries/'+encodeURIComponent(id)+'/proof');
+      var r=await api('/api/mgmt-ab19/deliveries/'+encodeURIComponent(id)+'/proof');
       var lines=[];
       lines.push('Code issued: '+(r.code_issued_at||'no'));
       lines.push('Submitted: '+(r.submitted_at||'no'));
@@ -1668,7 +1668,7 @@
     var label=decision==='accept'?'Accept this offer as the agreed fee?':'Decline this offer?';
     if(!confirm(label)) return;
     try{
-      var r=await api('/api/admin/deliveries/'+encodeURIComponent(id)+'/offer',{method:'POST',body:JSON.stringify({decision:decision})});
+      var r=await api('/api/mgmt-ab19/deliveries/'+encodeURIComponent(id)+'/offer',{method:'POST',body:JSON.stringify({decision:decision})});
       if(r&&r.ok){ await load('deliveries',false,true); }
       else alert('Error: '+((r&&r.error)||'unknown'));
     }catch(e){ alert('Could not record the decision: '+errText(e)); }
@@ -1687,7 +1687,7 @@
     PRICING.err=null;
     if(!PRICING.rates) renderPricing();
     try{
-      var r=await api('/api/admin/transport-rates');
+      var r=await api('/api/mgmt-ab19/transport-rates');
       if(r && r.error) throw new Error(r.error);
       PRICING.rates=Array.isArray(r && r.rates)?r.rates:[];
     }catch(e){ PRICING.rates=null; PRICING.err=e; }
@@ -1795,7 +1795,7 @@
     }
     box.innerHTML='<div class="sk" style="width:100%"></div>';
     try{
-      PRICING.quote=await api('/api/admin/transport-quote',{method:'POST',body:JSON.stringify({
+      PRICING.quote=await api('/api/mgmt-ab19/transport-quote',{method:'POST',body:JSON.stringify({
         vehicle_type:vehicle, distance_km:km, weight_kg:kg,
         night:!!(document.getElementById('q_night')||{}).checked })});
     }catch(e){
@@ -1810,7 +1810,7 @@
   async function loadPricingDeliveries(force){
     if(PRICING.deliveries && !force) return;
     try{
-      var rows=await api('/api/admin/deliveries');
+      var rows=await api('/api/mgmt-ab19/deliveries');
       PRICING.deliveries=Array.isArray(rows)?rows:[];
     }catch(e){ PRICING.deliveries=[]; }
     var sel=document.getElementById('q_delivery');
@@ -1826,7 +1826,7 @@
     var inputs=Object.assign({}, q.inputs||{});
     if(q.rates_snapshot) inputs.rates_snapshot=q.rates_snapshot;
     try{
-      var r=await api('/api/admin/deliveries/'+encodeURIComponent(sel.value)+'/fee',{method:'POST',body:JSON.stringify({
+      var r=await api('/api/mgmt-ab19/deliveries/'+encodeURIComponent(sel.value)+'/fee',{method:'POST',body:JSON.stringify({
         amount_ugx:q.total, basis:'calculated', disclose_to_buyer:disclose, quote_inputs:inputs })});
       if(r && r.ok){
         alert('Fee recorded: '+fmt(r.transport_fee_ugx));
@@ -1852,7 +1852,7 @@
     var note=String((document.getElementById('p_note')||{}).value||'').trim();
     if(!confirm('Save the '+vehicle+' rate?\nBase '+fmt(base)+' · '+fmt(km)+'/km · '+fmt(kg)+'/kg · night '+night+'%')) return;
     try{
-      await api('/api/admin/transport-rates/'+encodeURIComponent(vehicle),{method:'PUT',body:JSON.stringify({
+      await api('/api/mgmt-ab19/transport-rates/'+encodeURIComponent(vehicle),{method:'PUT',body:JSON.stringify({
         base_fee_ugx:base, ugx_per_km:km, ugx_per_kg:kg, night_surcharge_pct:night, note:note })});
       await loadPricing(true);
     }catch(e){ alert('Could not save the rate: '+errText(e)); }
@@ -1960,7 +1960,7 @@
   }
   async function patchSvc(id, tab, fields){
     try{
-      var r=await api('/api/admin/service-requests/'+id,{method:'PATCH',body:JSON.stringify(fields)});
+      var r=await api('/api/mgmt-ab19/service-requests/'+id,{method:'PATCH',body:JSON.stringify(fields)});
       if(r&&r.ok){ await load(tab,false,true); renderCurrent(); }
       else { alert((r&&r.error)||'Update failed.'); await load(tab,false,true); renderCurrent(); }
     }catch(e){ alert('Update failed.'); }
@@ -2049,7 +2049,7 @@
       var fd=new FormData();
       fd.append('file',file);
       fd.append('kind',kind||'listings');
-      var res=await fetch(API+'/api/admin/upload',{method:'POST',headers:{Authorization:'Bearer '+TOKEN},body:fd});
+      var res=await fetch(API+'/api/mgmt-ab19/upload',{method:'POST',headers:{Authorization:'Bearer '+TOKEN},body:fd});
       if(!res.ok){
         var e=await res.json().catch(function(){return{};});
         var upEl=document.getElementById('up_'+currentUploadKey);
@@ -2076,7 +2076,7 @@
       var body={ table:editState.table, fields:fields };
       var method='PATCH';
       if(editState.isNew){ method='POST'; } else { body.id=editState.id; }
-      var r=await api('/api/admin/row',{ method:method, body:JSON.stringify(body) });
+      var r=await api('/api/mgmt-ab19/row',{ method:method, body:JSON.stringify(body) });
       if(r&&r.ok){ closeEdit(); await Promise.all([load(editState.tab,false,true), loadStats()]); renderCurrent(); }
       else document.getElementById('editErr').textContent=(r&&r.error)?r.error:'Save failed.';
     }catch(e){ document.getElementById('editErr').textContent='Save failed.'; }
@@ -2086,7 +2086,7 @@
   async function delRow(tab,id){
     if(!confirm('Delete this '+tab.replace('s','')+'? This cannot be undone.')) return;
     try{
-      var r=await api('/api/admin/row',{ method:'DELETE', body:JSON.stringify({ table:TABLE_OF[tab], id:id }) });
+      var r=await api('/api/mgmt-ab19/row',{ method:'DELETE', body:JSON.stringify({ table:TABLE_OF[tab], id:id }) });
       if(r&&r.ok){ await load(tab,false,true); await loadStats(); renderCurrent(); }
       else alert((r&&r.error)||'Delete failed.');
     }catch(e){ alert('Delete failed.'); }
@@ -2097,7 +2097,7 @@
     var el=document.getElementById('loginHint');
     if(el) el.textContent='Restoring your session…';
     try{
-      var v=await api('/api/admin/verify');
+      var v=await api('/api/mgmt-ab19/verify');
       if(v&&v.valid){ showDash(); return; }
     }catch(e){
       if(e && e.message==='unauthorized') return;   // api() already logged out

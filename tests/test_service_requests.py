@@ -4,7 +4,7 @@
 
 These requests used to be a toast in the web app and were never saved, so the admin
 console could not list them. They now go through POST /api/service-requests and the
-admin console reads them via /api/admin/service-requests. Supabase is faked.
+admin console reads them via /api/mgmt-ab19/service-requests. Supabase is faked.
 """
 from __future__ import annotations
 
@@ -110,9 +110,9 @@ def test_submit_never_claims_success_when_save_fails(client, as_user, monkeypatc
 
 # ── admin console ─────────────────────────────────────────────────────────────
 def test_admin_list_requires_admin_token(client):
-    assert client.get("/api/admin/service-requests").status_code == 401
+    assert client.get("/api/mgmt-ab19/service-requests").status_code == 401
     user_token = {"Authorization": "Bearer " + app_mod.make_token({"role": "user"})}
-    assert client.get("/api/admin/service-requests", headers=user_token).status_code == 403
+    assert client.get("/api/mgmt-ab19/service-requests", headers=user_token).status_code == 403
 
 
 def test_admin_list_filters_by_kind(client, admin_headers, monkeypatch):
@@ -123,7 +123,7 @@ def test_admin_list_filters_by_kind(client, admin_headers, monkeypatch):
         return [{"id": GOOD_ID, "kind": "loan"}]
 
     monkeypatch.setattr(app_mod, "supa_get", fake_get)
-    r = client.get("/api/admin/service-requests?kind=loan", headers=admin_headers)
+    r = client.get("/api/mgmt-ab19/service-requests?kind=loan", headers=admin_headers)
     assert r.status_code == 200 and r.get_json() == [{"id": GOOD_ID, "kind": "loan"}]
     assert seen["table"] == "service_requests"
     assert seen["filters"]["kind"] == "eq.loan"
@@ -131,7 +131,7 @@ def test_admin_list_filters_by_kind(client, admin_headers, monkeypatch):
 
 
 def test_admin_list_rejects_unknown_kind(client, admin_headers):
-    r = client.get("/api/admin/service-requests?kind=drop_table", headers=admin_headers)
+    r = client.get("/api/mgmt-ab19/service-requests?kind=drop_table", headers=admin_headers)
     assert r.status_code == 400
 
 
@@ -139,7 +139,7 @@ def test_admin_update_status_and_notes(client, admin_headers, monkeypatch):
     calls = []
     monkeypatch.setattr(app_mod, "supa_update",
                         lambda table, data, col, val: calls.append((table, data, col, val)) or True)
-    r = client.patch(f"/api/admin/service-requests/{GOOD_ID}", headers=admin_headers,
+    r = client.patch(f"/api/mgmt-ab19/service-requests/{GOOD_ID}", headers=admin_headers,
                      json={"status": "confirmed", "admin_notes": " Called the farmer ",
                            "kind": "loan", "user_id": "x"})
     assert r.status_code == 200
@@ -151,11 +151,11 @@ def test_admin_update_status_and_notes(client, admin_headers, monkeypatch):
 
 
 def test_admin_update_validates_input(client, admin_headers):
-    url = f"/api/admin/service-requests/{GOOD_ID}"
+    url = f"/api/mgmt-ab19/service-requests/{GOOD_ID}"
     assert client.patch(url, json={"status": "confirmed"}).status_code == 401
     assert client.patch(url, headers=admin_headers, json={"status": "bogus"}).status_code == 400
     assert client.patch(url, headers=admin_headers, json={}).status_code == 400
-    bad = client.patch("/api/admin/service-requests/not-a-uuid", headers=admin_headers,
+    bad = client.patch("/api/mgmt-ab19/service-requests/not-a-uuid", headers=admin_headers,
                        json={"status": "confirmed"})
     assert bad.status_code == 400
 

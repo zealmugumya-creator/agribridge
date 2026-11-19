@@ -68,18 +68,18 @@ def test_unwatched_table_and_non_insert_are_ignored(client, secret):
 
 
 def test_inbox_requires_admin_and_whitelists_tables(client, monkeypatch):
-    assert client.get("/api/admin/inbox").status_code == 401
+    assert client.get("/api/mgmt-ab19/inbox").status_code == 401
     h = {"Authorization": "Bearer " + app_mod.make_token({"role": "admin"})}
-    assert client.get("/api/admin/inbox?table=password_reset_tokens", headers=h).status_code == 400
+    assert client.get("/api/mgmt-ab19/inbox?table=password_reset_tokens", headers=h).status_code == 400
     monkeypatch.setattr(app_mod, "supa_get", lambda *a, **k: [{"id": "1", "token": "x", "subject": "hi"}])
-    rows = client.get("/api/admin/inbox?table=contact_messages", headers=h).get_json()
+    rows = client.get("/api/mgmt-ab19/inbox?table=contact_messages", headers=h).get_json()
     assert rows == [{"id": "1", "subject": "hi"}]          # secrets stripped
 
 
 def test_logistics_is_gated_and_links_back_to_real_admin_page():
     html = (REPO / "static/logistics.html").read_text(encoding="utf-8")
     assert 'href="/admin.html"' in html and "/static/admin.html" not in html
-    assert 'id="gate"' in html and "/api/admin/verify" in html
+    assert 'id="gate"' in html and "/api/mgmt-ab19/verify" in html
     assert "localStorage.getItem('ab_admin_token')" not in html   # shares admin's session instead
 
 

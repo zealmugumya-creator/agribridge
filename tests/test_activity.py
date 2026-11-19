@@ -160,7 +160,7 @@ UUID = "4f1e2b3c-5d6a-4b7c-8d9e-0f1a2b3c4d5e"
 
 @pytest.fixture
 def asked(monkeypatch):
-    """What /api/admin/events actually asked Supabase for."""
+    """What /api/mgmt-ab19/events actually asked Supabase for."""
     seen = {}
 
     def fake_get(table, filters=None, limit=100):
@@ -172,7 +172,7 @@ def asked(monkeypatch):
 
 
 def _events(client, query):
-    return client.get("/api/admin/events" + query, headers={
+    return client.get("/api/mgmt-ab19/events" + query, headers={
         "Authorization": "Bearer " + app_mod.make_token({"role": "admin"})})
 
 
@@ -203,8 +203,8 @@ def test_a_since_that_is_not_a_time_is_refused(client, asked):
 
 
 def test_the_events_endpoint_still_needs_an_admin(client):
-    assert client.get("/api/admin/events").status_code == 401
-    farmer = client.get(f"/api/admin/events?user_id={UUID}", headers={
+    assert client.get("/api/mgmt-ab19/events").status_code == 401
+    farmer = client.get(f"/api/mgmt-ab19/events?user_id={UUID}", headers={
         "Authorization": "Bearer " + app_mod.make_token({"role": "farmer"})})
     assert farmer.status_code == 403
 
@@ -230,7 +230,7 @@ def test_the_activity_tab_can_show_an_unread_count(admin_js):
 
 def test_the_badge_counts_what_is_new_not_what_is_old(admin_js):
     poll = _fn(admin_js, "pollAct")
-    assert "/api/admin/events?severity=info&since=" in poll
+    assert "/api/mgmt-ab19/events?severity=info&since=" in poll
     since = _fn(admin_js, "actSince")
     assert "ACT_SEEN='ab_admin_activity_seen'" in admin_js
     assert "localStorage.getItem(ACT_SEEN)" in since

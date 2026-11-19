@@ -36,7 +36,7 @@ OTHER = "22222222-2222-4222-8222-222222222222"
 WHEN = "2026-11-04T09:00:00+00:00"
 
 STATE: dict = {}
-EVENTS: list = []          # every query the console sent to /api/admin/events
+EVENTS: list = []          # every query the console sent to /api/mgmt-ab19/events
 _counter = [0]
 
 
@@ -83,7 +83,7 @@ def _handle(route, request):
         return route.fulfill(status=status, headers=dict(cors, **{"content-type": "application/json"}),
                              body=json.dumps(payload))
 
-    if path == "/api/admin/events":
+    if path == "/api/mgmt-ab19/events":
         query = {k: v[0] for k, v in parse_qs(url.query).items()}
         EVENTS.append(query)
         if "user_id" in query:
@@ -91,7 +91,7 @@ def _handle(route, request):
         if "since" in query:
             return send(STATE["unseen"])
         return send(STATE["feed"])
-    if path == "/api/admin/farmers":
+    if path == "/api/mgmt-ab19/farmers":
         return send([{"id": SARAH, "full_name": "Sarah Auma", "district": "Kasese"},
                      {"id": OTHER, "full_name": "Allan Magembe", "district": "Jinja"}])
     return send([])

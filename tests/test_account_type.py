@@ -158,7 +158,7 @@ def test_an_admin_opening_a_transporter_for_an_existing_farmer_is_told_which(
         client, admin_header, monkeypatch):
     db = _Inserting(_gp001("farmer"))
     monkeypatch.setattr(app_mod, "SUPA", db)
-    r = client.post("/api/admin/transporters",
+    r = client.post("/api/mgmt-ab19/transporters",
                     json={"full_name": "Peter Okello", "phone": "+256771000016",
                           "supabase_uid": UID},
                     headers=admin_header)
@@ -175,7 +175,7 @@ def test_a_transporter_created_without_a_clash_still_returns_the_row(
         client, admin_header, monkeypatch):
     db = _Inserting(RpcResult(ok=True, data=[{"id": "t-1", "full_name": "Peter Okello"}]))
     monkeypatch.setattr(app_mod, "SUPA", db)
-    r = client.post("/api/admin/transporters",
+    r = client.post("/api/mgmt-ab19/transporters",
                     json={"full_name": "Peter Okello", "phone": "+256771000016"},
                     headers=admin_header)
     assert r.status_code == 201
@@ -187,7 +187,7 @@ def test_a_failed_insert_without_the_guard_code_is_still_a_plain_failure(
     db = _Inserting(RpcResult(ok=False, status=500,
                               error=json.dumps({"code": "XX000", "message": "boom"})))
     monkeypatch.setattr(app_mod, "SUPA", db)
-    r = client.post("/api/admin/transporters",
+    r = client.post("/api/mgmt-ab19/transporters",
                     json={"full_name": "Peter Okello", "phone": "+256771000016"},
                     headers=admin_header)
     assert r.status_code == 500
@@ -195,10 +195,10 @@ def test_a_failed_insert_without_the_guard_code_is_still_a_plain_failure(
 
 
 def test_the_editor_on_a_role_table_reports_the_guard(client, admin_header, monkeypatch):
-    """/api/admin/row can insert farmers and transporters, so it needs the same words."""
+    """/api/mgmt-ab19/row can insert farmers and transporters, so it needs the same words."""
     db = _Inserting(_gp001("transporter"))
     monkeypatch.setattr(app_mod, "SUPA", db)
-    r = client.post("/api/admin/row",
+    r = client.post("/api/mgmt-ab19/row",
                     json={"table": "farmers", "fields": {"full_name": "Sarah Auma",
                                                           "phone": PHONE}},
                     headers=admin_header)
@@ -214,7 +214,7 @@ def test_a_non_role_table_keeps_the_route_it_had(client, admin_header, monkeypat
                         lambda *a, **k: called.append(a) or [{"id": "l-1"}])
     db = _Inserting()
     monkeypatch.setattr(app_mod, "SUPA", db)
-    r = client.post("/api/admin/row",
+    r = client.post("/api/mgmt-ab19/row",
                     json={"table": "listings", "fields": {"crop_name": "Maize",
                                                            "price_per_kg": 900}},
                     headers=admin_header)

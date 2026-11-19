@@ -94,7 +94,7 @@ def test_admin_editor_cannot_change_order_status(client, monkeypatch):
     monkeypatch.setattr(app_mod, 'supa_update',
                         lambda *a, **k: updates.append(a) or True)
     for field in ('status', 'payment_status'):
-        r = client.patch('/api/admin/row', json={
+        r = client.patch('/api/mgmt-ab19/row', json={
             'table': 'orders', 'id': 'o1', 'fields': {field: 'delivered'}},
             headers=_admin_headers())
         assert r.status_code == 400
@@ -106,7 +106,7 @@ def test_admin_editor_still_updates_plain_order_fields(client, monkeypatch):
     updates = []
     monkeypatch.setattr(app_mod, 'supa_update',
                         lambda *a, **k: updates.append(a) or True)
-    r = client.patch('/api/admin/row', json={
+    r = client.patch('/api/mgmt-ab19/row', json={
         'table': 'orders', 'id': 'o1', 'fields': {'delivery_address': 'Kampala'}},
         headers=_admin_headers())
     assert r.status_code == 200
@@ -122,7 +122,7 @@ def test_admin_can_link_a_transporter_login(client, monkeypatch):
     monkeypatch.setattr(app_mod, 'supa_get', lambda *a, **k: [])
     monkeypatch.setattr(app_mod, 'supa_update',
                         lambda *a, **k: updates.append(a) or True)
-    r = client.patch('/api/admin/row', json={
+    r = client.patch('/api/mgmt-ab19/row', json={
         'table': 'transporters', 'id': 't1', 'fields': {'supabase_uid': _UID}},
         headers=_admin_headers())
     assert r.status_code == 200
@@ -133,7 +133,7 @@ def test_admin_cannot_link_a_made_up_login(client, monkeypatch):
     updates = []
     monkeypatch.setattr(app_mod, 'supa_update',
                         lambda *a, **k: updates.append(a) or True)
-    r = client.patch('/api/admin/row', json={
+    r = client.patch('/api/mgmt-ab19/row', json={
         'table': 'transporters', 'id': 't1', 'fields': {'supabase_uid': 'not-a-uuid'}},
         headers=_admin_headers())
     assert r.status_code == 400
@@ -146,7 +146,7 @@ def test_one_login_cannot_be_linked_to_two_drivers(client, monkeypatch):
     monkeypatch.setattr(app_mod, 'supa_get', lambda *a, **k: [{'id': 't2'}])
     monkeypatch.setattr(app_mod, 'supa_update',
                         lambda *a, **k: updates.append(a) or True)
-    r = client.patch('/api/admin/row', json={
+    r = client.patch('/api/mgmt-ab19/row', json={
         'table': 'transporters', 'id': 't1', 'fields': {'supabase_uid': _UID}},
         headers=_admin_headers())
     assert r.status_code == 409
@@ -169,7 +169,7 @@ def test_admin_status_goes_through_the_state_machine(client, monkeypatch):
     rpc = FakeRpc(RpcResult(ok=True, data=True))
     monkeypatch.setattr(app_mod.SUPA, 'rpc', rpc)
     monkeypatch.setattr(app_mod, '_log_system_event', lambda *a, **k: None)
-    r = client.patch('/api/admin/order/o1/status', json={'status': 'confirmed'},
+    r = client.patch('/api/mgmt-ab19/order/o1/status', json={'status': 'confirmed'},
                      headers=_admin_headers())
     assert r.status_code == 200
     assert rpc.calls == [('set_order_status',
@@ -181,7 +181,7 @@ def test_admin_status_rejects_illegal_transitions(client, monkeypatch):
     rpc = FakeRpc(RpcResult(ok=False, status=400,
                             error='illegal order transition pending -> delivered'))
     monkeypatch.setattr(app_mod.SUPA, 'rpc', rpc)
-    r = client.patch('/api/admin/order/o1/status', json={'status': 'delivered'},
+    r = client.patch('/api/mgmt-ab19/order/o1/status', json={'status': 'delivered'},
                      headers=_admin_headers())
     assert r.status_code == 409
     assert 'illegal' in r.get_json()['error']
@@ -191,7 +191,7 @@ def test_admin_status_reports_a_missing_order(client, monkeypatch):
     from services.supabase_client import RpcResult
     rpc = FakeRpc(RpcResult(ok=False, status=400, error='order not found'))
     monkeypatch.setattr(app_mod.SUPA, 'rpc', rpc)
-    r = client.patch('/api/admin/order/o1/status', json={'status': 'confirmed'},
+    r = client.patch('/api/mgmt-ab19/order/o1/status', json={'status': 'confirmed'},
                      headers=_admin_headers())
     assert r.status_code == 404
 

@@ -742,7 +742,7 @@ def test_failed_acceptance_read_blocks_marketplace_and_sync(client, api, db, mon
     ("DELETE", "/api/user/push-subscriptions"), ("GET", "/api/listings"),
     ("GET", "/api/pay/providers"), ("POST", "/api/pay/webhook/flutterwave"),
     ("POST", "/api/pay/webhook/pesapal"), ("GET", "/api/pay/pesapal/callback"),
-    ("POST", "/api/hooks/supabase"), ("GET", "/api/admin/stats"),
+    ("POST", "/api/hooks/supabase"), ("GET", "/api/mgmt-ab19/stats"),
 ])
 def test_central_gate_does_not_intercept_exempt_handlers(client, monkeypatch, method, path):
     monkeypatch.setattr(app_mod, "LEGAL_ENFORCED", True)

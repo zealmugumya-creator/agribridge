@@ -9656,7 +9656,7 @@ async function admLegalRefresh() {
   const elReqs = document.getElementById('admPrivacyReqs');
   const elBanner = document.getElementById('admLegalEnfBanner');
   try {
-    const res = await abApi('/api/admin/legal/stats');
+    const res = await abApi('/api/mgmt-ab19/legal/stats');
     if (!res.ok) throw new Error(res.status);
     const d = res.json;
 

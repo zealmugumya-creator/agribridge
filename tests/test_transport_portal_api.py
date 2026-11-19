@@ -392,7 +392,7 @@ def test_issuing_a_code_returns_it_once_and_stores_only_a_hash(client, monkeypat
     monkeypatch.setattr(app_mod.SUPA, 'update_checked', lambda table, data, filters: (
         writes.append(data) or RpcResult(ok=True, data=[{'id': DELIVERY_ID}])))
 
-    r = client.post(f'/api/admin/deliveries/{DELIVERY_ID}/proof-code',
+    r = client.post(f'/api/mgmt-ab19/deliveries/{DELIVERY_ID}/proof-code',
                     headers=_admin_headers())
     assert r.status_code == 200
     body = r.get_json()
@@ -425,13 +425,13 @@ def test_confirmation_requires_a_matching_proof_once_a_code_exists(client, monke
     monkeypatch.setattr(app_mod, 'supa_get', fake_get)
     monkeypatch.setattr(app_mod.SUPA, 'rpc',
                         lambda *a: pytest.fail('an unevidenced delivery must not advance'))
-    r = client.post('/api/admin/orders/o1/confirm-delivery', json={},
+    r = client.post('/api/mgmt-ab19/orders/o1/confirm-delivery', json={},
                     headers=_admin_headers())
     assert r.status_code == 409 and r.get_json()['code'] == 'proof_missing'
 
     delivery['proof_submitted_at'] = '2026-10-27T09:00:00Z'
     delivery['proof_code_matches'] = False
-    r = client.post('/api/admin/orders/o1/confirm-delivery', json={},
+    r = client.post('/api/mgmt-ab19/orders/o1/confirm-delivery', json={},
                     headers=_admin_headers())
     assert r.status_code == 409 and r.get_json()['code'] == 'proof_code_mismatch'
 
@@ -440,7 +440,7 @@ def test_confirmation_requires_a_matching_proof_once_a_code_exists(client, monke
     monkeypatch.setattr(app_mod.SUPA, 'rpc', lambda fn, args: RpcResult(ok=True, data=True))
     monkeypatch.setattr(app_mod, 'supa_update', lambda table, data, col, val: (
         updates.append((table, data)) or True))
-    r = client.post('/api/admin/orders/o1/confirm-delivery', json={},
+    r = client.post('/api/mgmt-ab19/orders/o1/confirm-delivery', json={},
                     headers=_admin_headers())
     assert r.status_code == 200
     delivered = [d for t, d in updates if t == 'deliveries'][0]
@@ -456,7 +456,7 @@ def test_an_admin_accepting_an_offer_is_what_sets_the_fee(client, monkeypatch):
     writes = []
     monkeypatch.setattr(app_mod.SUPA, 'update_checked', lambda table, data, filters: (
         writes.append((data, filters)) or RpcResult(ok=True, data=[{'id': DELIVERY_ID}])))
-    r = client.post(f'/api/admin/deliveries/{DELIVERY_ID}/offer',
+    r = client.post(f'/api/mgmt-ab19/deliveries/{DELIVERY_ID}/offer',
                     json={'decision': 'accept'}, headers=_admin_headers())
     assert r.status_code == 200
     fields, filters = writes[0]
@@ -475,7 +475,7 @@ def test_rejecting_an_offer_does_not_touch_the_fee(client, monkeypatch):
     writes = []
     monkeypatch.setattr(app_mod.SUPA, 'update_checked', lambda table, data, filters: (
         writes.append(data) or RpcResult(ok=True, data=[{'id': DELIVERY_ID}])))
-    r = client.post(f'/api/admin/deliveries/{DELIVERY_ID}/offer',
+    r = client.post(f'/api/mgmt-ab19/deliveries/{DELIVERY_ID}/offer',
                     json={'decision': 'reject'}, headers=_admin_headers())
     assert r.status_code == 200
     assert 'transport_fee_ugx' not in writes[0]
@@ -488,7 +488,7 @@ def test_setting_a_fee_records_its_basis(client, monkeypatch):
     writes = []
     monkeypatch.setattr(app_mod.SUPA, 'update_checked', lambda table, data, filters: (
         writes.append(data) or RpcResult(ok=True, data=[{'id': DELIVERY_ID}])))
-    r = client.post(f'/api/admin/deliveries/{DELIVERY_ID}/fee',
+    r = client.post(f'/api/mgmt-ab19/deliveries/{DELIVERY_ID}/fee',
                     json={'amount_ugx': 48000, 'basis': 'calculated',
                           'quote_inputs': {'distance_km': 120, 'weight_kg': 800},
                           'disclose_to_buyer': True},
@@ -505,7 +505,7 @@ def test_quote_says_not_configured_instead_of_zero(client, monkeypatch):
     monkeypatch.setattr(app_mod.SUPA, 'rpc', lambda fn, args: RpcResult(
         ok=True, data={'status': 'not_configured',
                        'message': 'No transport rates are configured for lorry.'}))
-    r = client.post('/api/admin/transport-quote',
+    r = client.post('/api/mgmt-ab19/transport-quote',
                     json={'vehicle_type': 'lorry', 'distance_km': 40, 'weight_kg': 300},
                     headers=_admin_headers())
     assert r.status_code == 200
@@ -518,11 +518,11 @@ def test_the_rate_table_is_empty_and_writes_are_validated(client, monkeypatch):
     _db(monkeypatch, deliveries=[])
     monkeypatch.setattr(app_mod, 'supa_get', lambda table, filters=None, limit=100: [])
     monkeypatch.setattr(app_mod, '_log_system_event', lambda *a, **k: None)
-    body = client.get('/api/admin/transport-rates', headers=_admin_headers()).get_json()
+    body = client.get('/api/mgmt-ab19/transport-rates', headers=_admin_headers()).get_json()
     assert body['count'] == 0 and body['rates'] == []
     assert 'Nothing is assumed' in body['note']
 
-    r = client.put('/api/admin/transport-rates/lorry',
+    r = client.put('/api/mgmt-ab19/transport-rates/lorry',
                    json={'base_fee_ugx': -1, 'ugx_per_km': 800, 'ugx_per_kg': 20},
                    headers=_admin_headers())
     assert r.status_code == 400
@@ -530,7 +530,7 @@ def test_the_rate_table_is_empty_and_writes_are_validated(client, monkeypatch):
     upserts = []
     monkeypatch.setattr(app_mod.SUPA, 'upsert', lambda table, data, on_conflict=None: (
         upserts.append((table, data, on_conflict)) or RpcResult(ok=True, data=[data])))
-    r = client.put('/api/admin/transport-rates/lorry',
+    r = client.put('/api/mgmt-ab19/transport-rates/lorry',
                    json={'base_fee_ugx': 20000, 'ugx_per_km': 800, 'ugx_per_kg': 20,
                          'night_surcharge_pct': 10},
                    headers=_admin_headers())

@@ -131,7 +131,7 @@ def test_pesapal_return_handler_reports_every_outcome(index_html):
 
 def test_admin_has_a_recurring_finance_view(admin_html):
     assert "['recurring','Recurring']" in admin_html
-    assert "recurring:'/api/admin/finance/recurring'" in admin_html
+    assert "recurring:'/api/mgmt-ab19/finance/recurring'" in admin_html
     assert "function finRecurring(d)" in admin_html
     assert "SUSPENSE_OVERPAYMENT" in admin_html
     assert "paid_amount_without_ledger" in admin_html
@@ -141,7 +141,7 @@ def test_pesapal_routes_are_registered():
     rules = {str(r) for r in app_mod.app.url_map.iter_rules()}
     assert "/api/pay/pesapal/callback" in rules
     assert "/api/pay/webhook/pesapal" in rules
-    assert "/api/admin/finance/recurring" in rules
+    assert "/api/mgmt-ab19/finance/recurring" in rules
 
 
 # ── secrets never reach the browser ────────────────────────────────────────

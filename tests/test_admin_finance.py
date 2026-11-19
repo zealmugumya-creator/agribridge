@@ -65,12 +65,12 @@ def _payout(payout_id, net, status, commission=1000, order_id='o1',
 
 # ── Auth ─────────────────────────────────────────────────────────────────────
 @pytest.mark.parametrize('path', [
-    '/api/admin/finance/overview',
-    '/api/admin/finance/journals',
-    '/api/admin/finance/farmer-settlements',
-    '/api/admin/finance/transporter-settlements',
-    '/api/admin/finance/reconciliation',
-    '/api/admin/finance/reports',
+    '/api/mgmt-ab19/finance/overview',
+    '/api/mgmt-ab19/finance/journals',
+    '/api/mgmt-ab19/finance/farmer-settlements',
+    '/api/mgmt-ab19/finance/transporter-settlements',
+    '/api/mgmt-ab19/finance/reconciliation',
+    '/api/mgmt-ab19/finance/reports',
 ])
 def test_finance_endpoints_require_admin(client, path):
     assert client.get(path).status_code == 401
@@ -89,7 +89,7 @@ def test_overview_reports_unavailable_ledger_instead_of_zero(client, monkeypatch
         ],
     }, errors={'ledger_account_balances': 'PGRST205: table not found'}))
 
-    r = client.get('/api/admin/finance/overview', headers=_admin_headers())
+    r = client.get('/api/mgmt-ab19/finance/overview', headers=_admin_headers())
     assert r.status_code == 200
     body = r.get_json()
 
@@ -117,7 +117,7 @@ def test_overview_marks_balanced_ledger(client, monkeypatch):
     monkeypatch.setattr(app_mod, 'supa_get_checked', _fake_reads({
         'orders': [], 'payouts': [], 'ledger_account_balances': balances,
     }))
-    r = client.get('/api/admin/finance/overview', headers=_admin_headers())
+    r = client.get('/api/mgmt-ab19/finance/overview', headers=_admin_headers())
     assert r.status_code == 200
     ledger = r.get_json()['ledger']
     assert ledger['ready'] is True
@@ -129,7 +129,7 @@ def test_overview_marks_balanced_ledger(client, monkeypatch):
 def test_journals_returns_actionable_error_when_ledger_missing(client, monkeypatch):
     monkeypatch.setattr(app_mod, 'supa_get_checked', _fake_reads(
         {}, errors={'ledger_journals': 'PGRST205: Could not find the table'}))
-    r = client.get('/api/admin/finance/journals', headers=_admin_headers())
+    r = client.get('/api/mgmt-ab19/finance/journals', headers=_admin_headers())
     assert r.status_code == 503
     body = r.get_json()
     assert body['code'] == 'ledger_not_initialized'
@@ -153,7 +153,7 @@ def test_journals_groups_lines_and_totals(client, monkeypatch):
     monkeypatch.setattr(app_mod, 'supa_get_checked', _fake_reads({
         'ledger_journals': journals, 'ledger_lines': lines,
     }))
-    r = client.get('/api/admin/finance/journals', headers=_admin_headers())
+    r = client.get('/api/mgmt-ab19/finance/journals', headers=_admin_headers())
     assert r.status_code == 200
     row = r.get_json()['rows'][0]
     assert row['amount'] == 100000
@@ -167,7 +167,7 @@ def test_farmer_settlements_join_names_and_net(client, monkeypatch):
         'orders': [_order('o1', 100000, status='delivered')],
         'farmers': [{'id': 'f1', 'full_name': 'Nabuufu Susan'}],
     }))
-    r = client.get('/api/admin/finance/farmer-settlements', headers=_admin_headers())
+    r = client.get('/api/mgmt-ab19/finance/farmer-settlements', headers=_admin_headers())
     assert r.status_code == 200
     body = r.get_json()
     assert body['rows'][0]['farmer_name'] == 'Nabuufu Susan'
@@ -184,7 +184,7 @@ def test_transporter_settlements_never_invents_a_charge(client, monkeypatch):
             'actual_arrival': '2026-10-20T12:00:00+00:00', 'tracking_code': 'ABC',
         }],
     }))
-    r = client.get('/api/admin/finance/transporter-settlements',
+    r = client.get('/api/mgmt-ab19/finance/transporter-settlements',
                    headers=_admin_headers())
     assert r.status_code == 200
     body = r.get_json()
@@ -231,7 +231,7 @@ def test_reconciliation_finds_missing_mismatch_and_orphans(client, monkeypatch):
     monkeypatch.setattr(app_mod, 'supa_get_checked', _fake_reads({
         'orders': orders, 'ledger_journals': journals, 'ledger_lines': lines,
     }))
-    r = client.get('/api/admin/finance/reconciliation', headers=_admin_headers())
+    r = client.get('/api/mgmt-ab19/finance/reconciliation', headers=_admin_headers())
     assert r.status_code == 200
     body = r.get_json()
     types = {issue['type'] for issue in body['issues']}
@@ -252,7 +252,7 @@ def test_reports_filter_by_range_and_degrade_without_ledger(client, monkeypatch)
         ],
         'payouts': [_payout('p1', 90000, 'paid', created='2026-10-20T10:00:00Z')],
     }, errors={'ledger_journals': 'PGRST205: table not found'}))
-    r = client.get('/api/admin/finance/reports?from=2026-10-01&to=2026-10-31',
+    r = client.get('/api/mgmt-ab19/finance/reports?from=2026-10-01&to=2026-10-31',
                    headers=_admin_headers())
     assert r.status_code == 200
     body = r.get_json()
@@ -264,7 +264,7 @@ def test_reports_filter_by_range_and_degrade_without_ledger(client, monkeypatch)
 
 
 def test_reports_reject_inverted_range(client):
-    r = client.get('/api/admin/finance/reports?from=2026-10-31&to=2026-10-01',
+    r = client.get('/api/mgmt-ab19/finance/reports?from=2026-10-31&to=2026-10-01',
                    headers=_admin_headers())
     assert r.status_code == 400
 
@@ -295,7 +295,7 @@ def test_assign_transporter_writes_real_delivery_columns(client, monkeypatch):
                         lambda table, data, eq_col, eq_val: calls['update'].append(
                             (table, data, eq_col, eq_val)) or True)
 
-    r = client.post('/api/admin/orders/o1/assign-transporter',
+    r = client.post('/api/mgmt-ab19/orders/o1/assign-transporter',
                     json={'transporter_id': 't1'}, headers=_admin_headers())
     assert r.status_code == 200
 
@@ -328,13 +328,13 @@ def test_admin_cannot_quietly_move_a_live_job_from_its_driver(client, monkeypatc
     monkeypatch.setattr(app_mod, 'supa_update',
                         lambda table, data, eq_col, eq_val: updates.append(table) or True)
 
-    r = client.post('/api/admin/orders/o1/assign-transporter',
+    r = client.post('/api/mgmt-ab19/orders/o1/assign-transporter',
                     json={'transporter_id': 't2'}, headers=_admin_headers())
     assert r.status_code == 409
     assert r.get_json()['code'] == 'delivery_already_assigned'
     assert not updates, 'a refused reassignment must not write anything'
 
-    forced = client.post('/api/admin/orders/o1/assign-transporter',
+    forced = client.post('/api/mgmt-ab19/orders/o1/assign-transporter',
                          json={'transporter_id': 't2', 'force': True},
                          headers=_admin_headers())
     assert forced.status_code == 200
@@ -351,7 +351,7 @@ def test_assign_transporter_failure_is_not_reported_as_success(client, monkeypat
     monkeypatch.setattr(app_mod, 'supa_update',
                         lambda *a, **kw: updates.append(a) or True)
 
-    r = client.post('/api/admin/orders/o1/assign-transporter',
+    r = client.post('/api/mgmt-ab19/orders/o1/assign-transporter',
                     json={'transporter_id': 't1'}, headers=_admin_headers())
     assert r.status_code == 503
     assert updates == []
@@ -390,7 +390,7 @@ def test_confirm_delivery_uses_actual_arrival_column(client, monkeypatch):
     _stub_notifications(monkeypatch)
     calls = _delivery_stubs(monkeypatch, _delivery_order())
 
-    r = client.post('/api/admin/orders/o1/confirm-delivery',
+    r = client.post('/api/mgmt-ab19/orders/o1/confirm-delivery',
                     json={'note': 'handed over'}, headers=_admin_headers())
     assert r.status_code == 200
 
@@ -411,7 +411,7 @@ def test_confirm_delivery_failure_is_reported(client, monkeypatch):
         return table == 'orders'
 
     monkeypatch.setattr(app_mod, 'supa_update', fake_update)
-    r = client.post('/api/admin/orders/o1/confirm-delivery',
+    r = client.post('/api/mgmt-ab19/orders/o1/confirm-delivery',
                     json={}, headers=_admin_headers())
     assert r.status_code == 503
     assert r.get_json()['code'] == 'delivery_confirmation_failed'
@@ -420,7 +420,7 @@ def test_confirm_delivery_failure_is_reported(client, monkeypatch):
 def test_confirm_delivery_rejects_an_illegal_state_transition(client, monkeypatch):
     _stub_notifications(monkeypatch)
     calls = _delivery_stubs(monkeypatch, _delivery_order(), rpc_ok=False)
-    r = client.post('/api/admin/orders/o1/confirm-delivery',
+    r = client.post('/api/mgmt-ab19/orders/o1/confirm-delivery',
                     json={}, headers=_admin_headers())
     assert r.status_code == 409
     assert calls['update'] == []
@@ -436,7 +436,7 @@ def test_cod_delivery_posts_the_ledger_and_marks_paid(client, monkeypatch):
         return PaymentPosting(ok=True, reference='cod:AB-1', journal_id='j-cod')
 
     monkeypatch.setattr(app_mod.ledger, 'post_verified_payment', fake_post)
-    r = client.post('/api/admin/orders/o1/confirm-delivery', json={},
+    r = client.post('/api/mgmt-ab19/orders/o1/confirm-delivery', json={},
                     headers=_admin_headers())
     assert r.status_code == 200
     body = r.get_json()
@@ -457,7 +457,7 @@ def test_cod_ledger_failure_does_not_mark_paid(client, monkeypatch):
     from services.ledger import PaymentPosting
     monkeypatch.setattr(app_mod.ledger, 'post_verified_payment', lambda db, **kw:
                         PaymentPosting(ok=False, reference='cod:AB-1', error='db down'))
-    r = client.post('/api/admin/orders/o1/confirm-delivery', json={},
+    r = client.post('/api/mgmt-ab19/orders/o1/confirm-delivery', json={},
                     headers=_admin_headers())
     assert r.status_code == 503 and r.get_json()['code'] == 'ledger_post_failed'
     assert [c for c in calls['update'] if c[0] == 'orders'] == []
@@ -468,7 +468,7 @@ def test_unpaid_online_delivery_is_not_marked_paid(client, monkeypatch):
     calls = _delivery_stubs(monkeypatch, _delivery_order(payment='unpaid', method='momo'))
     monkeypatch.setattr(app_mod.ledger, 'post_verified_payment',
                         lambda *a, **k: pytest.fail('no ledger post for unverified payment'))
-    r = client.post('/api/admin/orders/o1/confirm-delivery', json={},
+    r = client.post('/api/mgmt-ab19/orders/o1/confirm-delivery', json={},
                     headers=_admin_headers())
     assert r.status_code == 200
     assert r.get_json()['payment_status'] == 'unpaid'
@@ -480,7 +480,7 @@ def test_unpaid_online_delivery_is_not_marked_paid(client, monkeypatch):
 def test_recurring_view_explains_an_unapplied_migration(client, monkeypatch):
     monkeypatch.setattr(app_mod, 'supa_get_checked', _fake_reads(
         {}, {'payment_subscriptions': 'PGRST205: relation "payment_subscriptions" does not exist'}))
-    r = client.get('/api/admin/finance/recurring', headers=_admin_headers())
+    r = client.get('/api/mgmt-ab19/finance/recurring', headers=_admin_headers())
     assert r.status_code == 503
     j = r.get_json()
     assert j['code'] == 'recurring_not_initialized'
@@ -497,7 +497,7 @@ def test_recurring_view_counts_only_paid_charges_and_flags_missing_ledger(client
             {'status': 'pending', 'amount': 30000, 'ledger_reference': None},
         ],
     }))
-    r = client.get('/api/admin/finance/recurring', headers=_admin_headers())
+    r = client.get('/api/mgmt-ab19/finance/recurring', headers=_admin_headers())
     assert r.status_code == 200
     s = r.get_json()['summary']
     assert s == {
