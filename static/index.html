@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- AB_BUILD:20261119_FIX4 -->
+<!-- AB_BUILD:20261119_FIX5 -->
 <html lang="en">
 <head>
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
@@ -9,7 +9,7 @@
 // Self-update: if this page is served from browser cache, force a fresh reload.
 // We store the build stamp in sessionStorage; if it mismatches we reload once.
 (function(){
-  var STAMP = '20261119_FIX4';
+  var STAMP = '20261119_FIX5';
   var key = '_ab_stamp';
   try {
     if (sessionStorage.getItem(key) !== STAMP) {
@@ -1672,75 +1672,137 @@ html.is-web:not(.app-entered) body{overflow:hidden}
 }
 
 /* Product grid — Café Javas card style */
+/* ── Browse product grid ── */
 .wlb-grid{
   display:grid;
   grid-template-columns:repeat(2,1fr);
-  gap:16px
+  gap:12px
 }
-@media(min-width:520px){.wlb-grid{grid-template-columns:repeat(3,1fr)}}
-@media(min-width:768px){.wlb-grid{grid-template-columns:repeat(4,1fr);gap:20px}}
-@media(min-width:1080px){.wlb-grid{grid-template-columns:repeat(5,1fr)}}
+@media(min-width:480px){.wlb-grid{grid-template-columns:repeat(2,1fr);gap:14px}}
+@media(min-width:600px){.wlb-grid{grid-template-columns:repeat(3,1fr);gap:16px}}
+@media(min-width:900px){.wlb-grid{grid-template-columns:repeat(4,1fr);gap:18px}}
+@media(min-width:1200px){.wlb-grid{grid-template-columns:repeat(5,1fr);gap:20px}}
 
+/* ── Card shell ── */
 .wlb-card{
-  background:#fff;border-radius:16px;overflow:hidden;cursor:pointer;
-  border:1.5px solid var(--wl-border);
-  transition:transform .22s,box-shadow .22s,border-color .22s;
+  background:#fff;
+  border-radius:14px;
+  overflow:hidden;
+  cursor:pointer;
+  border:1px solid #eef0eb;
+  transition:transform .2s ease,box-shadow .2s ease,border-color .2s ease;
   display:flex;flex-direction:column;
-  box-shadow:0 2px 8px rgba(26,122,60,.06)
-}
-.wlb-card:hover{
-  transform:translateY(-4px);
-  box-shadow:0 12px 36px rgba(26,122,60,.16);
-  border-color:var(--wl-green)
-}
-.wlb-card-img{
-  width:100%;aspect-ratio:1/1;overflow:hidden;
-  background:var(--wl-cream2);
-  display:flex;align-items:center;justify-content:center;
+  box-shadow:0 2px 10px rgba(0,0,0,.05);
   position:relative
 }
-.wlb-card-img img{width:100%;height:100%;object-fit:cover;display:block;transition:transform .4s}
-.wlb-card:hover .wlb-card-img img{transform:scale(1.08)}
-.wlb-card-emoji{font-size:2.8rem}
-.wlb-card-badges{position:absolute;top:8px;left:8px;display:flex;flex-direction:column;gap:4px}
-.wlb-card-badge{padding:2px 8px;border-radius:20px;font-size:.62rem;font-weight:700;text-transform:uppercase;letter-spacing:.5px}
-.wlb-card-badge.organic{background:rgba(45,181,93,.9);color:#fff}
-.wlb-card-badge.verified{background:rgba(21,101,192,.9);color:#fff}
-.wlb-card-badge.sale{background:rgba(244,67,54,.9);color:#fff}
-.wlb-card-add{
-  position:absolute;bottom:8px;right:8px;
-  width:32px;height:32px;border-radius:50%;
-  background:var(--wl-green);color:#fff;border:none;
-  font-size:1.2rem;line-height:1;cursor:pointer;
+.wlb-card:active{transform:scale(.98)}
+@media(hover:hover){
+  .wlb-card:hover{
+    transform:translateY(-4px);
+    box-shadow:0 10px 32px rgba(26,122,60,.14);
+    border-color:#b8dfc5
+  }
+}
+
+/* ── Image area ── */
+.wlb-card-img{
+  width:100%;
+  aspect-ratio:4/3;
+  overflow:hidden;
+  background:linear-gradient(135deg,#f4f9f1 0%,#e8f4ee 100%);
   display:flex;align-items:center;justify-content:center;
-  box-shadow:0 2px 8px rgba(26,122,60,.4);
-  transition:transform .18s,background .18s;
-  opacity:0;transform:scale(.8)
+  position:relative;
+  flex-shrink:0
+}
+.wlb-card-img img{
+  width:100%;height:100%;object-fit:cover;display:block;
+  transition:transform .4s ease
+}
+.wlb-card:hover .wlb-card-img img{transform:scale(1.06)}
+.wlb-card-emoji{font-size:3rem;line-height:1;user-select:none}
+
+/* ── Badges (top-left) ── */
+.wlb-card-badges{
+  position:absolute;top:8px;left:8px;
+  display:flex;flex-direction:column;gap:3px;z-index:2
+}
+.wlb-card-badge{
+  display:inline-block;padding:2px 7px;
+  border-radius:20px;font-size:.6rem;font-weight:700;
+  text-transform:uppercase;letter-spacing:.4px;backdrop-filter:blur(4px)
+}
+.wlb-card-badge.organic{background:rgba(34,163,84,.88);color:#fff}
+.wlb-card-badge.verified{background:rgba(21,101,192,.88);color:#fff}
+.wlb-card-badge.sale{background:rgba(228,37,37,.9);color:#fff}
+
+/* ── Quick-add button (bottom-right of image) ── */
+.wlb-card-add{
+  position:absolute;bottom:8px;right:8px;z-index:2;
+  width:34px;height:34px;border-radius:50%;
+  background:var(--wl-green);color:#fff;border:none;
+  font-size:1.35rem;line-height:1;cursor:pointer;
+  display:flex;align-items:center;justify-content:center;
+  box-shadow:0 3px 10px rgba(26,122,60,.45);
+  transition:transform .18s,background .18s,opacity .18s;
+  opacity:0;transform:scale(.75)
 }
 .wlb-card:hover .wlb-card-add{opacity:1;transform:scale(1)}
-.wlb-card-add:hover{background:var(--wl-green2);transform:scale(1.1)!important}
-.wlb-card-body{padding:11px 12px 4px;flex:1}
+.wlb-card-add:hover{background:#1b8f46;transform:scale(1.12)!important}
+/* always visible on touch devices */
+@media(hover:none){.wlb-card-add{opacity:1;transform:scale(1)}}
+
+/* ── Card body ── */
+.wlb-card-body{padding:10px 12px 6px;flex:1;display:flex;flex-direction:column;gap:0}
+
 .wlb-card-name{
-  font-weight:700;font-size:.88rem;color:var(--wl-text);
-  margin-bottom:3px;line-height:1.3;
+  font-weight:700;font-size:.9rem;color:#1a2b1f;
+  line-height:1.25;
   display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden
 }
-.wlb-card-farmer{font-size:.72rem;color:var(--wl-text3);display:flex;align-items:center;gap:3px}
-.wlb-card-district{font-size:.7rem;color:var(--wl-text3)}
+.wlb-card-farm{
+  margin-top:3px;
+  font-size:.7rem;color:#6b8c73;
+  display:flex;align-items:center;gap:3px;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis
+}
+.wlb-card-farm-dot{
+  width:5px;height:5px;border-radius:50%;
+  background:#2db55d;flex-shrink:0
+}
+.wlb-card-loc{
+  font-size:.68rem;color:#9fb8a4;
+  margin-top:2px;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis
+}
+
+/* ── Price row ── */
+.wlb-card-price-row{
+  margin-top:8px;
+  display:flex;align-items:baseline;gap:5px;flex-wrap:wrap
+}
 .wlb-card-price{
-  font-size:1rem;font-weight:800;color:var(--wl-green);
-  margin-top:8px;line-height:1
+  font-size:1.05rem;font-weight:800;
+  color:#1a7a3c;line-height:1
 }
-.wlb-card-price small{font-size:.68rem;color:var(--wl-text3);font-weight:500}
-.wlb-card-price s{font-size:.74rem;color:#aaa;font-weight:500;margin-left:4px}
-.wlb-card-foot{padding:8px 12px 12px}
+.wlb-card-unit{font-size:.68rem;color:#9fb8a4;font-weight:500}
+.wlb-card-orig{
+  font-size:.72rem;color:#c0c8c2;font-weight:400;
+  text-decoration:line-through
+}
+
+/* ── Footer button ── */
+.wlb-card-foot{padding:8px 10px 10px}
 .wlb-card-btn{
-  width:100%;padding:9px 0;
+  width:100%;padding:8px 0;
   background:var(--wl-green);color:#fff;border:none;
-  border-radius:10px;font-weight:700;font-size:.82rem;
-  cursor:pointer;font-family:inherit;transition:.18s
+  border-radius:8px;font-weight:700;font-size:.8rem;
+  cursor:pointer;font-family:inherit;
+  transition:background .18s;letter-spacing:.2px
 }
-.wlb-card-btn:hover{background:var(--wl-green2)}
+.wlb-card-btn:hover{background:#1b8f46}
+.wlb-card-btn:active{background:#166e36}
+
+/* ── Empty & loader ── */
 .wlb-empty{text-align:center;padding:72px 20px;color:var(--wl-text3)}
 .wlb-empty-icon{font-size:3.2rem;margin-bottom:14px}
 .wlb-loader{
@@ -9868,7 +9930,7 @@ async function wlOpenBrowse(cat) {
   var _fetchTimeout = setTimeout(function(){ _fetchAbort.abort(); }, 12000);
   window._wlFetchPromise = (async function(){
     try {
-      var url = SUPA_URL + '/rest/v1/listings?select=id,farmer_id,farmer_name,crop_name,category,quantity_kg,reserved_qty,price_per_kg,unit,district,is_organic,is_verified,description,discount_pct,sale_unit,min_order_kg,delivery_available,payment_terms,image_url,created_at,is_available&order=created_at.desc&limit=500';
+      var url = SUPA_URL + '/rest/v1/listings?select=id,farmer_id,crop_name,category,quantity_kg,reserved_qty,price_per_kg,unit,district,is_organic,is_verified,description,discount_pct,sale_unit,min_order_kg,delivery_available,payment_terms,image_url,created_at,is_available&order=created_at.desc&limit=500';
       var res = await fetch(url, {
         signal: _fetchAbort.signal,
         headers: { 'apikey': SUPA_KEY, 'Authorization': 'Bearer ' + SUPA_KEY }
@@ -10111,7 +10173,7 @@ async function wlbOpenSub(cat, slug, label, keywords) {
     var _ab2 = new AbortController();
     var _to2 = setTimeout(function(){ _ab2.abort(); }, 12000);
     try {
-      var url2 = SUPA_URL + '/rest/v1/listings?select=id,farmer_id,farmer_name,crop_name,category,quantity_kg,reserved_qty,price_per_kg,unit,district,is_organic,is_verified,description,discount_pct,sale_unit,min_order_kg,delivery_available,payment_terms,image_url,created_at,is_available&order=created_at.desc&limit=500';
+      var url2 = SUPA_URL + '/rest/v1/listings?select=id,farmer_id,crop_name,category,quantity_kg,reserved_qty,price_per_kg,unit,district,is_organic,is_verified,description,discount_pct,sale_unit,min_order_kg,delivery_available,payment_terms,image_url,created_at,is_available&order=created_at.desc&limit=500';
       var res2 = await fetch(url2, {
         signal: _ab2.signal,
         headers: { 'apikey': SUPA_KEY, 'Authorization': 'Bearer ' + SUPA_KEY }
@@ -10256,18 +10318,20 @@ function wlbRender() {
     var rawPrice = Number(l.price_per_kg || 0);
     var discPct = Number(l.discount_pct || 0);
     var salePrice = discPct > 0 ? Math.round(rawPrice * (1 - discPct/100)) : rawPrice;
-    var priceStr = salePrice > 0 ? salePrice.toLocaleString() : '—';
-    var origStr = (discPct > 0 && rawPrice > 0) ? rawPrice.toLocaleString() : '';
+    var priceStr = salePrice > 0 ? 'UGX ' + salePrice.toLocaleString() : 'Ask for price';
+    var origStr = (discPct > 0 && rawPrice > 0) ? 'UGX ' + rawPrice.toLocaleString() : '';
     var unit = l.sale_unit || l.unit || 'kg';
+    var farmerName = l.farmer_name || 'Ugandan Farmer';
+    var district = l.district || 'Uganda';
     var hasImg = l.image_url && l.image_url.startsWith('http');
     var imgHtml = hasImg
       ? '<img src="'+escHtml(l.image_url)+'" alt="'+escHtml(l.crop_name)+'" loading="lazy" onerror="this.style.display=\'none\';this.nextElementSibling.style.display=\'flex\'">'
         +'<div class="wlb-card-emoji" style="display:none">'+wlbEmoji(l.crop_name)+'</div>'
       : '<div class="wlb-card-emoji">'+wlbEmoji(l.crop_name)+'</div>';
     var badges = '';
-    if (l.is_organic) badges += '<span class="wlb-card-badge organic">🌿 Organic</span>';
+    if (discPct > 0) badges += '<span class="wlb-card-badge sale">-'+discPct+'% OFF</span>';
+    if (l.is_organic) badges += '<span class="wlb-card-badge organic">Organic</span>';
     if (l.is_verified) badges += '<span class="wlb-card-badge verified">✓ Verified</span>';
-    if (discPct > 0) badges += '<span class="wlb-card-badge sale">−'+discPct+'%</span>';
     var id = String(l.id||'').replace(/[^a-zA-Z0-9-]/g,'');
     return '<div class="wlb-card" role="button" tabindex="0" aria-label="View '+escHtml(l.crop_name)+'"'
       +' onclick="wlOpenProdModal(\''+id+'\')"'
@@ -10279,9 +10343,13 @@ function wlbRender() {
       +'</div>'
       +'<div class="wlb-card-body">'
         +'<div class="wlb-card-name">'+escHtml(l.crop_name)+'</div>'
-        +(l.farmer_name ? '<div class="wlb-card-farmer">👨‍🌾 '+escHtml(l.farmer_name)+'</div>' : '')
-        +'<div class="wlb-card-district">📍 '+escHtml(l.district||'Uganda')+'</div>'
-        +'<div class="wlb-card-price">UGX '+priceStr+'<small> /'+unit+'</small>'+(origStr?'<s>'+origStr+'</s>':'')+'</div>'
+        +'<div class="wlb-card-farm"><span class="wlb-card-farm-dot"></span>'+escHtml(farmerName)+'</div>'
+        +'<div class="wlb-card-loc">📍 '+escHtml(district)+'</div>'
+        +'<div class="wlb-card-price-row">'
+          +'<span class="wlb-card-price">'+priceStr+'</span>'
+          +'<span class="wlb-card-unit">/'+escHtml(unit)+'</span>'
+          +(origStr?'<span class="wlb-card-orig">'+origStr+'</span>':'')
+        +'</div>'
       +'</div>'
       +'<div class="wlb-card-foot">'
         +'<button class="wlb-card-btn" onclick="event.stopPropagation();wlShowGate(\''+id+'\')">Order Now</button>'
