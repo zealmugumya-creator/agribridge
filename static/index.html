@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- AB_BUILD:20261119_FIX6 -->
+<!-- AB_BUILD:20261120_FIX8 -->
 <html lang="en">
 <head>
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
@@ -9,7 +9,7 @@
 // Self-update: if this page is served from browser cache, force a fresh reload.
 // We store the build stamp in sessionStorage; if it mismatches we reload once.
 (function(){
-  var STAMP = '20261119_FIX6';
+  var STAMP = '20261120_FIX8';
   var key = '_ab_stamp';
   try {
     if (sessionStorage.getItem(key) !== STAMP) {
@@ -9580,11 +9580,12 @@ async function openBoostModal(listingId) {
         </label>`).join('')}
     </div>
     <div style="background:var(--bg3);border-radius:12px;padding:12px 14px;margin:16px 0;font-size:.83rem;color:var(--text2)">
-      ℹ️ Payment is via Mobile Money. After submitting, our team confirms within 2 hours and activates your slot. <strong style="color:var(--text)">Pay to: ${AGRIBRIDGE.phoneDisplay} (AgriBridge)</strong>
+      ℹ️ Payment is via Mobile Money. After submitting, send your payment to <strong style="color:var(--text)">0755 966 690 (AgriBridge)</strong>. Our team activates your slot within 2 hours.
     </div>
+    <div id="boostStatusMsg" style="display:none;border-radius:10px;padding:11px 13px;margin-bottom:12px;font-size:.85rem;font-weight:600;text-align:center"></div>
     <div style="display:flex;gap:10px;margin-top:4px">
-      <button onclick="submitBoostRequest('${listingId||''}');event.preventDefault()" style="flex:1;padding:13px;background:var(--green);color:var(--g-ink);border:none;border-radius:11px;font-weight:700;font-size:.95rem;cursor:pointer;font-family:inherit">Submit & Pay via MoMo</button>
-      <button onclick="document.getElementById('boostModal').remove()" style="padding:13px 16px;background:none;border:1px solid var(--border);border-radius:11px;color:var(--text);cursor:pointer;font-family:inherit">Cancel</button>
+      <button id="boostSubmitBtn" onclick="submitBoostRequest('${listingId||''}');event.preventDefault()" style="flex:1;padding:13px;background:var(--green);color:var(--g-ink);border:none;border-radius:11px;font-weight:700;font-size:.95rem;cursor:pointer;font-family:inherit">Submit &amp; Pay via MoMo</button>
+      <button id="boostCancelBtn" onclick="document.getElementById('boostModal').remove()" style="padding:13px 16px;background:none;border:1px solid var(--border);border-radius:11px;color:var(--text);cursor:pointer;font-family:inherit">Cancel</button>
     </div>
   </div>`;
   m.addEventListener('click', e => { if(e.target===m) m.remove(); });
@@ -9602,23 +9603,81 @@ async function submitBoostRequest(presetId) {
   const dur = document.querySelector('input[name=boostDur]:checked');
   if (!dur) { showToast('Pick a duration','error'); return; }
   const days = parseInt(dur.value);
-  const res = await fetch(`${SUPA_URL}/rest/v1/listing_boosts`, {
-    method:'POST',
-    headers:{'Content-Type':'application/json','apikey':SUPA_ANON,'Authorization':'Bearer '+(window._authToken||SUPA_ANON),'Prefer':'return=minimal'},
-    body: JSON.stringify({
-      listing_id: listingId,
-      requested_by: currentUser?.id,
-      duration_days: days,
-      status: 'pending',
-      starts_at: null,
-      ends_at: null
-    })
-  });
-  document.getElementById('boostModal')?.remove();
-  if (res.ok || res.status===201) {
-    showToast('✅ Boost request sent! Pay via MoMo to activate.');
+
+  // UI: disable button, show spinner
+  const btn = document.getElementById('boostSubmitBtn');
+  const cancelBtn = document.getElementById('boostCancelBtn');
+  const statusEl = document.getElementById('boostStatusMsg');
+  if (btn) { btn.disabled = true; btn.textContent = 'Submitting…'; btn.style.opacity = '0.7'; }
+  if (cancelBtn) cancelBtn.style.display = 'none';
+
+  // Price lookup for WhatsApp message
+  const prices = {1:15000, 3:35000, 7:70000};
+  const ugx = prices[days] || (days * 10000);
+
+  let ok = false;
+  let errText = '';
+  try {
+    const res = await fetch(`${SUPA_URL}/rest/v1/listing_boosts`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'apikey': SUPA_ANON,
+        'Authorization': 'Bearer ' + (window._authToken || SUPA_ANON),
+        'Prefer': 'return=minimal'
+      },
+      body: JSON.stringify({
+        listing_id: listingId,
+        requested_by: currentUser?.supaId || null,
+        duration_days: days,
+        status: 'pending',
+        starts_at: null,
+        ends_at: null
+      })
+    });
+    if (res.ok || res.status === 201) {
+      ok = true;
+    } else {
+      const body = await res.text().catch(()=>'');
+      errText = body || ('HTTP ' + res.status);
+    }
+  } catch(e) {
+    errText = e.message || 'Network error';
+  }
+
+  if (ok) {
+    // Show success state inside modal with WhatsApp pay link
+    const waMsg = encodeURIComponent(
+      `Hi AgriBridge, I just submitted a ${days}-day boost request for my listing. ` +
+      `I will send UGX ${ugx.toLocaleString()} to 0755 966 690 now. Please activate once confirmed.`
+    );
+    const waUrl = `https://wa.me/256755966690?text=${waMsg}`;
+    if (statusEl) {
+      statusEl.style.display = 'block';
+      statusEl.style.background = 'rgba(45,181,93,.15)';
+      statusEl.style.color = '#1a7a3c';
+      statusEl.innerHTML =
+        '✅ Request submitted!<br>' +
+        '<span style="font-weight:400;font-size:.8rem">Now send <strong>UGX ' + ugx.toLocaleString() + '</strong> to <strong>0755 966 690</strong> (MTN/Airtel MoMo).</span>';
+    }
+    if (btn) {
+      btn.disabled = false;
+      btn.style.opacity = '1';
+      btn.style.background = '#25D366';
+      btn.textContent = '📲 Open WhatsApp to Confirm Payment';
+      btn.onclick = function(e) { e.preventDefault(); window.open(waUrl, '_blank'); document.getElementById('boostModal')?.remove(); };
+    }
+    if (cancelBtn) { cancelBtn.style.display = ''; cancelBtn.textContent = 'Close'; }
   } else {
-    showToast('Request failed — try again','error');
+    // Show error — keep modal open so they can retry
+    if (statusEl) {
+      statusEl.style.display = 'block';
+      statusEl.style.background = 'rgba(220,53,69,.12)';
+      statusEl.style.color = '#c0392b';
+      statusEl.textContent = '❌ Could not submit — try again. (' + errText + ')';
+    }
+    if (btn) { btn.disabled = false; btn.textContent = 'Retry'; btn.style.opacity = '1'; }
+    if (cancelBtn) cancelBtn.style.display = '';
   }
 }
 
