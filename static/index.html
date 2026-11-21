@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- AB_BUILD:20261121_FIX13b -->
+<!-- AB_BUILD:20261122_FIX13c -->
 <html lang="en">
 <head>
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
@@ -9,7 +9,7 @@
 // Self-update: if this page is served from browser cache, force a fresh reload.
 // We store the build stamp in sessionStorage; if it mismatches we reload once.
 (function(){
-  var STAMP = '20261121_FIX13b';
+  var STAMP = '20261122_FIX13c';
   var key = '_ab_stamp';
   try {
     if (sessionStorage.getItem(key) !== STAMP) {
@@ -1006,6 +1006,26 @@ input:focus,select:focus,textarea:focus{outline:none;border-color:var(--green) !
 .fh-form input,.fh-form select{width:100%;min-height:48px;padding:12px 13px;border-radius:13px;background:var(--bg3);border:1px solid var(--border);color:var(--text);font-size:.95rem;font-family:inherit}
 .fh-form .fh-ro{background:var(--bg2);color:var(--text2);border-style:dashed;cursor:default}
 .fh-save{width:100%;min-height:52px;margin-top:18px;border-radius:14px;background:var(--green);border:none;color:#04100a;font-weight:800;font-size:.95rem;cursor:pointer;font-family:inherit}
+/* ── Telegram-style profile hero ── */
+.fpr-page{background:var(--bg);min-height:100%}
+.fpr-hero{position:relative;display:flex;flex-direction:column;align-items:center;padding:28px 20px 20px;background:linear-gradient(180deg,rgba(23,224,107,.13) 0%,transparent 100%);border-bottom:1px solid var(--border)}
+.fpr-photo-wrap{position:relative;width:96px;height:96px;cursor:pointer}
+.fpr-photo-wrap:active{opacity:.8}
+.fpr-photo{width:96px;height:96px;border-radius:50%;overflow:hidden;background:var(--green);color:#04100a;font-weight:800;font-size:2.4rem;display:flex;align-items:center;justify-content:center;border:3px solid var(--green)}
+.fpr-photo img{width:100%;height:100%;object-fit:cover}
+.fpr-cam{position:absolute;bottom:0;right:0;width:28px;height:28px;border-radius:50%;background:var(--green);color:#04100a;display:flex;align-items:center;justify-content:center;font-size:.85rem;border:2px solid var(--bg)}
+.fpr-name{font-size:1.22rem;font-weight:800;color:#fff;margin:14px 0 2px;text-align:center}
+.fpr-sub{font-size:.78rem;color:var(--text2);text-align:center;line-height:1.4}
+.fpr-menu{padding:12px 0}
+.fpr-row{display:flex;align-items:center;gap:14px;width:100%;background:none;border:none;border-bottom:1px solid var(--border);padding:15px 20px;cursor:pointer;font-family:inherit;color:var(--text);font-size:.93rem;text-align:left;min-height:54px}
+.fpr-row:active{background:var(--card)}
+.fpr-row-ic{width:36px;height:36px;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:1.1rem;flex-shrink:0}
+.fpr-row-body{flex:1;min-width:0}
+.fpr-row-label{font-weight:700;color:#fff;font-size:.9rem}
+.fpr-row-sub{font-size:.75rem;color:var(--text2);margin-top:1px}
+.fpr-row-right{font-size:.85rem;color:var(--text2);flex-shrink:0}
+.fpr-section-head{font-size:.7rem;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:var(--text2);padding:18px 20px 6px}
+.fpr-row.danger .fpr-row-label{color:#e05555}
 .fh-save[disabled]{opacity:.55;cursor:default}
 .fh-link{display:block;width:100%;text-align:left;background:none;border:none;color:var(--green-light);font-size:.83rem;font-weight:700;cursor:pointer;font-family:inherit;padding:12px 0;min-height:44px}
 .farmer-page{padding:2px 14px;max-width:1100px;margin:0 auto}
@@ -4261,12 +4281,7 @@ AgriBridge service</div>
 
 <!-- ══════════════════ PAGE: FARMER PROFILE ══════════════════ -->
 <div id="page-farmer-profile" class="page">
-  <div class="farmer-page">
-    <div class="fh-top"><h3>My profile</h3>
-      <div class="fh-btns"><button class="fh-icon" onclick="openMore()" aria-label="More AgriBridge tools">☰</button></div>
-    </div>
-    <div id="fpr-body" aria-live="polite"><div class="fh-sk"></div><div class="fh-sk sm" style="margin-top:10px"></div></div>
-  </div>
+  <div id="fpr-body" class="fpr-page" aria-live="polite"><div style="padding:20px"><div class="fh-sk"></div><div class="fh-sk sm" style="margin-top:10px"></div></div></div>
 </div>
 
 <!-- ══════════════════ PAGE: COMMUNITY ══════════════════ -->
@@ -11754,48 +11769,160 @@ function renderFarmerProfile() {
   if (!el || !_fprRow) return;
   var r = _fprRow;
   var photo = r.profile_photo || (currentUser && currentUser.avatar_url) || '';
-  var av = String(photo).indexOf('http') === 0 ? '<img src="' + escHtml(photo) + '" alt="">' : escHtml(String(r.full_name || currentUser.name || 'F').charAt(0).toUpperCase());
+  var avInner = String(photo).indexOf('http') === 0
+    ? '<img src="' + escHtml(photo) + '" alt="">'
+    : escHtml(String(r.full_name || (currentUser && currentUser.name) || 'F').charAt(0).toUpperCase());
   var dists = (typeof UG_DISTRICTS !== 'undefined' && UG_DISTRICTS) ? UG_DISTRICTS : [];
   var dl = '<datalist id="abDistricts">' + dists.map(function (d) { return '<option value="' + escHtml(d) + '">'; }).join('') + '</datalist>';
+  var name = escHtml(r.full_name || (currentUser && currentUser.name) || 'Farmer');
+  var phone = escHtml(r.phone || (currentUser && currentUser.phone) || '');
+  var district = escHtml(r.district || '');
+  var verified = r.is_verified;
+  var since = r.created_at ? ' · since ' + new Date(r.created_at).toLocaleDateString('en-GB', { month: 'short', year: 'numeric' }) : '';
+
   el.innerHTML =
-    /* tappable header — avatar + name open account sheet */
-    '<button onclick="openFarmerAccountSheet()" style="display:flex;align-items:center;gap:14px;width:100%;background:none;border:none;cursor:pointer;padding:0 0 16px;text-align:left" aria-label="Account options">' +
-      '<div class="fh-avatar" style="width:56px;height:56px;font-size:1.3rem;flex-shrink:0">' + av + '</div>' +
-      '<div style="min-width:0;flex:1">' +
-        '<div class="fh-hi">Signed in as</div>' +
-        '<div class="fh-name">' + escHtml(r.full_name || (currentUser && currentUser.email) || 'Farmer') + '</div>' +
-        '<div class="fh-s">' + (r.is_verified ? '✓ Verified farmer' : 'Not verified yet') + (r.created_at ? ' · since ' + new Date(r.created_at).toLocaleDateString('en-GB', { month: 'short', year: 'numeric' }) : '') + '</div>' +
-      '</div>' +
-      '<span style="color:var(--green-light);font-size:1.1rem;padding:8px">›</span>' +
-    '</button>' +
-    '<div class="fh-note">Only your name, phone and district can be changed here. Farm details and verification are managed by the AgriBridge team.</div>' +
-    '<button class="fh-link" onclick="document.getElementById(\'fprPhoto\').click()">Change my photo</button>' +
-    '<input type="file" id="fprPhoto" accept="image/*" style="display:none" onchange="saveFarmerPhoto(this)">' +
-    '<div class="fh-form">' + dl +
-      '<label for="fprName">Full name</label><input id="fprName" autocomplete="name" maxlength="60" value="' + escHtml(r.full_name || '') + '">' +
-      '<label for="fprPhone">Phone number</label><input id="fprPhone" type="tel" inputmode="tel" autocomplete="tel" maxlength="20" placeholder="0771 234567" value="' + escHtml(r.phone || '') + '">' +
-      '<label for="fprDistrict">District</label><input id="fprDistrict" list="abDistricts" maxlength="100" autocomplete="off" value="' + escHtml(r.district || '') + '">' +
-      '<button class="fh-save" id="fprSave" onclick="saveFarmerProfile()">Save changes</button>' +
+    /* ── HERO: photo + name (Telegram style) ── */
+    '<div class="fpr-hero">' +
+      '<button class="fpr-photo-wrap" onclick="document.getElementById(\'fprPhoto\').click()" aria-label="Change photo">' +
+        '<div class="fpr-photo">' + avInner + '</div>' +
+        '<div class="fpr-cam">📷</div>' +
+      '</button>' +
+      '<input type="file" id="fprPhoto" accept="image/*" style="display:none" onchange="saveFarmerPhoto(this)">' +
+      '<div class="fpr-name">' + name + '</div>' +
+      '<div class="fpr-sub">' + (verified ? '✓ Verified farmer' : 'Not verified yet') + since + '</div>' +
     '</div>' +
-    '<div class="fh-sec" style="margin-top:22px"><div class="fh-sec-top"><h4>Held by AgriBridge</h4></div>' +
-      fhFieldRo('Account verification', r.is_verified ? 'Verified' : 'Not verified', 'Checked against your ID and farm by the AgriBridge team.') +
-      fhFieldRo('Premium listing', r.is_premium ? 'Yes' : 'No', 'Set by the AgriBridge team.') +
-      fhFieldRo('Sub-county / village', [r.sub_county, r.village].filter(Boolean).join(' · ') || '', 'Kept private; not shown to buyers.') +
-      fhFieldRo('Farm size', r.farm_size_acres ? (Number(r.farm_size_acres) + ' acres') : '', 'Ask support to correct it.') +
-      fhFieldRo('Crops grown', (r.crops_grown && r.crops_grown.length) ? r.crops_grown.join(', ') : '', 'Ask support to correct it.') +
+
+    /* ── MENU ROWS ── */
+    '<div class="fpr-menu">' +
+      '<div class="fpr-section-head">My details</div>' +
+
+      /* Name */
+      '<button class="fpr-row" onclick="openFarmerEditSheet(\'name\')">' +
+        '<div class="fpr-row-ic" style="background:rgba(23,224,107,.12)">👤</div>' +
+        '<div class="fpr-row-body"><div class="fpr-row-label">Full name</div><div class="fpr-row-sub" id="fpr-val-name">' + name + '</div></div>' +
+        '<div class="fpr-row-right">›</div>' +
+      '</button>' +
+
+      /* Phone */
+      '<button class="fpr-row" onclick="openFarmerEditSheet(\'phone\')">' +
+        '<div class="fpr-row-ic" style="background:rgba(23,224,107,.12)">📞</div>' +
+        '<div class="fpr-row-body"><div class="fpr-row-label">Phone number</div><div class="fpr-row-sub" id="fpr-val-phone">' + phone + '</div></div>' +
+        '<div class="fpr-row-right">›</div>' +
+      '</button>' +
+
+      /* District */
+      '<button class="fpr-row" onclick="openFarmerEditSheet(\'district\')">' +
+        '<div class="fpr-row-ic" style="background:rgba(23,224,107,.12)">📍</div>' +
+        '<div class="fpr-row-body"><div class="fpr-row-label">District</div><div class="fpr-row-sub" id="fpr-val-district">' + district + '</div></div>' +
+        '<div class="fpr-row-right">›</div>' +
+      '</button>' +
+
+      '<div class="fpr-section-head">Farm details</div>' +
+
+      /* Verification */
+      '<div class="fpr-row" style="cursor:default">' +
+        '<div class="fpr-row-ic" style="background:rgba(23,224,107,.12)">' + (verified ? '✅' : '⏳') + '</div>' +
+        '<div class="fpr-row-body"><div class="fpr-row-label">Verification</div><div class="fpr-row-sub">' + (verified ? 'Verified by AgriBridge' : 'Not yet verified') + '</div></div>' +
+      '</div>' +
+
+      (r.farm_size_acres ? '<div class="fpr-row" style="cursor:default"><div class="fpr-row-ic" style="background:rgba(23,224,107,.12)">🌾</div><div class="fpr-row-body"><div class="fpr-row-label">Farm size</div><div class="fpr-row-sub">' + Number(r.farm_size_acres) + ' acres</div></div></div>' : '') +
+
+      (r.crops_grown && r.crops_grown.length ? '<div class="fpr-row" style="cursor:default"><div class="fpr-row-ic" style="background:rgba(23,224,107,.12)">🌱</div><div class="fpr-row-body"><div class="fpr-row-label">Crops grown</div><div class="fpr-row-sub">' + escHtml(r.crops_grown.join(', ')) + '</div></div></div>' : '') +
+
+      '<div class="fpr-section-head">Account</div>' +
+
+      '<button class="fpr-row" onclick="openSettings()">' +
+        '<div class="fpr-row-ic" style="background:rgba(91,155,255,.12)">⚙️</div>' +
+        '<div class="fpr-row-body"><div class="fpr-row-label">Settings &amp; language</div></div>' +
+        '<div class="fpr-row-right">›</div>' +
+      '</button>' +
+
+      '<button class="fpr-row" onclick="showPage(\'about\')">' +
+        '<div class="fpr-row-ic" style="background:rgba(255,194,75,.12)">💡</div>' +
+        '<div class="fpr-row-body"><div class="fpr-row-label">Help &amp; support</div></div>' +
+        '<div class="fpr-row-right">›</div>' +
+      '</button>' +
+
+      '<button class="fpr-row danger" onclick="logOut()" style="margin-top:8px">' +
+        '<div class="fpr-row-ic" style="background:rgba(224,85,85,.12)">🚪</div>' +
+        '<div class="fpr-row-body"><div class="fpr-row-label">Sign out</div></div>' +
+      '</button>' +
+
+    '</div>' + dl;
+}
+
+/* ── Inline edit sheet for a single field ── */
+function openFarmerEditSheet(field) {
+  var titles = { name:'Full name', phone:'Phone number', district:'District' };
+  var ids = { name:'fprName', phone:'fprPhone', district:'fprDistrict' };
+  var current = '';
+  if (field === 'name') current = (_fprRow && _fprRow.full_name) || (currentUser && currentUser.name) || '';
+  if (field === 'phone') current = (_fprRow && _fprRow.phone) || (currentUser && currentUser.phone) || '';
+  if (field === 'district') current = (_fprRow && _fprRow.district) || '';
+
+  var sh = document.getElementById('fprEditSheet');
+  if (!sh) {
+    sh = document.createElement('div');
+    sh.id = 'fprEditSheet';
+    sh.style.cssText = 'position:fixed;inset:0;z-index:9100;display:flex;flex-direction:column;justify-content:flex-end';
+    document.body.appendChild(sh);
+  }
+  var dists = (typeof UG_DISTRICTS !== 'undefined' && UG_DISTRICTS) ? UG_DISTRICTS : [];
+  var inputHtml = field === 'district'
+    ? '<input id="fprEditInput" list="abDistricts2" value="' + escHtml(current) + '" style="width:100%;min-height:48px;padding:12px 14px;border-radius:13px;background:var(--bg3);border:1px solid var(--border);color:var(--text);font-size:1rem;font-family:inherit;box-sizing:border-box"><datalist id="abDistricts2">' + dists.map(function(d){return '<option value="'+escHtml(d)+'">'; }).join('') + '</datalist>'
+    : '<input id="fprEditInput" type="' + (field==='phone'?'tel':'text') + '" value="' + escHtml(current) + '" style="width:100%;min-height:48px;padding:12px 14px;border-radius:13px;background:var(--bg3);border:1px solid var(--border);color:var(--text);font-size:1rem;font-family:inherit;box-sizing:border-box">';
+
+  sh.innerHTML =
+    '<div onclick="closeFarmerEditSheet()" style="flex:1;background:rgba(0,0,0,0.55)"></div>' +
+    '<div style="background:var(--card);border-radius:20px 20px 0 0;padding:20px 20px env(safe-area-inset-bottom,20px)">' +
+      '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">' +
+        '<span style="font-weight:800;font-size:1rem;color:#fff">' + titles[field] + '</span>' +
+        '<button onclick="closeFarmerEditSheet()" style="background:none;border:none;font-size:1.3rem;color:var(--text2);cursor:pointer;padding:4px">✕</button>' +
+      '</div>' +
+      inputHtml +
+      '<button onclick="saveFarmerFieldFromSheet(\'' + field + '\')" style="width:100%;min-height:50px;margin-top:14px;border-radius:14px;background:var(--green);border:none;color:#04100a;font-weight:800;font-size:.95rem;cursor:pointer;font-family:inherit">Save</button>' +
     '</div>';
+  sh.style.display = 'flex';
+  setTimeout(function(){ var inp = document.getElementById('fprEditInput'); if(inp){ inp.focus(); inp.select(); } }, 100);
+}
+function closeFarmerEditSheet() {
+  var sh = document.getElementById('fprEditSheet');
+  if (sh) sh.style.display = 'none';
+}
+async function saveFarmerFieldFromSheet(field) {
+  var inp = document.getElementById('fprEditInput');
+  var val = (inp && inp.value || '').trim();
+  if (!val) { showToast('Please enter a value'); return; }
+
+  /* update the _fprRow so the page reflects the change immediately */
+  if (field === 'name') { _fprRow.full_name = val; if (currentUser) currentUser.name = val; }
+  if (field === 'phone') { _fprRow.phone = val; if (currentUser) currentUser.phone = val; }
+  if (field === 'district') { _fprRow.district = val; }
+
+  /* update the visible subtitle in the row without full re-render */
+  var sub = document.getElementById('fpr-val-' + field);
+  if (sub) sub.textContent = val;
+
+  /* update hero name if name changed */
+  if (field === 'name') {
+    var nm = document.querySelector('.fpr-name');
+    if (nm) nm.textContent = val;
+    updateNavUser(currentUser);
+  }
+
+  closeFarmerEditSheet();
+  showToast('Saving…');
+  await saveFarmerProfile();
 }
 async function saveFarmerProfile() {
   if (_fprSaving) return;
-  var el = document.getElementById('fpr-body');
-  var name = ((document.getElementById('fprName') || {}).value || '').trim();
-  var phone = ((document.getElementById('fprPhone') || {}).value || '').trim();
-  var dist = ((document.getElementById('fprDistrict') || {}).value || '').trim();
+  /* values come from _fprRow (updated by saveFarmerFieldFromSheet) */
+  var name = ((_fprRow && _fprRow.full_name) || (currentUser && currentUser.name) || '').trim();
+  var phone = ((_fprRow && _fprRow.phone) || (currentUser && currentUser.phone) || '').trim();
+  var dist = ((_fprRow && _fprRow.district) || '').trim();
   if (!name) { showToast('Please enter your full name'); return; }
   if (!dist) { showToast('Please enter your district'); return; }
-  var btn = document.getElementById('fprSave');
   _fprSaving = true;
-  if (btn) { btn.disabled = true; btn.dataset.orig = btn.textContent; btn.textContent = 'Saving…'; }
   try {
     var tok = await refreshAuthToken();
     if (!tok) throw new Error('signed out');
