@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- AB_BUILD:20261121_FIX12 -->
+<!-- AB_BUILD:20261121_FIX13 -->
 <html lang="en">
 <head>
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
@@ -9,7 +9,7 @@
 // Self-update: if this page is served from browser cache, force a fresh reload.
 // We store the build stamp in sessionStorage; if it mismatches we reload once.
 (function(){
-  var STAMP = '20261121_FIX12';
+  var STAMP = '20261121_FIX13';
   var key = '_ab_stamp';
   try {
     if (sessionStorage.getItem(key) !== STAMP) {
@@ -6171,6 +6171,17 @@ function filterOrders(status, btn) {
 
 function showOrderDetail(id) { showPage('delivery'); }
 
+/** Route to the correct profile page based on the user's role */
+function openMyProfile() {
+  var role = (currentUser && (currentUser.role || currentUser.user_role || '').toLowerCase()) || '';
+  var isFarmer = role === 'farmer' || role === 'exporter';
+  if (isFarmer && currentUser) {
+    showPage('farmer-profile');
+  } else {
+    showPage('profile-buyer');
+  }
+}
+
 /** Render buyer profile */
 function renderBuyerProfile() {
   if (!currentUser) {
@@ -11730,7 +11741,13 @@ function renderFarmerProfile() {
       fhFieldRo('Farm size', r.farm_size_acres ? (Number(r.farm_size_acres) + ' acres') : '', 'Ask support to correct it.') +
       fhFieldRo('Crops grown', (r.crops_grown && r.crops_grown.length) ? r.crops_grown.join(', ') : '', 'Ask support to correct it.') +
     '</div>' +
-    '<button class="fh-link" onclick="openModal(\'myAccountModal\')">Account, language &amp; sign out ›</button>';
+    '<div class="fh-sec" style="margin-top:22px"><div class="fh-sec-top"><h4>Account &amp; Settings</h4></div>' +
+      '<div style="display:grid;gap:8px;margin-top:4px">' +
+        '<button class="fh-link" onclick="openSettings()" style="text-align:left;padding:11px 0;border-bottom:1px solid var(--border)">⚙️ &nbsp;Settings &amp; language ›</button>' +
+        '<button class="fh-link" onclick="showPage(\'about\')" style="text-align:left;padding:11px 0;border-bottom:1px solid var(--border)">💡 &nbsp;Help &amp; support ›</button>' +
+        '<button class="fh-link" onclick="openModal(\'myAccountModal\')" style="text-align:left;padding:11px 0;border-bottom:1px solid var(--border)">👤 &nbsp;Switch account type ›</button>' +
+        '<button class="fh-link" style="text-align:left;padding:11px 0;color:var(--red);border:none" onclick="logOut()">🚪 &nbsp;Sign out</button>' +
+      '</div></div>';
 }
 async function saveFarmerProfile() {
   if (_fprSaving) return;
@@ -14140,8 +14157,8 @@ function updateNavUser(nameOrUser, role) {
     var first = name.split(' ')[0];
     var photo = (currentUser && currentUser.avatar_url) || (nameOrUser && typeof nameOrUser === 'object' && nameOrUser.avatar_url) || '';
     var avInner = photo ? "<img src=\"" + photo + "\" alt=\"\" style=\"width:100%;height:100%;object-fit:cover\">" : init;
-    btns.innerHTML = "<div style=\"width:34px;height:34px;border-radius:50%;overflow:hidden;background:var(--green);color:#000;font-weight:800;font-size:0.9rem;display:flex;align-items:center;justify-content:center;cursor:pointer\" onclick=\"showPage('profile-buyer')\" title=\"My Profile\">" + avInner + "</div>" +
-      "<button class=\"btn-sm outline\" onclick=\"showPage('profile-buyer')\" style=\"font-size:0.8rem\">" + first + "</button>";
+    btns.innerHTML = "<div style=\"width:34px;height:34px;border-radius:50%;overflow:hidden;background:var(--green);color:#000;font-weight:800;font-size:0.9rem;display:flex;align-items:center;justify-content:center;cursor:pointer\" onclick=\"openMyProfile()\" title=\"My Profile\">" + avInner + "</div>" +
+      "<button class=\"btn-sm outline\" onclick=\"openMyProfile()\" style=\"font-size:0.8rem\">" + first + "</button>";
   } else {
     btns.innerHTML = "<button class=\"btn-sm outline\" onclick=\"openModal('loginModal')\">Log In</button>" +
       "<button class=\"btn-sm\" onclick=\"openModal('registerModal')\">Join Free</button>";
@@ -15237,7 +15254,7 @@ document.addEventListener('DOMContentLoaded', function() {
     <button class="nb-item" id="bnav-orders" onclick="showPage('orders')">
       <span class="nb-ic">📦</span>Orders
     </button>
-    <button class="nb-item" id="bnav-profile" onclick="showPage('profile-buyer')">
+    <button class="nb-item" id="bnav-profile" onclick="openMyProfile()">
       <span class="nb-ic">👤</span>Profile
     </button>
   </div>
