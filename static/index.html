@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- AB_BUILD:20261122_FIX13c -->
+<!-- AB_BUILD:20261122_FIX13d -->
 <html lang="en">
 <head>
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
@@ -9,7 +9,7 @@
 // Self-update: if this page is served from browser cache, force a fresh reload.
 // We store the build stamp in sessionStorage; if it mismatches we reload once.
 (function(){
-  var STAMP = '20261122_FIX13c';
+  var STAMP = '20261122_FIX13d';
   var key = '_ab_stamp';
   try {
     if (sessionStorage.getItem(key) !== STAMP) {
@@ -15416,9 +15416,6 @@ document.addEventListener('DOMContentLoaded', function() {
     </button>
     <button class="nb-item" id="bnav-orders" onclick="showPage('orders')">
       <span class="nb-ic">📦</span>Orders
-    </button>
-    <button class="nb-item" id="bnav-profile" onclick="openMyProfile()">
-      <span class="nb-ic">👤</span>Profile
     </button>
   </div>
 </nav>
