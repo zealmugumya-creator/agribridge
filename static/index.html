@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- AB_BUILD:20261121_FIX10 -->
+<!-- AB_BUILD:20261121_FIX11 -->
 <html lang="en">
 <head>
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
@@ -9,7 +9,7 @@
 // Self-update: if this page is served from browser cache, force a fresh reload.
 // We store the build stamp in sessionStorage; if it mismatches we reload once.
 (function(){
-  var STAMP = '20261121_FIX10';
+  var STAMP = '20261121_FIX11';
   var key = '_ab_stamp';
   try {
     if (sessionStorage.getItem(key) !== STAMP) {
@@ -9274,6 +9274,54 @@ async function renderAdminHome(panel, greet, aiCard) {
     <!-- enforcement status banner -->
     <div id="admLegalEnfBanner" style="border-radius:12px;padding:12px 14px;font-size:.83rem;margin-bottom:4px;display:none"></div>
 
+    <!-- ── Users Management ── -->
+    <div style="margin:26px 0 10px;display:flex;align-items:center;justify-content:space-between">
+      <div style="font-weight:800;font-size:1rem;color:var(--text)">👥 Users Management</div>
+      <button onclick="admUsersRefresh()" style="background:none;border:1px solid var(--border);padding:5px 11px;border-radius:8px;font-size:.78rem;color:var(--text2);cursor:pointer;font-family:inherit">↻ Refresh</button>
+    </div>
+    <div style="display:flex;gap:8px;margin-bottom:10px">
+      <input id="admUserSearch" type="text" placeholder="Search by name, phone or email…" oninput="admUsersFilter()" style="flex:1;padding:9px 12px;background:var(--bg3);border:1px solid var(--border);border-radius:10px;color:var(--text);font-family:inherit;font-size:.84rem">
+      <select id="admUserRoleFilter" onchange="admUsersFilter()" style="padding:9px 10px;background:var(--bg3);border:1px solid var(--border);border-radius:10px;color:var(--text);font-family:inherit;font-size:.82rem">
+        <option value="">All roles</option>
+        <option value="farmer">Farmers</option>
+        <option value="vendor">Vendors</option>
+        <option value="hotel">Hotels</option>
+        <option value="supplier">Suppliers</option>
+        <option value="exporter">Exporters</option>
+        <option value="admin">Admins</option>
+      </select>
+    </div>
+    <div id="admUsersList" style="display:flex;flex-direction:column;gap:7px">
+      <div style="color:var(--text2);font-size:.86rem">Loading users…</div>
+    </div>
+    <div id="admUsersPager" style="display:flex;gap:8px;margin-top:10px;justify-content:center"></div>
+
+    <!-- ── Listings Management ── -->
+    <div style="margin:26px 0 10px;display:flex;align-items:center;justify-content:space-between">
+      <div style="font-weight:800;font-size:1rem;color:var(--text)">🌾 Listings Management</div>
+      <button onclick="admListingsRefresh()" style="background:none;border:1px solid var(--border);padding:5px 11px;border-radius:8px;font-size:.78rem;color:var(--text2);cursor:pointer;font-family:inherit">↻ Refresh</button>
+    </div>
+    <div style="display:flex;gap:8px;margin-bottom:10px">
+      <input id="admListingSearch" type="text" placeholder="Search by crop name or district…" oninput="admListingsFilter()" style="flex:1;padding:9px 12px;background:var(--bg3);border:1px solid var(--border);border-radius:10px;color:var(--text);font-family:inherit;font-size:.84rem">
+      <select id="admListingStatus" onchange="admListingsFilter()" style="padding:9px 10px;background:var(--bg3);border:1px solid var(--border);border-radius:10px;color:var(--text);font-family:inherit;font-size:.82rem">
+        <option value="">All</option>
+        <option value="true">Active</option>
+        <option value="false">Hidden</option>
+      </select>
+    </div>
+    <div id="admListingsList" style="display:flex;flex-direction:column;gap:7px">
+      <div style="color:var(--text2);font-size:.86rem">Loading listings…</div>
+    </div>
+
+    <!-- ── Recent Orders ── -->
+    <div style="margin:26px 0 10px;display:flex;align-items:center;justify-content:space-between">
+      <div style="font-weight:800;font-size:1rem;color:var(--text)">📦 Recent Orders</div>
+      <button onclick="admOrdersRefresh()" style="background:none;border:1px solid var(--border);padding:5px 11px;border-radius:8px;font-size:.78rem;color:var(--text2);cursor:pointer;font-family:inherit">↻ Refresh</button>
+    </div>
+    <div id="admOrdersList" style="display:flex;flex-direction:column;gap:7px">
+      <div style="color:var(--text2);font-size:.86rem">Loading orders…</div>
+    </div>
+
     <div class="hd-sec-head" style="margin-top:22px"><span class="hd-section-label" style="margin:0">Quick actions</span></div>
     <div class="hd-qa">
       <button onclick="showPage('market')"><span>🛒</span>Market</button>
@@ -9288,11 +9336,207 @@ async function renderAdminHome(panel, greet, aiCard) {
   loadAdminBoosts();
   loadAdminBoostPricing();
   admLegalRefresh();
+  loadAdminUsers();
+  loadAdminListings();
+  loadAdminOrders();
   // Show pending count badge
   sb('listing_boosts',{count:true,filters:[['status','eq.pending']]}).then(n=>{
     const el=document.getElementById('adm-boost-pending');
     if(el&&typeof n==='number'&&n>0) el.textContent=n+' pending';
   });
+}
+
+// ── ADMIN: USERS ──────────────────────────────────────────
+var _admAllUsers = [];
+async function loadAdminUsers() {
+  const el = document.getElementById('admUsersList'); if (!el) return;
+  el.innerHTML = '<div style="color:var(--text2);font-size:.86rem">Loading users…</div>';
+  const rows = await sb('profiles', {
+    select: 'id,full_name,phone,email,role,district,created_at,is_banned',
+    filters: [['order','created_at.desc'], ['limit','200']]
+  });
+  if (!Array.isArray(rows)) { el.innerHTML = '<div style="color:var(--text2);font-size:.86rem">Could not load users.</div>'; return; }
+  _admAllUsers = rows;
+  admUsersFilter();
+}
+function admUsersRefresh() { _admAllUsers = []; loadAdminUsers(); }
+function admUsersFilter() {
+  const el = document.getElementById('admUsersList'); if (!el) return;
+  const q = (document.getElementById('admUserSearch')?.value||'').toLowerCase();
+  const rf = (document.getElementById('admUserRoleFilter')?.value||'');
+  const rows = _admAllUsers.filter(u => {
+    if (rf && (u.role||'vendor') !== rf) return false;
+    if (q) {
+      const hay = ((u.full_name||'')+(u.phone||'')+(u.email||'')+(u.district||'')).toLowerCase();
+      if (!hay.includes(q)) return false;
+    }
+    return true;
+  });
+  if (!rows.length) { el.innerHTML = '<div style="color:var(--text2);font-size:.86rem">No users found.</div>'; return; }
+  const roleColor = {farmer:'var(--green)',vendor:'#64b5f6',hotel:'var(--amber)',supplier:'#ce93d8',exporter:'#26c6da',admin:'#f44336'};
+  el.innerHTML = rows.slice(0,50).map(u => {
+    const rc = roleColor[u.role||'vendor'] || 'var(--text2)';
+    const banned = u.is_banned;
+    return `<div style="background:var(--card);border:1px solid var(--border);border-radius:12px;padding:10px 12px;display:flex;align-items:center;gap:10px${banned?';opacity:.55':''}">
+      <div style="width:38px;height:38px;border-radius:50%;background:var(--bg3);display:flex;align-items:center;justify-content:center;font-weight:800;font-size:1rem;color:${rc};flex-shrink:0">${(u.full_name||'?').charAt(0).toUpperCase()}</div>
+      <div style="flex:1;min-width:0">
+        <div style="font-weight:700;font-size:.88rem;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${escHtml(u.full_name||'Unknown')}${banned?' 🚫':''}</div>
+        <div style="font-size:.74rem;color:var(--text2);margin-top:1px">${escHtml(u.phone||u.email||'—')} · ${escHtml(u.district||'—')} · <span style="color:${rc}">${u.role||'vendor'}</span></div>
+      </div>
+      <div style="display:flex;gap:5px;flex-shrink:0">
+        <select onchange="admChangeRole('${u.id}',this)" style="padding:5px 6px;border-radius:7px;border:1px solid var(--border);background:var(--bg3);color:var(--text);font-family:inherit;font-size:.74rem">
+          ${['farmer','vendor','hotel','supplier','exporter','admin'].map(r=>`<option value="${r}"${r===(u.role||'vendor')?' selected':''}>${r}</option>`).join('')}
+        </select>
+        <button onclick="admToggleBan('${u.id}',${!banned})" style="padding:5px 9px;border-radius:7px;border:1px solid var(--border);background:none;cursor:pointer;font-size:.76rem;font-family:inherit;color:${banned?'var(--green)':'#f44336'}">${banned?'Unban':'Ban'}</button>
+      </div>
+    </div>`;
+  }).join('');
+}
+async function admChangeRole(userId, sel) {
+  const newRole = sel.value;
+  const url = SUPA_URL + '/rest/v1/profiles?id=eq.' + userId;
+  const res = await fetch(url, {
+    method: 'PATCH',
+    headers: { 'Content-Type':'application/json', 'apikey': SUPA_KEY, 'Authorization': 'Bearer ' + (window._authToken||SUPA_KEY), 'Prefer': 'return=minimal' },
+    body: JSON.stringify({ role: newRole })
+  });
+  if (res.ok || res.status===204) {
+    const u = _admAllUsers.find(u=>u.id===userId);
+    if (u) u.role = newRole;
+    showToast('Role updated → ' + newRole);
+  } else {
+    showToast('Update failed', 'error');
+    admUsersFilter(); // revert display
+  }
+}
+async function admToggleBan(userId, ban) {
+  const url = SUPA_URL + '/rest/v1/profiles?id=eq.' + userId;
+  const res = await fetch(url, {
+    method: 'PATCH',
+    headers: { 'Content-Type':'application/json', 'apikey': SUPA_KEY, 'Authorization': 'Bearer ' + (window._authToken||SUPA_KEY), 'Prefer': 'return=minimal' },
+    body: JSON.stringify({ is_banned: ban })
+  });
+  if (res.ok || res.status===204) {
+    const u = _admAllUsers.find(u=>u.id===userId);
+    if (u) u.is_banned = ban;
+    showToast(ban ? '🚫 User banned' : '✅ User unbanned');
+    admUsersFilter();
+  } else {
+    showToast('Action failed', 'error');
+  }
+}
+
+// ── ADMIN: LISTINGS ───────────────────────────────────────
+var _admAllListingsData = [];
+async function loadAdminListings() {
+  const el = document.getElementById('admListingsList'); if (!el) return;
+  el.innerHTML = '<div style="color:var(--text2);font-size:.86rem">Loading listings…</div>';
+  const rows = await sb('listings', {
+    select: 'id,crop_name,category,price_per_kg,unit,district,is_available,created_at,farmer_id',
+    filters: [['order','created_at.desc'], ['limit','100']]
+  });
+  if (!Array.isArray(rows)) { el.innerHTML = '<div style="color:var(--text2);font-size:.86rem">Could not load listings.</div>'; return; }
+  _admAllListingsData = rows;
+  admListingsFilter();
+}
+function admListingsRefresh() { _admAllListingsData = []; loadAdminListings(); }
+function admListingsFilter() {
+  const el = document.getElementById('admListingsList'); if (!el) return;
+  const q = (document.getElementById('admListingSearch')?.value||'').toLowerCase();
+  const sf = document.getElementById('admListingStatus')?.value;
+  const rows = _admAllListingsData.filter(l => {
+    if (sf !== '' && sf !== undefined && String(l.is_available) !== sf) return false;
+    if (q) {
+      const hay = ((l.crop_name||'')+(l.district||'')+(l.category||'')).toLowerCase();
+      if (!hay.includes(q)) return false;
+    }
+    return true;
+  });
+  if (!rows.length) { el.innerHTML = '<div style="color:var(--text2);font-size:.86rem">No listings found.</div>'; return; }
+  el.innerHTML = rows.slice(0,60).map(l => `
+    <div style="background:var(--card);border:1px solid var(--border);border-radius:12px;padding:10px 12px;display:flex;align-items:center;gap:10px${l.is_available?'':';opacity:.55'}">
+      <div style="font-size:1.5rem;flex-shrink:0">${getCropEmoji(l.crop_name)||'🌾'}</div>
+      <div style="flex:1;min-width:0">
+        <div style="font-weight:700;font-size:.88rem;color:var(--text)">${escHtml(l.crop_name||'—')}</div>
+        <div style="font-size:.74rem;color:var(--text2);margin-top:1px">UGX ${Number(l.price_per_kg||0).toLocaleString()}/${l.unit||'kg'} · ${escHtml(l.district||'—')} · ${l.is_available?'<span style="color:var(--green)">Active</span>':'<span style="color:var(--amber)">Hidden</span>'}</div>
+      </div>
+      <div style="display:flex;gap:5px;flex-shrink:0">
+        <button onclick="admToggleListing('${l.id}',${!l.is_available})" style="padding:5px 10px;border-radius:7px;border:1px solid var(--border);background:none;cursor:pointer;font-size:.76rem;font-family:inherit;color:${l.is_available?'var(--amber)':'var(--green)'}">${l.is_available?'Hide':'Show'}</button>
+        <button onclick="admDeleteListing('${l.id}')" style="padding:5px 10px;border-radius:7px;border:1px solid var(--border);background:none;cursor:pointer;font-size:.76rem;font-family:inherit;color:#f44336">Delete</button>
+      </div>
+    </div>`).join('');
+}
+async function admToggleListing(id, avail) {
+  const res = await fetch(SUPA_URL + '/rest/v1/listings?id=eq.' + id, {
+    method:'PATCH',
+    headers:{'Content-Type':'application/json','apikey':SUPA_KEY,'Authorization':'Bearer '+(window._authToken||SUPA_KEY),'Prefer':'return=minimal'},
+    body: JSON.stringify({ is_available: avail })
+  });
+  if (res.ok || res.status===204) {
+    const l = _admAllListingsData.find(l=>l.id===id);
+    if (l) l.is_available = avail;
+    admListingsFilter();
+    showToast(avail ? '✅ Listing shown' : '🙈 Listing hidden');
+  } else { showToast('Update failed','error'); }
+}
+async function admDeleteListing(id) {
+  if (!confirm('Permanently delete this listing?')) return;
+  const res = await fetch(SUPA_URL + '/rest/v1/listings?id=eq.' + id, {
+    method:'DELETE',
+    headers:{'apikey':SUPA_KEY,'Authorization':'Bearer '+(window._authToken||SUPA_KEY)}
+  });
+  if (res.ok || res.status===204) {
+    _admAllListingsData = _admAllListingsData.filter(l=>l.id!==id);
+    admListingsFilter();
+    showToast('Listing deleted');
+  } else { showToast('Delete failed','error'); }
+}
+
+// ── ADMIN: ORDERS ─────────────────────────────────────────
+async function loadAdminOrders() {
+  const el = document.getElementById('admOrdersList'); if (!el) return;
+  el.innerHTML = '<div style="color:var(--text2);font-size:.86rem">Loading orders…</div>';
+  const rows = await sb('orders', {
+    select: 'id,ref,status,total_ugx,buyer_name,buyer_phone,district,created_at,payment_method',
+    filters: [['order','created_at.desc'], ['limit','30']]
+  });
+  if (!Array.isArray(rows) || !rows.length) {
+    el.innerHTML = '<div style="color:var(--text2);font-size:.86rem">No orders yet.</div>'; return;
+  }
+  const sc = {pending:'var(--amber)',confirmed:'#64b5f6',delivered:'var(--green)',cancelled:'#f44336',processing:'#ce93d8'};
+  el.innerHTML = rows.map(o => {
+    const col = sc[o.status] || 'var(--text2)';
+    const dt = o.created_at ? new Date(o.created_at).toLocaleDateString('en-UG',{day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'}) : '—';
+    return `<div style="background:var(--card);border:1px solid var(--border);border-radius:12px;padding:10px 12px;display:flex;align-items:center;gap:10px">
+      <div style="flex:1;min-width:0">
+        <div style="display:flex;align-items:center;gap:8px">
+          <span style="font-weight:700;font-size:.88rem;color:var(--text)">${escHtml(o.ref||o.id?.slice(0,8)||'—')}</span>
+          <span style="font-size:.72rem;padding:2px 8px;border-radius:20px;background:${col}22;color:${col};font-weight:700">${o.status||'unknown'}</span>
+        </div>
+        <div style="font-size:.74rem;color:var(--text2);margin-top:2px">${escHtml(o.buyer_name||'—')} · ${escHtml(o.buyer_phone||'—')} · ${escHtml(o.district||'—')}</div>
+        <div style="font-size:.74rem;color:var(--text2)">${dt} · ${escHtml(o.payment_method||'—')}</div>
+      </div>
+      <div style="font-weight:800;font-size:.9rem;color:var(--green);flex-shrink:0;text-align:right">
+        UGX ${Number(o.total_ugx||0).toLocaleString()}
+        <div style="font-weight:400;font-size:.7rem;color:var(--text2);margin-top:2px">
+          <select onchange="admUpdateOrderStatus('${o.id}',this)" style="padding:3px 5px;border-radius:6px;border:1px solid var(--border);background:var(--bg3);color:var(--text);font-family:inherit;font-size:.7rem">
+            ${['pending','confirmed','processing','delivered','cancelled'].map(s=>`<option value="${s}"${s===o.status?' selected':''}>${s}</option>`).join('')}
+          </select>
+        </div>
+      </div>
+    </div>`;
+  }).join('');
+}
+function admOrdersRefresh() { loadAdminOrders(); }
+async function admUpdateOrderStatus(id, sel) {
+  const st = sel.value;
+  const res = await fetch(SUPA_URL + '/rest/v1/orders?id=eq.' + id, {
+    method:'PATCH',
+    headers:{'Content-Type':'application/json','apikey':SUPA_KEY,'Authorization':'Bearer '+(window._authToken||SUPA_KEY),'Prefer':'return=minimal'},
+    body: JSON.stringify({ status: st })
+  });
+  if (res.ok || res.status===204) { showToast('Order → ' + st); }
+  else { showToast('Update failed','error'); loadAdminOrders(); }
 }
 
 async function loadAdminKpis() {
