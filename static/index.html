@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- AB_BUILD:20261120_FIX9 -->
+<!-- AB_BUILD:20261121_FIX10 -->
 <html lang="en">
 <head>
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
@@ -9,7 +9,7 @@
 // Self-update: if this page is served from browser cache, force a fresh reload.
 // We store the build stamp in sessionStorage; if it mismatches we reload once.
 (function(){
-  var STAMP = '20261120_FIX9';
+  var STAMP = '20261121_FIX10';
   var key = '_ab_stamp';
   try {
     if (sessionStorage.getItem(key) !== STAMP) {
@@ -7616,6 +7616,53 @@ function sendAIChip(text) {
   sendAIMsg();
 }
 
+// ── AI SPEAK (text-to-speech) ────────────────────────────
+var aiSpeakEnabled = false;
+var aiSpeaking = false;
+
+function toggleAISpeak() {
+  aiSpeakEnabled = !aiSpeakEnabled;
+  const btn = document.getElementById('aiSpeakBtn');
+  if (btn) {
+    btn.textContent = aiSpeakEnabled ? '🔊' : '🔇';
+    btn.title = aiSpeakEnabled ? 'Tap to mute AI voice' : 'Tap to hear AI speak';
+    btn.style.color = aiSpeakEnabled ? 'var(--green)' : 'var(--text2)';
+  }
+  if (!aiSpeakEnabled && aiSpeaking) {
+    window.speechSynthesis.cancel();
+    aiSpeaking = false;
+  }
+  showToast(aiSpeakEnabled ? '🔊 AI voice ON' : '🔇 AI voice muted');
+}
+
+function speakAIReply(text) {
+  if (!aiSpeakEnabled) return;
+  if (!window.speechSynthesis) return;
+  // Strip emoji, [NAVIGATE:...] tags, URLs for clean speech
+  const clean = text
+    .replace(/\[[\w:]+\]/g, '')
+    .replace(/https?:\/\/\S+/g, '')
+    .replace(/[\u{1F300}-\u{1FFFF}]/gu, '')
+    .replace(/[^\x00-\x7F]/g, '')
+    .replace(/\s{2,}/g, ' ')
+    .trim();
+  if (!clean) return;
+  window.speechSynthesis.cancel();
+  const utt = new SpeechSynthesisUtterance(clean);
+  utt.lang = 'en-UG';
+  utt.rate = 0.92;
+  utt.pitch = 1.0;
+  // Prefer a local/African English voice if available
+  const voices = window.speechSynthesis.getVoices();
+  const preferred = voices.find(v => /en.UG|en.KE|en.NG|en.ZA/i.test(v.lang))
+                 || voices.find(v => /en.GB/i.test(v.lang))
+                 || voices.find(v => /en/i.test(v.lang));
+  if (preferred) utt.voice = preferred;
+  utt.onstart = () => { aiSpeaking = true; };
+  utt.onend = utt.onerror = () => { aiSpeaking = false; };
+  window.speechSynthesis.speak(utt);
+}
+
 async function sendAIMsg() {
   const inp = document.getElementById('aiInput');
   const text = (inp?.value||'').trim();
@@ -7629,7 +7676,8 @@ async function sendAIMsg() {
   try {
     const res = await fetch(USSD_API + '/api/ai', {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ message: text })
+      body: JSON.stringify({ message: text }),
+      signal: AbortSignal.timeout(10000)
     });
     if (res.ok) { const d = await res.json(); if (d && d.reply) reply = d.reply; }
   } catch (e) {}
@@ -7637,6 +7685,7 @@ async function sendAIMsg() {
   const cleanReply = processAIActions(reply);
   typing?.remove();
   addAIMsg(cleanReply, 'bot');
+  speakAIReply(cleanReply);
 }
 
 function processAIActions(text) {
@@ -7774,8 +7823,49 @@ function localAIResponse(prompt) {
   if (/webale|nyo|gyebale/i.test(p)) return "Gyebale nyo! 👋 Ndi ku kukuyamba bulijjo. Noonya ebibala, ebibala by'abalimi oba bbeeyi za leero?";
   if (/sseko|sente|bbeeyi/i.test(p)) return "Bbeeyi za leero: Maize UGX 750/kg · Matooke UGX 950/bunch · Tomatoes UGX 1,800/kg · Coffee UGX 12,000/kg [NAVIGATE:prices]";
 
-  // ── DEFAULT ─────────────────────────────────────────────
-  return `I heard: "${prompt}"\n\nI can help with:\n🌾 Crops & produce marketplace\n🐄 Animals & livestock marketplace\n📊 Live market prices\n🩺 Crop & animal disease diagnosis\n🛒 Your basket & checkout\n🚚 Order tracking\n\nTry asking: "Show me cattle listings" or "What's the price of maize?" or "My chicken has Newcastle disease"`;
+  // ── SMART CATCH-ALL — extract intent from any free-form question ───────────
+  // Crop name in question → prices or doctor
+  const cropNames = ['maize','beans','tomato','matooke','coffee','vanilla','avocado','cassava',
+    'banana','sorghum','millet','rice','groundnut','sunflower','soybean','cabbage','onion',
+    'pepper','eggplant','watermelon','passion','pineapple','mango','potato','sweet potato',
+    'napier','grass','hay','silage'];
+  for (const c of cropNames) {
+    if (p.includes(c)) {
+      if (/price|cost|how much|worth|market|sell/i.test(p))
+        return `Check live ${c} prices on our Market Prices page — updated daily from Kampala, Mbarara, Gulu and other markets. [NAVIGATE:prices]`;
+      if (/plant|grow|when|season|soil|fertilize|harvest/i.test(p))
+        return `For ${c} growing tips, visit our free Training page — videos on planting, soil care, pest control and harvest timing. [NAVIGATE:training]`;
+      if (/disease|sick|problem|yellow|brown|spot|blight|wilt|rot|pest|worm|bug/i.test(p))
+        return `For ${c} problems, use the AI Crop Doctor 🩺 — describe what you see (colour change, spots, wilting) and get instant advice. [NAVIGATE:doctor]`;
+      if (/buy|order|find|where.*get/i.test(p))
+        return `Browse ${c} listings from verified Ugandan farmers — fresh produce at fair prices. [NAVIGATE:market]`;
+      if (/sell|list|post|my.*${c}/i.test(p))
+        return `List your ${c} for free — takes under a minute! Buyers across Uganda will see it instantly. [NAVIGATE:market]`;
+      return `I can help with ${c}! Ask me about its price, how to grow it, any disease signs, or find buyers. [NAVIGATE:market]`;
+    }
+  }
+  // "how do I" / "how to" → training or doctor
+  if (/how (do|can|to|should)/i.test(p))
+    return "Great question! Try the free Training page 🎓 — step-by-step farming guides. Or ask me more specifically e.g. \"How do I grow maize?\" and I'll give you exact advice. [NAVIGATE:training]";
+  // "where" → navigation help
+  if (/^where\b/i.test(p) || /where (is|are|can|do)/i.test(p))
+    return "I can take you anywhere on AgriBridge! Try:\n• \"Go to marketplace\" 🛒\n• \"Show prices\" 📊\n• \"Open my dashboard\" 📈\n• \"Find the AI doctor\" 🩺\n• \"Training videos\" 🎓\n\nOr just describe what you need and I'll navigate for you!";
+  // "what is" / "explain" → about/training
+  if (/what is|what are|explain|tell me about|meaning of/i.test(p))
+    return `Good question! If it's about farming in Uganda, the Training page has free guides. For platform features, just ask me directly — I know everything about AgriBridge. [NAVIGATE:training]`;
+  // Numbers / UGX questions
+  if (/ugx|shilling|money|budget|profit|earn|income|revenue/i.test(p))
+    return "For earnings and market data, check the Live Prices page 📊 — it shows today's buying and selling prices across Uganda. For your personal earnings, visit your Dashboard. [NAVIGATE:prices]";
+  // Catch-all with smart suggestions based on words used
+  const suggestions = [];
+  if (/buy|order|fresh|produce|food/i.test(p)) suggestions.push('🛒 "Show me the marketplace"');
+  if (/sell|list|farm|farmer|crop/i.test(p)) suggestions.push('📝 "I want to list my produce"');
+  if (/price|cost|cheap|expensive/i.test(p)) suggestions.push('📊 "What are today\'s prices?"');
+  if (/sick|disease|problem|help/i.test(p)) suggestions.push('🩺 "Diagnose my crop problem"');
+  if (suggestions.length) {
+    return `I think you're asking about: "${prompt.substring(0,60)}${prompt.length>60?'…':''}"\n\nDid you mean:\n${suggestions.join('\n')}\n\nTry rephrasing and I'll give you a precise answer! 🌾`;
+  }
+  return `I didn't quite catch that — I'm best with farming questions! Try:\n\n🌾 "What's the price of maize today?"\n🐄 "Show me cattle for sale"\n🩺 "My tomato leaves are turning yellow"\n🛒 "Add beans to my basket"\n📱 "How does USSD *789# work?"\n\nOr tap one of the quick buttons above! 👆`;
 }
 
 // ── VOICE INPUT ──────────────────────────────────────────
@@ -14949,7 +15039,8 @@ document.addEventListener('DOMContentLoaded', function() {
       <div class="ai-name">AgriBridge AI</div>
       <div class="ai-status" id="aiStatus">● Online — knows the entire platform</div>
     </div>
-    <button onclick="closeAI()" style="background:none;border:none;color:var(--text2);font-size:1.3rem;cursor:pointer;margin-left:auto">✕</button>
+    <button id="aiSpeakBtn" onclick="toggleAISpeak()" title="Tap to hear AI speak" aria-label="Toggle AI voice" style="background:none;border:none;color:var(--text2);font-size:1.2rem;cursor:pointer;margin-left:auto;padding:4px 8px">🔇</button>
+    <button onclick="closeAI()" style="background:none;border:none;color:var(--text2);font-size:1.3rem;cursor:pointer;padding:4px 8px">✕</button>
   </div>
   <div class="ai-chips">
     <div class="ai-chip" onclick="sendAIChip('Show me the marketplace')">🛒 Market</div>
