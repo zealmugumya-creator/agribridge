@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- AB_BUILD:20261121_FIX11 -->
+<!-- AB_BUILD:20261121_FIX12 -->
 <html lang="en">
 <head>
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
@@ -9,7 +9,7 @@
 // Self-update: if this page is served from browser cache, force a fresh reload.
 // We store the build stamp in sessionStorage; if it mismatches we reload once.
 (function(){
-  var STAMP = '20261121_FIX11';
+  var STAMP = '20261121_FIX12';
   var key = '_ab_stamp';
   try {
     if (sessionStorage.getItem(key) !== STAMP) {
@@ -5850,7 +5850,7 @@ function openProductDetail(id) {
   stockEl.className = 'pd-row-val ' + (out ? 'pd-stock-out' : low ? 'pd-stock-low' : 'pd-stock-ok');
   document.getElementById('pdMin').textContent = minQty + ' ' + unit;
   document.getElementById('pdDeliveryInfo').textContent = l.delivery_available === false
-    ? 'Pickup — confirm with farmer'
+    ? 'Pickup — AgriBridge will coordinate'
     : 'Arranged after the order is confirmed';
   document.getElementById('pdPayInfo').textContent = 'Chosen at checkout';
 
@@ -6459,7 +6459,7 @@ async function loadAnimals() {
   if (!el) return;
   el.innerHTML = '<div class="loader"><div class="spinner"></div>Loading animals…</div>';
   const data = await sb('animal_listings', {
-    select:'id,farmer_id,farmer_name,farmer_phone,name,species,category,price,unit,qty,district,description,health_cert,maaif_certified,status,image_url,video_url,created_at',
+    select:'id,farmer_id,farmer_name,name,species,category,price,unit,qty,district,description,health_cert,maaif_certified,status,image_url,video_url,created_at',
     filters:[['status','eq.active']]
   });
   if (data && data.length) {
@@ -6467,7 +6467,7 @@ async function loadAnimals() {
       id:String(a.id), farmer_id:a.farmer_id||null, name:a.name, cat:a.category, emoji:getAnimalEmoji(a.name),
       price:Number(a.price), unit:a.unit||'head', district:a.district, qty:a.qty,
       desc:a.description, certified:a.maaif_certified, health_cert:a.health_cert,
-      breed:a.species, farmer_phone:a.farmer_phone, image_url:a.image_url||'', video_url:a.video_url||''
+      breed:a.species, image_url:a.image_url||'', video_url:a.video_url||''
     }));
   } else {
     allAnimals = SAMPLE_ANIMALS.map(a => ({...a, id:String(a.id)}));

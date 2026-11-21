@@ -1,0 +1,2170 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="robots" content="noindex,nofollow">
+<title>AgriBridge — Admin</title>
+<link rel="apple-touch-icon" href="icon.png">
+<link rel="icon" type="image/png" href="icon.png">
+<style>
+  :root{--bg:#0f1310;--bg2:#171c18;--bg3:#1e2620;--bg4:#28322a;--border:#2c352b;--border2:#3b473b;
+    --text:#e8efe8;--text2:#9fb0a2;--text3:#7b8a7e;--green:#2ecc71;--green-2:#4be08a;--green-dim:#123821;
+    --amber:#f0a020;--red:#e05555;--blue:#5b9bff;--r:10px;--rs:8px;--sbw:238px;--tap:40px;
+    --navb:60px;--hintb:0px}
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:-apple-system,Segoe UI,Roboto,Arial,sans-serif;background:var(--bg);color:var(--text);line-height:1.45;
+    -webkit-text-size-adjust:100%;font-variant-numeric:tabular-nums}
+  a{color:var(--green)}
+  button{font-family:inherit;cursor:pointer;border:none;border-radius:var(--rs);font-weight:700}
+  :focus-visible{outline:2px solid var(--green);outline-offset:2px}
+  .i{width:16px;height:16px;flex:none;stroke:currentColor;fill:none;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round}
+  /* ── Shell: sidebar + main column. min-width:0 keeps wide tables inside their own scroll ── */
+  .app{display:flex;align-items:flex-start;min-height:100vh}
+  .main{flex:1 1 auto;min-width:0;display:flex;flex-direction:column}
+  .sidebar{width:var(--sbw);flex:0 0 var(--sbw);background:var(--bg2);border-right:1px solid var(--border);
+    position:sticky;top:0;height:100vh;overflow-y:auto;overscroll-behavior:contain;display:flex;flex-direction:column;z-index:60}
+  .brand{display:flex;align-items:center;gap:9px;padding:14px 14px 12px;border-bottom:1px solid var(--border)}
+  .brand .mark{width:26px;height:26px;flex:none;border-radius:7px;background:var(--green-dim);display:grid;place-items:center;color:var(--green)}
+  .brand b{font-size:.92rem;white-space:nowrap}
+  .brand small{display:block;color:var(--text3);font-size:.66rem;font-weight:600}
+  .navgrp{padding:11px 10px 2px}
+  .navgrp h4{font-size:.6rem;letter-spacing:.07em;text-transform:uppercase;color:var(--text3);font-weight:800;padding:0 8px 5px}
+  .tab{display:flex;align-items:center;gap:9px;width:100%;padding:7px 9px;min-height:var(--tap);border-radius:var(--rs);
+    color:var(--text2);font-size:.83rem;font-weight:600;cursor:pointer;background:none;text-align:left;text-decoration:none}
+  .tab:hover{background:var(--bg3);color:var(--text)}
+  .tab.active{background:var(--green-dim);color:var(--green)}
+  .tab .lbl{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  body.sb-min .sidebar{width:58px;flex-basis:58px}
+  body.sb-min .tab .lbl,body.sb-min .navgrp h4,body.sb-min .brand .txt,body.sb-min .tab .cnt{display:none}
+  body.sb-min .brand{flex-direction:column;gap:5px;justify-content:center;padding:12px 4px}
+  body.sb-min .collapse .i{transform:rotate(180deg)}
+  .brand .collapse{margin-left:auto;width:28px;height:28px;border-radius:7px}
+  .topbar{position:sticky;top:0;z-index:40;display:flex;align-items:center;gap:8px;padding:9px 14px;
+    background:rgba(15,19,16,.94);border-bottom:1px solid var(--border)}
+  .topbar h1{font-size:.95rem;font-weight:800;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .topbar .sub{color:var(--text3);font-size:.7rem;font-weight:600}
+  .iconbtn{background:var(--bg3);border:1px solid var(--border);color:var(--text2);width:34px;height:34px;
+    display:grid;place-items:center;border-radius:var(--rs);flex:none}
+  .iconbtn:hover{color:var(--text);border-color:var(--border2)}
+  .view{padding:14px;width:100%;max-width:1220px}
+  .scrim{position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:55;display:none}
+  .bottomnav{display:none}
+  @media(max-width:1023px){
+    /* A closed drawer is not merely translated away: it must leave layout, hit
+       testing and the keyboard focus order, or a phone user tabs into invisible
+       navigation and the page reports off-screen content. */
+    .sidebar{position:fixed;top:0;bottom:0;left:0;transform:translateX(-100%);
+      visibility:hidden;pointer-events:none;
+      transition:transform .18s ease,visibility 0s linear .18s;
+      box-shadow:0 0 30px rgba(0,0,0,.5)}
+    body.nav-open .sidebar{visibility:visible;pointer-events:auto;transform:none;
+      transition:transform .18s ease,visibility 0s}
+    .brand .collapse{display:none}
+    body.nav-open .scrim{display:block}
+    .view{padding:12px 12px calc(var(--navb) + env(safe-area-inset-bottom) + 14px)}
+    :root{--hintb:calc(var(--navb) + env(safe-area-inset-bottom))}
+    .bottomnav{display:grid;grid-template-columns:repeat(5,1fr);position:fixed;left:0;right:0;bottom:0;z-index:50;
+      background:var(--bg2);border-top:1px solid var(--border);padding-bottom:env(safe-area-inset-bottom)}
+    .bottomnav .bn{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;height:var(--navb);
+      background:none;color:var(--text3);font-size:.6rem;font-weight:700}
+    .bottomnav .bn.active{color:var(--green)}
+  }
+  /* ── Cards, KPIs, chart ─────────────────────────────────────────── */
+  .card{background:var(--bg2);border:1px solid var(--border);border-radius:var(--r);padding:13px;margin-bottom:12px;min-width:0}
+  .card>h3,.chead{font-size:.86rem;font-weight:800;margin-bottom:10px;display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+  .chead small,.card>h3 small{color:var(--text3);font-weight:600;font-size:.66rem;text-transform:uppercase;letter-spacing:.05em;margin-left:auto}
+  .stats{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;margin-bottom:12px}
+  @media(min-width:700px){.stats{grid-template-columns:repeat(3,minmax(0,1fr))}}
+  @media(min-width:1080px){.stats{grid-template-columns:repeat(4,minmax(0,1fr))}}
+  .stat{background:var(--bg2);border:1px solid var(--border);border-radius:var(--r);padding:9px 11px;min-width:0;cursor:pointer;text-align:left}
+  .stat:hover{border-color:var(--border2)}
+  .stat .n{font-size:1.16rem;font-weight:800;line-height:1.25;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .stat .l{color:var(--text3);font-size:.63rem;text-transform:uppercase;letter-spacing:.04em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .stat .s{color:var(--text3);font-size:.63rem;margin-top:1px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .stat.go .n{color:var(--green)}
+  .stat.warn .n{color:var(--amber)}
+  .stat.bad .n{color:var(--red)}
+  .stat.na{border-style:dashed}
+  .stat.na .n{color:var(--text3);font-size:.86rem}
+  .grid2{display:grid;gap:12px;grid-template-columns:minmax(0,1fr)}
+  @media(min-width:1080px){.grid2{grid-template-columns:minmax(0,1.55fr) minmax(0,1fr)}}
+  .chart{display:flex;align-items:flex-end;gap:5px;height:92px;padding-top:4px}
+  .bar{flex:1 1 0;min-width:0;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;gap:3px;height:100%}
+  .bar b{font-size:.64rem;font-weight:700;color:var(--text2)}
+  .bar i{display:block;width:100%;max-width:26px;min-height:2px;border-radius:4px 4px 2px 2px;
+    background:linear-gradient(180deg,var(--green-2),var(--green))}
+  .bar.zero i{background:var(--border2)}
+  .bar span{font-size:.6rem;color:var(--text3);white-space:nowrap}
+  .cfoot{color:var(--text3);font-size:.66rem;margin-top:8px}
+  /* ── Alerts ─────────────────────────────────────────────────────── */
+  .alerts{display:grid;gap:7px}
+  .alert{display:flex;align-items:center;gap:9px;padding:8px 10px;border:1px solid var(--border);border-radius:var(--r);
+    background:var(--bg3);font-size:.8rem;color:var(--text);width:100%;text-align:left;font-weight:600}
+  .alert:hover{border-color:var(--border2)}
+  .alert.urgent{border-color:rgba(240,160,32,.45)}
+  .alert time{margin-left:auto;color:var(--text3);font-size:.65rem;font-weight:600;flex:none}
+  .alert b{color:var(--green)}
+  .alert.urgent b{color:var(--amber)}
+  /* ── Actions ────────────────────────────────────────────────────── */
+  .qa{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:7px}
+  @media(min-width:520px){.qa{grid-template-columns:repeat(3,minmax(0,1fr))}}
+  .qa button{display:flex;align-items:center;gap:8px;background:var(--bg3);border:1px solid var(--border);color:var(--text);
+    padding:9px 10px;border-radius:var(--rs);font-size:.79rem;font-weight:700;min-height:var(--tap);text-align:left}
+  .qa button:hover{border-color:var(--green);color:var(--green)}
+  .btn{background:var(--green);color:#04210f;padding:9px 14px;min-height:38px}
+  .btn.ghost{background:transparent;border:1px solid var(--border);color:var(--text2);padding:7px 11px}
+  .btn.amber{background:var(--amber);color:#3a2600}
+  .btn.red{background:transparent;border:1px solid var(--red);color:var(--red)}
+  .btn.sm{padding:4px 9px;font-size:.75rem;min-height:29px}
+  .btn[disabled]{opacity:.55;cursor:progress}
+  input,select,textarea{font-family:inherit;background:var(--bg3);border:1px solid var(--border);color:var(--text);
+    border-radius:var(--rs);padding:9px 11px;width:100%;font-size:.9rem;min-height:38px}
+  label{display:block;font-size:.74rem;color:var(--text2);margin:9px 0 4px}
+  #login{max-width:340px;margin:14vh auto 0}
+  #login h2{font-size:1.12rem;margin-bottom:4px;display:flex;align-items:center;gap:8px}
+  #login p{color:var(--text2);font-size:.8rem;margin-bottom:14px}
+  .err{color:var(--red);font-size:.8rem;min-height:1.2em;margin-top:8px}
+  .toolbar{display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:10px;flex-wrap:wrap}
+  .toolbar input{max-width:240px;flex:1 1 140px}
+  /* ── Tables: scroll inside their own box, never on the page ─────── */
+  .tblwrap{overflow-x:auto;-webkit-overflow-scrolling:touch;position:relative;margin:0 -13px -13px;padding:0 13px 13px}
+  .tblhint{display:none;align-items:center;gap:6px;color:var(--text3);font-size:.68rem;padding:7px 8px;
+    margin:0 -13px;position:sticky;bottom:var(--hintb);z-index:3;background:var(--bg2);border-top:1px solid var(--border)}
+  .tblwrap.scrolling+.tblhint,.tblhint.on{display:flex}
+  table{width:100%;border-collapse:collapse;font-size:.79rem}
+  th,td{text-align:left;padding:8px 7px;border-bottom:1px solid var(--border);vertical-align:middle;white-space:nowrap}
+  th{color:var(--text3);font-weight:700;font-size:.64rem;text-transform:uppercase;letter-spacing:.03em}
+  td.w,th.w{white-space:normal;min-width:110px;max-width:230px}
+  .tblwrap.scrolling th:first-child,.tblwrap.scrolling td:first-child{position:sticky;left:0;background:var(--bg2);z-index:2}
+  td .thumb{width:38px;height:38px;border-radius:7px;object-fit:cover;background:var(--bg3);display:block}
+  td .thumb.ph{display:flex;align-items:center;justify-content:center;color:var(--text3);border:1px solid var(--border)}
+  td .thumb.ph .i{width:17px;height:17px}
+  .badge{display:inline-block;padding:2px 8px;border-radius:999px;font-size:.68rem;font-weight:700;text-transform:capitalize;
+    background:var(--bg3);color:var(--text2);white-space:nowrap}
+  .badge.pending{background:rgba(240,180,40,.15);color:#e0a91e}
+  .badge.confirmed{background:rgba(70,140,240,.15);color:var(--blue)}
+  .badge.in_transit{background:rgba(120,110,240,.15);color:#8f86ff}
+  .badge.delivered,.badge.available,.badge.active,.badge.paid,.badge.completed,.badge.posted,.badge.open{background:rgba(40,190,110,.15);color:var(--green)}
+  .badge.cancelled,.badge.failed,.badge.sold,.badge.rejected,.badge.closed{background:rgba(224,85,85,.15);color:var(--red)}
+  .badge.reversed,.badge.not_captured,.badge.scheduled{background:rgba(240,160,32,.15);color:var(--amber)}
+  .cnt{background:var(--amber);color:#3a2600;border-radius:999px;padding:0 6px;font-size:.65rem;font-weight:800;flex:none}
+  .cnt:empty{display:none}
+  select.svc-st{width:auto;padding:4px 7px;font-size:.75rem;min-height:30px}
+  .muted{color:var(--text2)}
+  .hidden{display:none}
+  .loading,.state{color:var(--text2);padding:16px;text-align:center;font-size:.84rem}
+  .state.err{color:var(--amber)}
+  .state .btn{margin-top:9px}
+  .rowbtns{display:flex;gap:5px;white-space:nowrap;align-items:center}
+  .sk{background:linear-gradient(90deg,var(--bg3),var(--bg4),var(--bg3));background-size:200% 100%;border-radius:5px;height:11px;
+    animation:sh 1.3s linear infinite}
+  @keyframes sh{to{background-position:-200% 0}}
+  @media(prefers-reduced-motion:reduce){.sk{animation:none}*{transition:none!important}}
+  /* modal — bottom sheet on phones so tall forms stay usable */
+  .overlay{position:fixed;inset:0;background:rgba(0,0,0,.62);display:none;align-items:flex-end;justify-content:center;padding:0;z-index:100;overflow-y:auto}
+  .overlay.open{display:flex}
+  .modal{background:var(--bg2);border:1px solid var(--border);border-radius:14px 14px 0 0;padding:18px 16px
+      calc(18px + env(safe-area-inset-bottom));width:100%;max-width:560px;max-height:92vh;overflow-y:auto}
+  @media(min-width:640px){.overlay{align-items:flex-start;padding:24px}.modal{border-radius:14px;margin-top:3vh;
+      padding-bottom:18px;max-height:88vh}}
+  .modal h3{font-size:1rem;margin-bottom:4px}
+  .modal .close{position:sticky;top:0;float:right;background:var(--bg3);border:1px solid var(--border);color:var(--text2);
+    width:30px;height:30px;border-radius:var(--rs);display:grid;place-items:center}
+  .media-preview{margin-top:6px}
+  .media-preview img,.media-preview video{max-width:100%;max-height:160px;border-radius:8px}
+  .savebar{display:flex;gap:8px;margin-top:16px;position:sticky;bottom:-18px;background:var(--bg2);padding:10px 0 0}
+  .up-status{font-size:.72rem;color:var(--text2);margin-top:4px}
+  /* Financial Control Center */
+  .fin-subnav{display:flex;gap:5px;flex-wrap:wrap;margin-bottom:12px}
+  .fin-sub{background:var(--bg3);color:var(--text2);padding:5px 10px;border-radius:16px;font-size:.74rem;font-weight:700;
+    border:1px solid var(--border);min-height:30px}
+  .fin-sub.active{background:var(--green-dim);color:var(--green);border-color:var(--green)}
+  .fin-kpis{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;margin-bottom:12px}
+  @media(min-width:820px){.fin-kpis{grid-template-columns:repeat(4,minmax(0,1fr))}}
+  .fin-kpi{background:var(--bg3);border:1px solid var(--border);border-radius:var(--r);padding:10px;min-width:0}
+  .fin-kpi .l{font-size:.62rem;color:var(--text3);text-transform:uppercase;letter-spacing:.03em}
+  .fin-kpi .v{font-size:1.02rem;font-weight:800;margin-top:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .fin-kpi .s{font-size:.64rem;color:var(--text3);margin-top:2px}
+  .fin-note{background:rgba(240,160,32,.08);border:1px solid rgba(240,160,32,.35);color:#f0c060;border-radius:var(--r);
+    padding:10px 12px;margin-bottom:11px;font-size:.78rem}
+  .fin-note.ok{background:rgba(46,204,113,.08);border-color:rgba(46,204,113,.35);color:var(--green)}
+  .fin-note code{background:rgba(0,0,0,.25);padding:1px 5px;border-radius:4px}
+  .fin-section{font-weight:800;font-size:.85rem;margin:14px 0 7px}
+  .fin-good{color:var(--green)}
+  .fin-bad{color:var(--red)}
+  .fin-table td.num,.fin-table th.num{text-align:right}
+  .fin-range{display:flex;gap:8px;align-items:end;flex-wrap:wrap;margin-bottom:12px}
+  .fin-range label{margin:0 0 4px}
+  .fin-range input{width:auto;padding:6px 9px}
+  .perf{display:grid;gap:4px;font-size:.74rem}
+  .perf .r{display:flex;gap:8px;align-items:center;padding:5px 0;border-bottom:1px solid var(--border)}
+  .perf .r span:first-child{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--text2)}
+  .perf .ms{font-weight:800;flex:none}
+  .perf .ms.slow{color:var(--amber)}
+</style>
+</head>
+<body>
+
+<svg style="display:none" aria-hidden="true"><defs>
+<symbol id="i-leaf" viewBox="0 0 24 24"><path d="M11 20A7 7 0 0 1 9.8 6.1C15.5 5 17 4.48 19 2c1 2 2 4.18 2 8 0 5.5-4.78 10-10 10Z"/><path d="M2 21c0-3 1.85-5.36 5.08-6"/></symbol>
+<symbol id="i-grid" viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></symbol>
+<symbol id="i-cart" viewBox="0 0 24 24"><circle cx="9" cy="20" r="1.4"/><circle cx="18" cy="20" r="1.4"/><path d="M2 3h2.5l2.2 11.2a2 2 0 0 0 2 1.6h8.4a2 2 0 0 0 2-1.5L21 7H6"/></symbol>
+<symbol id="i-link" viewBox="0 0 24 24"><path d="M10 13a5 5 0 0 0 7.5.5l2-2a5 5 0 0 0-7-7l-1.2 1.2"/><path d="M14 11a5 5 0 0 0-7.5-.5l-2 2a5 5 0 0 0 7 7l1.2-1.2"/></symbol>
+<symbol id="i-inquiry" viewBox="0 0 24 24"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></symbol>
+<symbol id="i-handshake" viewBox="0 0 24 24"><path d="m11 17 2 2a1 1 0 0 0 1.4 0l3.6-3.6"/><path d="M18 15 8 5 2 11l3 3"/><path d="m6 12 3 3"/><path d="M14 6h4l4 5"/></symbol>
+<symbol id="i-box" viewBox="0 0 24 24"><path d="M21 8v8a2 2 0 0 1-1 1.7l-7 4a2 2 0 0 1-2 0l-7-4A2 2 0 0 1 3 16V8a2 2 0 0 1 1-1.7l7-4a2 2 0 0 1 2 0l7 4A2 2 0 0 1 21 8Z"/><path d="m3.3 7 8.7 5 8.7-5M12 22V12"/></symbol>
+<symbol id="i-tag" viewBox="0 0 24 24"><path d="M12.6 2.6A2 2 0 0 0 11.2 2H4a2 2 0 0 0-2 2v7.2a2 2 0 0 0 .6 1.4l8.8 8.8a2 2 0 0 0 2.8 0l7.2-7.2a2 2 0 0 0 0-2.8Z"/><circle cx="7.5" cy="7.5" r="1.2"/></symbol>
+<symbol id="i-paw" viewBox="0 0 24 24"><circle cx="6" cy="9" r="2"/><circle cx="10.5" cy="5" r="2"/><circle cx="16" cy="6.5" r="2"/><circle cx="19" cy="12" r="1.8"/><path d="M12 11c-3 0-5.5 2.6-5.5 5.2 0 1.6 1.2 2.8 2.8 2.8 1 0 1.7-.4 2.7-.4s1.7.4 2.7.4c1.6 0 2.8-1.2 2.8-2.8C20 13.6 15 11 12 11Z"/></symbol>
+<symbol id="i-users" viewBox="0 0 24 24"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.9M16 3.1a4 4 0 0 1 0 7.8"/></symbol>
+<symbol id="i-truck" viewBox="0 0 24 24"><path d="M14 17V5a1 1 0 0 0-1-1H2a1 1 0 0 0-1 1v11a1 1 0 0 0 1 1h1"/><path d="M14 9h4l3 3v5a1 1 0 0 1-1 1h-1"/><circle cx="6.5" cy="17.5" r="2"/><circle cx="17.5" cy="17.5" r="2"/></symbol>
+<symbol id="i-wheel" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="3"/><path d="M12 3v6M5.6 18l4.2-3.4M18.4 18l-4.2-3.4"/></symbol>
+<symbol id="i-snow" viewBox="0 0 24 24"><path d="M12 2v20M4.9 6.1 19.1 17.9M19.1 6.1 4.9 17.9M12 6l-2.5-2.5M12 6l2.5-2.5M12 18l-2.5 2.5M12 18l2.5 2.5"/></symbol>
+<symbol id="i-coins" viewBox="0 0 24 24"><circle cx="8" cy="8" r="5"/><path d="M13.4 5.2a5 5 0 1 1-5.6 8.2"/><path d="M18 12a4.5 4.5 0 1 1-4.5 6.6"/></symbol>
+<symbol id="i-money" viewBox="0 0 24 24"><rect x="2" y="6" width="20" height="12" rx="2"/><circle cx="12" cy="12" r="2.5"/><path d="M6 10v4M18 10v4"/></symbol>
+<symbol id="i-inbox" viewBox="0 0 24 24"><path d="M22 12h-6l-2 3h-4l-2-3H2"/><path d="M5.5 5.1 2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.5-6.9A2 2 0 0 0 16.7 4H7.3a2 2 0 0 0-1.8 1.1Z"/></symbol>
+<symbol id="i-scan" viewBox="0 0 24 24"><path d="M3 7V5a2 2 0 0 1 2-2h2M17 3h2a2 2 0 0 1 2 2v2M21 17v2a2 2 0 0 1-2 2h-2M7 21H5a2 2 0 0 1-2-2v-2"/><path d="M7 12h10"/></symbol>
+<symbol id="i-bell" viewBox="0 0 24 24"><path d="M18 8a6 6 0 1 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.7 21a2 2 0 0 1-3.4 0"/></symbol>
+<symbol id="i-warn" viewBox="0 0 24 24"><path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0Z"/><path d="M12 9v4M12 17h.01"/></symbol>
+<symbol id="i-pulse" viewBox="0 0 24 24"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></symbol>
+<symbol id="i-map" viewBox="0 0 24 24"><path d="m3 6 6-3 6 3 6-3v15l-6 3-6-3-6 3Z"/><path d="M9 3v15M15 6v15"/></symbol>
+<symbol id="i-refresh" viewBox="0 0 24 24"><path d="M21 12a9 9 0 1 1-3-6.7L21 8"/><path d="M21 3v5h-5"/></symbol>
+<symbol id="i-logout" viewBox="0 0 24 24"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><path d="m16 17 5-5-5-5M21 12H9"/></symbol>
+<symbol id="i-menu" viewBox="0 0 24 24"><path d="M3 6h18M3 12h18M3 18h18"/></symbol>
+<symbol id="i-chev" viewBox="0 0 24 24"><path d="m14 6-6 6 6 6"/></symbol>
+<symbol id="i-clock" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3.5 2"/></symbol>
+<symbol id="i-plus" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></symbol>
+<symbol id="i-x" viewBox="0 0 24 24"><path d="M18 6 6 18M6 6l12 12"/></symbol>
+<symbol id="i-check" viewBox="0 0 24 24"><path d="M20 6 9 17l-5-5"/></symbol>
+</defs></svg>
+
+<div id="login" class="card">
+  <h2><svg class="i" style="color:var(--green)"><use href="#i-leaf"/></svg> AgriBridge Admin</h2>
+  <p>Enter the admin password to continue.</p>
+  <input type="password" id="pwd" placeholder="Admin password" autocomplete="current-password" onkeydown="if(event.key==='Enter')doLogin()">
+  <button class="btn" style="width:100%;margin-top:12px" id="loginBtn" onclick="doLogin()">Log In</button>
+  <div class="err" id="loginErr" role="alert" aria-live="polite"></div>
+  <div class="muted" id="loginHint" style="font-size:.7rem;margin-top:10px"></div>
+</div>
+
+<div id="dash" class="app hidden">
+  <div class="sidebar" id="sidebar">
+    <div class="brand">
+      <div class="mark"><svg class="i"><use href="#i-leaf"/></svg></div>
+      <div class="txt"><b>AgriBridge</b><small>Admin console</small></div>
+      <button class="iconbtn collapse" id="sbBtn" title="Collapse sidebar" aria-label="Collapse sidebar"
+              aria-pressed="false" onclick="toggleSidebar()"><svg class="i"><use href="#i-chev"/></svg></button>
+    </div>
+    <nav id="nav" aria-label="Admin sections">
+      <div class="navgrp"><span class="tab" data-tab="overview" role="button" tabindex="0" onclick="showTab('overview',this)" onkeydown="if(event.key==='Enter')showTab('overview',this)"><svg class="i"><use href="#i-grid"/></svg><span class="lbl">Overview</span></span></div>
+      <div class="navgrp"><h4>Orders</h4>
+        <span class="tab" data-tab="orders" role="button" tabindex="0" onclick="showTab('orders',this)"><svg class="i"><use href="#i-cart"/></svg><span class="lbl">Orders</span></span>
+        <span class="tab" data-tab="matching" role="button" tabindex="0" onclick="showTab('matching',this)"><svg class="i"><use href="#i-link"/></svg><span class="lbl">Matching</span></span>
+        <span class="tab" data-tab="requests" role="button" tabindex="0" onclick="showTab('requests',this)"><svg class="i"><use href="#i-inquiry"/></svg><span class="lbl">Purchase requests</span></span>
+        <span class="tab" data-tab="offers" role="button" tabindex="0" onclick="showTab('offers',this)"><svg class="i"><use href="#i-handshake"/></svg><span class="lbl">Offers</span></span>
+      </div>
+      <div class="navgrp"><h4>Marketplace</h4>
+        <span class="tab" data-tab="listings" role="button" tabindex="0" onclick="showTab('listings',this)"><svg class="i"><use href="#i-leaf"/></svg><span class="lbl">All Listings</span></span>
+        <span class="tab" data-tab="animals" role="button" tabindex="0" onclick="showTab('animals',this)"><svg class="i"><use href="#i-paw"/></svg><span class="lbl">Animals</span></span>
+        <span class="tab" data-tab="supplies" role="button" tabindex="0" onclick="showTab('supplies',this)"><svg class="i"><use href="#i-box"/></svg><span class="lbl">Supplies</span></span>
+      </div>
+      <div class="navgrp"><h4>People</h4>
+        <span class="tab" data-tab="farmers" role="button" tabindex="0" onclick="showTab('farmers',this)"><svg class="i"><use href="#i-users"/></svg><span class="lbl">Users</span></span>
+        <span class="tab" data-tab="transporters" role="button" tabindex="0" onclick="showTab('transporters',this)"><svg class="i"><use href="#i-wheel"/></svg><span class="lbl">Transporters</span></span>
+      </div>
+      <div class="navgrp"><h4>Delivery &amp; services</h4>
+        <span class="tab" data-tab="deliveries" role="button" tabindex="0" onclick="showTab('deliveries',this)"><svg class="i"><use href="#i-truck"/></svg><span class="lbl">Deliveries</span></span>
+        <span class="tab" data-tab="pricing" role="button" tabindex="0" onclick="showTab('pricing',this)"><svg class="i"><use href="#i-coins"/></svg><span class="lbl">Transport pricing</span></span>
+        <span class="tab" data-tab="cold_storage" role="button" tabindex="0" onclick="showTab('cold_storage',this)"><svg class="i"><use href="#i-snow"/></svg><span class="lbl">Cold storage</span><span class="cnt" id="cnt_cold_storage"></span></span>
+        <span class="tab" data-tab="cold_transport" role="button" tabindex="0" onclick="showTab('cold_transport',this)"><svg class="i"><use href="#i-snow"/></svg><span class="lbl">Refrigerated transport</span><span class="cnt" id="cnt_cold_transport"></span></span>
+        <span class="tab" data-tab="loans" role="button" tabindex="0" onclick="showTab('loans',this)"><svg class="i"><use href="#i-coins"/></svg><span class="lbl">Loan requests</span><span class="cnt" id="cnt_loans"></span></span>
+        <a href="/logistics.html" class="tab" title="Logistics Command Center"><svg class="i"><use href="#i-map"/></svg><span class="lbl">Logistics board</span></a>
+      </div>
+      <div class="navgrp"><h4>Finance</h4>
+        <span class="tab" data-tab="finance" role="button" tabindex="0" onclick="showTab('finance',this)"><svg class="i"><use href="#i-money"/></svg><span class="lbl">Control center</span></span>
+      </div>
+      <div class="navgrp"><h4>Records &amp; system</h4>
+        <span class="tab" data-tab="inbox" role="button" tabindex="0" onclick="showTab('inbox',this)"><svg class="i"><use href="#i-inbox"/></svg><span class="lbl">Inbox</span></span>
+        <span class="tab" data-tab="scans" role="button" tabindex="0" onclick="showTab('scans',this)"><svg class="i"><use href="#i-scan"/></svg><span class="lbl">Crop doctor scans</span></span>
+        <span class="tab" data-tab="activity" role="button" tabindex="0" onclick="showTab('activity',this)"><svg class="i"><use href="#i-bell"/></svg><span class="lbl">Activity</span><span class="cnt" id="cnt_activity"></span></span>
+        <span class="tab" data-tab="errors" role="button" tabindex="0" onclick="showTab('errors',this)"><svg class="i"><use href="#i-warn"/></svg><span class="lbl">Errors</span></span>
+        <span class="tab" data-tab="health" role="button" tabindex="0" onclick="showTab('health',this)"><svg class="i"><use href="#i-pulse"/></svg><span class="lbl">Performance</span></span>
+      </div>
+    </nav>
+  </div>
+  <div class="scrim" onclick="closeNav()"></div>
+  <div class="main">
+    <div class="topbar">
+      <button class="iconbtn" aria-label="Open navigation" onclick="openNav()"><svg class="i"><use href="#i-menu"/></svg></button>
+      <div style="flex:1;min-width:0">
+        <h1 id="pageTitle">Overview</h1>
+        <div class="sub" id="pageSub">Loading…</div>
+      </div>
+      <button class="iconbtn" title="Refresh this section" aria-label="Refresh this section" onclick="refreshTab()"><svg class="i"><use href="#i-refresh"/></svg></button>
+      <button class="iconbtn" title="Log out" aria-label="Log out" onclick="logout()"><svg class="i"><use href="#i-logout"/></svg></button>
+    </div>
+    <div class="view">
+      <div id="overview"></div>
+      <div class="card hidden" id="sectionCard">
+        <div class="toolbar">
+          <input id="search" placeholder="Filter rows…" oninput="renderCurrent()" aria-label="Filter rows">
+          <button class="btn sm amber" id="addBtn" onclick="openCreate()">+ Add</button>
+        </div>
+        <div id="panel" class="tblwrap"><div class="loading">Loading…</div></div>
+        <div class="tblhint" id="tblHint"><svg class="i"><use href="#i-chev"/></svg> Scroll the table sideways — the first column stays put</div>
+      </div>
+    </div>
+    <nav class="bottomnav" aria-label="Primary sections">
+      <span class="bn" data-tab="overview" role="button" tabindex="0" onclick="showTab('overview')"><svg class="i"><use href="#i-grid"/></svg>Overview</span>
+      <span class="bn" data-tab="orders" role="button" tabindex="0" onclick="showTab('orders')"><svg class="i"><use href="#i-cart"/></svg>Orders</span>
+      <span class="bn" data-tab="matching" role="button" tabindex="0" onclick="showTab('matching')"><svg class="i"><use href="#i-link"/></svg>Match</span>
+      <span class="bn" data-tab="finance" role="button" tabindex="0" onclick="showTab('finance')"><svg class="i"><use href="#i-money"/></svg>Finance</span>
+      <span class="bn" role="button" tabindex="0" onclick="openNav()"><svg class="i"><use href="#i-menu"/></svg>More</span>
+    </nav>
+  </div>
+</div>
+
+<!-- Edit / create modal -->
+<div class="overlay" id="editOverlay">
+  <div class="modal">
+    <button class="close" aria-label="Close" onclick="closeEdit()"><svg class="i"><use href="#i-x"/></svg></button>
+    <h3 id="editTitle">Edit</h3>
+    <div id="editFields"></div>
+    <div class="savebar">
+      <button class="btn" style="flex:1" id="saveBtn" onclick="saveEdit()">Save</button>
+    </div>
+    <div class="err" id="editErr"></div>
+  </div>
+</div>
+
+<script>
+  var API = 'https://agribridge-1-og7a.onrender.com';
+  var TOKEN = sessionStorage.getItem('ab_admin_token') || '';
+  var currentTab = 'overview';
+  var DATA = {};      // tab -> rows; loaded lazily and reused on re-open
+  var HAY = {};       // tab -> one lowercase string per row, built when the rows arrive
+  var LOADING = {};   // tab -> true while its first request is in flight
+  var DATA_ERR = {};  // tab -> error, so a failed load is never shown as "no requests"
+  var STATS = null, STATS_ERR = null, STATS_AT = 0;
+  var PERF = [];      // this session's request timings, shown under Performance
+  var INFLIGHT = {};  // path -> Promise, so duplicate concurrent reads share one request
+  var TIMEOUT_MS = 20000;  // a cold Render instance answers late; a warm one answers in ~1s
+
+  var INBOX_TABLES={account_deletion_requests:'Account deletions',privacy_requests:'Privacy requests',contact_messages:'Contact messages',disease_reports:'Disease reports',vet_bookings:'Vet bookings',purchase_requests:'Purchase requests',supply_orders:'Supply orders',payouts:'Payouts',fraud_flags:'Fraud flags',admin_devices:'Admin devices',user_roles:'User roles',reviews:'Reviews',community_posts:'Community posts',transporters:'Transporters',farmers:'Farmers',buyers:'Buyers',order_offers:'Match offers'};
+  var inboxTable='contact_messages';
+  // Admin tab -> service_requests.kind (cold storage, refrigerated transport and loan requests)
+  var SVC_TABS = { cold_storage:'cold_storage', cold_transport:'refrigerated_transport', loans:'loan' };
+  var SVC_STATUSES = ['pending','confirmed','completed','rejected','cancelled'];
+  var editState = null; // {table, id, isNew}
+  var FIN = { view:'overview', cache:{}, errors:{}, loading:false, report:{ from:'', to:'' } };
+  var FIN_VIEWS = [['overview','Overview'],['ledger','Ledger'],['farmers','Farmer settlements'],['transporters','Transporter settlements'],['reconciliation','Reconciliation'],['recurring','Recurring'],['reports','Reports']];
+
+  function h(s){return String(s==null?'':s).replace(/[<>&"]/g,function(c){return {'<':'&lt;','>':'&gt;','&':'&amp;','"':'&quot;'}[c];});}
+  function fmt(n){return 'UGX '+(Number(n)||0).toLocaleString('en-UG');}
+  // KPI cards are narrow; a full shilling figure must never wrap to two lines.
+  function fmtShort(n){
+    n = Number(n)||0;
+    if(Math.abs(n) >= 1e9) return 'UGX '+(n/1e9).toFixed(n<1e10?2:1).replace(/\.?0+$/,'')+'B';
+    if(Math.abs(n) >= 1e6) return 'UGX '+(n/1e6).toFixed(n<1e7?2:1).replace(/\.?0+$/,'')+'M';
+    return 'UGX '+n.toLocaleString('en-UG');
+  }
+  function icon(name,cls){ return '<svg class="i'+(cls?' '+cls:'')+'" aria-hidden="true"><use href="#i-'+name+'"/></svg>'; }
+  function ago(ts){
+    if(!ts) return '';
+    var s = Math.max(0, Math.round((Date.now()-ts)/1000));
+    if(s<60) return s<5 ? 'just now' : s+'s ago';
+    if(s<3600) return Math.round(s/60)+'m ago';
+    if(s<86400) return Math.round(s/3600)+'h ago';
+    return Math.round(s/86400)+'d ago';
+  }
+  function recordPerf(path, ms, note){
+    PERF.unshift({path:path, ms:ms, note:note||'', at:Date.now()});
+    if(PERF.length>60) PERF.length=60;
+  }
+  // Six months fits the card on a 320px phone without clipping a bar.
+  var CHART_MONTHS = 6;
+  // An AbortError carries no useful message; say what the admin can act on.
+  function errText(e){
+    if(!e) return 'the request failed.';
+    if(typeof e==='string') return e;
+    if(e.name==='AbortError') return 'the server did not answer within '+(TIMEOUT_MS/1000)+' s.';
+    return e.message || 'the request failed.';
+  }
+  function api(path, opts){
+    opts = opts || {};
+    var isRead = !opts.method || opts.method==='GET';
+    if(isRead && INFLIGHT[path]) return INFLIGHT[path];
+    var init = Object.assign({}, opts);
+    init.headers = Object.assign({'Content-Type':'application/json'}, opts.headers||{},
+                                 TOKEN?{'Authorization':'Bearer '+TOKEN}:{});
+    var ctl = window.AbortController ? new AbortController() : null;
+    if(ctl) init.signal = ctl.signal;
+    var timer = ctl ? setTimeout(function(){ ctl.abort(); }, TIMEOUT_MS) : null;
+    var t0 = performance.now();
+    var p = fetch(API+path, init).then(function(r){
+      if(r.status===401){ logout(); throw new Error('unauthorized'); }
+      if(!r.ok){
+        // A 5xx from the API has a body, but never one the admin needs to read.
+        return r.json().catch(function(){ return null; }).then(function(j){
+          throw new Error((j&&j.error)?j.error:'the server returned HTTP '+r.status+'.');
+        });
+      }
+      return r.json().catch(function(){ return null; });
+    }).finally(function(){
+      if(timer) clearTimeout(timer);
+      delete INFLIGHT[path];
+      recordPerf(path, Math.round(performance.now()-t0));
+    });
+    if(isRead) INFLIGHT[path] = p;
+    return p;
+  }
+
+  // ── Audit log ───────────────────────────────────────────────────
+  // Writes an audit event to the backend for every significant admin action.
+  // Fire-and-forget: failures are logged to console only, never block the action.
+  function auditLog(action, details){
+    if(!TOKEN) return;
+    var payload = { action: action, details: details || {}, ts: new Date().toISOString() };
+    fetch(API+'/api/mgmt-ab19/audit', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer '+TOKEN },
+      body: JSON.stringify(payload)
+    }).catch(function(e){ console.warn('[audit]', action, e && e.message); });
+  }
+
+  // ── Field definitions per table ─────────────────────────────────
+  var FIELDS = {
+    listings: [
+      {k:'crop_name',label:'Crop name',t:'text'},
+      {k:'category',label:'Category',t:'select',opts:['staples','vegetables','fruits','cash crops']},
+      {k:'price_per_kg',label:'Price (UGX/kg)',t:'number'},
+      {k:'quantity_kg',label:'Quantity (kg)',t:'number'},
+      {k:'unit',label:'Unit',t:'text'},
+      {k:'district',label:'District',t:'text'},
+      {k:'description',label:'Description',t:'textarea'},
+      {k:'discount_pct',label:'Discount %',t:'number'},
+      {k:'is_available',label:'Available (shown in market)',t:'check'},
+      {k:'is_organic',label:'Organic',t:'check'},
+      {k:'is_verified',label:'Verified',t:'check'},
+      {k:'farmer_phone',label:'Seller phone',t:'text'},
+      {k:'image_url',label:'Photo',t:'image'},
+      {k:'video_url',label:'Video',t:'video'}
+    ],
+    animal_listings: [
+      {k:'name',label:'Animal / listing name',t:'text'},
+      {k:'species',label:'Species',t:'text'},
+      {k:'category',label:'Category',t:'select',opts:['livestock','poultry','dairy','aqua','apiary','pigs']},
+      {k:'price',label:'Price (UGX)',t:'number'},
+      {k:'qty',label:'Quantity available',t:'number'},
+      {k:'unit',label:'Unit',t:'text'},
+      {k:'district',label:'District',t:'text'},
+      {k:'description',label:'Description',t:'textarea'},
+      {k:'status',label:'Status',t:'select',opts:['active','sold','hidden']},
+      {k:'health_cert',label:'Health certificate',t:'check'},
+      {k:'maaif_certified',label:'MAAIF certified',t:'check'},
+      {k:'farmer_name',label:'Seller name',t:'text'},
+      {k:'farmer_phone',label:'Seller phone',t:'text'},
+      {k:'image_url',label:'Photo',t:'image'},
+      {k:'video_url',label:'Video',t:'video'}
+    ],
+    farmers: [
+      {k:'full_name',label:'Name',t:'text'},
+      {k:'phone',label:'Phone',t:'text'},
+      {k:'email',label:'Email',t:'text'},
+      {k:'district',label:'District',t:'text'},
+      {k:'is_verified',label:'Verified',t:'check'},
+      {k:'is_premium',label:'Premium',t:'check'}
+    ],
+    orders: [
+      {k:'delivery_address',label:'Delivery address',t:'text'},
+      {k:'notes',label:'Notes',t:'textarea'}
+    ],
+    deliveries: [
+      {k:'tracking_code',label:'Tracking code',t:'text'},
+      {k:'status',label:'Delivery status',t:'select',opts:['scheduled','picked_up','in_transit','at_checkpoint','delivered','failed']},
+      {k:'driver_name',label:'Driver name',t:'text'},
+      {k:'driver_phone',label:'Driver phone',t:'text'},
+      {k:'pickup_location',label:'Pickup location',t:'text'},
+      {k:'delivery_location',label:'Delivery location',t:'text'},
+      {k:'estimated_arrival',label:'Estimated arrival',t:'text'},
+      {k:'notes',label:'Notes',t:'textarea'}
+    ],
+    transporters: [
+      {k:'full_name',label:'Full name',t:'text'},
+      {k:'phone',label:'Phone (07…)',t:'text'},
+      {k:'email',label:'Email',t:'text'},
+      {k:'vehicle_type',label:'Vehicle type',t:'select',opts:['pickup','lorry','motorcycle','minibus','van','tractor']},
+      {k:'plate_number',label:'Number plate',t:'text'},
+      {k:'district',label:'District',t:'text'},
+      {k:'capacity_kg',label:'Capacity (kg)',t:'number'},
+      {k:'notes',label:'Notes / MOU ref',t:'textarea'},
+      {k:'status',label:'Account status',t:'select',opts:['active','inactive']},
+      {k:'is_available',label:'Available now',t:'check'},
+      // The portal finds a driver by this id, so a row without it answers
+      // "account not linked" no matter what else is filled in.
+      {k:'supabase_uid',label:'Login UID (Supabase → Authentication → Users → copy the user id)',t:'text'}
+    ],
+    supplier_products: [
+      {k:'name',label:'Product name',t:'text'},
+      {k:'category',label:'Category',t:'select',opts:['seeds','fertilizer','pesticide','tool','animal_supply']},
+      {k:'brand',label:'Brand',t:'text'},
+      {k:'price',label:'Price (UGX)',t:'number'},
+      {k:'unit',label:'Unit',t:'text'},
+      {k:'badge',label:'Badge / tag',t:'text'},
+      {k:'description',label:'Description',t:'textarea'},
+      {k:'image_id',label:'Unsplash photo id',t:'text'},
+      {k:'in_stock',label:'In stock (shown in app)',t:'check'}
+    ]
+  };
+  var TABLE_OF = { orders:'orders', listings:'listings', animals:'animal_listings', deliveries:'deliveries', supplies:'supplier_products', farmers:'farmers', requests:'purchase_requests', offers:'offers', transporters:'transporters' };
+
+  // ── Auth ────────────────────────────────────────────────────────
+  // Mirrors SETTINGS.cors_origins in services/config.py. Anything else - most
+  // often a *.workers.dev preview host - is blocked by the browser before the
+  // request is sent, which looks identical to a dead server unless it is named.
+  var OK_HOSTS = { 'agribrige.com':1, 'www.agribrige.com':1, 'agribridge-1-og7a.onrender.com':1,
+                   'localhost':1, '127.0.0.1':1, '':1 };
+  function wrongOrigin(){ return !OK_HOSTS[location.hostname]; }
+  // The password goes to the server and nowhere else: it is never cached, logged
+  // or retried automatically, and one submission stays in flight at a time because
+  // the login route allows only 5 attempts per 5 minutes.
+  var AUTH_BUSY = false;
+  async function doLogin(){
+    var btn=document.getElementById('loginBtn'), pwd=document.getElementById('pwd'),
+        e=document.getElementById('loginErr'), hint=document.getElementById('loginHint');
+    e.textContent='';
+    if(AUTH_BUSY) return;
+    var v=pwd.value;
+    if(!v){ e.textContent='Enter the admin password.'; pwd.focus(); return; }
+    AUTH_BUSY=true; btn.disabled=true; pwd.disabled=true; btn.textContent='Signing in…';
+    hint.textContent='If the API is asleep this can take up to a minute.';
+    var ctl=window.AbortController?new AbortController():null;
+    var timer=ctl?setTimeout(function(){ ctl.abort(); }, 60000):null;
+    var t0=performance.now();
+    try{
+      var res=await fetch(API+'/api/mgmt-ab19/login',{method:'POST',headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({password:v}), signal:ctl?ctl.signal:undefined});
+      var j=await res.json().catch(function(){return null;});
+      var ms=Math.round(performance.now()-t0);
+      recordPerf('/api/mgmt-ab19/login', ms, 'HTTP '+res.status);
+      if(res.ok&&j&&j.token){
+        TOKEN=j.token; sessionStorage.setItem('ab_admin_token',TOKEN);
+        pwd.value=''; hint.textContent='Signed in in '+(ms/1000).toFixed(1)+' s.';
+        auditLog('login_success', {host: location.hostname});
+        showDash();
+      } else if(res.status===401){
+        e.textContent='That password is not correct.';
+      } else if(res.status===429){
+        e.textContent='Too many attempts from this address. Wait a few minutes and try again.';
+      } else if(res.status===503){
+        e.textContent='Admin login is disabled on the server (ADMIN_PASSWORD is not configured).';
+      } else {
+        e.textContent=(j&&j.error)?j.error:'Login failed (HTTP '+res.status+').';
+      }
+    }catch(err){
+      // A rejected fetch is not always a sleeping server. Chrome reports a
+      // cross-origin block exactly like a dead connection, and the API only
+      // answers the origins listed in services/config.py - a *.workers.dev
+      // preview address is not one of them, so the login POST never leaves the
+      // browser. Saying "it may be waking up" there sends the admin to sleep.
+      console.warn('admin login request failed:', err&&(err.name||'')+': '+(err.message||''), 'page origin', location.origin);
+      e.textContent = (err && err.name==='AbortError')
+        ? 'The server did not answer within 60 s. It is probably still starting — try again in about 20 s.'
+        : wrongOrigin()
+          ? 'This page is open at '+location.hostname+', which the API does not accept as a source, so the browser blocked the sign-in before it was sent. Open https://agribrige.com/admin instead.'
+          : 'Could not reach the server. Wait ~20 s for it to wake up, then try again.';
+    }finally{
+      if(timer) clearTimeout(timer);
+      AUTH_BUSY=false; btn.disabled=false; btn.textContent='Log In';
+      if(!document.getElementById('login').classList.contains('hidden')){
+        pwd.disabled=false; pwd.focus();
+      }
+    }
+  }
+  function showDash(){
+    document.getElementById('login').classList.add('hidden');
+    document.getElementById('dash').classList.remove('hidden');
+    showTab('overview');
+    refreshAll();
+    startActPoll();
+  }
+  function logout(){
+    TOKEN=''; sessionStorage.removeItem('ab_admin_token');
+    stopActPoll();                       // a signed-out console asks the server nothing
+    // Nothing from the previous session survives a sign-out on a shared machine.
+    DATA={}; HAY={}; LOADING={}; DATA_ERR={}; STATS=null; STATS_AT=0; STATS_ERR=null;
+    ACT_USER=null;
+    FIN.cache={}; FIN.errors={}; FIN.loading=false; PERF=[];
+    document.getElementById('dash').classList.add('hidden');
+    document.getElementById('login').classList.remove('hidden');
+    // doLogin() disables the form and only re-enables it if the sign-in screen was
+    // still showing when it finished, so a sign-out has to hand the form back.
+    var pwd=document.getElementById('pwd'), btn=document.getElementById('loginBtn');
+    AUTH_BUSY=false; btn.disabled=false; btn.textContent='Log In';
+    pwd.disabled=false; pwd.value=''; pwd.focus();
+    document.getElementById('loginErr').textContent='';
+    document.getElementById('loginHint').textContent='';
+    closeNav();
+  }
+
+  // Staged loading. Every list endpoint is its own round trip and the API serves
+  // from two workers, so the first screen asks for two things and the rest is
+  // fetched when it is opened (or once the browser is idle, for the badge counts).
+  var TIER2 = ['cold_storage','cold_transport','loans'];
+  var TAIL  = ['listings','animals','deliveries','supplies','farmers','requests','offers','transporters'];
+
+  async function refreshAll(){
+    await Promise.all([loadStats(), ensure('orders')]);
+    renderOverview();
+    idle(function(){ TIER2.forEach(function(t){ ensure(t); }); });
+    idle(function(){ TAIL.forEach(function(t){ ensure(t); }); });
+  }
+  function idle(fn){ if(window.requestIdleCallback) requestIdleCallback(fn,{timeout:4000}); else setTimeout(fn,1500); }
+  function ensure(tab, force){
+    if(!force && DATA[tab] && !DATA_ERR[tab]) return Promise.resolve();
+    return load(tab);
+  }
+  function refreshTab(){
+    if(currentTab==='overview'){ loadStats().then(renderOverview); return; }
+    if(currentTab==='health'){ renderHealth(); return; }
+    if(currentTab==='finance'){ FIN.cache[FIN.view]=null; loadFinance(FIN.view); return; }
+    if(currentTab==='pricing'){ loadPricing(true); return; }
+    load(currentTab, false, true);
+  }
+  function openNav(){ document.body.classList.add('nav-open'); }
+  function closeNav(){ document.body.classList.remove('nav-open'); }
+  // Desktop only: the rail is a preference, not state, so losing it is harmless.
+  function toggleSidebar(){
+    var min = document.body.classList.toggle('sb-min');
+    var b = document.getElementById('sbBtn');
+    b.title = b.getAttribute('aria-label') = min ? 'Expand sidebar' : 'Collapse sidebar';
+    b.setAttribute('aria-pressed', min ? 'true' : 'false');
+    try{ localStorage.setItem('ab_sb_min', min ? '1' : '0'); }catch(e){}
+    scheduleScrollHint();
+  }
+  function initSidebar(){
+    if(localStorage.getItem('ab_sb_min') === '1') document.body.classList.add('sb-min');
+    document.querySelectorAll('.sidebar [data-tab]').forEach(function(n){
+      var t = n.getAttribute('data-tab');
+      n.title = (TITLES[t] || [t])[0];   // labels are hidden when the rail is collapsed
+    });
+  }
+  function showTabByName(t,q){
+    showTab(t);
+    if(q!=null){ var s=document.getElementById('search'); s.value=q; renderCurrent(); }
+  }
+  function retryTab(tab){ return load(tab, false, true).then(renderCurrent); }
+
+  // ── Financial Control Center (read-only) ────────────────────────
+  function finMoney(v){ return (v===null||v===undefined)?'—':fmt(v); }
+  function finKpi(label,value,sub){
+    return '<div class="fin-kpi"><div class="l">'+h(label)+'</div><div class="v">'+value+'</div>'+
+      (sub?'<div class="s">'+h(sub)+'</div>':'')+'</div>';
+  }
+  function finBadge(status){
+    var s=String(status||'unknown');
+    return '<span class="badge '+h(s)+'">'+h(s.replace(/_/g,' '))+'</span>';
+  }
+  function finDate(v){
+    if(!v) return '—';
+    var d=new Date(v); return isNaN(d)?h(v):d.toLocaleString('en-UG');
+  }
+  function finShortId(v){ return v?String(v).slice(0,8):'—'; }
+
+  async function loadFinance(view){
+    if(!FIN_VIEWS.some(function(v){return v[0]===view;})) view='overview';
+    FIN.view=view; FIN.loading=true; FIN.errors[view]=null;
+    renderFinance();
+    var paths={overview:'/api/mgmt-ab19/finance/overview',ledger:'/api/mgmt-ab19/finance/journals?limit=100',farmers:'/api/mgmt-ab19/finance/farmer-settlements',transporters:'/api/mgmt-ab19/finance/transporter-settlements',reconciliation:'/api/mgmt-ab19/finance/reconciliation',recurring:'/api/mgmt-ab19/finance/recurring',reports:'/api/mgmt-ab19/finance/reports'};
+    var path=paths[view];
+    if(view==='reports'){
+      var q=[];
+      if(FIN.report.from) q.push('from='+encodeURIComponent(FIN.report.from));
+      if(FIN.report.to) q.push('to='+encodeURIComponent(FIN.report.to));
+      if(q.length) path+='?'+q.join('&');
+    }
+    try{
+      var d=await api(path);
+      if(!d) throw new Error('The server returned no data.');
+      if(d.error) throw new Error(d.error+(d.fix?' — '+d.fix:''));
+      FIN.cache[view]=d;
+    }catch(e){ FIN.errors[view]=(e&&e.message)?e.message:'Could not load finance data.'; }
+    FIN.loading=false;
+    if(currentTab==='finance') renderFinance();
+  }
+
+  function renderFinance(){
+    if(currentTab!=='finance') return;
+    var v=FIN.view, d=FIN.cache[v], err=FIN.errors[v];
+    var html='<div class="fin-subnav">'+FIN_VIEWS.map(function(p){
+      return '<button class="fin-sub'+(p[0]===v?' active':'')+'" onclick="loadFinance(\''+p[0]+'\')">'+h(p[1])+'</button>';
+    }).join('')+'</div>';
+    if(err){
+      html+='<div class="fin-note"><strong>Could not load this view.</strong><br>'+h(err)+'</div>'+
+        '<button class="btn sm" onclick="loadFinance(\''+v+'\')">Retry</button>';
+      setPanel(html); return;
+    }
+    if(!d){ setPanel(html+'<div class="loading">Loading…</div>'); return; }
+    if(v==='overview') html+=finOverview(d);
+    else if(v==='ledger') html+=finLedger(d);
+    else if(v==='farmers') html+=finFarmers(d);
+    else if(v==='transporters') html+=finTransporters(d);
+    else if(v==='reconciliation') html+=finReconciliation(d);
+    else if(v==='recurring') html+=finRecurring(d);
+    else if(v==='reports') html+=finReports(d);
+    if(d.warnings&&d.warnings.length){
+      html+='<div class="fin-note">'+d.warnings.map(h).join('<br>')+'</div>';
+    }
+    setPanel(html);
+  }
+
+  function finOverview(d){
+    var cp=d.customer_payments||{}, fp=d.farmer_payables||{};
+    var cr=d.commission_revenue||{}, rf=d.refunds||{}, os=d.outstanding_settlements||{};
+    var l=d.ledger||{};
+    var html='<div class="fin-kpis">'+
+      finKpi('Customer payments received', finMoney(cp.received), (cp.count||0)+' paid order(s)')+
+      finKpi('Farmer payables outstanding', finMoney(fp.outstanding), (fp.count||0)+' unpaid payout(s)')+
+      finKpi('Commission revenue', finMoney(cr.recognized), 'Pending '+finMoney(cr.pending))+
+      finKpi('Refunds', finMoney(rf.amount), (rf.count||0)+' refunded order(s)')+
+      finKpi('Outstanding settlements', finMoney(os.amount), (os.count||0)+' settlement(s)')+
+      finKpi('Transporter payables', 'Not captured', 'No agreed charge stored')+
+      finKpi('Delivery revenue', 'Not captured', 'No separate fee stored')+
+      '</div>';
+    html+='<div class="fin-section">Ledger position</div>';
+    if(!l.ready){
+      html+='<div class="fin-note"><strong>Ledger not initialized.</strong> The double-entry tables from migration 0013 are not in this database, so ledger balances and reconciliation are unavailable. The payment and payout figures above come from orders and payouts — not from the ledger.<br>'+
+        'Run <code>supabase/migrations/0013_ledger_core.up.sql</code> in Supabase → SQL Editor, then reload this page.</div>';
+    }else{
+      html+='<div class="fin-note '+(l.balanced?'ok':'')+'">Debits '+finMoney(l.total_debits)+' · Credits '+finMoney(l.total_credits)+' · '+
+        (l.balanced?'<strong>Balanced</strong>':'<strong class="fin-bad">NOT balanced — investigate before paying out</strong>')+'</div>';
+      var body=(l.accounts||[]).map(function(a){
+        return '<tr><td><code>'+h(a.code)+'</code></td><td>'+h(a.name)+'</td><td>'+h(a.type)+'</td>'+
+          '<td class="num">'+finMoney(a.total_debits)+'</td><td class="num">'+finMoney(a.total_credits)+'</td>'+
+          '<td class="num">'+finMoney(a.balance)+'</td></tr>';
+      }).join('');
+      html+='<div class="tblwrap"><table class="fin-table"><thead><tr><th>Account</th><th>Name</th><th>Type</th><th class="num">Debits</th><th class="num">Credits</th><th class="num">Balance</th></tr></thead><tbody>'+body+'</tbody></table></div>';
+    }
+    html+='<div class="fin-note" style="margin-top:12px">Transporter payables and delivery revenue stay blank until the database stores an agreed transporter charge and a separate delivery fee. They are not zero.</div>';
+    return html;
+  }
+
+  function finLedger(d){
+    if(!d.rows||!d.rows.length){
+      return '<div class="fin-note ok">The ledger is initialized but no journals have been posted yet. Verified payments and settlements are not wired to it so far.</div>';
+    }
+    var body=d.rows.map(function(j){
+      var lines=(j.lines||[]).map(function(ln){
+        return '<div class="muted" style="font-size:.74rem">'+h(ln.account_code)+' · '+h(ln.side)+' · '+finMoney(ln.amount)+(ln.memo?' · '+h(ln.memo):'')+'</div>';
+      }).join('');
+      return '<tr><td>'+finDate(j.posted_at)+'</td>'+
+        '<td><code>'+h(j.reference)+'</code>'+(j.payment_ref?'<div class="muted" style="font-size:.72rem">pay '+h(j.payment_ref)+'</div>':'')+'</td>'+
+        '<td>'+h(j.kind)+'</td><td>'+h(j.description||'—')+'</td>'+
+        '<td class="num">'+finMoney(j.amount)+'</td><td>'+finBadge(j.status)+'</td><td>'+lines+'</td></tr>';
+    }).join('');
+    return '<div class="fin-section">'+d.count+' most recent journal(s)</div>'+
+      '<div class="tblwrap"><table class="fin-table"><thead><tr><th>Posted</th><th>Reference</th><th>Kind</th><th>Description</th><th class="num">Total</th><th>Status</th><th>Entries</th></tr></thead><tbody>'+body+'</tbody></table></div>'+
+      '<div class="fin-note" style="margin-top:12px">Posted entries are immutable. A correction must be a reversing journal, never an edit.</div>';
+  }
+
+  function finFarmers(d){
+    var s=d.summary||{};
+    var html='<div class="fin-kpis">'+
+      finKpi('Completed sales', finMoney(s.completed_sales_value), (s.completed_sales_count||0)+' delivered order(s)')+
+      finKpi('Outstanding', finMoney(s.outstanding), 'Net owed to farmers')+
+      finKpi('Paid to date', finMoney((s.paid||{}).amount), ((s.paid||{}).count||0)+' paid')+
+      finKpi('Pending', finMoney((s.pending||{}).amount), ((s.pending||{}).count||0)+' payout(s)')+
+      finKpi('Failed', finMoney((s.failed||{}).amount), ((s.failed||{}).count||0)+' payout(s)')+
+      finKpi('Disputed', finMoney((s.disputed||{}).amount), ((s.disputed||{}).count||0)+' payout(s)')+
+      '</div>';
+    if(!d.rows||!d.rows.length){
+      return html+'<div class="fin-note ok">No farmer payouts have been created yet.</div>';
+    }
+    FIN.farmerRows={};
+    (d.rows||[]).forEach(function(r){ FIN.farmerRows[String(r.id)]=r; });
+    var body=d.rows.map(function(r){
+      var action='';
+      if(r.status==='pending'){
+        action=(r.order_status==='delivered' && r.order_payment_status==='paid')
+          ? '<button class="btn sm" onclick="settlePayout(\''+h(r.id)+'\')">Settle</button>'
+          : '<span class="muted" style="font-size:.72rem">Order not settleable</span>';
+      } else if(r.status==='paid'){
+        action='<span class="muted" style="font-size:.72rem">'+finDate(r.paid_at)+'</span>';
+      }
+      return '<tr><td>'+finDate(r.created_at)+'</td><td>'+h(finShortId(r.order_id))+'</td>'+
+        '<td>'+h(r.farmer_name)+'</td><td class="num">'+finMoney(r.gross_amount)+'</td>'+
+        '<td class="num">'+finMoney(r.commission_amount)+'<div class="muted" style="font-size:.72rem">'+h(r.commission_pct)+'%</div></td>'+
+        '<td class="num">'+finMoney(r.net_amount)+'</td><td>'+finBadge(r.status)+'</td>'+
+        '<td>'+h(r.provider_ref||'—')+'</td><td>'+action+'</td></tr>';
+    }).join('');
+    return html+'<div class="tblwrap"><table class="fin-table"><thead><tr><th>Created</th><th>Order</th><th>Farmer</th><th class="num">Gross</th><th class="num">Commission</th><th class="num">Net</th><th>Status</th><th>Payment ref</th><th>Action</th></tr></thead><tbody>'+body+'</tbody></table></div>'+
+      '<div class="fin-note" style="margin-top:12px">Settling posts an immutable journal: debit FARMER_PAYABLE, credit COMMISSION_REVENUE and the account the customer paid into. The provider reference is recorded as proof the money moved.</div>';
+  }
+
+  async function settlePayout(id){
+    var r=(FIN.farmerRows||{})[String(id)];
+    if(!r) return;
+    var provider=prompt('Payment channel (e.g. MTN MoMo, Airtel Money, bank):','MTN MoMo');
+    if(provider===null) return;
+    var ref=prompt('Provider / bank transaction reference (proof the money moved):');
+    if(ref===null) return;
+    ref=(ref||'').trim();
+    if(!ref){ alert('A provider reference is required.'); return; }
+    if(!confirm('Settle '+finMoney(r.net_amount)+' to '+r.farmer_name+'?\n\nThis posts an immutable settlement journal and marks the payout paid.')) return;
+    try{
+      var res=await api('/api/mgmt-ab19/payouts/'+encodeURIComponent(id)+'/settle',{
+        method:'POST',
+        body:JSON.stringify({provider:provider,provider_ref:ref})
+      });
+      if(res&&res.ok){
+        alert(res.already_settled?'This payout was already settled.':'Settlement posted.');
+        await loadFinance(FIN.view);
+      } else {
+        alert((res&&(res.error||res.detail))||'Settlement failed.');
+      }
+    }catch(e){ alert('Settlement request failed.'); }
+  }
+
+  function finTransporters(d){
+    var s=d.summary||{};
+    var html='<div class="fin-note"><strong>Transporter payables are not available.</strong> '+h(d.reason||'')+'</div>';
+    html+='<div class="fin-kpis">'+
+      finKpi('Deliveries', s.deliveries_total||0, 'All records')+
+      finKpi('Delivered', s.delivered_count||0, 'Completion recorded')+
+      finKpi('Failed', s.failed_count||0, 'Needs follow-up')+
+      finKpi('Payable', 'Not captured', 'No agreed charge')+
+      '</div>';
+    if(!d.rows||!d.rows.length){
+      return html+'<div class="fin-note ok">No deliveries have been recorded yet.</div>';
+    }
+    var body=d.rows.map(function(r){
+      return '<tr><td>'+h(finShortId(r.order_id))+'</td><td>'+h(r.driver_name||'Unassigned')+'</td>'+
+        '<td>'+finBadge(r.status)+'</td><td>'+finDate(r.delivered_at)+'</td>'+
+        '<td class="num">—</td><td>'+finBadge('not_captured')+'</td></tr>';
+    }).join('');
+    return html+'<div class="tblwrap"><table class="fin-table"><thead><tr><th>Order</th><th>Driver</th><th>Status</th><th>Delivered</th><th class="num">Agreed charge</th><th>Payable</th></tr></thead><tbody>'+body+'</tbody></table></div>';
+  }
+
+  function finReconciliation(d){
+    var s=d.summary||{}, c=d.checked||{};
+    var html='<div class="fin-kpis">'+
+      finKpi('Paid orders checked', c.paid_orders||0, (c.payment_refs||0)+' payment ref(s)')+
+      finKpi('Issues', s.issues_total||0, (s.errors||0)+' error(s) · '+(s.warnings||0)+' warning(s)')+
+      finKpi('Active journals', c.active_journals||0, 'Posted, non-reversal')+
+      '</div>';
+    if(!d.issues||!d.issues.length){
+      return html+'<div class="fin-note ok">No discrepancies found between paid orders and the ledger.</div>';
+    }
+    var body=d.issues.map(function(i){
+      var sev=i.severity==='error'?'cancelled':'pending';
+      return '<tr><td><span class="badge '+sev+'">'+h(i.severity)+'</span></td><td>'+h(i.type.replace(/_/g,' '))+'</td>'+
+        '<td>'+h(i.payment_ref||'—')+'</td><td class="num">'+finMoney(i.amount)+'</td>'+
+        '<td style="max-width:320px">'+h(i.detail)+(i.order_ids&&i.order_ids.length?'<div class="muted" style="font-size:.72rem">Orders: '+h(i.order_ids.map(finShortId).join(', '))+'</div>':'')+'</td></tr>';
+    }).join('');
+    return html+'<div class="tblwrap"><table class="fin-table"><thead><tr><th>Severity</th><th>Type</th><th>Payment ref</th><th class="num">Amount</th><th>Detail</th></tr></thead><tbody>'+body+'</tbody></table></div>';
+  }
+
+  function finRecurring(d){
+    var s=d.summary||{};
+    var html='<div class="fin-kpis">'+
+      finKpi('Subscriptions', s.subscriptions||0, (s.active_subscriptions||0)+' active')+
+      finKpi('Charges', s.charges||0, (s.paid_charges||0)+' paid')+
+      finKpi('Total charged', finMoney(s.total_charged), 'Recurring cycles')+
+      '</div>';
+    html+='<div class="fin-note">Recurring money is held in <code>SUSPENSE_OVERPAYMENT</code> until operations allocate it to a real order. It is never credited to a farmer automatically.</div>';
+    if(s.paid_amount_without_ledger>0){
+      html+='<div class="fin-note"><strong class="fin-bad">'+finMoney(s.paid_amount_without_ledger)+'</strong> of paid recurring charges have no ledger reference. Investigate the ledger and re-deliver the IPN.</div>';
+    }
+    if(!d.subscriptions||!d.subscriptions.length){
+      html+='<div class="fin-note ok">No recurring subscriptions have been created yet.</div>';
+    }else{
+      var subs=d.subscriptions.map(function(r){
+        return '<tr><td>'+h(r.account_ref||'—')+'</td><td><code>'+h(r.provider_correlation_id||'—')+'</code></td>'+
+          '<td class="num">'+finMoney(r.amount)+'</td><td>'+finBadge(r.status)+'</td>'+
+          '<td>'+finDate(r.last_charged_at)+'</td><td>'+finDate(r.created_at)+'</td></tr>';
+      }).join('');
+      html+='<div class="fin-section">Subscriptions</div><div class="tblwrap"><table class="fin-table"><thead><tr><th>Account / order</th><th>Pesapal correlation</th><th class="num">Amount</th><th>Status</th><th>Last charged</th><th>Created</th></tr></thead><tbody>'+subs+'</tbody></table></div>';
+    }
+    if(d.charges&&d.charges.length){
+      var body=d.charges.map(function(r){
+        return '<tr><td>'+finDate(r.created_at)+'</td><td><code>'+h(r.provider_tracking_id||'—')+'</code></td>'+
+          '<td>'+h(r.account_ref||'—')+'</td><td class="num">'+finMoney(r.amount)+'</td>'+
+          '<td>'+finBadge(r.status)+'</td><td>'+h(r.ledger_reference||'not posted')+'</td></tr>';
+      }).join('');
+      html+='<div class="fin-section">Charges</div><div class="tblwrap"><table class="fin-table"><thead><tr><th>Received</th><th>Pesapal tracking</th><th>Account / order</th><th class="num">Amount</th><th>Status</th><th>Ledger</th></tr></thead><tbody>'+body+'</tbody></table></div>';
+    }
+    return html;
+  }
+
+  function finReports(d){
+    var r=d.range||{}, o=d.orders||{}, st=d.settlements||{}, li=d.liabilities||{}, l=d.ledger||{};
+    var html='<div class="fin-range">'+
+      '<div><label>From</label><input type="date" id="finFrom" value="'+h(FIN.report.from||r.from||'')+'"></div>'+
+      '<div><label>To</label><input type="date" id="finTo" value="'+h(FIN.report.to||r.to||'')+'"></div>'+
+      '<button class="btn sm" onclick="applyFinanceReport()">Apply</button>'+
+      '</div>';
+    html+='<div class="fin-kpis">'+
+      finKpi('Orders', finMoney(o.value), (o.count||0)+' order(s)')+
+      finKpi('Paid orders', finMoney(o.paid_value), (o.paid_count||0)+' order(s)')+
+      finKpi('Refunded', finMoney(o.refunded_value), (o.refunded_count||0)+' order(s)')+
+      finKpi('Gross settlements', finMoney(st.gross), (st.payouts_count||0)+' payout(s)')+
+      finKpi('Commission', finMoney(st.commission), 'In period')+
+      finKpi('Net settlements', finMoney(st.net), 'In period')+
+      finKpi('Unpaid liability', finMoney(li.unpaid_net), (li.unpaid_count||0)+' payout(s), all time')+
+      finKpi('Journals', l.journals_count||0, 'Posted in period')+
+      '</div>';
+    if(l.account_activity&&l.account_activity.length){
+      var body=l.account_activity.map(function(a){
+        return '<tr><td><code>'+h(a.account_code)+'</code></td><td class="num">'+finMoney(a.debits)+'</td><td class="num">'+finMoney(a.credits)+'</td><td class="num">'+finMoney(a.net)+'</td></tr>';
+      }).join('');
+      html+='<div class="fin-section">Ledger account activity</div><div class="tblwrap"><table class="fin-table"><thead><tr><th>Account</th><th class="num">Debits</th><th class="num">Credits</th><th class="num">Net</th></tr></thead><tbody>'+body+'</tbody></table></div>';
+    }else{
+      html+='<div class="fin-note">No ledger activity in this period'+(l.ready===false?' (ledger not initialized)':'')+'. Order and payout totals above do not depend on the ledger.</div>';
+    }
+    return html;
+  }
+
+  function applyFinanceReport(){
+    var f=document.getElementById('finFrom'), t=document.getElementById('finTo');
+    var from=f?f.value:'', to=t?t.value:'';
+    if(from&&to&&from>to){ alert('From must be on or before To.'); return; }
+    FIN.report.from=from; FIN.report.to=to; loadFinance('reports');
+  }
+
+  // ── Overview ───────────────────────────────────────────────────
+  // Four primary KPIs, a compact orders chart, and the things that need action.
+  // A metric that could not be fetched is rendered as "unavailable", never as 0.
+  var TITLES = {
+    overview:['Overview','What needs attention'],
+    orders:['Orders','Newest first, up to 500 rows'],
+    matching:['Matching','Pending orders awaiting a farmer'],
+    requests:['Purchase requests','Buyer requests, newest first'],
+    offers:['Offers','Farmer replies to requests'],
+    listings:['All Listings','Every listing farmers have published, filtered by category'],
+    animals:['Animal listings','Livestock on the marketplace'],
+    supplies:['Supplies','Seeds, fertilizer, tools and animal care'],
+    farmers:['Users','Farmer and buyer accounts'],
+    transporters:['Transporters','Onboarded vehicle owners'],
+    deliveries:['Deliveries','Movement of paid orders'],
+    pricing:['Transport pricing','Your rates, and the quote they produce'],
+    cold_storage:['Cold storage','Storage bookings'],
+    cold_transport:['Refrigerated transport','Chilled haulage bookings'],
+    loans:['Loan requests','Input and equipment loan applications'],
+    finance:['Finance control center','Server-side ledger, payouts and reconciliation'],
+    inbox:['Inbox','Deletion, privacy and contact requests'],
+    scans:['Crop doctor scans','Diagnoses submitted by farmers'],
+    activity:['Activity','Recent audited events'],
+    errors:['Errors','Recorded system failures'],
+    health:['Performance','This browser’s own request timings']
+  };
+
+  function statCard(label, value, sub, cls, tab){
+    var v = (value===null||value===undefined)
+      ? '<div class="n">—</div>'
+      : '<div class="n">'+h(value)+'</div>';
+    return '<button class="stat '+(value==null?'na':(cls||''))+'"'+(tab?' onclick="showTabByName(\''+tab+'\')"':'')+'>'+
+      v+'<div class="l">'+h(label)+'</div>'+(sub?'<div class="s">'+h(sub)+'</div>':'')+'</button>';
+  }
+
+  // Paints caused by data arriving in the background share one animation frame.
+  // Navigation, an explicit Refresh and a retry still call renderOverview()
+  // directly, because a click must never wait on a frame.
+  var OV_DIRTY=false;
+  function queueOverview(){
+    if(OV_DIRTY) return;
+    OV_DIRTY=true;
+    (window.requestAnimationFrame||function(f){ return setTimeout(f,16); })(function(){
+      OV_DIRTY=false; renderOverview();
+    });
+  }
+  function renderOverview(){
+    var el=document.getElementById('overview'); if(!el) return;
+    var s=STATS, st=s?{}:(STATS_ERR?{err:STATS_ERR}:null);
+    var head='<div class="chead">'+icon('grid')+'Needs your attention'+
+      '<small>'+(STATS_AT?'updated '+ago(STATS_AT):'no metrics yet')+'</small></div>';
+    // ── KPI cards: primary set only; the rest are listed with their definition.
+    var cards;
+    if(!s){
+      cards='<div class="stats">'+
+        '<div class="stat na"><div class="sk" style="width:60%"></div><div class="l">loading metrics…</div></div>'.repeat(4)+'</div>';
+      if(st&&st.err){
+        cards='<div class="state err">Could not load the metrics: '+h(errText(st.err))+
+          '<br><button class="btn sm ghost" onclick="loadStats().then(renderOverview)">Retry</button></div>';
+      }
+    } else {
+      var na=function(k){ return s[k]===null||s[k]===undefined; };
+      cards='<div class="stats">'+
+        statCard('Registered users', s.farmers, na('farmers')?'unavailable':'all time', 'go', 'farmers')+
+        statCard('Live listings', s.listings_live, na('listings_live')?'unavailable':'of '+s.listings+' published', '', 'listings')+
+        statCard('Pending orders', s.orders_pending, na('orders_pending')?'unavailable':'of '+s.orders+' orders', s.orders_pending>0?'warn':'', 'matching')+
+        statCard('Paid revenue', s.revenue_ugx==null?null:fmtShort(s.revenue_ugx),
+                 (s.revenue_partial?'at least ':'')+ (s.orders_paid||0)+' paid orders, all time', 'go', 'finance')+
+      '</div>';
+    }
+    // ── Alerts, ordered by what blocks a customer.
+    var alerts=[];
+    if(s){
+      if(s.orders_pending>0) alerts.push(['urgent','link','Orders awaiting a farmer match',s.orders_pending,'matching']);
+      if(s.payments_outstanding>0) alerts.push(['urgent','money','Orders paid-for-but-unsettled or awaiting payment',s.payments_outstanding,'orders']);
+      if(s.farmers!=null&&s.farmers_verified!=null&&s.farmers-s.farmers_verified>0)
+        alerts.push(['','users','Users not yet verified',(s.farmers-s.farmers_verified),'farmers']);
+      if(s.transporters===0) alerts.push(['','wheel','No active transporter is available','none','transporters']);
+      TIER2.forEach(function(t){
+        var rows=DATA[t];
+        if(!rows) return;
+        var n=rows.filter(function(r){return (r.status||'pending')==='pending';}).length;
+        if(n) alerts.push(['', SVC_TABS[t]==='loan'?'coins':'snow',
+          TITLES[t][0]+' awaiting a decision', n, t]);
+      });
+    }
+    var alertHtml = !s ? '<div class="sk" style="width:80%;margin:8px 0"></div>'
+      : alerts.length ? '<div class="alerts">'+alerts.map(function(a){
+          return '<button class="alert'+(a[0]?' '+a[0]:'')+'" onclick="showTabByName(\''+a[4]+'\')">'+icon(a[1])+
+                 '<span>'+h(a[2])+'</span><b>'+h(a[3])+'</b>'+
+                 '<time>'+ (STATS_AT?ago(STATS_AT):'') +'</time></button>';
+        }).join('')+'</div>'
+      : '<div class="state">Nothing is waiting on you. '+
+        (DATA_ERR.orders?'<br><span class="muted">Order counts may be stale — see the chart below.</span>':'')+'</div>';
+    // ── Chart: real order rows, honest zeros, and an explicit failure state.
+    var chart;
+    if(LOADING.orders && !DATA.orders){
+      chart='<div class="chart" style="align-items:center"><div class="sk" style="width:100%;height:60px"></div></div>';
+    } else if(DATA_ERR.orders){
+      chart='<div class="state err">'+h(errText(DATA_ERR.orders))+
+        '<br><button class="btn sm ghost" onclick="retryTab(\'orders\')">Retry the orders query</button></div>';
+    } else {
+      var orders=DATA.orders||[];
+      var now=new Date(), months=[], idx={};
+      for(var k=CHART_MONTHS-1;k>=0;k--){
+        var d=new Date(now.getFullYear(), now.getMonth()-k, 1);
+        idx[d.getFullYear()+'-'+d.getMonth()]=months.length;
+        months.push({label:d.toLocaleString('en-US',{month:'short'}), count:0});
+      }
+      for(var i=0;i<orders.length;i++){
+        if(!orders[i].created_at) continue;
+        var od=new Date(orders[i].created_at), ky=od.getFullYear()+'-'+od.getMonth();
+        if(ky in idx) months[idx[ky]].count++;
+      }
+      var max=Math.max.apply(null, months.map(function(m){return m.count;}).concat([1]));
+      chart='<div class="chart" role="img" aria-label="Orders per month over the last '+CHART_MONTHS+' months">'+
+        months.map(function(m){
+          return '<div class="bar'+(m.count?'':' zero')+'" title="'+m.label+': '+m.count+' orders">'+
+            '<b>'+m.count+'</b><i style="height:'+Math.max(2,Math.round(m.count/max*64))+'px"></i>'+
+            '<span>'+m.label+'</span></div>';
+        }).join('')+'</div>'+
+        '<div class="cfoot">Orders created per calendar month, last '+CHART_MONTHS+' months. Counted from the '+
+        orders.length+' most recent orders returned by the server — a month older than that is undercounted, a 0 is a real zero.</div>';
+    }
+    // ── Quick actions: every one goes somewhere that already exists.
+    var qa='<div class="qa">'+
+      '<button onclick="showTabByName(\'farmers\')">'+icon('users')+'Review users</button>'+
+      '<button onclick="showTabByName(\'orders\')">'+icon('cart')+'Manage orders</button>'+
+      '<button onclick="showTabByName(\'listings\')">'+icon('leaf')+'Review listings</button>'+
+      '<button onclick="showTabByName(\'deliveries\')">'+icon('truck')+'Inspect deliveries</button>'+
+      '<button onclick="showTabByName(\'orders\',\'unpaid\')">'+icon('money')+'Payment issues</button>'+
+      '<button onclick="showTabByName(\'finance\')">'+icon('pulse')+'Financial records</button>'+
+      '</div>';
+    var secondary = s ? '<div class="perf" style="margin-top:4px">'+[
+        ['Animals listed', s.animals],['Active transporters', s.transporters],
+        ['Verified users', s.farmers_verified!=null&&s.farmers!=null?s.farmers_verified+' of '+s.farmers:s.farmers_verified],
+        ['Listings (all)', s.listings],['Orders (all)', s.orders],
+        ['Outstanding payments', s.payments_outstanding]
+      ].map(function(r){ return '<div class="r"><span>'+h(r[0])+'</span><span class="ms">'+h(r[1]==null?'unavailable':r[1])+'</span></div>'; }).join('')+'</div>'
+      : '<div class="sk" style="width:70%;margin:8px 0"></div>';
+    el.innerHTML=
+      '<div class="card">'+head+cards+alertHtml+'</div>'+
+      '<div class="grid2">'+
+        '<div class="card"><div class="chead">'+icon('cart')+'Orders per month<small>last '+CHART_MONTHS+' months</small></div>'+chart+'</div>'+
+        '<div class="card"><div class="chead">'+icon('grid')+'Quick actions</div>'+qa+
+          '<div class="chead" style="margin-top:14px">'+icon('pulse')+'All metrics<small>from /api/mgmt-ab19/stats</small></div>'+secondary+'</div>'+
+      '</div>';
+    updateSvcCounts();
+  }
+
+  function renderHealth(){
+    var el=document.getElementById('overview'); if(!el) return;
+    var slow=PERF.slice().sort(function(a,b){return b.ms-a.ms;}).slice(0,8);
+    var rows=PERF.slice(0,25).map(function(p){
+      return '<div class="r"><span>'+h(p.path)+(p.note?' · '+h(p.note):'')+'</span>'+
+             '<span class="ms'+(p.ms>3000?' slow':'')+'">'+p.ms+' ms</span><span class="muted">'+ago(p.at)+'</span></div>';
+    }).join('');
+    var total=PERF.reduce(function(a,p){return a+p.ms;},0);
+    el.innerHTML='<div class="card"><div class="chead">'+icon('pulse')+
+      'Performance<small>'+PERF.length+' requests this session</small></div>'+
+      '<div class="fin-note">These are timings measured in <em>this</em> browser, so they include the network path from '+
+      'here to the API. The API answers a request in about 0.6 s when warm before any database work; a cold instance adds '+
+      'its start-up to the first request after a quiet period.</div>'+
+      (rows?'<div class="perf">'+rows+'</div>':'<div class="state">No requests recorded yet.</div>')+
+      (slow.length?'<div class="cfoot">Total time spent waiting: '+(total/1000).toFixed(1)+' s across '+PERF.length+
+        ' requests. Slowest: '+slow.map(function(p){return p.path.replace('/api/mgmt-ab19/','')+' '+p.ms+'ms';}).slice(0,3).join(' · ')+'</div>':'')+
+      '</div>';
+  }
+
+  async function loadStats(){
+    STATS_ERR=null;
+    try{
+      var s=await api('/api/mgmt-ab19/stats');
+      if(!s||typeof s!=='object'||!('farmers' in s)) throw new Error('unexpected response from the server');
+      STATS=s; STATS_AT=Date.now();
+    }catch(e){
+      if(e && e.message!=='unauthorized') STATS_ERR=e;
+    }
+    // The KPI cards and the alerts come from this one call, so they are painted as
+    // soon as it lands — not behind the order rows that the chart still waits for.
+    if(currentTab==='overview') renderOverview();
+  }
+  // One endpoint per section. Sections are only opened on demand, so nothing here
+  // is fetched until the admin asks for it (or the browser goes idle).
+  var PATHS = {
+    orders:'/api/mgmt-ab19/orders', listings:'/api/mgmt-ab19/listings', animals:'/api/mgmt-ab19/animals',
+    deliveries:'/api/mgmt-ab19/deliveries', supplies:'/api/mgmt-ab19/supplies', farmers:'/api/mgmt-ab19/farmers',
+    requests:'/api/mgmt-ab19/purchase-requests', offers:'/api/mgmt-ab19/offers',
+    transporters:'/api/mgmt-ab19/transporters',
+    cold_storage:'/api/mgmt-ab19/service-requests?kind=cold_storage',
+    cold_transport:'/api/mgmt-ab19/service-requests?kind=refrigerated_transport',
+    loans:'/api/mgmt-ab19/service-requests?kind=loan',
+    matching:'/api/mgmt-ab19/match-candidates',
+    errors:'/api/mgmt-ab19/events', scans:'/api/mgmt-ab19/events?event_type=scan',
+    activity:'/api/mgmt-ab19/events?severity=info'
+  };
+
+  function hay(tab, r){
+    var s='';
+    try{ s=JSON.stringify(r).toLowerCase(); }catch(e){ return ''; }
+    // The orders table prints "unpaid" when the column is empty, so filtering by
+    // "unpaid" has to match those rows too.
+    if(tab==='orders') s+=' '+(r.payment_status||'unpaid')+' '+(r.status||'pending');
+    return s;
+  }
+
+  function setRows(tab, rows, err){
+    DATA[tab]=rows; DATA_ERR[tab]=err||null; LOADING[tab]=false;
+    HAY[tab]=rows.map(function(r){ return hay(tab, r); });
+    if(SVC_TABS[tab]) updateSvcCounts();
+  }
+
+  async function load(tab, isRetry, force){
+    if(!force && LOADING[tab]) return;                       // a duplicate read is already running
+    if(!force && !isRetry && DATA[tab] && !DATA_ERR[tab]) return;  // reuse what was fetched minutes ago
+    var path = tab==='inbox' ? ('/api/mgmt-ab19/inbox?table='+encodeURIComponent(inboxTable))
+             : (tab==='activity' && ACT_USER) ? ('/api/mgmt-ab19/events?user_id='+encodeURIComponent(ACT_USER))
+                             : (PATHS[tab] || ('/api/mgmt-ab19/'+tab));
+    LOADING[tab]=true;
+    if(currentTab===tab) renderCurrent();
+    try{
+      var rows=await api(path);
+      if(rows && !Array.isArray(rows) && rows.error) throw new Error(rows.error);
+      var arr = Array.isArray(rows) ? rows
+              : (rows && Array.isArray(rows.candidates)) ? rows.candidates   // match-candidates wraps
+              : rows && typeof rows==='object' ? [] : [];
+      setRows(tab, arr, null);
+    }catch(e){
+      // A sleeping Render instance fails the first read; retry once, bounded.
+      if(!isRetry && (!e || e.message!=='unauthorized')){
+        LOADING[tab]=false;
+        await new Promise(function(r){ setTimeout(r,1500); });
+        return load(tab, true, force);
+      }
+      setRows(tab, [], e || new Error('load failed'));
+    }
+    // A background prefetch must not rebuild the table the admin is reading.
+    // Of the idle-prefetched lists only the three service queues have anything
+    // visible on the overview (their pending counts become alerts), so only those
+    // are allowed to repaint it - and they land together, so they share one frame.
+    if(currentTab===tab) renderCurrent();
+    else if(currentTab==='overview' && SVC_TABS[tab] && STATS) queueOverview();
+  }
+
+  async function runMatching(){
+    if(!confirm('Run the matching algorithm now? This will match open purchase requests with available listings.')) return;
+    try{
+      var r=await api('/api/worker/match',{method:'POST',body:JSON.stringify({})});
+      if(r&&r.ok){
+        var msg='Matching complete! Processed: '+(r.requests_processed||0)+', Offers sent: '+(r.offers||0)+', Expired: '+(r.expired||0)+'.';
+        alert(msg);
+      } else {
+        alert('Matching returned: '+(r&&r.error?r.error:'unknown result'));
+      }
+      await Promise.all([load('requests',false,true), load('offers',false,true)]); renderCurrent();
+    }catch(e){ alert('Matching failed: '+(e&&e.message?e.message:'check server logs.')); }
+  }
+
+  // Switching sections never re-downloads rows that are already on the page; the
+  // refresh button in the top bar is the only deliberate refetch.
+  function showTab(t, node){
+    currentTab=t;
+    if(t==='activity') actMarkSeen();   // opening the feed is how the owner says "seen"
+    document.querySelectorAll('.tab.active,.bn.active').forEach(function(x){ x.classList.remove('active'); });
+    var marked = node || document.querySelector('.sidebar [data-tab="'+t+'"]')
+                        || document.querySelector('.bottomnav [data-tab="'+t+'"]');
+    if(marked) marked.classList.add('active');
+    document.body.classList.remove('nav-open');
+    document.getElementById('search').value='';
+    var overview=(t==='overview'||t==='health');
+    document.getElementById('overview').classList.toggle('hidden',!overview);
+    document.getElementById('sectionCard').classList.toggle('hidden',overview);
+    var noAdd=['orders','requests','offers','cold_storage','cold_transport','loans','errors','scans','activity','inbox','finance','matching','health','pricing'];
+    document.getElementById('addBtn').style.display=noAdd.indexOf(t)>-1?'none':'inline-block';
+    var tb=document.querySelector('.toolbar'); if(tb) tb.style.display=(t==='finance'||t==='pricing')?'none':'flex';
+    var tt=TITLES[t]||[t,''];
+    document.getElementById('pageTitle').textContent=tt[0];
+    document.getElementById('pageSub').textContent=tt[1]||'';
+    window.scrollTo(0,0);
+    if(t==='overview'){ renderOverview(); ensure('orders'); return; }
+    if(t==='health'){ renderHealth(); return; }
+    if(t==='finance'){ if(!FIN.cache[FIN.view]&&!FIN.errors[FIN.view]) loadFinance(FIN.view); else renderFinance(); return; }
+    if(t==='pricing'){ loadPricing(); return; }
+    renderCurrent();
+    ensure(t).then(function(){ if(currentTab===t) renderCurrent(); });
+  }
+
+  function filteredRows(tab, q){
+    var rows=DATA[tab]||[];
+    if(!q) return rows;
+    var hays=HAY[tab]||[], needle=String(q).toLowerCase(), out=[];
+    for(var i=0;i<rows.length;i++){ if((hays[i]||'').indexOf(needle)>-1) out.push(rows[i]); }
+    return out;
+  }
+
+  function renderCurrent(){
+    if(currentTab==='overview'){ renderOverview(); return; }
+    if(currentTab==='health'){ renderHealth(); return; }
+    if(currentTab==='finance'){ renderFinance(); return; }
+    if(currentTab==='pricing'){ renderPricing(); return; }
+    var tab=currentTab;
+    if(DATA_ERR[tab]){
+      setPanel('<div class="state err">'+icon('warn')+'Could not load '+h(TITLES[tab]?TITLES[tab][0]:tab)+
+        ' — '+h(errText(DATA_ERR[tab]))+
+        '<br><button class="btn sm ghost" onclick="retryTab(\''+tab+'\')">Try again</button></div>');
+      return;
+    }
+    if(!DATA[tab]){
+      setPanel('<div class="sk" style="width:100%"></div><div class="sk" style="width:92%;margin-top:9px"></div>'+
+        '<div class="sk" style="width:96%;margin-top:9px"></div><div class="sk" style="width:80%;margin-top:9px"></div>');
+      return;
+    }
+    var q=document.getElementById('search').value;
+    var rows=filteredRows(tab, q);
+    if(q && !rows.length && (DATA[tab]||[]).length){
+      setPanel('<div class="state">No '+h(TITLES[tab]?TITLES[tab][0].toLowerCase():tab)+
+        ' rows contain “'+h(q)+'”.</div>');
+      return;
+    }
+    if(SVC_TABS[tab])    return renderServiceRequests(rows, tab);
+    if(tab==='orders')   return renderOrders(rows);
+    if(tab==='listings') return renderListings(rows);
+    if(tab==='animals')  return renderAnimals(rows);
+    if(tab==='deliveries') return renderDeliveries(rows);
+    if(tab==='supplies')  return renderSupplies(rows);
+    if(tab==='farmers')   return renderFarmers(rows);
+    if(tab==='requests')  return renderRequests(rows);
+    if(tab==='offers')    return renderOffers(rows);
+    if(tab==='transporters') return renderTransporters(rows);
+    if(tab==='matching')     return renderMatching();
+    if(tab==='scans')        return renderScans(rows);
+    if(tab==='activity')     return renderActivity(rows);
+    if(tab==='errors')       return renderErrors(rows);
+    if(tab==='inbox')        return renderInbox(rows);
+    setPanel('<div class="state">This section has no view.</div>');
+  }
+
+  function renderTransporters(rows){
+    if(!rows.length){ panelMsg('No transporters registered yet. Click + Add to onboard one.'); return; }
+    var body=rows.map(function(t){
+      var avail=t.is_available?'<span class="badge available">Available</span>':'<span class="badge sold">Offline</span>';
+      var st=t.status||'active';
+      return '<tr><td>'+h(t.full_name||'—')+'</td><td>'+h(t.phone||'—')+'</td><td>'+h(t.vehicle_type||'—')+'</td><td>'+h(t.plate_number||'—')+'</td><td>'+h(t.district||'—')+'</td><td>'+(t.capacity_kg||'—')+'kg</td><td>'+avail+'</td><td><span class="badge '+(st==='active'?'active':'cancelled')+'">'+st+'</span></td><td>'+actionsCell('transporters',t.id)+'</td></tr>';
+    }).join('');
+    setPanel('<table><thead><tr><th>Name</th><th>Phone</th><th>Vehicle</th><th>Plate</th><th>District</th><th>Capacity</th><th>Availability</th><th>Status</th><th></th></tr></thead><tbody>'+body+'</tbody></table>');
+  }
+
+  function renderMatching(){
+    var data=DATA.matching||[];
+    // The API returns {candidates:[…]} not a plain array
+    var candidates=Array.isArray(data)?data:(data.candidates||[]);
+    if(!candidates.length){ panelMsg('No pending orders are waiting for a farmer match.'); return; }
+    var html=candidates.map(function(c){
+      var o=c.order||{};
+      var farmers=c.farmer_matches||[];
+      var transporters=c.available_transporters||[];
+      var farmerOpts=farmers.map(function(f,i){ return '<option value="'+h(f.farmer_phone)+'|'+h(f.farmer_id||'')+'|'+h(f.crop_name||'')+'">'+h(f.crop_name)+' · '+h(f.district||'—')+' · UGX '+Number(f.price_per_kg||0).toLocaleString()+'/kg · '+h(f.farmer_phone)+'</option>'; }).join('');
+      var trOpts='<option value="">— No transporter yet —</option>'+transporters.map(function(t){ return '<option value="'+h(t.id)+'">'+h(t.full_name)+' · '+h(t.vehicle_type||'—')+' · '+h(t.district||'—')+'</option>'; }).join('');
+      var matchSection=farmers.length
+        ? '<label>Select farmer match:</label><select id="f_'+h(o.id)+'" style="margin-bottom:6px">'+farmerOpts+'</select>'
+          +'<label>Assign transporter (optional):</label><select id="t_'+h(o.id)+'" style="margin-bottom:6px">'+trOpts+'</select>'
+          +'<label>Notes to farmer/transporter:</label><input id="n_'+h(o.id)+'" type="text" placeholder="e.g. collect by Friday">'
+          +'<button class="btn sm" style="margin-top:8px;width:100%" onclick="approveMatch(\''+h(o.id)+'\')">'+icon('handshake')+'Approve &amp; notify</button>'
+        : '<p class="state err">'+icon('warn')+' No active farmer listing matches this order. Publish a matching crop listing first.</p>';
+      return '<div class="card" style="margin-bottom:12px">'
+        +'<div style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:8px;margin-bottom:10px">'
+        +'<div><strong>Order '+h(o.ref||o.id.slice(0,8))+'</strong> &nbsp;<span class="badge pending">pending</span></div>'
+        +'<div class="muted" style="font-size:.8rem">'+h(o.created_at?new Date(o.created_at).toLocaleString('en-UG'):'')+'</div></div>'
+        +'<div style="font-size:.85rem;margin-bottom:8px" class="muted">'+icon('map')+' '+h(o.delivery_address||'—')+' &nbsp;·&nbsp; UGX '+Number(o.total_price||0).toLocaleString()+'</div>'
+        +matchSection
+        +'</div>';
+    }).join('');
+    setPanel('<div style="margin-bottom:10px;color:var(--text2);font-size:.82rem">'+candidates.length+' pending order(s) awaiting a farmer match</div>'+html);
+  }
+
+  async function approveMatch(orderId){
+    var fSel=document.getElementById('f_'+orderId);
+    var tSel=document.getElementById('t_'+orderId);
+    var nIn=document.getElementById('n_'+orderId);
+    if(!fSel||!fSel.value){ alert('Please select a farmer match first.'); return; }
+    var parts=fSel.value.split('|');
+    var farmerPhone=parts[0]||'', farmerName=parts[2]||'Farmer';
+    var transporterId=tSel?tSel.value:'';
+    var notes=nIn?nIn.value.trim():'';
+    if(!confirm('Approve match for order '+orderId.slice(0,8)+'?\nFarmer: '+farmerPhone+(transporterId?'\nTransporter assigned':''))) return;
+    try{
+      var r=await api('/api/mgmt-ab19/match-approve',{method:'POST',body:JSON.stringify({order_id:orderId,farmer_phone:farmerPhone,farmer_name:farmerName,transporter_id:transporterId||null,notes:notes})});
+      if(r&&r.ok){
+        var sms=r.sms||{};
+        alert('Match approved!\nSMS to farmer: '+(sms.farmer||'not sent (AT not configured)')+'\nSMS to transporter: '+(sms.transporter||'N/A'));
+        await Promise.all([load('matching',false,true), load('orders',false,true), loadStats()]); renderCurrent();
+      } else { alert('Error: '+(r&&r.error?r.error:'unknown')); }
+    }catch(e){ alert('Request failed: '+e.message); }
+  }
+
+  function renderErrors(rows){
+    if(!rows.length){ panelMsg('No system errors have been recorded.'); return; }
+    var body=rows.map(function(ev){
+      var sev=ev.severity||'error';
+      var det=ev.details?JSON.stringify(ev.details).slice(0,200):'';
+      var ts=ev.created_at?(new Date(ev.created_at)).toLocaleString('en-UG'):'';
+      return '<tr><td><span class="badge '+(sev==='error'?'cancelled':(sev==='warning'?'pending':'available'))+'">'+h(sev)+'</span></td><td>'+h(ev.event_type||'—')+'</td><td style="max-width:300px;word-break:break-all;font-size:0.78rem">'+h(det)+'</td><td>'+h(ts)+'</td></tr>';
+    }).join('');
+    setPanel('<table><thead><tr><th>Severity</th><th>Event</th><th>Details</th><th>Time</th></tr></thead><tbody>'+body+'</tbody></table>');
+  }
+
+  function renderScans(rows){
+    var scanRows=rows.filter(function(ev){ return (ev.event_type||'').indexOf('scan')>-1||(ev.event_type||'').indexOf('crop_doctor')>-1||(ev.event_type||'').indexOf('disease')>-1; });
+    if(!scanRows.length){ panelMsg('No crop doctor scans have been submitted yet.'); return; }
+    var body=scanRows.map(function(ev){
+      var det=ev.details||{};
+      var ts=ev.created_at?(new Date(ev.created_at)).toLocaleString('en-UG'):'';
+      var crop=det.crop||det.crop_name||'—';
+      var diag=det.diagnosis||(det.result&&det.result.diagnosis)||'—';
+      var uid=ev.user_id||det.user_id||'—';
+      return '<tr><td>'+h(crop)+'</td><td style="max-width:260px;font-size:0.8rem">'+h(String(diag).slice(0,120))+'</td><td style="max-width:200px;font-size:0.78rem;word-break:break-all">'+h(String(det.description||'').slice(0,80))+'</td><td style="font-size:0.78rem">'+h(String(uid).slice(0,16))+'</td><td>'+h(ts)+'</td></tr>';
+    }).join('');
+    setPanel('<table><thead><tr><th>Crop</th><th>Diagnosis</th><th>Description</th><th>User</th><th>Time</th></tr></thead><tbody>'+body+'</tbody></table>');
+  }
+
+  function renderInbox(rows){
+    var opts=Object.keys(INBOX_TABLES).map(function(k){return '<option value="'+k+'"'+(k===inboxTable?' selected':'')+'>'+INBOX_TABLES[k]+'</option>';}).join('');
+    var head='<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;padding:10px"><select onchange="inboxTable=this.value;retryTab(\'inbox\')" style="padding:6px 10px">'+opts+'</select><span style="color:#8b98a8;font-size:.8rem">Latest 100 rows, read-only</span><button class="btn" style="margin-left:auto" onclick="discordTest()">Send Discord test</button></div>';
+    if(!rows.length){ setPanel(head+'<div class="loading">Nothing in this table yet.</div>'); return; }
+
+    // Contact messages get a card layout with Reply button instead of a raw table
+    if(inboxTable==='contact_messages'){
+      var cards=rows.map(function(r){
+        var name=h(r.full_name||r.name||'(no name)');
+        var contact=h(r.contact||'');
+        var role=h(r.role||'');
+        var msg=h(r.message||'');
+        var ts=r.created_at ? new Date(r.created_at).toLocaleString('en-UG') : '';
+        var id=h(r.id||'');
+        // Quick-reply links if contact looks like phone or email
+        var directLinks='';
+        if(r.contact){
+          if(r.contact.indexOf('@')>-1){
+            directLinks='<a href="mailto:'+h(r.contact)+'?subject=Re%3A%20Your%20AgriBridge%20Message&body=Hi%20'+encodeURIComponent(r.full_name||'')+'%2C%0A%0A" style="color:#4fc3f7;font-size:.78rem;margin-right:10px">✉️ Email directly</a>';
+          } else {
+            var phone=(r.contact||'').replace(/\D/g,'');
+            if(phone) directLinks='<a href="https://wa.me/'+phone+'?text=Hi%20'+encodeURIComponent(r.full_name||'')+'%2C%20thank%20you%20for%20contacting%20AgriBridge.%20" target="_blank" style="color:#25D366;font-size:.78rem;margin-right:10px">💬 WhatsApp</a>';
+          }
+        }
+        return '<div style="background:#1a2630;border:1px solid #2a3a4a;border-radius:10px;padding:14px;margin-bottom:10px">'+
+          '<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px;flex-wrap:wrap;margin-bottom:8px">'+
+            '<div>'+
+              '<strong style="font-size:.95rem">'+name+'</strong>'+
+              (role ? '<span style="margin-left:8px;background:#2a3a4a;border-radius:4px;padding:2px 7px;font-size:.72rem;color:#8b98a8">'+role+'</span>' : '')+
+              '<div style="font-size:.78rem;color:#8b98a8;margin-top:2px">'+contact+' &bull; '+ts+'</div>'+
+            '</div>'+
+            '<button class="btn" style="background:#27ae60;color:#fff;font-size:.78rem;padding:5px 12px;white-space:nowrap" onclick="openContactReply(\''+id+'\',\''+name+'\',\''+h(r.contact||'')+'\')">↩ Reply</button>'+
+          '</div>'+
+          '<div style="background:#0d1b22;border-radius:6px;padding:10px;font-size:.85rem;color:#cdd7e0;white-space:pre-wrap;word-break:break-word">'+msg+'</div>'+
+          (directLinks ? '<div style="margin-top:8px">'+directLinks+'</div>' : '')+
+        '</div>';
+      }).join('');
+      setPanel(head+cards);
+      return;
+    }
+
+    var cols=[]; rows.forEach(function(r){ Object.keys(r).forEach(function(k){ if(cols.indexOf(k)<0&&cols.length<9) cols.push(k); }); });
+    var th=cols.map(function(c){return '<th>'+h(c)+'</th>';}).join('');
+    var body=rows.map(function(r){ return '<tr>'+cols.map(function(c){ var v=r[c]; if(v&&typeof v==='object') v=JSON.stringify(v); if(/_at$/.test(c)&&v){ var d=new Date(v); if(!isNaN(d)) v=d.toLocaleString('en-UG'); } return '<td>'+h(String(v==null?'':v).slice(0,140))+'</td>'; }).join('')+'</tr>'; }).join('');
+    setPanel(head+'<table><thead><tr>'+th+'</tr></thead><tbody>'+body+'</tbody></table>');
+  }
+
+  // ── Contact message reply modal ──────────────────────────────────────────────
+  var _replyTarget = null;
+  function openContactReply(id, name, contact){
+    _replyTarget = {id:id, name:name, contact:contact};
+    var el = document.getElementById('contactReplyModal');
+    if(!el){
+      el = document.createElement('div');
+      el.id = 'contactReplyModal';
+      el.style.cssText='position:fixed;inset:0;z-index:999;background:rgba(0,0,0,.7);display:flex;align-items:flex-end;justify-content:center';
+      el.innerHTML=
+        '<div style="background:#1a2630;border-radius:16px 16px 0 0;width:100%;max-width:520px;padding:20px 16px 32px">'+
+          '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">'+
+            '<strong style="font-size:1rem">↩ Reply to <span id="replyToName"></span></strong>'+
+            '<button onclick="closeContactReply()" style="background:none;border:none;color:#8b98a8;font-size:1.3rem;cursor:pointer">✕</button>'+
+          '</div>'+
+          '<div id="replyContactInfo" style="font-size:.8rem;color:#8b98a8;margin-bottom:12px"></div>'+
+          '<textarea id="replyBody" rows="5" placeholder="Type your reply here…" style="width:100%;background:#0d1b22;border:1px solid #2a3a4a;border-radius:8px;color:#e0e8f0;padding:10px;font-size:.87rem;resize:vertical;box-sizing:border-box"></textarea>'+
+          '<div style="display:flex;gap:8px;margin-top:12px">'+
+            '<button class="btn" style="flex:1;background:#27ae60;color:#fff;font-weight:700" onclick="sendContactReply()">📨 Send Reply</button>'+
+            '<button class="btn" style="flex:1" onclick="closeContactReply()">Cancel</button>'+
+          '</div>'+
+          '<div id="replyStatus" style="margin-top:8px;font-size:.82rem;text-align:center"></div>'+
+        '</div>';
+      document.body.appendChild(el);
+    }
+    document.getElementById('replyToName').textContent = name;
+    document.getElementById('replyContactInfo').textContent = 'Will be sent to: ' + contact;
+    document.getElementById('replyBody').value = '';
+    document.getElementById('replyStatus').textContent = '';
+    el.style.display = 'flex';
+  }
+  function closeContactReply(){
+    var el=document.getElementById('contactReplyModal');
+    if(el) el.style.display='none';
+    _replyTarget=null;
+  }
+  async function sendContactReply(){
+    if(!_replyTarget) return;
+    var body=(document.getElementById('replyBody').value||'').trim();
+    if(!body){ document.getElementById('replyStatus').textContent='Please type a reply.'; return; }
+    var st=document.getElementById('replyStatus');
+    st.textContent='Sending…';
+    try{
+      var r=await api('/api/mgmt-ab19/contact-reply',{method:'POST',body:JSON.stringify({
+        contact_message_id: _replyTarget.id,
+        reply: body
+      })});
+      if(r && r.ok){
+        st.style.color='#27ae60';
+        st.textContent='✓ Reply sent!';
+        setTimeout(closeContactReply, 1500);
+      } else {
+        st.style.color='#e74c3c';
+        st.textContent='Error: '+(r&&r.error?r.error:'Failed to send.');
+      }
+    }catch(e){ st.style.color='#e74c3c'; st.textContent='Error: '+e.message; }
+  }
+
+  async function discordTest(){
+    try{ var r=await api('/api/mgmt-ab19/discord-test',{method:'POST',body:'{}'}); var res=(r&&r.results)||{}; alert('Discord test:\n'+Object.keys(res).map(function(k){return k+': '+res[k];}).join('\n')); }catch(e){ alert('Test failed'); }
+  }
+  // ── Someone is on the site: the Activity badge and one person's timeline ────
+  // The complaint on 2026-11-04 was silence, and this console had no idea what
+  // "new" meant — every tab redrew whatever it last fetched, indefinitely. The
+  // badge counts the info events newer than the last time Activity was opened.
+  // It asks once a minute, and only while this tab is visible: a console left
+  // open in a pocket should not keep a two-worker server busy.
+  var ACT_SEEN='ab_admin_activity_seen', ACT_TIMER=null, ACT_POLL_MS=60000, ACT_USER=null;
+  var UUID_RE=/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+  function actSince(){
+    var v=''; try{ v=localStorage.getItem(ACT_SEEN)||''; }catch(e){}
+    // First run of a fresh console shows what happened in the last minute, not
+    // every event the table still holds — a badge of 200 says nothing useful.
+    return v || new Date(Date.now()-ACT_POLL_MS).toISOString();
+  }
+  function actMarkSeen(){ try{ localStorage.setItem(ACT_SEEN,new Date().toISOString()); }catch(e){} paintAct(0); }
+  function paintAct(n){
+    var el=document.getElementById('cnt_activity'); if(!el) return;
+    el.textContent = n>99?'99+':(n>0?String(n):'');
+  }
+  async function pollAct(){
+    if(document.hidden) return;
+    try{
+      var rows=await api('/api/mgmt-ab19/events?severity=info&since='+encodeURIComponent(actSince()));
+      paintAct((rows||[]).length);
+    }catch(e){ /* a failed poll leaves the badge alone; it is a hint, not a promise */ }
+  }
+  function startActPoll(){
+    stopActPoll();
+    pollAct();
+    ACT_TIMER=setInterval(pollAct, ACT_POLL_MS);
+    document.addEventListener('visibilitychange', onActVisible);
+  }
+  function onActVisible(){ if(!document.hidden && ACT_TIMER) pollAct(); }
+  function stopActPoll(){
+    if(ACT_TIMER){ clearInterval(ACT_TIMER); ACT_TIMER=null; }
+    document.removeEventListener('visibilitychange', onActVisible);
+    paintAct(0);
+  }
+  // Clicking a person on the feed filters it to them. The list endpoints are the
+  // console's own, so this reuses the load path rather than inventing a second one.
+  function showPerson(uid){
+    ACT_USER = (uid && UUID_RE.test(String(uid))) ? String(uid) : null;
+    DATA.activity=null; DATA_ERR.activity=null;
+    if(currentTab!=='activity') showTab('activity');
+    else { renderCurrent(); ensure('activity', true); }
+  }
+  function personName(uid){
+    var seen=(DATA.farmers||[]).concat(DATA.buyers||[]);
+    for(var i=0;i<seen.length;i++){
+      if(seen[i] && seen[i].id===uid) return seen[i].full_name || seen[i].name || personShort(uid);
+    }
+    return personShort(uid);
+  }
+  function personShort(uid){ return String(uid).slice(0,8)+'…'; }
+
+  function renderActivity(rows){
+    var who='';
+    if(ACT_USER){
+      who='<div style="padding:6px 0 10px;font-size:0.86rem">Timeline of <strong>'+h(personName(ACT_USER))+
+          '</strong> · <button class="btn sm ghost" onclick="showPerson(null)">Show everyone</button></div>';
+    }
+    if(!rows.length){
+      panelMsg(who + h(ACT_USER?('Nothing recorded for '+personName(ACT_USER)+' yet.')
+                            :'No recent activity recorded.'));
+      return;
+    }
+    var glyph={'listing_created_web':'leaf','listing.created':'leaf','purchase_request_created':'inquiry','offer_accepted':'handshake','offer_rejected':'x','match_approved':'check','transport_registered':'truck','transport.registered':'truck','user.signup':'users','order.created':'box','session_started':'users','activity.visit.first':'users'};
+    var body=rows.map(function(ev){
+      var ts=ev.created_at?(new Date(ev.created_at)).toLocaleString('en-UG'):'';
+      var det=ev.details||{};
+      var ic=icon(glyph[ev.event_type]||'bell');
+      var summary='';
+      if(det.crop_name) summary='Crop: '+det.crop_name;
+      else if(det.product) summary='Product: '+det.product;
+      else if(det.full_name) summary='Name: '+det.full_name;
+      else if(det.name) summary='Name: '+det.name+(det.provider?(' · via '+det.provider):'');
+      else if(det.what) summary=det.what;
+      else if(det.buyer_id) summary='Buyer ID: '+String(det.buyer_id).slice(0,8)+'...';
+      else summary=JSON.stringify(det).slice(0,80);
+      var uid='—';
+      if(ev.user_id && UUID_RE.test(String(ev.user_id))){
+        uid='<button class="btn sm ghost" title="Show only this person" onclick="showPerson(\''+h(ev.user_id)+'\')">'+h(personName(ev.user_id))+'</button>';
+      } else if(ev.user_id){ uid=h(String(ev.user_id).slice(0,8)+'...'); }
+      return '<tr><td>'+ic+'</td><td>'+h(ev.event_type||'—')+'</td><td style="max-width:280px;font-size:0.82rem">'+h(summary)+'</td><td style="font-size:0.78rem">'+uid+'</td><td>'+h(ts)+'</td></tr>';
+    }).join('');
+    setPanel(who+'<table><thead><tr><th></th><th>Event</th><th>Summary</th><th>Person</th><th>Time</th></tr></thead><tbody>'+body+'</tbody></table>');
+  }
+
+  function actionsCell(tab,id,status){
+    var edit='<button class="btn sm ghost" onclick="openEdit(\''+tab+'\',\''+h(id)+'\')">Edit</button>';
+    var del = tab==='orders' ? '' : '<button class="btn sm red" onclick="delRow(\''+tab+'\',\''+h(id)+'\')">Delete</button>';
+    var move = '';
+    if(tab==='orders'){
+      var cur=status||'pending';
+      var opts=['pending','confirmed','in_transit','delivered','cancelled'].map(function(s){
+        return '<option value="'+s+'"'+(s===cur?' selected':'')+'>'+s+'</option>';
+      }).join('');
+      move='<select title="Advance status (server-enforced)" onchange="setOrderStatus(\''+h(id)+'\',this.value)">'+opts+'</select>';
+    }
+    return '<div class="rowbtns">'+move+edit+del+'</div>';
+  }
+
+  async function setOrderStatus(id,status){
+    if(!status) return;
+    if(!confirm('Move this order to "'+status+'"? Only legal transitions are accepted.')){ renderCurrent(); return; }
+    try{
+      var r=await api('/api/mgmt-ab19/order/'+encodeURIComponent(id)+'/status',{method:'PATCH',body:JSON.stringify({status:status})});
+      if(r&&r.ok){ auditLog('order_status_change', {order_id:id, new_status:status}); await load('orders',false,true); loadStats(); } else alert((r&&r.error)||'Status update failed.');
+    }catch(e){ alert('Status update failed.'); }
+    renderCurrent();
+  }
+
+  function renderOrders(rows){
+    if(!rows.length){ panelMsg('No orders.'); return; }
+    var body=rows.map(function(o){var st=o.status||'pending';var amt=o.total_price||o.total_amount||0;
+      var isBank=(String(o.payment_method||'').toLowerCase()==='bank' && (o.payment_status||'unpaid')!=='paid' && st!=='cancelled');
+      var bankBtn=isBank?'<button class="btn sm" style="margin-right:6px" onclick="verifyBankTransfer(\''+h(o.id)+'\')">Bank paid</button>':'';
+      return '<tr><td>'+h(o.payment_ref||(o.tracking_code||'')||(o.id||'').slice(0,8))+'</td><td>'+h(o.buyer_phone||'—')+'</td><td>'+(o.quantity_kg||0)+'</td><td>'+fmt(amt)+'</td><td><span class="badge '+st+'">'+st+'</span></td><td><span class="badge '+(o.payment_status==='paid'?'paid':'pending')+'">'+h(o.payment_status||'unpaid')+'</span></td><td>'+h(o.payment_method||'—')+'</td><td>'+bankBtn+actionsCell('orders',o.id,st)+'</td></tr>';
+    }).join('');
+    setPanel('<table><thead><tr><th>Ref</th><th>Buyer</th><th>Qty</th><th>Amount</th><th>Status</th><th>Payment</th><th>Method</th><th></th></tr></thead><tbody>'+body+'</tbody></table>');
+  }
+  async function verifyBankTransfer(orderId){
+    var ref=prompt('Bank / transfer reference (proof the money arrived):');
+    if(!ref||!ref.trim()){ return; }
+    if(!confirm('Mark this bank-transfer order PAID?\nReference: '+ref.trim()+'\nThe amount is taken from the stored order, not typed here.')) return;
+    try{
+      var r=await api('/api/mgmt-ab19/orders/'+encodeURIComponent(orderId)+'/verify-bank-transfer',{method:'POST',body:JSON.stringify({bank_reference:ref.trim()})});
+      if(r&&r.ok){ alert(r.already_paid?'Already marked paid (no double entry).':'Bank transfer recorded and posted to the ledger.'); await Promise.all([load('orders',false,true), loadStats()]); }
+      else alert('Error: '+((r&&r.error)||'unknown'));
+    }catch(e){ alert('Request failed: '+e.message); }
+    renderCurrent();
+  }
+  // Known crop categories — anything else is a processed/value-added product
+  var CROP_CATEGORIES = ['grain','cereal','vegetable','fruit','legume','tuber','herb','spice','flower','crop','seeds','produce','staple'];
+  var _listingCatFilter = 'all';
+  function listingCategoryLabel(l){
+    var cat = String(l.category||'').toLowerCase().trim();
+    if(!cat || cat==='null' || cat==='undefined') return 'crop';
+    // Detect processed / value-added by checking against known crop categories
+    var isCrop = CROP_CATEGORIES.some(function(c){ return cat.indexOf(c)>=0; });
+    return isCrop ? 'crop' : 'processed';
+  }
+  function renderListings(rows){
+    if(!rows.length){ panelMsg('No listings found.'); return; }
+    // Build category breakdown for the filter bar
+    var cats = {};
+    rows.forEach(function(l){
+      var c = l.category ? String(l.category).toLowerCase() : 'uncategorised';
+      cats[c] = (cats[c]||0)+1;
+    });
+    var allCount = rows.length;
+    // Build filter bar
+    var filterBar = '<div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px;align-items:center">'+
+      '<span style="font-size:.72rem;color:var(--text3);font-weight:700;text-transform:uppercase;letter-spacing:.04em">Filter:</span>'+
+      '<button class="btn sm'+(  _listingCatFilter==='all'?' ':' ghost')+'" onclick="setListingCatFilter(\'all\')">All ('+allCount+')</button>';
+    // Sort categories alphabetically
+    Object.keys(cats).sort().forEach(function(c){
+      var active = _listingCatFilter===c;
+      filterBar += '<button class="btn sm'+(active?' ':' ghost')+'" onclick="setListingCatFilter(\''+h(c)+'\')">'+h(c||'uncategorised')+' ('+cats[c]+')</button>';
+    });
+    filterBar += '</div>';
+    // Filter rows
+    var filtered = _listingCatFilter==='all' ? rows : rows.filter(function(l){
+      var c = l.category ? String(l.category).toLowerCase() : 'uncategorised';
+      return c === _listingCatFilter;
+    });
+    if(!filtered.length){ setPanel(filterBar+'<div class="state">No listings in this category.</div>'); return; }
+    var body=filtered.map(function(l){
+      var img=l.image_url?'<img class="thumb" src="'+h(l.image_url)+'">':'<span class="thumb ph" title="No photograph">'+icon('leaf')+'</span>';
+      var cat = l.category ? String(l.category) : '—';
+      var isCrop = CROP_CATEGORIES.some(function(c){ return cat.toLowerCase().indexOf(c)>=0; });
+      var catBadge = '<span class="badge '+(isCrop?'available':'pending')+'">'+h(cat)+'</span>';
+      return '<tr><td>'+img+'</td><td>'+h(l.crop_name||'—')+(l.video_url?' <span class="badge">video</span>':'')+'</td><td>'+catBadge+'</td><td>'+fmt(l.price_per_kg)+'</td><td>'+(l.quantity_kg||0)+'kg</td><td>'+h(l.district||'—')+'</td><td>'+(l.is_available?'<span class="badge available">live</span>':'<span class="badge sold">hidden</span>')+'</td><td>'+actionsCell('listings',l.id)+'</td></tr>';
+    }).join('');
+    setPanel(filterBar+'<table><thead><tr><th></th><th>Name</th><th>Category</th><th>Price</th><th>Qty</th><th>District</th><th>Status</th><th></th></tr></thead><tbody>'+body+'</tbody></table>');
+  }
+  function setListingCatFilter(cat){
+    _listingCatFilter = cat;
+    renderCurrent();
+  }
+  function renderAnimals(rows){
+    if(!rows.length){ panelMsg('No animal listings.'); return; }
+    var body=rows.map(function(a){var img=a.image_url?'<img class="thumb" src="'+h(a.image_url)+'">':'<span class="thumb ph" title="No photograph">'+icon('paw')+'</span>';var st=a.status||'available';
+      return '<tr><td>'+img+'</td><td>'+h(a.name||'—')+(a.video_url?' <span class="badge">video</span>':'')+'</td><td>'+h(a.species||a.category||'—')+'</td><td>'+fmt(a.price)+'</td><td>'+(a.qty||0)+'</td><td>'+h(a.district||'—')+'</td><td><span class="badge '+st+'">'+st+'</span></td><td>'+actionsCell('animals',a.id)+'</td></tr>';
+    }).join('');
+    setPanel('<table><thead><tr><th></th><th>Name</th><th>Type</th><th>Price</th><th>Qty</th><th>District</th><th>Status</th><th></th></tr></thead><tbody>'+body+'</tbody></table>');
+  }
+  function renderDeliveries(rows){
+    if(!rows.length){ panelMsg('No deliveries yet.'); return; }
+    var body=rows.map(function(d){
+      var st=d.status||'scheduled';
+      var route=h(d.pickup_location||'—')+' → '+h(d.delivery_location||'—');
+      var driver=d.driver_name?h(d.driver_name)+(d.driver_phone?' · '+h(d.driver_phone):''):
+                 (d.transporter_id?'<span class="badge available">assigned</span>':'—');
+      // A fee is only ever what the record holds. A null fee is printed as unset,
+      // never as 0, because 0 would read as "free" to everyone looking at it.
+      var fee=(d.transport_fee_ugx==null)?'<span class="muted">unset</span>':fmt(d.transport_fee_ugx)+(d.fee_basis?' <span class="muted">('+h(d.fee_basis)+')</span>':'');
+      var proof='—';
+      if(d.proof_verified_at) proof='<span class="badge paid">confirmed</span>';
+      else if(d.proof_submitted_at) proof=d.proof_code_matches?'<span class="badge active">code ok</span>':'<span class="badge cancelled">code wrong</span>';
+      else if(d.proof_code_issued_at) proof='<span class="muted">awaiting driver</span>';
+      var offer='';
+      if(d.offer_status==='proposed'){
+        var offerAmt=d.transporter_offer_ugx==null?'':' '+fmt(d.transporter_offer_ugx);
+        offer='<div class="rowbtns" style="margin-top:4px"><button class="btn sm" onclick="deliveryOffer(\''+h(d.id)+'\',\'accept\')">Accept'+offerAmt+'</button>'+
+              '<button class="btn sm red" onclick="deliveryOffer(\''+h(d.id)+'\',\'reject\')">Decline</button></div>';
+      }
+      var actions='<div class="rowbtns">'+
+        '<button class="btn sm ghost" onclick="deliveryFee(\''+h(d.id)+'\','+(d.transport_fee_ugx==null?'null':Number(d.transport_fee_ugx))+')">Fee</button>'+
+        '<button class="btn sm ghost" onclick="deliveryCode(\''+h(d.id)+'\')">Code</button>'+
+        '<button class="btn sm ghost" onclick="deliveryProof(\''+h(d.id)+'\')">Proof</button>'+
+        '</div>'+offer+actionsCell('deliveries',d.id);
+      return '<tr><td>'+h(d.tracking_code||(d.id||'').slice(0,8))+'</td><td>'+route+'</td><td>'+driver+'</td><td>'+fee+'</td><td><span class="badge '+st+'">'+h(st.replace(/_/g,' '))+'</span></td><td>'+proof+'</td><td>'+h(d.estimated_arrival||'—')+'</td><td>'+actions+'</td></tr>';
+    }).join('');
+    setPanel('<table><thead><tr><th>Tracking</th><th>Route</th><th>Driver</th><th>Fee</th><th>Status</th><th>Proof</th><th>ETA</th><th></th></tr></thead><tbody>'+body+'</tbody></table>');
+  }
+
+  // ── Transport fee, recipient code and proof ───────────────────────────
+  async function deliveryFee(id,current){
+    var raw=prompt('Agreed transport fee in UGX for this delivery:', current==null?'':String(current));
+    if(raw===null) return;
+    var amount=Number(String(raw).replace(/[^0-9.]/g,''));
+    if(!isFinite(amount)||amount<0){ alert('Enter a whole amount in UGX.'); return; }
+    var basis=(prompt("Basis: 'admin_set', 'calculated' or 'negotiated'", 'admin_set')||'').trim();
+    if(['admin_set','calculated','negotiated'].indexOf(basis)<0){ alert('Basis must be admin_set, calculated or negotiated.'); return; }
+    var disclose=confirm('Show this fee to the buyer?\nOK = yes, Cancel = keep it internal.');
+    try{
+      var r=await api('/api/mgmt-ab19/deliveries/'+encodeURIComponent(id)+'/fee',{method:'POST',body:JSON.stringify({amount_ugx:amount,basis:basis,disclose_to_buyer:disclose})});
+      if(r&&r.ok){ alert('Fee recorded: '+fmt(r.transport_fee_ugx)); await load('deliveries',false,true); }
+      else alert('Error: '+((r&&r.error)||'unknown'));
+    }catch(e){ alert('Could not save the fee: '+errText(e)); }
+    renderCurrent();
+  }
+  async function deliveryCode(id){
+    if(!confirm('Issue a new recipient code for this delivery?\nAny earlier code stops working.')) return;
+    try{
+      var r=await api('/api/mgmt-ab19/deliveries/'+encodeURIComponent(id)+'/proof-code',{method:'POST',body:'{}'});
+      if(r&&r.ok){
+        prompt('Give this code to the recipient only. It cannot be shown again.', r.code);
+        await load('deliveries',false,true);
+      } else alert('Error: '+((r&&r.error)||'unknown'));
+    }catch(e){ alert('Could not issue a code: '+errText(e)); }
+    renderCurrent();
+  }
+  async function deliveryProof(id){
+    try{
+      var r=await api('/api/mgmt-ab19/deliveries/'+encodeURIComponent(id)+'/proof');
+      var lines=[];
+      lines.push('Code issued: '+(r.code_issued_at||'no'));
+      lines.push('Submitted: '+(r.submitted_at||'no'));
+      lines.push('Code matched: '+(r.code_matched===true?'yes':r.code_matched===false?'no':'—'));
+      lines.push('Attempts used: '+(r.attempts_used==null?'—':r.attempts_used));
+      if(r.verified_at) lines.push('Confirmed by '+r.verified_by+' at '+r.verified_at);
+      if(r.submitted_at) lines.push('', 'The photo opens in a new tab for 5 minutes.');
+      if(r.photo_error) lines.push(r.photo_error);
+      alert(lines.join('\n'));
+      if(r.photo_url) window.open(r.photo_url,'_blank','noopener');
+    }catch(e){ alert('Could not read the proof: '+errText(e)); }
+  }
+  async function deliveryOffer(id,decision){
+    var label=decision==='accept'?'Accept this offer as the agreed fee?':'Decline this offer?';
+    if(!confirm(label)) return;
+    try{
+      var r=await api('/api/mgmt-ab19/deliveries/'+encodeURIComponent(id)+'/offer',{method:'POST',body:JSON.stringify({decision:decision})});
+      if(r&&r.ok){ await load('deliveries',false,true); }
+      else alert('Error: '+((r&&r.error)||'unknown'));
+    }catch(e){ alert('Could not record the decision: '+errText(e)); }
+    renderCurrent();
+  }
+  // ── Transport pricing ─────────────────────────────────────────────────
+  // The arithmetic is the database's (0020 transport_quote); this screen only
+  // shows it. With no rate saved the server answers status "not_configured",
+  // and that sentence is printed unchanged — a missing rate must never be
+  // rendered as a price of zero.
+  var PRICING={rates:null,err:null,quote:null,deliveries:null};
+  var PRICING_VEHICLES=['pickup','lorry','motorcycle','minibus','van','tractor'];
+
+  async function loadPricing(force){
+    if(!force && PRICING.rates){ renderPricing(); return; }
+    PRICING.err=null;
+    if(!PRICING.rates) renderPricing();
+    try{
+      var r=await api('/api/mgmt-ab19/transport-rates');
+      if(r && r.error) throw new Error(r.error);
+      PRICING.rates=Array.isArray(r && r.rates)?r.rates:[];
+    }catch(e){ PRICING.rates=null; PRICING.err=e; }
+    renderPricing();
+  }
+
+  function pricingNum(id){
+    var el=document.getElementById(id); if(!el) return null;
+    var raw=String(el.value||'').trim();
+    if(raw==='') return null;
+    var n=Number(raw.replace(/[^0-9.]/g,''));
+    return isFinite(n)?n:null;
+  }
+
+  function renderPricing(){
+    if(PRICING.err){
+      setPanel('<div class="state err">'+icon('warn')+'Could not read the transport rate table — '+
+        h(errText(PRICING.err))+'.<br><button class="btn sm ghost" onclick="loadPricing(true)">Try again</button></div>');
+      return;
+    }
+    if(PRICING.rates===null){
+      setPanel('<div class="sk" style="width:100%"></div><div class="sk" style="width:92%;margin-top:9px"></div><div class="sk" style="width:78%;margin-top:9px"></div>');
+      return;
+    }
+    var rates=PRICING.rates, table;
+    if(!rates.length){
+      table='<div class="state">No vehicle rate is configured, so no quote can be produced yet. '+
+        'A quote stays “not configured” until you save your own figures below — nothing is assumed.</div>';
+    }else{
+      var body=rates.map(function(r){
+        return '<tr><td>'+h(r.vehicle_type)+'</td><td>'+fmt(r.base_fee_ugx)+'</td><td>'+fmt(r.ugx_per_km)+'</td><td>'+
+          fmt(r.ugx_per_kg)+'</td><td>'+(r.night_surcharge_pct==null?'—':h(r.night_surcharge_pct)+'%')+'</td><td>'+
+          h(r.updated_at||'—')+'</td><td><button class="btn sm ghost" onclick="pricingEdit(\''+h(r.vehicle_type)+'\')">Edit</button></td></tr>';
+      }).join('');
+      table='<table><thead><tr><th>Vehicle</th><th>Base fee</th><th>Per km</th><th>Per kg</th><th>Night</th><th>Updated</th><th></th></tr></thead><tbody>'+body+'</tbody></table>';
+    }
+    var suggest=PRICING_VEHICLES.map(function(v){ return '<option value="'+v+'"></option>'; }).join('');
+    var html='<div class="card"><h3>'+icon('coins')+' Rates you charge<small>UGX</small></h3>'+
+      '<p class="muted" style="font-size:.8rem;margin:0 0 10px">These figures are yours. A quote is the base fee, plus distance × per-km rate, '+
+      'plus load × per-kg rate; the night surcharge is applied to that subtotal when it is selected.</p>'+
+      table+
+      '<label for="p_vehicle">Vehicle type</label>'+
+      '<input id="p_vehicle" list="p_vehicle_list" placeholder="pickup, lorry, motorcycle…" autocomplete="off">'+
+      '<datalist id="p_vehicle_list">'+suggest+'</datalist>'+
+      '<label for="p_base">Base fee (UGX)</label><input id="p_base" type="number" min="0" step="1000">'+
+      '<label for="p_km">Charge per km (UGX)</label><input id="p_km" type="number" min="0" step="100">'+
+      '<label for="p_kg">Charge per kg (UGX)</label><input id="p_kg" type="number" min="0" step="10">'+
+      '<label for="p_night">Night surcharge (%)</label><input id="p_night" type="number" min="0" max="100" step="1" placeholder="0">'+
+      '<label for="p_note">Note (optional)</label><input id="p_note" type="text" maxlength="300" placeholder="e.g. agreed with Mukono drivers">'+
+      '<div class="rowbtns" style="margin-top:10px"><button class="btn sm" onclick="pricingSaveRate()">Save rate</button></div>'+
+      '<p class="muted" style="font-size:.74rem;margin-top:8px">Saving replaces that vehicle type’s figures. Deliveries already quoted keep the fee recorded on them.</p>'+
+      '</div>';
+
+    html+='<div class="card"><h3>'+icon('money')+' Quote a delivery<small>calculated by the database</small></h3>';
+    if(!rates.length){
+      html+='<div class="state">A quote needs at least one saved rate. Nothing is estimated without one.</div></div>';
+      setPanel(html); return;
+    }
+    var opts=rates.map(function(r){ return '<option value="'+h(r.vehicle_type)+'">'+h(r.vehicle_type)+'</option>'; }).join('');
+    html+='<label for="q_vehicle">Vehicle type</label><select id="q_vehicle">'+opts+'</select>'+
+      '<label for="q_km">Distance (km)</label><input id="q_km" type="number" min="0" step="0.1" placeholder="e.g. 120">'+
+      '<label for="q_kg">Load (kg)</label><input id="q_kg" type="number" min="0" step="1" placeholder="e.g. 800">'+
+      '<label style="display:flex;align-items:center;gap:8px;margin-top:12px"><input id="q_night" type="checkbox" style="width:auto;margin:0"> Night surcharge applies</label>'+
+      '<div class="rowbtns" style="margin-top:10px"><button class="btn sm" onclick="pricingQuote()">Calculate</button></div>'+
+      '<div id="q_result" style="margin-top:12px">'+(PRICING.quote?quoteHtml():'')+'</div></div>';
+    setPanel(html);
+  }
+
+  function deliveryOptions(){
+    var rows=PRICING.deliveries;
+    if(rows===null) return '<option value="">Loading deliveries…</option>';
+    if(!rows.length) return '<option value="">No deliveries exist yet</option>';
+    return rows.map(function(d){
+      var label=(d.tracking_code||String(d.id).slice(0,8))+' · '+(d.pickup_location||'?')+' → '+
+        (d.delivery_location||'?')+' · '+(d.transport_fee_ugx==null?'fee unset':fmt(d.transport_fee_ugx));
+      return '<option value="'+h(d.id)+'">'+h(label)+'</option>';
+    }).join('');
+  }
+
+  function quoteHtml(){
+    var q=PRICING.quote;
+    if(!q) return '';
+    if(q.status!=='ok'){
+      return '<div class="fin-note">'+h(q.message||'The server could not produce a quote for this vehicle type.')+'</div>';
+    }
+    var rows=[['Base fee',q.base_fee],['Distance component',q.distance_component],
+              ['Weight component',q.weight_component],['Night surcharge',q.night_surcharge]];
+    var body=rows.map(function(r){ return '<tr><td>'+r[0]+'</td><td>'+fmt(r[1])+'</td></tr>'; }).join('');
+    return '<table><thead><tr><th>Component</th><th>Amount</th></tr></thead><tbody>'+body+
+      '<tr><td><b>Total</b></td><td><b>'+fmt(q.total)+'</b></td></tr></tbody></table>'+
+      '<label for="q_delivery">Record it as the agreed fee on a delivery</label>'+
+      '<select id="q_delivery">'+deliveryOptions()+'</select>'+
+      '<label style="display:flex;align-items:center;gap:8px;margin-top:10px"><input id="q_disclose" type="checkbox" style="width:auto;margin:0"> Show this figure to the buyer</label>'+
+      '<div class="rowbtns" style="margin-top:10px"><button class="btn sm" onclick="pricingApplyFee()">Record as agreed fee</button></div>'+
+      '<p class="muted" style="font-size:.74rem;margin-top:8px">Recording a fee pays nobody. The transporter may still propose a different figure in their portal, and only your acceptance changes the agreed amount.</p>';
+  }
+
+  async function pricingQuote(){
+    var box=document.getElementById('q_result'); if(!box) return;
+    var vehicle=(document.getElementById('q_vehicle')||{}).value||'';
+    var km=pricingNum('q_km'), kg=pricingNum('q_kg');
+    if(km===null||kg===null){
+      box.innerHTML='<div class="state err">Enter the distance in km and the load in kg.</div>';
+      return;
+    }
+    box.innerHTML='<div class="sk" style="width:100%"></div>';
+    try{
+      PRICING.quote=await api('/api/mgmt-ab19/transport-quote',{method:'POST',body:JSON.stringify({
+        vehicle_type:vehicle, distance_km:km, weight_kg:kg,
+        night:!!(document.getElementById('q_night')||{}).checked })});
+    }catch(e){
+      PRICING.quote=null;
+      box.innerHTML='<div class="state err">'+h(errText(e))+'</div>';
+      return;
+    }
+    box.innerHTML=quoteHtml();
+    if(PRICING.quote && PRICING.quote.status==='ok') loadPricingDeliveries();
+  }
+
+  async function loadPricingDeliveries(force){
+    if(PRICING.deliveries && !force) return;
+    try{
+      var rows=await api('/api/mgmt-ab19/deliveries');
+      PRICING.deliveries=Array.isArray(rows)?rows:[];
+    }catch(e){ PRICING.deliveries=[]; }
+    var sel=document.getElementById('q_delivery');
+    if(sel) sel.innerHTML=deliveryOptions();
+  }
+
+  async function pricingApplyFee(){
+    var q=PRICING.quote, sel=document.getElementById('q_delivery');
+    if(!q || q.status!=='ok' || q.total==null){ alert('Calculate a quote first.'); return; }
+    if(!sel || !sel.value){ alert('Choose the delivery this quote belongs to.'); return; }
+    var disclose=!!(document.getElementById('q_disclose')||{}).checked;
+    if(!confirm('Record '+fmt(q.total)+' as the agreed transport fee?\nThis does not pay the transporter.')) return;
+    var inputs=Object.assign({}, q.inputs||{});
+    if(q.rates_snapshot) inputs.rates_snapshot=q.rates_snapshot;
+    try{
+      var r=await api('/api/mgmt-ab19/deliveries/'+encodeURIComponent(sel.value)+'/fee',{method:'POST',body:JSON.stringify({
+        amount_ugx:q.total, basis:'calculated', disclose_to_buyer:disclose, quote_inputs:inputs })});
+      if(r && r.ok){
+        alert('Fee recorded: '+fmt(r.transport_fee_ugx));
+        await load('deliveries',false,true);
+        await loadPricingDeliveries(true);
+      } else alert('Error: '+((r&&r.error)||'unknown'));
+    }catch(e){ alert('Could not record the fee: '+errText(e)); }
+  }
+
+  async function pricingSaveRate(){
+    var vehicle=String((document.getElementById('p_vehicle')||{}).value||'').trim().toLowerCase();
+    if(!/^[a-z0-9_-]{2,32}$/.test(vehicle)){
+      alert('Vehicle type must be 2–32 characters: a–z, 0–9, _ or -'); return;
+    }
+    var base=pricingNum('p_base'), km=pricingNum('p_km'), kg=pricingNum('p_kg'), night=pricingNum('p_night');
+    if(base===null||km===null||kg===null){
+      alert('Base fee, per km and per kg are all required — a quote needs all three.'); return;
+    }
+    if(night===null) night=0;
+    if(base<0||km<0||kg<0||night<0||night>100){
+      alert('Rates cannot be negative and the night surcharge must be 0–100.'); return;
+    }
+    var note=String((document.getElementById('p_note')||{}).value||'').trim();
+    if(!confirm('Save the '+vehicle+' rate?\nBase '+fmt(base)+' · '+fmt(km)+'/km · '+fmt(kg)+'/kg · night '+night+'%')) return;
+    try{
+      await api('/api/mgmt-ab19/transport-rates/'+encodeURIComponent(vehicle),{method:'PUT',body:JSON.stringify({
+        base_fee_ugx:base, ugx_per_km:km, ugx_per_kg:kg, night_surcharge_pct:night, note:note })});
+      await loadPricing(true);
+    }catch(e){ alert('Could not save the rate: '+errText(e)); }
+  }
+
+  function pricingEdit(vehicle){
+    var r=(PRICING.rates||[]).filter(function(x){ return String(x.vehicle_type)===String(vehicle); })[0]||{};
+    document.getElementById('p_vehicle').value=vehicle;
+    document.getElementById('p_base').value=r.base_fee_ugx==null?'':r.base_fee_ugx;
+    document.getElementById('p_km').value=r.ugx_per_km==null?'':r.ugx_per_km;
+    document.getElementById('p_kg').value=r.ugx_per_kg==null?'':r.ugx_per_kg;
+    document.getElementById('p_night').value=r.night_surcharge_pct==null?0:r.night_surcharge_pct;
+    document.getElementById('p_note').value=r.note||'';
+    var el=document.getElementById('p_vehicle');
+    if(el&&el.focus) el.focus();
+  }
+
+  function renderSupplies(rows){
+    if(!rows.length){ panelMsg('No supply products.'); return; }
+    var catLabel={seeds:'Seeds',fertilizer:'Fertilizer',pesticide:'Pesticide',tool:'Tool',animal_supply:'Animal care'};
+    var body=rows.map(function(p){var img=p.image_id?'<img class="thumb" src="https://images.unsplash.com/photo-'+h(p.image_id)+'?auto=format&fit=crop&w=80&h=80&q=60">':'<span class="thumb ph" title="No photograph">'+icon('box')+'</span>';
+      return '<tr><td>'+img+'</td><td>'+h(p.name||'—')+(p.badge?' <span class="badge">'+h(p.badge)+'</span>':'')+'</td><td>'+h(catLabel[p.category]||p.category||'—')+'</td><td>'+h(p.brand||'—')+'</td><td>'+fmt(p.price)+'</td><td>'+h(p.unit||'—')+'</td><td>'+(p.in_stock!==false?'<span class="badge available">in stock</span>':'<span class="badge sold">hidden</span>')+'</td><td>'+actionsCell('supplies',p.id)+'</td></tr>';
+    }).join('');
+    setPanel('<table><thead><tr><th></th><th>Product</th><th>Category</th><th>Brand</th><th>Price</th><th>Unit</th><th>Status</th><th></th></tr></thead><tbody>'+body+'</tbody></table>');
+  }
+  function renderFarmers(rows){
+    if(!rows.length){ panelMsg('No users.'); return; }
+    var body=rows.map(function(f){
+      return '<tr><td>'+h(f.full_name||'—')+'</td><td>'+h(f.phone||'—')+'</td><td>'+h(f.email||'—')+'</td><td>'+h(f.district||'—')+'</td><td>'+(f.is_verified?'<span class="badge available">verified</span>':'<span class="badge pending">unverified</span>')+'</td><td>'+actionsCell('farmers',f.id)+'</td></tr>';
+    }).join('');
+    setPanel('<table><thead><tr><th>Name</th><th>Phone</th><th>Email</th><th>District</th><th>Verified</th><th></th></tr></thead><tbody>'+body+'</tbody></table>');
+  }
+  function renderRequests(rows){
+    if(!rows.length){ panelMsg('No purchase requests.'); return; }
+    var body=rows.map(function(r){var st=r.status||'open';
+      return '<tr><td>'+h((r.id||'').slice(0,8))+'</td><td>'+h(r.crop_type||r.crop_name||'—')+'</td><td>'+(r.quantity_kg||r.quantity||0)+'kg</td><td>'+fmt(r.max_price_per_kg||r.max_price||0)+'/kg</td><td>'+h(r.district||'—')+'</td><td><span class="badge '+st+'">'+st+'</span></td><td>'+h(r.buyer_phone||'—')+'</td><td>'+h(r.created_at?new Date(r.created_at).toLocaleDateString('en-UG'):'—')+'</td></tr>';
+    }).join('');
+    setPanel('<table><thead><tr><th>ID</th><th>Crop</th><th>Qty</th><th>Max Price</th><th>District</th><th>Status</th><th>Buyer</th><th>Date</th></tr></thead><tbody>'+body+'</tbody></table>');
+  }
+
+  function renderOffers(rows){
+    if(!rows.length){ panelMsg('No offers yet.'); return; }
+    var body=rows.map(function(o){var st=o.status||'pending';
+      var btns='';
+      if(st==='pending'){
+        btns='<div class="rowbtns">'+
+          '<button class="btn sm" onclick="offerAction(\''+h(o.id)+'\',\'accept\')">Accept</button>'+
+          '<button class="btn sm red" onclick="offerAction(\''+h(o.id)+'\',\'reject\')">Reject</button>'+
+        '</div>';
+      } else { btns='<span class="badge '+st+'">'+st+'</span>'; }
+      return '<tr><td>'+h((o.id||'').slice(0,8))+'</td><td>'+h(o.crop_name||o.listing_id||'—')+'</td><td>'+(o.quantity_kg||o.quantity||0)+'kg</td><td>'+fmt(o.price_per_kg||o.price||0)+'/kg</td><td>'+h(o.farmer_phone||'—')+'</td><td>'+h(o.buyer_phone||'—')+'</td><td>'+h(o.created_at?new Date(o.created_at).toLocaleDateString('en-UG'):'—')+'</td><td>'+btns+'</td></tr>';
+    }).join('');
+    setPanel('<table><thead><tr><th>ID</th><th>Crop</th><th>Qty</th><th>Price</th><th>Farmer</th><th>Buyer</th><th>Date</th><th>Action</th></tr></thead><tbody>'+body+'</tbody></table>');
+  }
+
+  async function offerAction(offerId, action){
+    var label=action==='accept'?'Accept':'Reject';
+    if(!confirm(label+' this offer?')) return;
+    try{
+      var r=await api('/api/offers/'+offerId+'/'+action,{method:'POST',body:JSON.stringify({})});
+      if(r&&(r.ok||r.id||r.status)){ await load('offers',false,true); renderCurrent(); }
+      else alert((r&&r.error)||label+' failed.');
+    }catch(e){ alert(action+' failed.'); }
+  }
+
+  // ── Cold storage / refrigerated transport / loan requests ───────────
+  function updateSvcCounts(){
+    Object.keys(SVC_TABS).forEach(function(t){
+      var rows=DATA[t];
+      var el=document.getElementById('cnt_'+t); if(!el) return;
+      if(!rows){ el.textContent=''; el.title='not loaded yet'; return; }
+      var n=rows.filter(function(r){return (r.status||'pending')==='pending';}).length;
+      el.textContent=n>0?n:'';
+      el.title=n+' '+TITLES[t][0].toLowerCase()+' awaiting a decision';
+    });
+  }
+  function svcDetails(r){
+    var d=r.details||{};
+    return Object.keys(d).map(function(k){
+      return '<span class="muted">'+h(k.replace(/_/g,' '))+':</span> '+h(d[k]);
+    }).join('<br>');
+  }
+  function renderServiceRequests(rows, tab){
+    var empty={cold_storage:'No cold storage bookings yet.',cold_transport:'No refrigerated transport bookings yet.',loans:'No loan requests yet.'}[tab];
+    if(!rows.length){ panelMsg(empty); return; }
+    var isLoan=(tab==='loans');
+    var body=rows.map(function(r){
+      var st=r.status||'pending';
+      var opts=SVC_STATUSES.map(function(o){ return '<option value="'+o+'"'+(o===st?' selected':'')+'>'+o+'</option>'; }).join('');
+      var tel=String(r.requester_phone||'').replace(/[^\d+]/g,'');
+      return '<tr>'+
+        '<td>'+h((r.id||'').slice(0,8).toUpperCase())+'</td>'+
+        '<td>'+h(r.created_at?new Date(r.created_at).toLocaleString('en-UG'):'—')+'</td>'+
+        '<td>'+h(r.requester_name||'—')+'<br>'+(tel?'<a href="tel:'+h(tel)+'">'+h(r.requester_phone)+'</a>':'—')+'</td>'+
+        '<td>'+h(r.provider_name||'—')+'</td>'+
+        '<td style="font-size:.8rem;max-width:280px">'+svcDetails(r)+'</td>'+
+        (isLoan?'<td>'+fmt(r.amount_ugx)+'</td>':'')+
+        '<td><span class="badge '+h(st)+'">'+h(st)+'</span></td>'+
+        '<td><div class="rowbtns"><select class="svc-st" onchange="setSvcStatus(\''+h(r.id)+'\',\''+tab+'\',this.value)">'+opts+'</select>'+
+        '<button class="btn ghost sm" title="Add a note" onclick="svcNote(\''+h(r.id)+'\',\''+tab+'\')">Note</button></div>'+
+        (r.admin_notes?'<div class="muted" style="font-size:.75rem;margin-top:4px;white-space:normal">'+h(r.admin_notes)+'</div>':'')+'</td>'+
+      '</tr>';
+    }).join('');
+    setPanel('<table><thead><tr><th>Ref</th><th>Requested</th><th>Customer</th><th>'+(isLoan?'Product':'Provider')+'</th><th>Details</th>'+(isLoan?'<th>Amount</th>':'')+'<th>Status</th><th>Update</th></tr></thead><tbody>'+body+'</tbody></table>');
+  }
+  async function patchSvc(id, tab, fields){
+    try{
+      var r=await api('/api/mgmt-ab19/service-requests/'+id,{method:'PATCH',body:JSON.stringify(fields)});
+      if(r&&r.ok){ await load(tab,false,true); renderCurrent(); }
+      else { alert((r&&r.error)||'Update failed.'); await load(tab,false,true); renderCurrent(); }
+    }catch(e){ alert('Update failed.'); }
+  }
+  function setSvcStatus(id, tab, status){ patchSvc(id, tab, {status:status}); }
+  function svcNote(id, tab){
+    var cur=rowById(tab,id).admin_notes||'';
+    var n=prompt('Internal note for this request:', cur);
+    if(n===null) return;
+    patchSvc(id, tab, {admin_notes:n});
+  }
+
+  function setPanel(html){
+    var p=document.getElementById('panel');
+    p.innerHTML=html;
+    scheduleScrollHint();
+  }
+  // Whether the table is wider than its box is answered after the browser has
+  // laid the new rows out. Reading scrollWidth synchronously here would force a
+  // reflow inside every search keystroke.
+  var _hintQueued=false;
+  function scheduleScrollHint(){
+    if(_hintQueued) return; _hintQueued=true;
+    var run=function(){
+      _hintQueued=false;
+      var p=document.getElementById('panel'), t=p.querySelector('table');
+      var wide=!!t && t.scrollWidth - p.clientWidth > 8;
+      p.classList.toggle('scrolling', wide);
+      document.getElementById('tblHint').classList.toggle('on', wide);
+    };
+    if(window.requestAnimationFrame) requestAnimationFrame(run); else setTimeout(run,0);
+  }
+  window.addEventListener('resize', scheduleScrollHint);
+  function panelMsg(m){
+    setPanel('<div class="state">'+m+
+      '<br><button class="btn sm ghost" onclick="retryTab(currentTab)">Reload</button></div>');
+  }
+
+  // ── Edit / create ───────────────────────────────────────────────
+  function rowById(tab,id){ return (DATA[tab]||[]).find(function(r){return String(r.id)===String(id);}) || {}; }
+
+  function openEdit(tab,id){ buildForm(tab, rowById(tab,id), false); }
+  function openCreate(){ if(currentTab==='orders')return; buildForm(currentTab, {}, true); }
+
+  function buildForm(tab,row,isNew){
+    editState={ tab:tab, table:TABLE_OF[tab], id:row.id, isNew:isNew };
+    document.getElementById('editTitle').textContent=(isNew?'Add ':'Edit ')+tab.replace('s','');
+    document.getElementById('editErr').textContent='';
+    var fields=FIELDS[tab]||FIELDS[TABLE_OF[tab]]||[];
+    var html=fields.map(function(f){
+      var v=row[f.k];
+      if(f.t==='textarea') return fieldWrap(f,'<textarea id="ef_'+f.k+'">'+h(v||'')+'</textarea>');
+      if(f.t==='check')    return fieldWrap(f,'<label style="display:flex;align-items:center;gap:8px;color:var(--text)"><input type="checkbox" id="ef_'+f.k+'" style="width:auto" '+(v?'checked':'')+'> '+h(f.label)+'</label>',true);
+      if(f.t==='select')   return fieldWrap(f,'<select id="ef_'+f.k+'">'+f.opts.map(function(o){return '<option '+(String(v)===o?'selected':'')+'>'+o+'</option>';}).join('')+'</select>');
+      if(f.t==='image'||f.t==='video'){
+        var accept=f.t==='image'?'image/*':'video/*';
+        var prev=v?(f.t==='image'?'<img src="'+h(v)+'">':'<video src="'+h(v)+'" controls></video>'):'';
+        return '<label>'+h(f.label)+'</label>'+
+          '<input type="hidden" id="ef_'+f.k+'" value="'+h(v||'')+'">'+
+          '<input type="file" accept="'+accept+'" onchange="uploadField(this,\''+f.k+'\',\''+f.t+'\')">'+
+          '<div class="up-status" id="up_'+f.k+'"></div>'+
+          '<div class="media-preview" id="pv_'+f.k+'">'+prev+'</div>';
+      }
+      return fieldWrap(f,'<input type="'+(f.t==='number'?'number':'text')+'" id="ef_'+f.k+'" value="'+h(v==null?'':v)+'">');
+    }).join('');
+    document.getElementById('editFields').innerHTML=html;
+    document.getElementById('editOverlay').classList.add('open');
+  }
+  function fieldWrap(f,inner,noLabel){ return (noLabel?'':'<label>'+h(f.label)+'</label>')+inner; }
+  function closeEdit(){ document.getElementById('editOverlay').classList.remove('open'); editState=null; }
+
+  var currentUploadKey='';
+  async function uploadField(input,key,kind){
+    var file=input.files&&input.files[0]; if(!file) return;
+    var maxMB=kind==='video'?25:5;
+    if(file.size> maxMB*1024*1024){ document.getElementById('up_'+key).textContent=(kind==='video'?'Video':'Image')+' too large (max '+maxMB+'MB)'; return; }
+    currentUploadKey=key;
+    document.getElementById('up_'+key).textContent='Uploading…';
+    var url=await uploadToStorage(file, kind==='video'?'animals':'listings');
+    if(url){ document.getElementById('ef_'+key).value=url; document.getElementById('up_'+key).textContent='✓ uploaded';
+      document.getElementById('pv_'+key).innerHTML=kind==='image'?'<img src="'+h(url)+'">':'<video src="'+h(url)+'" controls></video>';
+    } else { if(document.getElementById('up_'+key).textContent==='Uploading…') document.getElementById('up_'+key).textContent='Upload failed'; }
+  }
+  async function uploadToStorage(file, kind){
+    try{
+      var fd=new FormData();
+      fd.append('file',file);
+      fd.append('kind',kind||'listings');
+      var res=await fetch(API+'/api/mgmt-ab19/upload',{method:'POST',headers:{Authorization:'Bearer '+TOKEN},body:fd});
+      if(!res.ok){
+        var e=await res.json().catch(function(){return{};});
+        var upEl=document.getElementById('up_'+currentUploadKey);
+        if(upEl) upEl.textContent='Upload failed: '+(e.error||res.status);
+        return null;
+      }
+      var data=await res.json();
+      return data.url||null;
+    }catch(e){ console.error('Upload exception',e); return null; }
+  }
+
+  async function saveEdit(){
+    if(!editState) return;
+    var fields={};
+    (FIELDS[editState.tab]||FIELDS[editState.table]||[]).forEach(function(f){
+      var el=document.getElementById('ef_'+f.k); if(!el) return;
+      if(f.t==='check') fields[f.k]=el.checked;
+      else if(f.t==='number'){ var n=el.value===''?null:Number(el.value); fields[f.k]=n; }
+      else fields[f.k]=el.value;
+    });
+    document.getElementById('editErr').textContent='';
+    document.getElementById('saveBtn').disabled=true; document.getElementById('saveBtn').textContent='Saving…';
+    try{
+      var body={ table:editState.table, fields:fields };
+      var method='PATCH';
+      if(editState.isNew){ method='POST'; } else { body.id=editState.id; }
+      var r=await api('/api/mgmt-ab19/row',{ method:method, body:JSON.stringify(body) });
+      if(r&&r.ok){ auditLog(editState.isNew?'row_create':'row_edit', {table:editState.table, id:editState.id||'new'}); closeEdit(); await Promise.all([load(editState.tab,false,true), loadStats()]); renderCurrent(); }
+      else document.getElementById('editErr').textContent=(r&&r.error)?r.error:'Save failed.';
+    }catch(e){ document.getElementById('editErr').textContent='Save failed.'; }
+    document.getElementById('saveBtn').disabled=false; document.getElementById('saveBtn').textContent='Save';
+  }
+
+  async function delRow(tab,id){
+    if(!confirm('Delete this '+tab.replace('s','')+'? This cannot be undone.')) return;
+    try{
+      var r=await api('/api/mgmt-ab19/row',{ method:'DELETE', body:JSON.stringify({ table:TABLE_OF[tab], id:id }) });
+      if(r&&r.ok){ auditLog('row_delete', {tab:tab, table:TABLE_OF[tab], id:id}); await load(tab,false,true); await loadStats(); renderCurrent(); }
+      else alert((r&&r.error)||'Delete failed.');
+    }catch(e){ alert('Delete failed.'); }
+  }
+
+  async function checkSession(){
+    if(!TOKEN) return;
+    var el=document.getElementById('loginHint');
+    if(el) el.textContent='Restoring your session…';
+    try{
+      var v=await api('/api/mgmt-ab19/verify');
+      if(v&&v.valid){ showDash(); return; }
+    }catch(e){
+      if(e && e.message==='unauthorized') return;   // api() already logged out
+    }
+    // An unreachable API is not the same as a bad token: keep the token and let
+    // the admin sign in, but say why the screen did not fill itself in.
+    if(el) el.textContent = wrongOrigin()
+      ? 'This page is open at '+location.hostname+', which the API does not accept as a source. Open https://agribrige.com/admin instead.'
+      : 'Could not reach the server to restore your session. Sign in again, or wait for it to wake up.';
+  }
+  initSidebar();
+  checkSession();
+</script>
+</body>
+</html>

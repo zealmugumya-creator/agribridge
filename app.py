@@ -733,6 +733,21 @@ def admin_verify():
         return err
     return jsonify({'valid': True, 'sub': payload.get('sub')}), 200
 
+@app.route('/api/mgmt-ab19/audit', methods=['POST'])
+def admin_audit_client():
+    """Accept client-side audit events (browser-side login, UI actions).
+    Requires a valid admin token so random callers cannot spam the log."""
+    payload, err = verify_token(required_role='admin')
+    if err:
+        return err
+    data = request.get_json(force=True, silent=True) or {}
+    action = str(data.get('action', 'unknown'))[:80]
+    details = data.get('details') or {}
+    if not isinstance(details, dict):
+        details = {}
+    _admin_audit('client:' + action, details)
+    return jsonify({'ok': True}), 200
+
 # ══════════════════════════════════════════════════════════════════════════════
 # USSD — Full AgriBridge Menu System
 # Africa's Talking calls: POST /api/ussd
