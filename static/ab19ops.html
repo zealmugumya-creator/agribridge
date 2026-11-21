@@ -512,7 +512,8 @@
       {k:'unit',label:'Unit',t:'text'},
       {k:'badge',label:'Badge / tag',t:'text'},
       {k:'description',label:'Description',t:'textarea'},
-      {k:'image_id',label:'Unsplash photo id',t:'text'},
+      {k:'image_url',label:'Photo (upload)',t:'image'},
+      {k:'image_id',label:'Unsplash photo ID (fallback if no upload)',t:'text'},
       {k:'in_stock',label:'In stock (shown in app)',t:'check'}
     ]
   };
@@ -2073,9 +2074,10 @@
       if(f.t==='image'||f.t==='video'){
         var accept=f.t==='image'?'image/*':'video/*';
         var prev=v?(f.t==='image'?'<img src="'+h(v)+'">':'<video src="'+h(v)+'" controls></video>'):'';
+        var storageKind=(editState&&editState.tab==='supplies')?'supplies':(f.t==='video'?'animals':'listings');
         return '<label>'+h(f.label)+'</label>'+
           '<input type="hidden" id="ef_'+f.k+'" value="'+h(v||'')+'">'+
-          '<input type="file" accept="'+accept+'" onchange="uploadField(this,\''+f.k+'\',\''+f.t+'\')">'+
+          '<input type="file" accept="'+accept+'" onchange="uploadField(this,\''+f.k+'\',\''+f.t+'\',\''+storageKind+'\')">'+
           '<div class="up-status" id="up_'+f.k+'"></div>'+
           '<div class="media-preview" id="pv_'+f.k+'">'+prev+'</div>';
       }
@@ -2088,13 +2090,14 @@
   function closeEdit(){ document.getElementById('editOverlay').classList.remove('open'); editState=null; }
 
   var currentUploadKey='';
-  async function uploadField(input,key,kind){
+  async function uploadField(input,key,kind,storageKind){
     var file=input.files&&input.files[0]; if(!file) return;
     var maxMB=kind==='video'?25:5;
     if(file.size> maxMB*1024*1024){ document.getElementById('up_'+key).textContent=(kind==='video'?'Video':'Image')+' too large (max '+maxMB+'MB)'; return; }
     currentUploadKey=key;
     document.getElementById('up_'+key).textContent='Uploading…';
-    var url=await uploadToStorage(file, kind==='video'?'animals':'listings');
+    var bucket=storageKind||(kind==='video'?'animals':'listings');
+    var url=await uploadToStorage(file, bucket);
     if(url){ document.getElementById('ef_'+key).value=url; document.getElementById('up_'+key).textContent='✓ uploaded';
       document.getElementById('pv_'+key).innerHTML=kind==='image'?'<img src="'+h(url)+'">':'<video src="'+h(url)+'" controls></video>';
     } else { if(document.getElementById('up_'+key).textContent==='Uploading…') document.getElementById('up_'+key).textContent='Upload failed'; }

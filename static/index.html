@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- AB_BUILD:20261121_FIX13 -->
+<!-- AB_BUILD:20261121_FIX13b -->
 <html lang="en">
 <head>
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
@@ -9,7 +9,7 @@
 // Self-update: if this page is served from browser cache, force a fresh reload.
 // We store the build stamp in sessionStorage; if it mismatches we reload once.
 (function(){
-  var STAMP = '20261121_FIX13';
+  var STAMP = '20261121_FIX13b';
   var key = '_ab_stamp';
   try {
     if (sessionStorage.getItem(key) !== STAMP) {
@@ -6182,6 +6182,41 @@ function openMyProfile() {
   }
 }
 
+function openFarmerAccountSheet() {
+  var sh = document.getElementById('farmerAccSheet');
+  if (!sh) {
+    sh = document.createElement('div');
+    sh.id = 'farmerAccSheet';
+    sh.setAttribute('role','dialog');
+    sh.setAttribute('aria-modal','true');
+    sh.style.cssText = 'position:fixed;inset:0;z-index:9000;display:flex;flex-direction:column;justify-content:flex-end';
+    sh.innerHTML =
+      '<div onclick="closeFarmerAccountSheet()" style="flex:1;background:rgba(0,0,0,0.55)"></div>' +
+      '<div style="background:var(--card);border-radius:20px 20px 0 0;padding:8px 0 env(safe-area-inset-bottom,16px)">' +
+        '<div style="width:36px;height:4px;background:var(--border);border-radius:2px;margin:8px auto 20px"></div>' +
+        '<button onclick="document.getElementById(\'fprPhoto\').click();closeFarmerAccountSheet()" style="display:flex;align-items:center;gap:14px;width:100%;background:none;border:none;cursor:pointer;padding:14px 20px;color:var(--text);font-size:.95rem;font-family:inherit;border-bottom:1px solid var(--border)">' +
+          '<span style="font-size:1.3rem">📷</span> Change profile photo' +
+        '</button>' +
+        '<button onclick="openSettings();closeFarmerAccountSheet()" style="display:flex;align-items:center;gap:14px;width:100%;background:none;border:none;cursor:pointer;padding:14px 20px;color:var(--text);font-size:.95rem;font-family:inherit;border-bottom:1px solid var(--border)">' +
+          '<span style="font-size:1.3rem">⚙️</span> Settings &amp; language' +
+        '</button>' +
+        '<button onclick="showPage(\'about\');closeFarmerAccountSheet()" style="display:flex;align-items:center;gap:14px;width:100%;background:none;border:none;cursor:pointer;padding:14px 20px;color:var(--text);font-size:.95rem;font-family:inherit;border-bottom:1px solid var(--border)">' +
+          '<span style="font-size:1.3rem">💡</span> Help &amp; support' +
+        '</button>' +
+        '<button onclick="logOut()" style="display:flex;align-items:center;gap:14px;width:100%;background:none;border:none;cursor:pointer;padding:14px 20px;color:var(--red);font-size:.95rem;font-family:inherit;font-weight:700">' +
+          '<span style="font-size:1.3rem">🚪</span> Sign out' +
+        '</button>' +
+      '</div>';
+    document.body.appendChild(sh);
+  }
+  sh.style.display = 'flex';
+  requestAnimationFrame(function(){ sh.style.display = 'flex'; });
+}
+function closeFarmerAccountSheet() {
+  var sh = document.getElementById('farmerAccSheet');
+  if (sh) sh.style.display = 'none';
+}
+
 /** Render buyer profile */
 function renderBuyerProfile() {
   if (!currentUser) {
@@ -11722,10 +11757,18 @@ function renderFarmerProfile() {
   var av = String(photo).indexOf('http') === 0 ? '<img src="' + escHtml(photo) + '" alt="">' : escHtml(String(r.full_name || currentUser.name || 'F').charAt(0).toUpperCase());
   var dists = (typeof UG_DISTRICTS !== 'undefined' && UG_DISTRICTS) ? UG_DISTRICTS : [];
   var dl = '<datalist id="abDistricts">' + dists.map(function (d) { return '<option value="' + escHtml(d) + '">'; }).join('') + '</datalist>';
-  el.innerHTML = '<div class="fh-head"><div class="fh-avatar" style="width:56px;height:56px;font-size:1.3rem">' + av + '</div>' +
-      '<div style="min-width:0"><div class="fh-hi">Signed in as</div><div class="fh-name">' + escHtml(r.full_name || (currentUser && currentUser.email) || 'Farmer') + '</div>' +
-      '<div class="fh-s">' + (r.is_verified ? 'Verified farmer' : 'Not verified yet') + (r.created_at ? ' · since ' + new Date(r.created_at).toLocaleDateString('en-GB', { month: 'short', year: 'numeric' }) : '') + '</div></div></div>' +
-    '<div class="fh-note">Only your name, phone and district can be changed here, and they are checked by the AgriBridge server before they are saved. Verification, your farm size and crops are looked at by the AgriBridge team — use the ☰ menu to contact them.</div>' +
+  el.innerHTML =
+    /* tappable header — avatar + name open account sheet */
+    '<button onclick="openFarmerAccountSheet()" style="display:flex;align-items:center;gap:14px;width:100%;background:none;border:none;cursor:pointer;padding:0 0 16px;text-align:left" aria-label="Account options">' +
+      '<div class="fh-avatar" style="width:56px;height:56px;font-size:1.3rem;flex-shrink:0">' + av + '</div>' +
+      '<div style="min-width:0;flex:1">' +
+        '<div class="fh-hi">Signed in as</div>' +
+        '<div class="fh-name">' + escHtml(r.full_name || (currentUser && currentUser.email) || 'Farmer') + '</div>' +
+        '<div class="fh-s">' + (r.is_verified ? '✓ Verified farmer' : 'Not verified yet') + (r.created_at ? ' · since ' + new Date(r.created_at).toLocaleDateString('en-GB', { month: 'short', year: 'numeric' }) : '') + '</div>' +
+      '</div>' +
+      '<span style="color:var(--green-light);font-size:1.1rem;padding:8px">›</span>' +
+    '</button>' +
+    '<div class="fh-note">Only your name, phone and district can be changed here. Farm details and verification are managed by the AgriBridge team.</div>' +
     '<button class="fh-link" onclick="document.getElementById(\'fprPhoto\').click()">Change my photo</button>' +
     '<input type="file" id="fprPhoto" accept="image/*" style="display:none" onchange="saveFarmerPhoto(this)">' +
     '<div class="fh-form">' + dl +
@@ -11740,14 +11783,7 @@ function renderFarmerProfile() {
       fhFieldRo('Sub-county / village', [r.sub_county, r.village].filter(Boolean).join(' · ') || '', 'Kept private; not shown to buyers.') +
       fhFieldRo('Farm size', r.farm_size_acres ? (Number(r.farm_size_acres) + ' acres') : '', 'Ask support to correct it.') +
       fhFieldRo('Crops grown', (r.crops_grown && r.crops_grown.length) ? r.crops_grown.join(', ') : '', 'Ask support to correct it.') +
-    '</div>' +
-    '<div class="fh-sec" style="margin-top:22px"><div class="fh-sec-top"><h4>Account &amp; Settings</h4></div>' +
-      '<div style="display:grid;gap:8px;margin-top:4px">' +
-        '<button class="fh-link" onclick="openSettings()" style="text-align:left;padding:11px 0;border-bottom:1px solid var(--border)">⚙️ &nbsp;Settings &amp; language ›</button>' +
-        '<button class="fh-link" onclick="showPage(\'about\')" style="text-align:left;padding:11px 0;border-bottom:1px solid var(--border)">💡 &nbsp;Help &amp; support ›</button>' +
-        '<button class="fh-link" onclick="openModal(\'myAccountModal\')" style="text-align:left;padding:11px 0;border-bottom:1px solid var(--border)">👤 &nbsp;Switch account type ›</button>' +
-        '<button class="fh-link" style="text-align:left;padding:11px 0;color:var(--red);border:none" onclick="logOut()">🚪 &nbsp;Sign out</button>' +
-      '</div></div>';
+    '</div>';
 }
 async function saveFarmerProfile() {
   if (_fprSaving) return;
