@@ -5447,6 +5447,10 @@ function showPage(name) {
   if (name === 'cart')     renderCartPage();
   if (name === 'orders')   loadBuyerOrders();
   if (name === 'profile-buyer') renderBuyerProfile();
+  if (name === 'agri_dict') {
+    if (typeof renderAgriTranslator === 'function')
+      renderAgriTranslator('agriTranslatorWidget');
+  }
 }
 // Android back button — also handles returning to landing page
 history.pushState({ ab:1 }, '', window.location.href);
@@ -13863,12 +13867,13 @@ function _moreItems(){return{
   contact: {icon:'✉️',label:t('more.contact')},
   market:  {icon:'🛒',label:t('more.market')},
   prices:  {icon:'📊',label:t('more.prices')},
-  ai:      {icon:'✨',label:t('more.ai')}
+  ai:      {icon:'✨',label:t('more.ai')},
+  agri_dict:{icon:'📖',label:t('more.agri_dict')}
 };}
 var MORE_BY_ROLE = {
   guest:  ['crops','animals','doctor','training','delivery','supply','finance','b2b','community','coldchain','export','ussd','about','contact'],
-  farmer: ['market','prices','ai','crops','animals','doctor','training','finance','supply','coldchain','export','delivery','community','ussd','about','contact'],
-  exporter: ['market','prices','ai','crops','animals','doctor','training','finance','supply','coldchain','export','delivery','community','ussd','about','contact'],
+  farmer: ['market','prices','ai','agri_dict','crops','animals','doctor','training','finance','supply','coldchain','export','delivery','community','ussd','about','contact'],
+  exporter: ['market','prices','ai','agri_dict','crops','animals','doctor','training','finance','supply','coldchain','export','delivery','community','ussd','about','contact'],
   vendor: ['crops','animals','delivery','training','community','coldchain','ussd','about','contact'],
   hotel:  ['b2b','supply','delivery','coldchain','finance','community','training','ussd','about','contact'],
   supplier:['supply','delivery','community','training','coldchain','finance','ussd','about','contact'],
@@ -16062,6 +16067,17 @@ document.addEventListener('DOMContentLoaded', function() {
   </div>
 </div>
 
+<!-- ══ AGRICULTURAL DICTIONARY PAGE ══════════════════════════ -->
+<div id="page-agri_dict" class="page">
+  <div class="page-header">
+    <h2>📖 <span data-i18n="agri.title">Agricultural Dictionary</span></h2>
+    <p data-i18n="agri.subtitle">Farm terms in English + your language</p>
+  </div>
+  <div class="section" style="max-width:600px;margin:0 auto">
+    <div id="agriTranslatorWidget"></div>
+  </div>
+</div>
+
 <!-- ══ COOKIE BANNER ══════════════════════════════════════════ -->
 <!-- Install App banner -->
 <div id="installBanner">
@@ -16715,6 +16731,13 @@ var _dict = {
     'more.market': 'Market',
     'more.prices': 'Prices',
     'more.ai': 'AI Assistant',
+    'more.agri_dict': 'Agri Dictionary',
+    'agri.title': 'Agricultural Dictionary',
+    'agri.subtitle': 'Farm terms in English + your language',
+    'agri.search': 'Search agricultural terms…',
+    'agri.showing_in': 'Showing in',
+    'agri.and_english': '& English',
+    'agri.no_results': 'No terms found',
     // Profile page
     'profile.signed_in_as': 'Signed in as',
     'profile.verified': '✓ Verified farmer',
@@ -17225,7 +17248,7 @@ var _dict = {
     'more.finance': 'Fedha', 'more.b2b': 'Biashara', 'more.community': 'Jamii',
     'more.coldchain': 'Hifadhi Baridi', 'more.export': 'Usafirishaji', 'more.ussd': 'USSD',
     'more.about': 'Kuhusu', 'more.contact': 'Wasiliana', 'more.market': 'Soko',
-    'more.prices': 'Bei', 'more.ai': 'Msaidizi wa AI',
+    'more.prices': 'Bei', 'more.ai': 'Msaidizi wa AI', 'more.agri_dict': 'Kamusi ya Kilimo',
   },
 
   rw: { // Kinyarwanda
@@ -17437,7 +17460,7 @@ var _dict = {
     'more.finance': 'Finance', 'more.b2b': 'B2B', 'more.community': 'Communauté',
     'more.coldchain': 'Chaîne du froid', 'more.export': 'Export', 'more.ussd': 'USSD',
     'more.about': 'À propos', 'more.contact': 'Contact', 'more.market': 'Marché',
-    'more.prices': 'Prix', 'more.ai': 'Assistant IA',
+    'more.prices': 'Prix', 'more.ai': 'Assistant IA', 'more.agri_dict': 'Dictionnaire Agri',
   },
 
   ar: { // Arabic — RTL
@@ -17577,6 +17600,119 @@ window.t = function(key, vars) {
 
 /** RTL languages */
 var _RTL_LANGS = {ar: true};
+
+// ─── Agricultural Terminology Database (Phase 5) ──────────────────────────────
+// Local cache populated from Supabase agri_dictionary table.
+// Falls back gracefully when offline — the cache keeps working.
+var _agriDict = [];           // array of row objects from DB
+var _agriDictLoaded = false;
+
+function loadAgriDict() {
+  if (_agriDictLoaded) return Promise.resolve(_agriDict);
+  // Pull from Supabase REST (public read RLS policy)
+  var url = (typeof SUPA_URL !== 'undefined' ? SUPA_URL : '') + '/rest/v1/agri_dictionary?select=*&limit=2000';
+  var key = (typeof SUPA_KEY !== 'undefined' ? SUPA_KEY : '');
+  if (!key) return Promise.resolve([]);
+  return fetch(url, { headers: { apikey: key, Authorization: 'Bearer ' + key } })
+    .then(function(r){ return r.ok ? r.json() : []; })
+    .then(function(rows){
+      _agriDict = Array.isArray(rows) ? rows : [];
+      _agriDictLoaded = true;
+      // Persist to sessionStorage so reopening a page in same session is instant
+      try { sessionStorage.setItem('agri_dict', JSON.stringify(_agriDict)); } catch(e){}
+      return _agriDict;
+    }).catch(function(){ return _agriDict; });
+}
+
+// Try to prime from sessionStorage on page load
+(function(){
+  try {
+    var cached = sessionStorage.getItem('agri_dict');
+    if (cached) { _agriDict = JSON.parse(cached); _agriDictLoaded = true; }
+  } catch(e){}
+})();
+
+/**
+ * Translate a single agricultural term.
+ * agriTerm('maize', 'sw')  → 'Mahindi'
+ * agriTerm('maize')        → uses _currentLang
+ */
+function agriTerm(termKey, langCode) {
+  var lang = langCode || _currentLang;
+  var row = _agriDict.filter(function(r){ return r.term_key === termKey; })[0];
+  if (!row) return termKey;
+  return row[lang] || row['en'] || termKey;
+}
+
+/**
+ * Search the dictionary across all language columns.
+ * Returns up to `limit` rows whose en/lg/sw/… contain the query string.
+ */
+function searchAgriDict(query, langCode, limit) {
+  limit = limit || 20;
+  if (!query) return _agriDict.slice(0, limit);
+  var lang = langCode || _currentLang;
+  var q = query.toLowerCase().trim();
+  return _agriDict.filter(function(row){
+    return (row.en  || '').toLowerCase().indexOf(q) > -1 ||
+           (row[lang] || '').toLowerCase().indexOf(q) > -1 ||
+           (row.sw  || '').toLowerCase().indexOf(q) > -1;
+  }).slice(0, limit);
+}
+
+/**
+ * Render an inline translator widget into `containerId`.
+ * Shows a search box + scrollable list of terms in current language.
+ */
+function renderAgriTranslator(containerId) {
+  var el = document.getElementById(containerId);
+  if (!el) return;
+  var lang = _currentLang;
+  var langName = (_LANG_REGISTRY.filter(function(l){return l.code===lang;})[0]||{}).native || lang.toUpperCase();
+
+  el.innerHTML =
+    '<div style="display:flex;flex-direction:column;gap:8px">' +
+      '<input id="agriDictSearch" type="text" placeholder="🔍 ' + t('agri.search') + '" ' +
+        'oninput="renderAgriDictResults(this.value)" ' +
+        'style="width:100%;box-sizing:border-box;padding:9px 12px;border-radius:10px;' +
+               'border:1px solid var(--border);background:var(--card);color:var(--text);font-size:0.9rem">' +
+      '<div style="font-size:0.75rem;color:var(--text2);padding:0 2px">' +
+        t('agri.showing_in') + ' <strong>' + langName + '</strong> ' + t('agri.and_english') +
+      '</div>' +
+      '<div id="agriDictResults" style="display:flex;flex-direction:column;gap:4px;max-height:60vh;overflow-y:auto"></div>' +
+    '</div>';
+
+  // Load dict then render initial results
+  loadAgriDict().then(function(){ renderAgriDictResults(''); });
+}
+
+function renderAgriDictResults(query) {
+  var el = document.getElementById('agriDictResults');
+  if (!el) return;
+  var lang = _currentLang;
+  var rows = searchAgriDict(query, lang, 50);
+  if (!rows.length) {
+    el.innerHTML = '<div style="color:var(--text2);padding:12px;text-align:center">' + t('agri.no_results') + '</div>';
+    return;
+  }
+  el.innerHTML = rows.map(function(row){
+    var local = row[lang] && row[lang] !== row.en ? row[lang] : null;
+    return '<div style="display:flex;justify-content:space-between;align-items:center;' +
+                        'padding:9px 12px;border-radius:10px;background:var(--card);' +
+                        'border:1px solid var(--border)">' +
+      '<div>' +
+        '<div style="font-weight:600;font-size:0.9rem">' + escHtml(row.en) + '</div>' +
+        (local ? '<div style="font-size:0.8rem;color:var(--green)">' + escHtml(local) + '</div>' : '') +
+        '<div style="font-size:0.72rem;color:var(--text2)">' + escHtml(row.category.replace(/_/g,' ')) + '</div>' +
+      '</div>' +
+      '<button onclick="navigator.clipboard&&navigator.clipboard.writeText(\''+escHtml(local||row.en)+'\')" ' +
+        'style="font-size:0.75rem;padding:4px 8px;border-radius:6px;background:var(--green-dim);' +
+               'color:var(--green);border:none;cursor:pointer">Copy</button>' +
+    '</div>';
+  }).join('');
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 
 /** Walk all [data-i18n] elements and set their textContent */
 function applyTranslations() {
