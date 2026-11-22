@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- AB_BUILD:20261122_FIX13d -->
+<!-- AB_BUILD:20261122_LANG -->
 <html lang="en">
 <head>
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
@@ -9,7 +9,7 @@
 // Self-update: if this page is served from browser cache, force a fresh reload.
 // We store the build stamp in sessionStorage; if it mismatches we reload once.
 (function(){
-  var STAMP = '20261122_FIX13d';
+  var STAMP = '20261122_LANG';
   var key = '_ab_stamp';
   try {
     if (sessionStorage.getItem(key) !== STAMP) {
@@ -11290,7 +11290,7 @@ function fhHead() {
   var name = (currentUser && currentUser.name) || (currentUser && currentUser.email ? currentUser.email.split('@')[0] : 'Farmer');
   var first = String(name).split(' ')[0] || 'Farmer';
   var hour = new Date().getHours();
-  var hello = hour < 12 ? 'Good morning' : hour < 17 ? 'Good afternoon' : 'Good evening';
+  var hello = hour < 12 ? t('greet.morning') : hour < 17 ? t('greet.afternoon') : t('greet.evening');
   var photo = (currentUser && currentUser.avatar_url) || '';
   var av = String(photo).indexOf('http') === 0 ? '<img src="' + escHtml(photo) + '" alt="">' : escHtml(first.charAt(0).toUpperCase());
   return '<div class="fh-head">' +
@@ -11349,15 +11349,16 @@ function renderFarmerHome(d) {
   var pendN = P ? fhBucketRows(P, 'pending').length : null;
   var paidN = P ? fhBucketRows(P, 'paid').length : null;
 
+  var _listSub = L && L.length ? (t('fh.of_listing').replace('{n}', L.length) + (L.length === 1 ? '' : 's')) : t('fh.nothing_to_answer');
   var stats = '<div class="fh-stats">' +
-    (L === null ? fhStat('Active produce', '–', 'Unavailable — pull to refresh', 'farmer-produce')
-                : fhStat('Active produce', String(liveN), (L.length ? 'of ' + L.length + ' listing' + (L.length === 1 ? '' : 's') : 'nothing listed yet'), 'farmer-produce')) +
-    (O === null ? fhStat('New orders', '–', 'Unavailable', 'farmer-orders')
-                : fhStat('New orders', String(newN), newN ? 'waiting for your reply' : 'nothing to answer', 'farmer-orders')) +
-    (O === null ? fhStat('Needs action', '–', 'Unavailable', 'farmer-orders')
-                : fhStat('Needs action', String(openN), openN ? 'you can move these now' : 'all caught up', 'farmer-orders')) +
-    (P === null ? fhStat('Awaiting payout', '–', 'Unavailable', 'farmer-earnings')
-                : fhStat('Awaiting payout', fmtUgx(fhNet(P, 'pending')), paidN ? paidN + ' paid out' : 'no payout paid yet', 'farmer-earnings')) +
+    (L === null ? fhStat(t('fh.active_produce'), '–', 'Unavailable — pull to refresh', 'farmer-produce')
+                : fhStat(t('fh.active_produce'), String(liveN), _listSub, 'farmer-produce')) +
+    (O === null ? fhStat(t('fh.new_orders'), '–', 'Unavailable', 'farmer-orders')
+                : fhStat(t('fh.new_orders'), String(newN), newN ? 'waiting for your reply' : t('fh.nothing_to_answer'), 'farmer-orders')) +
+    (O === null ? fhStat(t('fh.needs_action'), '–', 'Unavailable', 'farmer-orders')
+                : fhStat(t('fh.needs_action'), String(openN), openN ? 'you can move these now' : t('fh.all_caught_up'), 'farmer-orders')) +
+    (P === null ? fhStat(t('fh.awaiting_payout'), '–', 'Unavailable', 'farmer-earnings')
+                : fhStat(t('fh.awaiting_payout'), fmtUgx(fhNet(P, 'pending')), paidN ? paidN + ' paid out' : t('fh.no_payout'), 'farmer-earnings')) +
     '</div>';
 
   var todo = '';
@@ -11373,12 +11374,12 @@ function renderFarmerHome(d) {
   panel.innerHTML = '<div class="hd">' + fhHead() +
     '<button class="fh-sell" onclick="openListProduceModal()">' +
       '<span class="fh-sell-ic" aria-hidden="true">🌾</span>' +
-      '<span style="min-width:0"><b>Sell produce</b><small>List what you harvested and set your own price</small></span>' +
+      '<span style="min-width:0"><b>' + t('fh.sell_produce') + '</b><small>' + t('fh.sell_sub') + '</small></span>' +
       '<i aria-hidden="true">›</i></button>' +
     stats +
-    '<div class="fh-sec"><div class="fh-sec-top"><h4>Needs your action</h4><button class="fh-more" onclick="showPage(\'farmer-orders\')">All orders ›</button></div>' + todo + '</div>' +
-    '<div class="fh-sec"><div class="fh-sec-top"><h4>My produce</h4><button class="fh-more" onclick="showPage(\'farmer-produce\')">All produce ›</button></div>' + prod + '</div>' +
-    '<div class="fh-sec"><div class="fh-sec-top"><h4>Earnings</h4><button class="fh-more" onclick="showPage(\'farmer-earnings\')">Details ›</button></div>' +
+    '<div class="fh-sec"><div class="fh-sec-top"><h4>' + t('fh.needs_action_sec') + '</h4><button class="fh-more" onclick="showPage(\'farmer-orders\')">All orders ›</button></div>' + todo + '</div>' +
+    '<div class="fh-sec"><div class="fh-sec-top"><h4>' + t('fh.my_produce') + '</h4><button class="fh-more" onclick="showPage(\'farmer-produce\')">All produce ›</button></div>' + prod + '</div>' +
+    '<div class="fh-sec"><div class="fh-sec-top"><h4>' + t('fh.earnings') + '</h4><button class="fh-more" onclick="showPage(\'farmer-earnings\')">Details ›</button></div>' +
       (P === null ? fhErr('We could not load your payout records.', 'loadFarmerHome()')
         : !P.length ? fhEmpty('💰', 'No payout record yet', 'A payout record is created after an order is delivered and the buyer payment is recorded.', 'See your orders', 'showPage(\'farmer-orders\')')
         : '<div class="fh-sum">' +
@@ -11789,63 +11790,63 @@ function renderFarmerProfile() {
       '</button>' +
       '<input type="file" id="fprPhoto" accept="image/*" style="display:none" onchange="saveFarmerPhoto(this)">' +
       '<div class="fpr-name">' + name + '</div>' +
-      '<div class="fpr-sub">' + (verified ? '✓ Verified farmer' : 'Not verified yet') + since + '</div>' +
+      '<div class="fpr-sub">' + (verified ? t('profile.verified') : t('profile.not_verified')) + since + '</div>' +
     '</div>' +
 
     /* ── MENU ROWS ── */
     '<div class="fpr-menu">' +
-      '<div class="fpr-section-head">My details</div>' +
+      '<div class="fpr-section-head">' + t('profile.my_details') + '</div>' +
 
       /* Name */
       '<button class="fpr-row" onclick="openFarmerEditSheet(\'name\')">' +
         '<div class="fpr-row-ic" style="background:rgba(23,224,107,.12)">👤</div>' +
-        '<div class="fpr-row-body"><div class="fpr-row-label">Full name</div><div class="fpr-row-sub" id="fpr-val-name">' + name + '</div></div>' +
+        '<div class="fpr-row-body"><div class="fpr-row-label">' + t('profile.full_name') + '</div><div class="fpr-row-sub" id="fpr-val-name">' + name + '</div></div>' +
         '<div class="fpr-row-right">›</div>' +
       '</button>' +
 
       /* Phone */
       '<button class="fpr-row" onclick="openFarmerEditSheet(\'phone\')">' +
         '<div class="fpr-row-ic" style="background:rgba(23,224,107,.12)">📞</div>' +
-        '<div class="fpr-row-body"><div class="fpr-row-label">Phone number</div><div class="fpr-row-sub" id="fpr-val-phone">' + phone + '</div></div>' +
+        '<div class="fpr-row-body"><div class="fpr-row-label">' + t('profile.phone') + '</div><div class="fpr-row-sub" id="fpr-val-phone">' + phone + '</div></div>' +
         '<div class="fpr-row-right">›</div>' +
       '</button>' +
 
       /* District */
       '<button class="fpr-row" onclick="openFarmerEditSheet(\'district\')">' +
         '<div class="fpr-row-ic" style="background:rgba(23,224,107,.12)">📍</div>' +
-        '<div class="fpr-row-body"><div class="fpr-row-label">District</div><div class="fpr-row-sub" id="fpr-val-district">' + district + '</div></div>' +
+        '<div class="fpr-row-body"><div class="fpr-row-label">' + t('profile.district') + '</div><div class="fpr-row-sub" id="fpr-val-district">' + district + '</div></div>' +
         '<div class="fpr-row-right">›</div>' +
       '</button>' +
 
-      '<div class="fpr-section-head">Farm details</div>' +
+      '<div class="fpr-section-head">' + t('profile.farm_details') + '</div>' +
 
       /* Verification */
       '<div class="fpr-row" style="cursor:default">' +
         '<div class="fpr-row-ic" style="background:rgba(23,224,107,.12)">' + (verified ? '✅' : '⏳') + '</div>' +
-        '<div class="fpr-row-body"><div class="fpr-row-label">Verification</div><div class="fpr-row-sub">' + (verified ? 'Verified by AgriBridge' : 'Not yet verified') + '</div></div>' +
+        '<div class="fpr-row-body"><div class="fpr-row-label">' + t('profile.verification') + '</div><div class="fpr-row-sub">' + (verified ? t('profile.verified_by') : t('profile.not_verified')) + '</div></div>' +
       '</div>' +
 
-      (r.farm_size_acres ? '<div class="fpr-row" style="cursor:default"><div class="fpr-row-ic" style="background:rgba(23,224,107,.12)">🌾</div><div class="fpr-row-body"><div class="fpr-row-label">Farm size</div><div class="fpr-row-sub">' + Number(r.farm_size_acres) + ' acres</div></div></div>' : '') +
+      (r.farm_size_acres ? '<div class="fpr-row" style="cursor:default"><div class="fpr-row-ic" style="background:rgba(23,224,107,.12)">🌾</div><div class="fpr-row-body"><div class="fpr-row-label">' + t('profile.farm_size') + '</div><div class="fpr-row-sub">' + Number(r.farm_size_acres) + ' acres</div></div></div>' : '') +
 
-      (r.crops_grown && r.crops_grown.length ? '<div class="fpr-row" style="cursor:default"><div class="fpr-row-ic" style="background:rgba(23,224,107,.12)">🌱</div><div class="fpr-row-body"><div class="fpr-row-label">Crops grown</div><div class="fpr-row-sub">' + escHtml(r.crops_grown.join(', ')) + '</div></div></div>' : '') +
+      (r.crops_grown && r.crops_grown.length ? '<div class="fpr-row" style="cursor:default"><div class="fpr-row-ic" style="background:rgba(23,224,107,.12)">🌱</div><div class="fpr-row-body"><div class="fpr-row-label">' + t('profile.crops') + '</div><div class="fpr-row-sub">' + escHtml(r.crops_grown.join(', ')) + '</div></div></div>' : '') +
 
-      '<div class="fpr-section-head">Account</div>' +
+      '<div class="fpr-section-head">' + t('profile.account') + '</div>' +
 
       '<button class="fpr-row" onclick="openSettings()">' +
         '<div class="fpr-row-ic" style="background:rgba(91,155,255,.12)">⚙️</div>' +
-        '<div class="fpr-row-body"><div class="fpr-row-label">Settings &amp; language</div></div>' +
+        '<div class="fpr-row-body"><div class="fpr-row-label">' + t('set.language') + ' &amp; ' + t('set.account') + '</div></div>' +
         '<div class="fpr-row-right">›</div>' +
       '</button>' +
 
       '<button class="fpr-row" onclick="showPage(\'about\')">' +
         '<div class="fpr-row-ic" style="background:rgba(255,194,75,.12)">💡</div>' +
-        '<div class="fpr-row-body"><div class="fpr-row-label">Help &amp; support</div></div>' +
+        '<div class="fpr-row-body"><div class="fpr-row-label">' + t('set.help') + '</div></div>' +
         '<div class="fpr-row-right">›</div>' +
       '</button>' +
 
       '<button class="fpr-row danger" onclick="logOut()" style="margin-top:8px">' +
         '<div class="fpr-row-ic" style="background:rgba(224,85,85,.12)">🚪</div>' +
-        '<div class="fpr-row-body"><div class="fpr-row-label">Sign out</div></div>' +
+        '<div class="fpr-row-body"><div class="fpr-row-label">' + t('set.logout') + '</div></div>' +
       '</button>' +
 
     '</div>' + dl;
@@ -13802,8 +13803,8 @@ var ROLE_PAGES = {
 // Bottom nav items each role sees
 var ROLE_NAV = {
   guest:  [{page:'home',icon:'🏠',label:'Home'},{page:'market',icon:'🛒',label:'Browse'},{page:'about',icon:'💡',label:'About'},{page:'contact',icon:'✉️',label:'Contact'}],
-  farmer: [{page:'home',icon:'🏠',label:'Home'},{page:'farmer-produce',icon:'🌾',label:'Produce'},{page:'farmer-orders',icon:'📥',label:'Orders'},{page:'farmer-earnings',icon:'💰',label:'Earnings'},{page:'farmer-profile',icon:'👤',label:'Profile'}],
-  exporter: [{page:'home',icon:'🏠',label:'Home'},{page:'farmer-produce',icon:'🌾',label:'Produce'},{page:'farmer-orders',icon:'📥',label:'Orders'},{page:'farmer-earnings',icon:'💰',label:'Earnings'},{page:'farmer-profile',icon:'👤',label:'Profile'}],
+  farmer: [{page:'home',icon:'🏠',label:t('nav.home')},{page:'farmer-produce',icon:'🌾',label:t('nav.produce')},{page:'farmer-orders',icon:'📥',label:t('nav.orders')},{page:'farmer-earnings',icon:'💰',label:t('nav.earnings')},{page:'farmer-profile',icon:'👤',label:t('nav.more')}],
+  exporter: [{page:'home',icon:'🏠',label:t('nav.home')},{page:'farmer-produce',icon:'🌾',label:t('nav.produce')},{page:'farmer-orders',icon:'📥',label:t('nav.orders')},{page:'farmer-earnings',icon:'💰',label:t('nav.earnings')},{page:'farmer-profile',icon:'👤',label:t('nav.more')}],
   vendor: [{page:'home',icon:'🏠',label:'Home'},{page:'market',icon:'🛒',label:'Market'},{page:'prices',icon:'📊',label:'Prices'},{page:'animals',icon:'🐄',label:'Animals'},{page:'delivery',icon:'🚚',label:'Orders'}],
   hotel:  [{page:'home',icon:'🏠',label:'Home'},{page:'b2b',icon:'🏢',label:'B2B Portal'},{page:'market',icon:'🛒',label:'Browse'},{page:'delivery',icon:'🚚',label:'Deliveries'},{page:'contact',icon:'✉️',label:'Support'}],
   supplier:[{page:'home',icon:'🏠',label:'Home'},{page:'dashboard',icon:'🏪',label:'My Store'},{page:'supply',icon:'🌱',label:'Supplies'},{page:'delivery',icon:'🚚',label:'Orders'},{page:'market',icon:'🛒',label:'Market'}],
@@ -16574,6 +16575,53 @@ var _dict = {
     'trk.rider': 'Rider',
     'trk.vehicle': 'Vehicle',
     'trk.no_rider': 'Not yet assigned',
+    // Greetings
+    'greet.morning': 'Good morning',
+    'greet.afternoon': 'Good afternoon',
+    'greet.evening': 'Good evening',
+    // Farmer home stats
+    'fh.active_produce': 'Active Produce',
+    'fh.new_orders': 'New Orders',
+    'fh.needs_action': 'Needs Action',
+    'fh.awaiting_payout': 'Awaiting Payout',
+    'fh.of_listing': 'of {n} listing',
+    'fh.of_listings': 'of {n} listings',
+    'fh.nothing_to_answer': 'nothing to answer',
+    'fh.all_caught_up': 'all caught up',
+    'fh.no_payout': 'no payout paid yet',
+    'fh.sell_produce': 'Sell produce',
+    'fh.sell_sub': 'List what you harvested and set your own price',
+    'fh.needs_action_sec': 'Needs your action',
+    'fh.my_produce': 'My produce',
+    'fh.earnings': 'Earnings',
+    'fh.no_orders_waiting': 'No orders waiting',
+    'fh.all_good': 'All caught up',
+    // Bottom nav (farmer)
+    'nav.home': 'Home',
+    'nav.produce': 'Produce',
+    'nav.orders': 'Orders',
+    'nav.earnings': 'Earnings',
+    'nav.more': 'More',
+    // Bottom nav (buyer)
+    'nav.browse': 'Browse',
+    'nav.cart': 'Cart',
+    // Profile page
+    'profile.signed_in_as': 'Signed in as',
+    'profile.verified': '✓ Verified farmer',
+    'profile.not_verified': 'Not verified yet',
+    'profile.since': 'since',
+    'profile.change_photo': 'Change profile photo',
+    'profile.full_name': 'Full name',
+    'profile.phone': 'Phone number',
+    'profile.district': 'District',
+    'profile.farm_size': 'Farm size',
+    'profile.crops': 'Crops grown',
+    'profile.verification': 'Verification',
+    'profile.verified_by': 'Verified by AgriBridge',
+    'profile.my_details': 'My details',
+    'profile.farm_details': 'Farm details',
+    'profile.account': 'Account',
+    'profile.signout_confirm': 'Sign out',
   },
 
   lg: { // Luganda
@@ -16660,9 +16708,51 @@ var _dict = {
     'trk.rider': 'Omuyizi',
     'trk.vehicle': 'Ekyogero',
     'trk.no_rider': 'Tena twamuteekamu',
+    'greet.morning': 'Wasuze otya',
+    'greet.afternoon': 'Osibye otya',
+    'greet.evening': 'Oyiriire otya',
+    'fh.active_produce': 'Entuuze Eziri Mu Muwendo',
+    'fh.new_orders': 'Okulabirira Okupya',
+    'fh.needs_action': 'Yeetaaga Okulabako',
+    'fh.awaiting_payout': 'Kutegereza Ensimbi',
+    'fh.of_listing': 'ku {n} entuuze',
+    'fh.of_listings': 'ku {n} entuuze',
+    'fh.nothing_to_answer': 'tewali kiddamu',
+    'fh.all_caught_up': 'byonna bikoleddwa',
+    'fh.no_payout': 'tewali nsimbi ziwereddwa',
+    'fh.sell_produce': 'Tunda entuuze',
+    'fh.sell_sub': 'Teeka ebyo bye wafunye n\'omuwendo gwo',
+    'fh.needs_action_sec': 'Yeetaaga Okulabako',
+    'fh.my_produce': 'Entuuze Zange',
+    'fh.earnings': 'Ensimbi Ezifuniddwa',
+    'fh.no_orders_waiting': 'Tewali kulabirira kutegereza',
+    'fh.all_good': 'Byonna bikoleddwa',
+    'nav.home': 'Ennyumba',
+    'nav.produce': 'Entuuze',
+    'nav.orders': 'Okulabirira',
+    'nav.earnings': 'Ensimbi',
+    'nav.more': 'Ebirala',
+    'nav.browse': 'Noonya',
+    'nav.cart': 'Enkuupu',
+    'profile.signed_in_as': 'Oyingiriramu nga',
+    'profile.verified': '✓ Mulimi Akakasiddwa',
+    'profile.not_verified': 'Tekakasiddwa',
+    'profile.since': 'okuva',
+    'profile.change_photo': 'Kyusa ekifaananyi',
+    'profile.full_name': 'Erinnya Lyoona',
+    'profile.phone': 'Enamba y\'Essimu',
+    'profile.district': 'Akabirijako',
+    'profile.farm_size': 'Obunene bw\'Ennimiro',
+    'profile.crops': 'Ebimera Ebisimibiddwa',
+    'profile.verification': 'Okukakasa',
+    'profile.verified_by': 'Kakasiddwa AgriBridge',
+    'profile.my_details': 'Ebikuhuusa',
+    'profile.farm_details': 'Ebya Ennimiro',
+    'profile.account': 'Kkaawunti',
+    'profile.signout_confirm': 'Fuluma',
   },
 
-  rn: { // Runyankole/Rukiga — partial (key screens only)
+  rn: { // Runyankole/Rukiga
     'nav.login': 'Ngyena',
     'nav.join': 'Ngyena Ofree',
     'nav.language': 'Orurimi',
@@ -16675,9 +16765,38 @@ var _dict = {
     'btn.save': 'Bika',
     'btn.cancel': 'Reka',
     'toast.lang_updated': 'Orurimi rwahinduriwe ✓',
+    'greet.morning': 'Oraire ota',
+    'greet.afternoon': 'Osiibire ota',
+    'greet.evening': 'Oraire ota',
+    'fh.sell_produce': 'Tunda eby\'obuhinzi',
+    'fh.sell_sub': 'Teeka ebyo wahinza n\'omuwendo gwaawe',
+    'fh.active_produce': 'Eby\'Obuhinzi Ebiriho',
+    'fh.new_orders': 'Amalambo Amasha',
+    'fh.needs_action': 'Yetaaga Enkora',
+    'fh.awaiting_payout': 'Kutarama Ensimbi',
+    'fh.nothing_to_answer': 'nta kigyendererwa',
+    'fh.all_caught_up': 'byona bikorwa',
+    'fh.no_payout': 'nta nsimbi zaritumwa',
+    'fh.my_produce': 'Eby\'Obuhinzi Byange',
+    'fh.earnings': 'Ensimbi Zabonerwa',
+    'fh.no_orders_waiting': 'Nta malambo gataraire',
+    'nav.home': 'Eka',
+    'nav.produce': 'Eby\'Obuhinzi',
+    'nav.orders': 'Amalambo',
+    'nav.earnings': 'Ensimbi',
+    'nav.more': 'Ebindi',
+    'nav.browse': 'Rora',
+    'nav.cart': 'Ekishongyera',
+    'profile.signed_in_as': 'Wayingira nga',
+    'profile.verified': '✓ Omuhinzi Wahamiririzwa',
+    'profile.not_verified': 'Natahamiririzibwa',
+    'profile.my_details': 'Ebikuhuura',
+    'profile.farm_details': 'Ebya Oruganda',
+    'profile.account': 'Account',
+    'profile.signout_confirm': 'Sohoka',
   },
 
-  ac: { // Acholi/Luo — partial (key screens only)
+  ac: { // Acholi/Luo
     'nav.login': 'Donyo',
     'nav.join': 'Donyo Ofree',
     'nav.language': 'Leb',
@@ -16690,6 +16809,35 @@ var _dict = {
     'btn.save': 'Gwok',
     'btn.cancel': 'Wek',
     'toast.lang_updated': 'Leb oloyo ✓',
+    'greet.morning': 'Itye nining okinyi',
+    'greet.afternoon': 'Itye nining odiko',
+    'greet.evening': 'Itye nining otyeno',
+    'fh.sell_produce': 'Cato jami pa pur',
+    'fh.sell_sub': 'Ket gin ma ityeko kayo ki nenone mamegi',
+    'fh.active_produce': 'Jami pa Pur ma Tye',
+    'fh.new_orders': 'Cik Manyen',
+    'fh.needs_action': 'Mito Tic',
+    'fh.awaiting_payout': 'Kuro Lim',
+    'fh.nothing_to_answer': 'ngo me lagam',
+    'fh.all_caught_up': 'gin weng otum',
+    'fh.no_payout': 'lim peya ocwalo',
+    'fh.my_produce': 'Jami pa Pur Maga',
+    'fh.earnings': 'Lim Matyeko Mako',
+    'fh.no_orders_waiting': 'Cik mo peke ma kuro',
+    'nav.home': 'Pacu',
+    'nav.produce': 'Jami pa Pur',
+    'nav.orders': 'Cik',
+    'nav.earnings': 'Lim',
+    'nav.more': 'Mukene',
+    'nav.browse': 'Neno',
+    'nav.cart': 'Layat',
+    'profile.signed_in_as': 'Idonyo calo',
+    'profile.verified': '✓ Larel Matyeko Ngeyo',
+    'profile.not_verified': 'Peya Ongeyo',
+    'profile.my_details': 'Lok Mara',
+    'profile.farm_details': 'Lok pa Poto',
+    'profile.account': 'Account',
+    'profile.signout_confirm': 'Kat woko',
   }
 };
 
@@ -16731,7 +16879,7 @@ function applyTranslations() {
   }
 }
 
-/** Override the existing setLang to also apply translations */
+/** Override the existing setLang to also apply translations + re-render current page */
 var _origSetLang = window.setLang;
 window.setLang = function(code) {
   _currentLang = code;
@@ -16741,6 +16889,14 @@ window.setLang = function(code) {
   if (btn) btn.textContent = labels[code] || '🌐';
   closeModal && closeModal('langModal');
   applyTranslations();
+  // Re-render current page so JS-built content switches language immediately
+  try {
+    if (typeof renderRoleHome === 'function') renderRoleHome();
+    if (typeof renderSettings === 'function' &&
+        document.getElementById('settingsModal') &&
+        document.getElementById('settingsModal').classList.contains('open'))
+      renderSettings();
+  } catch(e) {}
   showToast && showToast(t('toast.lang_updated'));
 };
 
