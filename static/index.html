@@ -12480,10 +12480,23 @@ function checkCookieBanner(){
   }
 }
 function toggleFaq(qEl){ const aEl=qEl.nextElementSibling; const isOpen=aEl.classList.contains('open'); document.querySelectorAll('.faq-a.open').forEach(a=>{ a.classList.remove('open'); a.previousElementSibling?.classList.remove('open'); }); if(!isOpen){ aEl.classList.add('open'); qEl.classList.add('open'); } }
-function setLang(code){ localStorage.setItem('ab_lang',code); var langBtn=document.getElementById('langPickerBtn'); if(langBtn) langBtn.textContent={en:'🌐 EN',lg:'🇺🇬 LG',rn:'🌄 RN',ac:'🌾 AC'}[code]||'🌐'; closeModal('langModal'); showToast('Language updated ✓'); /* i18n engine overrides this below */ }
+function setLang(code){ localStorage.setItem('ab_lang',code); closeModal('langModal'); showToast('Language updated ✓'); /* i18n engine overrides this below */ }
 // ── Settings hub (Telegram-style: home menu + one screen per section) ──────────
 var _setScreen='home';
-var _LANGS=[['en','🇬🇧 English'],['lg','🇺🇬 Luganda'],['rn','🌄 Runyankole'],['ac','🌾 Acholi/Luo']];
+/* Language registry — code, English name, native name, RTL, status */
+var _LANG_REGISTRY=[
+  {code:'en', en:'English',       native:'English',      flag:'🇬🇧', rtl:false, status:'full'},
+  {code:'lg', en:'Luganda',       native:'Oluganda',     flag:'🇺🇬', rtl:false, status:'partial'},
+  {code:'rn', en:'Runyankole',    native:'Orunyankore',  flag:'🇺🇬', rtl:false, status:'partial'},
+  {code:'rk', en:'Rukiga',        native:'Orikiga',      flag:'🇺🇬', rtl:false, status:'partial'},
+  {code:'ls', en:'Lusoga',        native:'Olusoga',      flag:'🇺🇬', rtl:false, status:'partial'},
+  {code:'ac', en:'Acholi',        native:'Lwo',          flag:'🇺🇬', rtl:false, status:'partial'},
+  {code:'sw', en:'Kiswahili',     native:'Kiswahili',    flag:'🌍', rtl:false, status:'partial'},
+  {code:'rw', en:'Kinyarwanda',   native:'Ikinyarwanda', flag:'🇷🇼', rtl:false, status:'partial'},
+  {code:'fr', en:'French',        native:'Français',     flag:'🇫🇷', rtl:false, status:'partial'},
+  {code:'ar', en:'Arabic',        native:'العربية',      flag:'🇸🇦', rtl:true,  status:'partial'},
+];
+var _LANGS=_LANG_REGISTRY.map(function(l){return [l.code, l.flag+' '+l.en];});
 var _ROLE_LABELS={farmer:'🌾 Farmer (I sell produce)',vendor:'🛒 Buyer (I buy produce)',hotel:'🏨 Hotel / Restaurant (B2B)',supplier:'🏪 Supplier (I sell farm inputs)',exporter:'🌍 Exporter / Trading Co. (I sell across borders)'};
 var _ROLE_SHORT={farmer:'Farmer',vendor:'Buyer',hotel:'Hotel / Restaurant',supplier:'Supplier',exporter:'Exporter / Trading Co.',guest:'Guest'};
 var _SCREEN_TITLES={account:'set.account',notifications:'set.notif',language:'set.language',privacy:'set.privacy',help:'set.help'};
@@ -12604,10 +12617,21 @@ function renderSettings(){
   }
 
   else if(screen==='language'){
-    html+='<div class="st-panel"><div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">';
-    _LANGS.forEach(function(l){
-      var on=l[0]===lang;
-      html+='<button onclick="setLangFromSettings(\''+l[0]+'\')" style="padding:12px 8px;border-radius:10px;cursor:pointer;font-size:0.88rem;font-weight:600;color:var(--text);border:1px solid '+(on?'var(--green)':'var(--border)')+';background:'+(on?'var(--green-dim)':'var(--card)')+'">'+l[1]+'</button>';
+    html+='<div class="st-panel">' +
+      '<input id="langSearch" type="text" placeholder="🔍 Search language…" oninput="filterLangs(this.value)" ' +
+        'style="width:100%;box-sizing:border-box;padding:10px 12px;border-radius:10px;border:1px solid var(--border);background:var(--card);color:var(--text);font-size:0.9rem;margin-bottom:12px">' +
+      '<div id="langGrid" style="display:flex;flex-direction:column;gap:6px">';
+    _LANG_REGISTRY.forEach(function(l){
+      var on=l.code===lang;
+      var statusDot = l.status==='full' ? '' : '<span style="font-size:0.65rem;color:var(--text2);margin-left:4px">partial</span>';
+      html+='<button class="lang-opt-btn" data-code="'+l.code+'" data-search="'+l.en.toLowerCase()+' '+l.native.toLowerCase()+'" '+
+        'onclick="setLangFromSettings(\''+l.code+'\')" ' +
+        'style="display:flex;align-items:center;gap:12px;padding:11px 14px;border-radius:12px;cursor:pointer;text-align:left;'+
+        'border:1.5px solid '+(on?'var(--green)':'var(--border)')+';background:'+(on?'var(--green-dim)':'var(--card)')+'">'+
+        '<span style="font-size:1.3rem">'+l.flag+'</span>'+
+        '<span style="flex:1"><span style="font-weight:700;font-size:0.92rem;color:var(--text)">'+l.en+'</span>'+statusDot+'<br>'+
+          '<span style="font-size:0.78rem;color:var(--text2)">'+l.native+'</span></span>'+
+        (on?'<span style="color:var(--green);font-size:1.1rem">✓</span>':'')+'</button>';
     });
     html+='</div></div>';
   }
@@ -12641,6 +12665,13 @@ function renderSettings(){
   if(screen==='home' && currentUser) refreshPushSubtitle();
 }
 function setLangFromSettings(code){ setLang(code); renderSettings(); }
+function filterLangs(q){
+  q=(q||'').toLowerCase().trim();
+  document.querySelectorAll('.lang-opt-btn').forEach(function(btn){
+    var s=btn.getAttribute('data-search')||'';
+    btn.style.display=(!q||s.indexOf(q)>-1)?'':'none';
+  });
+}
 
 // ── Phone-alert status for the Settings screens ──
 function _pushReg(){
@@ -16806,9 +16837,15 @@ var _dict = {
     'reg.btn': 'Yab Account 🌾',
     'set.title': '⚙️ Ter',
     'set.logout': 'Kat woko',
+    'set.account': 'Account',
+    'set.language': 'Leb',
+    'set.help': 'Kony',
     'btn.save': 'Gwok',
     'btn.cancel': 'Wek',
+    'btn.back': 'Dok',
+    'btn.confirm': 'Mak',
     'toast.lang_updated': 'Leb oloyo ✓',
+    'toast.saved': 'Ogwoko ✓',
     'greet.morning': 'Itye nining okinyi',
     'greet.afternoon': 'Itye nining odiko',
     'greet.evening': 'Itye nining otyeno',
@@ -16824,6 +16861,7 @@ var _dict = {
     'fh.my_produce': 'Jami pa Pur Maga',
     'fh.earnings': 'Lim Matyeko Mako',
     'fh.no_orders_waiting': 'Cik mo peke ma kuro',
+    'fh.needs_action_sec': 'Mito Ticni',
     'nav.home': 'Pacu',
     'nav.produce': 'Jami pa Pur',
     'nav.orders': 'Cik',
@@ -16836,29 +16874,561 @@ var _dict = {
     'profile.not_verified': 'Peya Ongeyo',
     'profile.my_details': 'Lok Mara',
     'profile.farm_details': 'Lok pa Poto',
+    'profile.full_name': 'Nyiŋ Ducu',
+    'profile.phone': 'Namba pa Simu',
+    'profile.district': 'Distriki',
+    'profile.farm_size': 'Dwoŋ pa Poto',
+    'profile.crops': 'Lum ma Ityeko Puro',
+    'profile.verification': 'Ngeyo',
+    'profile.verified_by': 'Ongeyo ki AgriBridge',
     'profile.account': 'Account',
     'profile.signout_confirm': 'Kat woko',
+  },
+
+  rk: { // Rukiga
+    'nav.login': 'Ngyena',
+    'nav.join': 'Ngyena Ofree',
+    'nav.language': 'Orurimi',
+    'login.title': 'Tukuganukira neza 👋',
+    'login.btn': 'Ngyena',
+    'reg.title': 'Ngyena mu AgriBridge 🌾',
+    'reg.btn': 'Hanga Account 🌾',
+    'set.title': '⚙️ Entegeka',
+    'set.logout': 'Sohoka',
+    'set.account': 'Account',
+    'set.language': 'Orurimi',
+    'set.help': 'Obuyambi',
+    'btn.save': 'Bika',
+    'btn.cancel': 'Reka',
+    'btn.back': 'Garuka',
+    'btn.confirm': 'Emeza',
+    'toast.lang_updated': 'Orurimi rwahinduriwe ✓',
+    'toast.saved': 'Bibikwa ✓',
+    'greet.morning': 'Wasuze ota',
+    'greet.afternoon': 'Osiibire ota',
+    'greet.evening': 'Oraire ota',
+    'fh.sell_produce': 'Tunda eby\'obuhinzi',
+    'fh.sell_sub': 'Teeka ebyo wahinza n\'omuwendo gwaawe',
+    'fh.active_produce': 'Eby\'Obuhinzi Ebiriho',
+    'fh.new_orders': 'Amalambo Amasha',
+    'fh.needs_action': 'Yetaaga Enkora',
+    'fh.awaiting_payout': 'Kutarama Ensimbi',
+    'fh.nothing_to_answer': 'nta kigyendererwa',
+    'fh.all_caught_up': 'byona bikorwa',
+    'fh.no_payout': 'nta nsimbi zaritumwa',
+    'fh.my_produce': 'Eby\'Obuhinzi Byange',
+    'fh.earnings': 'Ensimbi Zabonerwa',
+    'fh.no_orders_waiting': 'Nta malambo gataraire',
+    'nav.home': 'Eka',
+    'nav.produce': 'Eby\'Obuhinzi',
+    'nav.orders': 'Amalambo',
+    'nav.earnings': 'Ensimbi',
+    'nav.more': 'Ebindi',
+    'nav.browse': 'Rora',
+    'nav.cart': 'Ekishongyera',
+    'profile.signed_in_as': 'Wayingira nga',
+    'profile.verified': '✓ Omuhinzi Wahamiririzwa',
+    'profile.not_verified': 'Natahamiririzibwa',
+    'profile.my_details': 'Ebikuhuura',
+    'profile.farm_details': 'Ebya Oruganda',
+    'profile.full_name': 'Amazina Gonna',
+    'profile.phone': 'Nomero ya Simu',
+    'profile.district': 'Akarere',
+    'profile.farm_size': 'Obunene bw\'Oruganda',
+    'profile.crops': 'Ebirimwa Ebihingwa',
+    'profile.verification': 'Kuhamiriza',
+    'profile.verified_by': 'Wahamiririzwa na AgriBridge',
+    'profile.account': 'Account',
+    'profile.signout_confirm': 'Sohoka',
+  },
+
+  ls: { // Lusoga
+    'nav.login': 'Yingira',
+    'nav.join': 'Yingira Wulira',
+    'nav.language': 'Olulimi',
+    'login.title': 'Tukusisinkiza nate 👋',
+    'login.btn': 'Yingira',
+    'reg.title': 'Yingira mu AgriBridge 🌾',
+    'reg.btn': 'Tonda Konto 🌾',
+    'set.title': '⚙️ Entegeka',
+    'set.logout': 'Fuluma',
+    'set.account': 'Konto',
+    'set.language': 'Olulimi',
+    'set.help': 'Obuyambi',
+    'btn.save': 'Bika',
+    'btn.cancel': 'Sazaamu',
+    'btn.back': 'Dayo',
+    'btn.confirm': 'Kakasa',
+    'toast.lang_updated': 'Olulimi olwakyusiddwa ✓',
+    'toast.saved': 'Bikiddwa ✓',
+    'greet.morning': 'Wasuze otya',
+    'greet.afternoon': 'Osibye otya',
+    'greet.evening': 'Oyiriire otya',
+    'fh.sell_produce': 'Tunda entuuze',
+    'fh.active_produce': 'Entuuze Eziriwo',
+    'fh.new_orders': 'Okulabirira Okupya',
+    'fh.needs_action': 'Yetaaga Okulabako',
+    'fh.my_produce': 'Entuuze Zange',
+    'fh.earnings': 'Ensimbi Ezifuniddwa',
+    'nav.home': 'Ennyumba',
+    'nav.produce': 'Entuuze',
+    'nav.orders': 'Okulabirira',
+    'nav.earnings': 'Ensimbi',
+    'nav.more': 'Ebirala',
+    'nav.browse': 'Noonya',
+    'nav.cart': 'Enkuupu',
+    'profile.verified': '✓ Omuhinzi Wakakasiddwa',
+    'profile.not_verified': 'Tekakasiddwa',
+    'profile.my_details': 'Ebikuhuusa',
+    'profile.farm_details': 'Ebya Ennimiro',
+    'profile.account': 'Konto',
+  },
+
+  sw: { // Kiswahili
+    'nav.search': 'Tafuta mazao, wanyama, wakulima…',
+    'nav.login': 'Ingia',
+    'nav.join': 'Jiunge Bure',
+    'nav.language': 'Lugha',
+    'login.title': 'Karibu tena 👋',
+    'login.email': 'Barua pepe au Simu',
+    'login.password': 'Nywila',
+    'login.btn': 'Ingia',
+    'login.forgot': 'Umesahau nywila?',
+    'login.no_account': 'Huna akaunti?',
+    'login.join': 'Jiunge bure',
+    'reg.title': 'Jiunge na AgriBridge 🌾',
+    'reg.name': 'Jina Kamili',
+    'reg.phone': 'Nambari ya Simu',
+    'reg.email': 'Anwani ya Barua pepe',
+    'reg.role': 'Mimi ni…',
+    'reg.district': 'Wilaya',
+    'reg.password': 'Nywila',
+    'reg.confirm': 'Thibitisha Nywila',
+    'reg.btn': 'Fungua Akaunti 🌾',
+    'reg.role.farmer': 'Mkulima 🌾',
+    'reg.role.vendor': 'Mnunuzi 🛒',
+    'reg.role.hotel': 'Hoteli / Mgahawa 🏨',
+    'reg.role.supplier': 'Muuzaji wa Pembejeo 🏪',
+    'pwd.title': 'Weka upya Nywila',
+    'pwd.email': 'Anwani yako ya barua pepe',
+    'pwd.btn': 'Tuma Kiungo cha Kuweka upya',
+    'pwd.new.title': 'Nywila Mpya',
+    'pwd.new.pw': 'Nywila Mpya',
+    'pwd.new.confirm': 'Thibitisha Nywila',
+    'pwd.new.btn': 'Hifadhi Nywila Mpya ✓',
+    'set.title': '⚙️ Mipangilio',
+    'set.account': 'Akaunti',
+    'set.account.sub': 'Jina, simu, wilaya, aina ya akaunti',
+    'set.notif': 'Arifa',
+    'set.notif.sub': 'Arifa za simu na ndani ya programu',
+    'set.language': 'Lugha',
+    'set.privacy': 'Faragha na kisheria',
+    'set.privacy.sub': 'Masharti, idhini, data yako',
+    'set.help': 'Msaada',
+    'set.list': 'Orodhesha mazao',
+    'set.list.sub': 'Ongeza kitu cha kuuza',
+    'set.dashboard': 'Dashibodi yangu',
+    'set.dashboard.sub': 'Maagizo, mapato na orodha',
+    'set.logout': 'Ondoka',
+    'set.save': 'Hifadhi mabadiliko',
+    'set.login_prompt': 'Ingia ili kuhariri wasifu wako na kusimamia orodha zako.',
+    'profile.settings': 'Mipangilio',
+    'profile.help': 'Msaada',
+    'profile.language': 'Lugha',
+    'profile.signout': 'Ondoka',
+    'btn.save': 'Hifadhi',
+    'btn.cancel': 'Ghairi',
+    'btn.close': 'Funga',
+    'btn.back': 'Rudi',
+    'btn.confirm': 'Thibitisha',
+    'btn.loading': 'Inapakia…',
+    'btn.saving': 'Inahifadhi…',
+    'err.required': 'Sehemu hii inahitajika.',
+    'err.phone': 'Ingiza nambari sahihi ya simu.',
+    'err.email': 'Ingiza anwani sahihi ya barua pepe.',
+    'err.pwd_short': 'Nywila lazima iwe na angalau herufi 8.',
+    'err.pwd_match': 'Nywila hazifanani.',
+    'err.generic': 'Hitilafu imetokea. Tafadhali jaribu tena.',
+    'toast.lang_updated': 'Lugha imebadilishwa ✓',
+    'toast.saved': 'Imehifadhiwa ✓',
+    'status.pending': 'Inasubiri',
+    'status.confirmed': 'Imethibitishwa',
+    'status.scheduled': 'Imepangwa',
+    'status.in_transit': 'Safarini',
+    'status.delivered': 'Imewasilishwa',
+    'status.cancelled': 'Imefutwa',
+    'greet.morning': 'Habari ya asubuhi',
+    'greet.afternoon': 'Habari ya mchana',
+    'greet.evening': 'Habari ya jioni',
+    'fh.active_produce': 'Mazao Hai',
+    'fh.new_orders': 'Maagizo Mapya',
+    'fh.needs_action': 'Inahitaji Hatua',
+    'fh.awaiting_payout': 'Inasubiri Malipo',
+    'fh.of_listing': 'kati ya orodha {count}',
+    'fh.of_listings': 'kati ya orodha {count}',
+    'fh.nothing_to_answer': 'hakuna cha kujibu',
+    'fh.all_caught_up': 'kila kitu kimefanyika',
+    'fh.no_payout': 'bado hakuna malipo',
+    'fh.sell_produce': 'Uza mazao',
+    'fh.sell_sub': 'Orodhesha ulichovuna na uweke bei yako',
+    'fh.needs_action_sec': 'Inahitaji hatua yako',
+    'fh.my_produce': 'Mazao Yangu',
+    'fh.earnings': 'Mapato',
+    'fh.no_orders_waiting': 'Hakuna maagizo yanayosubiri',
+    'nav.home': 'Nyumbani',
+    'nav.produce': 'Mazao',
+    'nav.orders': 'Maagizo',
+    'nav.earnings': 'Mapato',
+    'nav.more': 'Zaidi',
+    'nav.browse': 'Vinjari',
+    'nav.cart': 'Kikapu',
+    'profile.signed_in_as': 'Umeingia kama',
+    'profile.verified': '✓ Mkulima aliyethibitishwa',
+    'profile.not_verified': 'Bado hajathibitishwa',
+    'profile.since': 'tangu',
+    'profile.change_photo': 'Badilisha picha ya wasifu',
+    'profile.full_name': 'Jina Kamili',
+    'profile.phone': 'Nambari ya Simu',
+    'profile.district': 'Wilaya',
+    'profile.farm_size': 'Ukubwa wa Shamba',
+    'profile.crops': 'Mazao Yanayolimwa',
+    'profile.verification': 'Uthibitisho',
+    'profile.verified_by': 'Imethibitishwa na AgriBridge',
+    'profile.my_details': 'Maelezo Yangu',
+    'profile.farm_details': 'Maelezo ya Shamba',
+    'profile.account': 'Akaunti',
+    'profile.signout_confirm': 'Ondoka',
+    'trk.title': 'Fuatilia agizo lako',
+    'trk.placeholder': 'Ingiza TRK-xxx au nambari ya agizo',
+    'trk.btn': 'Fuatilia',
+    'trk.pickup': 'Kuchukua',
+    'trk.delivery': 'Uwasilishaji',
+    'trk.rider': 'Dereva',
+    'trk.vehicle': 'Gari',
+    'trk.no_rider': 'Bado hajapewa',
+  },
+
+  rw: { // Kinyarwanda
+    'nav.login': 'Injira',
+    'nav.join': 'Iyandikishe Publique',
+    'nav.language': 'Ururimi',
+    'login.title': 'Murakaza neza 👋',
+    'login.btn': 'Injira',
+    'reg.title': 'Iyandikishe muri AgriBridge 🌾',
+    'reg.btn': 'Fungura Konti 🌾',
+    'set.title': '⚙️ Igenamiterere',
+    'set.logout': 'Sohoka',
+    'set.account': 'Konti',
+    'set.language': 'Ururimi',
+    'set.help': 'Ubufasha',
+    'btn.save': 'Bika',
+    'btn.cancel': 'Hagarika',
+    'btn.back': 'Subira',
+    'btn.confirm': 'Emeza',
+    'toast.lang_updated': 'Ururimi rwahinduwe ✓',
+    'toast.saved': 'Byabitswe ✓',
+    'greet.morning': 'Mwaramutse',
+    'greet.afternoon': 'Mwiriwe',
+    'greet.evening': 'Mwiriwe',
+    'fh.active_produce': 'Ibicuruzwa Bihari',
+    'fh.new_orders': 'Amatumwa Mashya',
+    'fh.needs_action': 'Bisaba Igikorwa',
+    'fh.awaiting_payout': 'Gutegereza Ikiguzi',
+    'fh.nothing_to_answer': 'nta kindi',
+    'fh.all_caught_up': 'byose birangiye',
+    'fh.no_payout': 'nta bishyurwa',
+    'fh.sell_produce': 'Gurisha umusaruro',
+    'fh.sell_sub': 'Tangaza ivyo wasaruye n\'igiciro cyawe',
+    'fh.my_produce': 'Umusaruro Wange',
+    'fh.earnings': 'Amafaranga Yabonetse',
+    'fh.no_orders_waiting': 'Nta matumwa ategereje',
+    'nav.home': 'Ahabanza',
+    'nav.produce': 'Umusaruro',
+    'nav.orders': 'Amatumwa',
+    'nav.earnings': 'Amafaranga',
+    'nav.more': 'Ibindi',
+    'nav.browse': 'Reba',
+    'nav.cart': 'Agashishwa',
+    'profile.verified': '✓ Umuhinzi Wemejwe',
+    'profile.not_verified': 'Ntaremewe',
+    'profile.my_details': 'Amakuru Yanje',
+    'profile.farm_details': 'Amakuru y\'Ubutaka',
+    'profile.full_name': 'Amazina Yose',
+    'profile.phone': 'Nimero ya Telefone',
+    'profile.district': 'Akarere',
+    'profile.account': 'Konti',
+    'profile.signout_confirm': 'Sohoka',
+  },
+
+  fr: { // French
+    'nav.search': 'Rechercher des cultures, animaux, agriculteurs…',
+    'nav.login': 'Se connecter',
+    'nav.join': 'Rejoindre gratuitement',
+    'nav.language': 'Langue',
+    'login.title': 'Bon retour 👋',
+    'login.email': 'Email ou Téléphone',
+    'login.password': 'Mot de passe',
+    'login.btn': 'Se connecter',
+    'login.forgot': 'Mot de passe oublié?',
+    'login.no_account': "Vous n'avez pas de compte?",
+    'login.join': 'Rejoindre gratuitement',
+    'reg.title': 'Rejoindre AgriBridge 🌾',
+    'reg.name': 'Nom complet',
+    'reg.phone': 'Téléphone',
+    'reg.email': 'Adresse email',
+    'reg.role': 'Je suis…',
+    'reg.district': 'District',
+    'reg.password': 'Mot de passe',
+    'reg.confirm': 'Confirmer le mot de passe',
+    'reg.btn': 'Créer un compte 🌾',
+    'reg.role.farmer': 'Agriculteur 🌾',
+    'reg.role.vendor': 'Acheteur 🛒',
+    'reg.role.hotel': 'Hôtel / Restaurant 🏨',
+    'reg.role.supplier': 'Fournisseur 🏪',
+    'pwd.title': 'Réinitialiser le mot de passe',
+    'pwd.email': 'Votre adresse email',
+    'pwd.btn': 'Envoyer le lien de réinitialisation',
+    'pwd.new.title': 'Nouveau mot de passe',
+    'pwd.new.pw': 'Nouveau mot de passe',
+    'pwd.new.confirm': 'Confirmer le mot de passe',
+    'pwd.new.btn': 'Enregistrer le nouveau mot de passe ✓',
+    'set.title': '⚙️ Paramètres',
+    'set.account': 'Compte',
+    'set.account.sub': 'Nom, téléphone, district, type de compte',
+    'set.notif': 'Notifications',
+    'set.notif.sub': 'Alertes téléphoniques et mises à jour',
+    'set.language': 'Langue',
+    'set.privacy': 'Confidentialité et juridique',
+    'set.privacy.sub': 'Conditions, consentement, vos données',
+    'set.help': 'Aide et support',
+    'set.list': 'Lister des produits',
+    'set.list.sub': 'Ajouter quelque chose à vendre',
+    'set.dashboard': 'Mon tableau de bord',
+    'set.dashboard.sub': 'Commandes, revenus et annonces',
+    'set.logout': 'Se déconnecter',
+    'set.save': 'Enregistrer les modifications',
+    'set.login_prompt': 'Connectez-vous pour modifier votre profil et gérer vos annonces.',
+    'profile.settings': 'Paramètres',
+    'profile.help': 'Aide',
+    'profile.language': 'Langue',
+    'profile.signout': 'Se déconnecter',
+    'btn.save': 'Enregistrer',
+    'btn.cancel': 'Annuler',
+    'btn.close': 'Fermer',
+    'btn.back': 'Retour',
+    'btn.confirm': 'Confirmer',
+    'btn.loading': 'Chargement…',
+    'btn.saving': 'Enregistrement…',
+    'err.required': 'Ce champ est requis.',
+    'err.phone': 'Entrez un numéro de téléphone valide.',
+    'err.email': 'Entrez une adresse email valide.',
+    'err.pwd_short': 'Le mot de passe doit comporter au moins 8 caractères.',
+    'err.pwd_match': 'Les mots de passe ne correspondent pas.',
+    'err.generic': "Une erreur s'est produite. Veuillez réessayer.",
+    'toast.lang_updated': 'Langue mise à jour ✓',
+    'toast.saved': 'Enregistré ✓',
+    'status.pending': 'En attente',
+    'status.confirmed': 'Confirmé',
+    'status.scheduled': 'Planifié',
+    'status.in_transit': 'En transit',
+    'status.delivered': 'Livré',
+    'status.cancelled': 'Annulé',
+    'greet.morning': 'Bonjour',
+    'greet.afternoon': 'Bon après-midi',
+    'greet.evening': 'Bonsoir',
+    'fh.active_produce': 'Produits Actifs',
+    'fh.new_orders': 'Nouvelles Commandes',
+    'fh.needs_action': 'Action Requise',
+    'fh.awaiting_payout': 'Paiement en attente',
+    'fh.of_listing': 'sur {count} annonce',
+    'fh.of_listing_plural': 'sur {count} annonces',
+    'fh.of_listings': 'sur {count} annonces',
+    'fh.nothing_to_answer': 'rien à répondre',
+    'fh.all_caught_up': 'tout est à jour',
+    'fh.no_payout': 'aucun paiement encore',
+    'fh.sell_produce': 'Vendre des produits',
+    'fh.sell_sub': 'Listez ce que vous avez récolté et fixez votre propre prix',
+    'fh.needs_action_sec': 'Votre action est requise',
+    'fh.my_produce': 'Mes Produits',
+    'fh.earnings': 'Revenus',
+    'fh.no_orders_waiting': 'Aucune commande en attente',
+    'nav.home': 'Accueil',
+    'nav.produce': 'Produits',
+    'nav.orders': 'Commandes',
+    'nav.earnings': 'Revenus',
+    'nav.more': 'Plus',
+    'nav.browse': 'Parcourir',
+    'nav.cart': 'Panier',
+    'profile.signed_in_as': 'Connecté en tant que',
+    'profile.verified': '✓ Agriculteur vérifié',
+    'profile.not_verified': 'Pas encore vérifié',
+    'profile.since': 'depuis',
+    'profile.change_photo': 'Changer la photo de profil',
+    'profile.full_name': 'Nom complet',
+    'profile.phone': 'Numéro de téléphone',
+    'profile.district': 'District',
+    'profile.farm_size': 'Superficie de la ferme',
+    'profile.crops': 'Cultures cultivées',
+    'profile.verification': 'Vérification',
+    'profile.verified_by': 'Vérifié par AgriBridge',
+    'profile.my_details': 'Mes informations',
+    'profile.farm_details': 'Détails de la ferme',
+    'profile.account': 'Compte',
+    'profile.signout_confirm': 'Se déconnecter',
+    'trk.title': 'Suivre votre commande',
+    'trk.placeholder': 'Entrez TRK-xxx ou réf. de commande',
+    'trk.btn': 'Suivre',
+    'trk.pickup': 'Collecte',
+    'trk.delivery': 'Livraison',
+    'trk.rider': 'Livreur',
+    'trk.vehicle': 'Véhicule',
+    'trk.no_rider': 'Pas encore assigné',
+  },
+
+  ar: { // Arabic — RTL
+    'nav.login': 'تسجيل الدخول',
+    'nav.join': 'انضم مجاناً',
+    'nav.language': 'اللغة',
+    'login.title': 'مرحباً بعودتك 👋',
+    'login.email': 'البريد الإلكتروني أو الهاتف',
+    'login.password': 'كلمة المرور',
+    'login.btn': 'تسجيل الدخول',
+    'login.forgot': 'نسيت كلمة المرور؟',
+    'login.no_account': 'ليس لديك حساب؟',
+    'login.join': 'انضم مجاناً',
+    'reg.title': 'انضم إلى AgriBridge 🌾',
+    'reg.name': 'الاسم الكامل',
+    'reg.phone': 'رقم الهاتف',
+    'reg.email': 'البريد الإلكتروني',
+    'reg.role': 'أنا…',
+    'reg.district': 'المنطقة',
+    'reg.password': 'كلمة المرور',
+    'reg.confirm': 'تأكيد كلمة المرور',
+    'reg.btn': 'إنشاء حساب 🌾',
+    'reg.role.farmer': 'مزارع 🌾',
+    'reg.role.vendor': 'مشترٍ 🛒',
+    'reg.role.hotel': 'فندق / مطعم 🏨',
+    'reg.role.supplier': 'مورِّد 🏪',
+    'set.title': '⚙️ الإعدادات',
+    'set.account': 'الحساب',
+    'set.account.sub': 'الاسم، الهاتف، المنطقة، نوع الحساب',
+    'set.notif': 'الإشعارات',
+    'set.language': 'اللغة',
+    'set.privacy': 'الخصوصية والقانون',
+    'set.help': 'المساعدة والدعم',
+    'set.list': 'إدراج المنتجات',
+    'set.dashboard': 'لوحة التحكم',
+    'set.logout': 'تسجيل الخروج',
+    'set.save': 'حفظ التغييرات',
+    'btn.save': 'حفظ',
+    'btn.cancel': 'إلغاء',
+    'btn.close': 'إغلاق',
+    'btn.back': 'رجوع',
+    'btn.confirm': 'تأكيد',
+    'btn.loading': 'جار التحميل…',
+    'btn.saving': 'جار الحفظ…',
+    'err.required': 'هذا الحقل مطلوب.',
+    'err.phone': 'أدخل رقم هاتف صحيح.',
+    'err.email': 'أدخل بريداً إلكترونياً صحيحاً.',
+    'err.pwd_short': 'يجب أن تتكون كلمة المرور من 8 أحرف على الأقل.',
+    'err.pwd_match': 'كلمتا المرور غير متطابقتين.',
+    'err.generic': 'حدث خطأ ما. يرجى المحاولة مجدداً.',
+    'toast.lang_updated': 'تم تحديث اللغة ✓',
+    'toast.saved': 'تم الحفظ ✓',
+    'status.pending': 'قيد الانتظار',
+    'status.confirmed': 'مؤكد',
+    'status.scheduled': 'مجدوَل',
+    'status.in_transit': 'في الطريق',
+    'status.delivered': 'تم التوصيل',
+    'status.cancelled': 'ملغى',
+    'greet.morning': 'صباح الخير',
+    'greet.afternoon': 'مساء الخير',
+    'greet.evening': 'مساء الخير',
+    'fh.active_produce': 'المنتجات النشطة',
+    'fh.new_orders': 'طلبات جديدة',
+    'fh.needs_action': 'تحتاج إجراء',
+    'fh.awaiting_payout': 'في انتظار الدفع',
+    'fh.nothing_to_answer': 'لا شيء للرد',
+    'fh.all_caught_up': 'كل شيء منجز',
+    'fh.no_payout': 'لا مدفوعات بعد',
+    'fh.sell_produce': 'بيع المنتجات',
+    'fh.sell_sub': 'أدرج ما حصدته وحدد سعرك',
+    'fh.my_produce': 'منتجاتي',
+    'fh.earnings': 'الأرباح',
+    'fh.no_orders_waiting': 'لا طلبات في الانتظار',
+    'nav.home': 'الرئيسية',
+    'nav.produce': 'المنتجات',
+    'nav.orders': 'الطلبات',
+    'nav.earnings': 'الأرباح',
+    'nav.more': 'المزيد',
+    'nav.browse': 'تصفح',
+    'nav.cart': 'السلة',
+    'profile.signed_in_as': 'مسجل الدخول كـ',
+    'profile.verified': '✓ مزارع موثَّق',
+    'profile.not_verified': 'غير موثَّق بعد',
+    'profile.full_name': 'الاسم الكامل',
+    'profile.phone': 'رقم الهاتف',
+    'profile.district': 'المنطقة',
+    'profile.farm_size': 'مساحة المزرعة',
+    'profile.crops': 'المحاصيل المزروعة',
+    'profile.verification': 'التحقق',
+    'profile.verified_by': 'موثَّق بواسطة AgriBridge',
+    'profile.my_details': 'بياناتي',
+    'profile.farm_details': 'تفاصيل المزرعة',
+    'profile.account': 'الحساب',
+    'profile.signout_confirm': 'تسجيل الخروج',
   }
 };
 
 // ── 2. Translation engine ──────────────────────────────────────────────────
 var _currentLang = localStorage.getItem('ab_lang') || 'en';
 
-/** Return translated string, falling back to English then the key itself */
-window.t = function(key) {
+/**
+ * Translate key with optional interpolation and pluralization.
+ * t('key')                  — simple lookup
+ * t('key', {name:'Zeal'})   — interpolates {name} → "Zeal"
+ * t('key', {count:3})       — picks key_plural when count≠1, interpolates {count}
+ * t('key', 5)               — shorthand for {count:5}
+ */
+window.t = function(key, vars) {
   var lang = _currentLang;
-  return (_dict[lang] && _dict[lang][key]) ||
-         (_dict['en'] && _dict['en'][key]) ||
-         key;
+  // Normalize vars
+  if (typeof vars === 'number') vars = {count: vars};
+  vars = vars || {};
+
+  // Pick plural form when count provided
+  var lookupKey = key;
+  if (vars.count !== undefined && vars.count !== 1) {
+    lookupKey = key + '_plural';
+  }
+
+  var str = (_dict[lang] && (_dict[lang][lookupKey] || _dict[lang][key])) ||
+            (_dict['en'] && (_dict['en'][lookupKey] || _dict['en'][key])) ||
+            key;
+
+  // Interpolate {variable} tokens
+  str = str.replace(/\{(\w+)\}/g, function(_, k) {
+    return vars[k] !== undefined ? vars[k] : '{' + k + '}';
+  });
+
+  return str;
 };
+
+/** RTL languages */
+var _RTL_LANGS = {ar: true};
 
 /** Walk all [data-i18n] elements and set their textContent */
 function applyTranslations() {
   var lang = _currentLang;
   // Update lang picker button
   var btn = document.getElementById('langPickerBtn');
-  var labels = {en:'🌐 EN', lg:'🇺🇬 LG', rn:'🌄 RN', ac:'🌾 AC'};
-  if (btn) btn.textContent = labels[lang] || '🌐';
+  if (btn) {
+    var reg = _LANG_REGISTRY.filter(function(l){return l.code===lang;})[0];
+    btn.textContent = reg ? reg.flag + ' ' + lang.toUpperCase() : '🌐';
+  }
+  // Apply RTL
+  document.documentElement.dir = _RTL_LANGS[lang] ? 'rtl' : 'ltr';
+  document.documentElement.lang = lang;
 
   // Translate all data-i18n elements
   document.querySelectorAll('[data-i18n]').forEach(function(el) {
@@ -16884,17 +17454,28 @@ var _origSetLang = window.setLang;
 window.setLang = function(code) {
   _currentLang = code;
   localStorage.setItem('ab_lang', code);
+
+  // Update nav button label from registry
   var btn = document.getElementById('langPickerBtn');
-  var labels = {en:'🌐 EN', lg:'🇺🇬 LG', rn:'🌄 RN', ac:'🌾 AC'};
-  if (btn) btn.textContent = labels[code] || '🌐';
+  if (btn) {
+    var reg = _LANG_REGISTRY.filter(function(l){return l.code===code;})[0];
+    btn.textContent = reg ? reg.flag + ' ' + code.toUpperCase() : '🌐';
+  }
+
+  // RTL support — flip document direction for Arabic etc.
+  document.documentElement.dir = _RTL_LANGS[code] ? 'rtl' : 'ltr';
+  document.documentElement.lang = code;
+
   closeModal && closeModal('langModal');
   applyTranslations();
+
   // Re-render current page so JS-built content switches language immediately
   try {
     if (typeof renderRoleHome === 'function') renderRoleHome();
     if (typeof renderSettings === 'function' &&
         document.getElementById('settingsModal') &&
-        document.getElementById('settingsModal').classList.contains('open'))
+        (document.getElementById('settingsModal').style.display !== 'none' ||
+         document.getElementById('settingsModal').classList.contains('open')))
       renderSettings();
   } catch(e) {}
   showToast && showToast(t('toast.lang_updated'));
