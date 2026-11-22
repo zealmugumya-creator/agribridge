@@ -5412,7 +5412,7 @@ function showPage(name) {
   console.log('[AB] showPage:', name, 'currentUser:', !!currentUser);
   // Auth gate — redirect guests to login for protected pages
   if (_AUTH_REQUIRED_PAGES.indexOf(name) !== -1 && !currentUser) {
-    showToast('Please sign in to continue 🔐');
+    showToast(t('toast.sign_in_required'));
     if (typeof openModal === 'function') openModal('loginModal');
     return;
   }
@@ -5691,8 +5691,8 @@ function favIds() {
 function isFav(id) { return favIds().has(String(id)); }
 function toggleFav(id) {
   const set = favIds(), key = String(id);
-  if (set.has(key)) { set.delete(key); showToast('Removed from saved'); }
-  else { set.add(key); showToast('Saved to favourites ♥'); }
+  if (set.has(key)) { set.delete(key); showToast(t('toast.removed_saved')); }
+  else { set.add(key); showToast(t('toast.saved_fav')); }
   try { localStorage.setItem('ab_favs', JSON.stringify([...set])); } catch (e) {}
   document.querySelectorAll('.prod-card-fav[data-fav-id]').forEach(btn => {
     if (btn.getAttribute('data-fav-id') !== key) return;
@@ -5953,7 +5953,7 @@ function pdAddToCart(opts) {
   if (!l) return;
   const available = listingAvailable(l);
   const minQty = listingMinQty(l);
-  if (available < minQty) { showToast('This listing is out of stock'); return; }
+  if (available < minQty) { showToast(t('toast.out_of_stock')); return; }
   const qty = Math.max(minQty, Math.min(available, Math.floor(window._pdQty || minQty)));
   const meta = {
     image: listingImage(l) || '',
@@ -5969,7 +5969,7 @@ function pdAddToCart(opts) {
 function pdBuyNow() {
   const l = window._pdListing;
   if (!l) return;
-  if (listingAvailable(l) < listingMinQty(l)) { showToast('This listing is out of stock'); return; }
+  if (listingAvailable(l) < listingMinQty(l)) { showToast(t('toast.out_of_stock')); return; }
   pdAddToCart({ openDrawer: false });
   closeBasket();
   showPage('cart');
@@ -5984,10 +5984,10 @@ function pdToggleFav() {
 /** Quick add from grid without opening detail */
 function quickAddToCart(id) {
   const l = allListings.find(x => String(x.id) === String(id));
-  if (!l) { showToast('Product not found — refresh the marketplace'); return; }
+  if (!l) { showToast(t('toast.product_not_found')); return; }
   const available = listingAvailable(l);
   const minQty = listingMinQty(l);
-  if (available < minQty) { showToast('This listing is out of stock'); return; }
+  if (available < minQty) { showToast(t('toast.out_of_stock')); return; }
   const meta = {
     image: listingImage(l) || '',
     farmer: (l.farmers && l.farmers.full_name) || l.farmer_name || '',
@@ -6023,16 +6023,16 @@ function renderCartPage() {
   const notices = document.getElementById('cartNotices');
   if (!list) return;
   if (!basketItems || !basketItems.length) {
-    list.innerHTML = '<div class="cart-empty"><div class="cart-empty-icon">🛒</div><h3>Your cart is empty</h3><p>Browse fresh produce from Uganda\'s farmers</p><button class="btn-sm" onclick="showPage(\'market\')" style="margin-top:4px">Shop Now →</button></div>';
+    list.innerHTML = '<div class="cart-empty"><div class="cart-empty-icon">🛒</div><h3>'+t('cart.empty_title')+'</h3><p>'+t('cart.empty_sub')+'</p><button class="btn-sm" onclick="showPage(\'market\')" style="margin-top:4px">'+t('cart.shop_now')+'</button></div>';
     if (summary) summary.style.display = 'none';
     if (actions) actions.style.display = 'none';
     if (notices) notices.innerHTML = '';
-    if (countEl) countEl.textContent = '0 items';
+    if (countEl) countEl.textContent = t('cart.zero_items');
     return;
   }
   if (actions) actions.style.display = 'flex';
   const totalQty = basketItems.reduce((s, i) => s + i.qty, 0);
-  if (countEl) countEl.textContent = totalQty + (totalQty === 1 ? ' item' : ' items');
+  if (countEl) countEl.textContent = t('cart.n_items', totalQty);
   list.innerHTML = basketItems.map(function(item, i) {
     const b = basketQtyBounds(item);
     const unit = escHtml(item.unit || 'kg');
@@ -6043,10 +6043,10 @@ function renderCartPage() {
       ? '<img src="' + escHtml(item.image) + '" alt="" loading="lazy" style="width:100%;height:100%;object-fit:cover;border-radius:inherit" onerror="this.style.display=\'none\';this.nextElementSibling.style.display=\'flex\'"><span style="display:none">' + (item.emoji || '🌾') + '</span>'
       : (item.emoji || '🌾');
     const lowStock = b.max < 9999 && b.max <= Math.max(10, b.min * 2)
-      ? '<div class="cart-item-stock" style="color:#ffc107">Only ' + b.max + ' ' + unit + ' available</div>' : '';
+      ? '<div class="cart-item-stock" style="color:#ffc107">'+t('cart.low_stock',{max:b.max,unit:unit})+'</div>' : '';
     const oosNote = item.outOfStock
-      ? '<div class="cart-item-stock" style="color:#f44336">Out of stock — remove to continue</div>' : '';
-    const minNote = b.min > 1 ? '<div class="cart-item-line">Minimum order ' + b.min + ' ' + unit + '</div>' : '';
+      ? '<div class="cart-item-stock" style="color:#f44336">'+t('cart.oos')+'</div>' : '';
+    const minNote = b.min > 1 ? '<div class="cart-item-line">'+t('cart.min_order',{min:b.min,unit:unit})+'</div>' : '';
     return '<div class="cart-item">'
       + '<div class="cart-item-img">' + img + '</div>'
       + '<div class="cart-item-body">'
@@ -6065,19 +6065,19 @@ function renderCartPage() {
       + '</div>';
   }).join('');
   if (notices) {
-    notices.innerHTML = '<div class="cart-note"><span>ⓘ</span><span>Prices and availability are checked again on the server when you place the order.</span></div>';
+    notices.innerHTML = '<div class="cart-note"><span>ⓘ</span><span>'+t('cart.price_note')+'</span></div>';
   }
   if (summary) {
     summary.style.display = 'block';
     const totals = getBasketTotals();
     const sub = document.getElementById('cartSubtotal'); if (sub) sub.textContent = fmtUgx(totals.subtotal);
-    const del = document.getElementById('cartDelivery'); if (del) del.textContent = 'Arranged after confirmation';
+    const del = document.getElementById('cartDelivery'); if (del) del.textContent = t('cart.delivery_arranged');
     const tot = document.getElementById('cartTotal'); if (tot) tot.textContent = fmtUgx(totals.total);
     const anyOos = basketItems.some(i => i.outOfStock);
     const checkoutBtn = document.getElementById('cartCheckoutBtn');
     if (checkoutBtn) {
       checkoutBtn.disabled = anyOos;
-      checkoutBtn.textContent = anyOos ? 'Remove out-of-stock items to continue' : 'Proceed to Checkout →';
+      checkoutBtn.textContent = anyOos ? t('cart.remove_oos') : t('cart.checkout');
     }
   }
 }
@@ -6088,7 +6088,7 @@ function cartPageAdjust(idx, delta) {
   const b = basketQtyBounds(item);
   const next = Math.max(b.min, Math.min(item.qty + delta, b.max));
   if (next === item.qty) {
-    showToast(delta > 0 ? 'Only ' + b.max + ' ' + (item.unit || '') + ' available' : 'Minimum order is ' + b.min);
+    showToast(delta > 0 ? t('cart.low_stock',{max:b.max,unit:item.unit||''}) : t('cart.min_order',{min:b.min,unit:item.unit||''}));
     return;
   }
   item.qty = next;
@@ -6102,26 +6102,26 @@ function cartPageAdjust(idx, delta) {
 function cartPageRemove(idx) {
   const item = basketItems[idx];
   if (!item) return;
-  if (!confirm('Remove ' + item.name + ' from your cart?')) return;
+  if (!confirm(t('cart.remove_confirm',{name:item.name}))) return;
   basketItems.splice(idx, 1);
   saveBasket();
   if (typeof syncBasketToCloud === 'function') syncBasketToCloud();
   updateBasketBadge();
   renderBasket();
   renderCartPage();
-  showToast(item.name + ' removed from cart');
+  showToast(t('cart.removed',{name:item.name}));
 }
 
 function clearCartPage() {
   if (!basketItems.length) return;
-  if (!confirm('Remove all items from your cart?')) return;
+  if (!confirm(t('cart.clear_confirm'))) return;
   basketItems = [];
   saveBasket();
   if (typeof syncBasketToCloud === 'function') syncBasketToCloud();
   updateBasketBadge();
   renderBasket();
   renderCartPage();
-  showToast('Cart cleared');
+  showToast(t('cart.cleared'));
 }
 
 /** Load buyer orders */
@@ -6129,10 +6129,10 @@ async function loadBuyerOrders(filter) {
   const container = document.getElementById('ordersListBuyer');
   if (!container) return;
   if (!currentUser) {
-    container.innerHTML = `<div style="text-align:center;padding:40px 16px;color:var(--text2)"><div style="font-size:2.5rem;margin-bottom:12px">🔐</div><div style="font-weight:700;color:var(--text);margin-bottom:6px">Sign in to see orders</div><button class="btn-sm" onclick="openModal('loginModal')" style="margin-top:8px">Sign In</button></div>`;
+    container.innerHTML = `<div style="text-align:center;padding:40px 16px;color:var(--text2)"><div style="font-size:2.5rem;margin-bottom:12px">🔐</div><div style="font-weight:700;color:var(--text);margin-bottom:6px">${t('orders.sign_in_prompt')}</div><button class="btn-sm" onclick="openModal('loginModal')" style="margin-top:8px">${t('nav.login')}</button></div>`;
     return;
   }
-  container.innerHTML = '<div style="text-align:center;padding:32px;color:var(--text2)"><div class="spinner" style="margin:0 auto 12px"></div>Loading orders…</div>';
+  container.innerHTML = '<div style="text-align:center;padding:32px;color:var(--text2)"><div class="spinner" style="margin:0 auto 12px"></div>'+t('orders.loading')+'</div>';
   try {
     const tok = await getAuthToken().catch(()=>null);
     const headers = tok ? {'Authorization':'Bearer '+tok} : {};
@@ -6305,7 +6305,7 @@ function chooseLocation(name) {
   const el = document.getElementById('bhLocCity');
   if (el) el.textContent = name + ', Uganda';
   closeLocSheet();
-  showToast('Delivery location set to ' + name);
+  showToast(t('toast.location_set',{name:name}));
 }
 
 document.addEventListener('DOMContentLoaded', function() {
@@ -6491,7 +6491,7 @@ function resetMarketFilters() {
   renderListings();
 }
 function sortListings(v){ if(v==='price_asc') allListings.sort((a,b)=>a.price_per_kg-b.price_per_kg); if(v==='price_desc') allListings.sort((a,b)=>b.price_per_kg-a.price_per_kg); if(v==='newest') allListings.sort((a,b)=>new Date(b.created_at||0)-new Date(a.created_at||0)); renderListings(); }
-function refreshListings(){ allListings=[]; window._listingsFull=false; loadListings(); showToast('Refreshing listings…'); }
+function refreshListings(){ allListings=[]; window._listingsFull=false; loadListings(); showToast(t('toast.refreshing')); }
 
 // ─────────────────────────────────────────────────────────────────
 // ANIMALS MARKETPLACE — FULL ENGINE
@@ -6756,7 +6756,7 @@ function toggleBasket() { basketOpen ? closeBasket() : openBasket(); }
 
 function openBasket() {
   if (!currentUser) {
-    showToast('Please sign in to view your cart 🔐');
+    showToast(t('toast.sign_in_cart'));
     if (typeof openModal === 'function') openModal('loginModal');
     return;
   }
@@ -6793,7 +6793,7 @@ function basketQtyBounds(item) {
 function addToBasket(id, name, price, unit, emoji, category, sellerId, qty, meta, opts) {
   // Auth gate — buyers must be signed in to add items to cart
   if (!currentUser) {
-    showToast('Please sign in to add items to your cart 🔐');
+    showToast(t('toast.sign_in_cart'));
     if (typeof openModal === 'function') openModal('loginModal');
     return;
   }
@@ -6816,8 +6816,8 @@ function addToBasket(id, name, price, unit, emoji, category, sellerId, qty, meta
     if (meta.minQty)   existing.minQty = meta.minQty;
     if (meta.maxQty)   existing.maxQty = meta.maxQty;
     showToast(existing.qty >= bounds.max
-      ? `Only ${bounds.max} ${unit} available — cart updated`
-      : `➕ ${cleanName} qty updated`);
+      ? t('toast.cart_max',{max:bounds.max,unit:unit})
+      : t('toast.cart_qty_updated',{name:cleanName}));
   } else {
     const bounds = basketQtyBounds({ minQty: meta.minQty, maxQty: meta.maxQty });
     const firstQty = Math.min(Math.max(addQty, bounds.min), bounds.max);
@@ -6827,7 +6827,7 @@ function addToBasket(id, name, price, unit, emoji, category, sellerId, qty, meta
       image: meta.image || '', farmer: meta.farmer || '', district: meta.district || '',
       minQty: bounds.min, maxQty: bounds.max
     });
-    showToast(`🛒 ${cleanName} added to basket!`);
+    showToast(t('toast.added_to_cart',{name:cleanName}));
     trackInterest(name);
   }
   saveBasket();
@@ -6955,12 +6955,12 @@ function renderBasket() {
 // in the browser would only change the number on this screen, so it is refused
 // rather than shown as a discount the order will not receive.
 function applyPromo() {
-  showToast('Promo codes are not available yet — no discount was applied');
+  showToast(t('toast.promo_unavailable'));
 }
 
 function openCheckout() {
-  if (!basketItems.length) { showToast('Your basket is empty'); return; }
-  if (basketItems.some(i => i.outOfStock)) { showToast('Remove out-of-stock items before checkout'); return; }
+  if (!basketItems.length) { showToast(t('toast.basket_empty')); return; }
+  if (basketItems.some(i => i.outOfStock)) { showToast(t('cart.remove_oos')); return; }
   closeBasket();
   const { subtotal, total } = getBasketTotals();
   const fmt = n => 'UGX ' + Number(n).toLocaleString();
@@ -13846,17 +13846,25 @@ var ROLE_NAV = {
 // shown farmer-only selling tools, and a farmer shouldn't be shown the B2B
 // bulk-buying portal. Every page is still reachable directly; this only curates
 // what each role sees surfaced.
-var MORE_ITEMS = {
-  crops:{icon:'🌿',label:'Crops'}, animals:{icon:'🐄',label:'Animals'},
-  doctor:{icon:'🩺',label:'AI Doctor'}, training:{icon:'🎓',label:'Learn'},
-  delivery:{icon:'🚚',label:'Track'}, supply:{icon:'🏪',label:'Supply'},
-  finance:{icon:'💰',label:'Finance'}, b2b:{icon:'🏢',label:'B2B'},
-  community:{icon:'🌱',label:'Community'}, coldchain:{icon:'❄️',label:'Cold Chain'},
-  export:{icon:'🌍',label:'Export'}, ussd:{icon:'📱',label:'USSD'},
-  about:{icon:'💡',label:'About'}, contact:{icon:'✉️',label:'Contact'},
-  market:{icon:'🛒',label:'Market'}, prices:{icon:'📊',label:'Prices'},
-  ai:{icon:'✨',label:'AI Assistant'}
-};
+function _moreItems(){return{
+  crops:   {icon:'🌿',label:t('more.crops')},
+  animals: {icon:'🐄',label:t('more.animals')},
+  doctor:  {icon:'🩺',label:t('more.doctor')},
+  training:{icon:'🎓',label:t('more.training')},
+  delivery:{icon:'🚚',label:t('more.delivery')},
+  supply:  {icon:'🏪',label:t('more.supply')},
+  finance: {icon:'💰',label:t('more.finance')},
+  b2b:     {icon:'🏢',label:t('more.b2b')},
+  community:{icon:'🌱',label:t('more.community')},
+  coldchain:{icon:'❄️',label:t('more.coldchain')},
+  export:  {icon:'🌍',label:t('more.export')},
+  ussd:    {icon:'📱',label:t('more.ussd')},
+  about:   {icon:'💡',label:t('more.about')},
+  contact: {icon:'✉️',label:t('more.contact')},
+  market:  {icon:'🛒',label:t('more.market')},
+  prices:  {icon:'📊',label:t('more.prices')},
+  ai:      {icon:'✨',label:t('more.ai')}
+};}
 var MORE_BY_ROLE = {
   guest:  ['crops','animals','doctor','training','delivery','supply','finance','b2b','community','coldchain','export','ussd','about','contact'],
   farmer: ['market','prices','ai','crops','animals','doctor','training','finance','supply','coldchain','export','delivery','community','ussd','about','contact'],
@@ -13870,6 +13878,7 @@ function renderMoreGrid(){
   var grid=document.querySelector('#moreSheet .more-grid'); if(!grid) return;
   var role=(typeof getCurrentRole==='function')?getCurrentRole():'guest';
   var keys=MORE_BY_ROLE[role]||MORE_BY_ROLE.guest;
+  var MORE_ITEMS=_moreItems();
   grid.innerHTML=keys.map(function(k){ var it=MORE_ITEMS[k]; if(!it) return '';
     // The AI assistant has no page — it slides open over whatever is showing.
     var act = k==='ai' ? 'closeMore();toggleAI()' : 'mnav(\''+k+'\')';
@@ -16636,6 +16645,62 @@ var _dict = {
     // Bottom nav (buyer)
     'nav.browse': 'Browse',
     'nav.cart': 'Cart',
+    // More grid items
+    // Toast messages
+    'toast.sign_in_required': 'Please sign in to continue 🔐',
+    'toast.sign_in_cart': 'Please sign in to access your cart 🔐',
+    'toast.removed_saved': 'Removed from saved',
+    'toast.saved_fav': 'Saved to favourites ♥',
+    'toast.out_of_stock': 'This listing is out of stock',
+    'toast.product_not_found': 'Product not found — refresh the marketplace',
+    'toast.added_to_cart': '🛒 {name} added to basket!',
+    'toast.cart_qty_updated': '➕ {name} qty updated',
+    'toast.cart_max': 'Only {max} {unit} available — cart updated',
+    'toast.refreshing': 'Refreshing listings…',
+    'toast.location_set': 'Delivery location set to {name}',
+    'toast.promo_unavailable': 'Promo codes are not available yet — no discount was applied',
+    'toast.basket_empty': 'Your basket is empty',
+    // Cart strings
+    'cart.empty_title': 'Your cart is empty',
+    'cart.empty_sub': 'Browse fresh produce from Uganda\'s farmers',
+    'cart.shop_now': 'Shop Now →',
+    'cart.zero_items': '0 items',
+    'cart.n_items': '{count} item',
+    'cart.n_items_plural': '{count} items',
+    'cart.low_stock': 'Only {max} {unit} available',
+    'cart.oos': 'Out of stock — remove to continue',
+    'cart.min_order': 'Minimum order {min} {unit}',
+    'cart.price_note': 'Prices and availability are checked again on the server when you place the order.',
+    'cart.delivery_arranged': 'Arranged after confirmation',
+    'cart.checkout': 'Proceed to Checkout →',
+    'cart.remove_oos': 'Remove out-of-stock items to continue',
+    'cart.remove_confirm': 'Remove {name} from your cart?',
+    'cart.removed': '{name} removed from cart',
+    'cart.clear_confirm': 'Remove all items from your cart?',
+    'cart.cleared': 'Cart cleared',
+    // Orders
+    'orders.sign_in_prompt': 'Sign in to see your orders',
+    'orders.loading': 'Loading orders…',
+    'orders.none': 'No orders yet',
+    'orders.none_sub': 'Your order history will appear here',
+    // more grid
+    'more.crops': 'Crops',
+    'more.animals': 'Animals',
+    'more.doctor': 'AI Doctor',
+    'more.training': 'Learn',
+    'more.delivery': 'Track',
+    'more.supply': 'Supply',
+    'more.finance': 'Finance',
+    'more.b2b': 'B2B',
+    'more.community': 'Community',
+    'more.coldchain': 'Cold Chain',
+    'more.export': 'Export',
+    'more.ussd': 'USSD',
+    'more.about': 'About',
+    'more.contact': 'Contact',
+    'more.market': 'Market',
+    'more.prices': 'Prices',
+    'more.ai': 'AI Assistant',
     // Profile page
     'profile.signed_in_as': 'Signed in as',
     'profile.verified': '✓ Verified farmer',
@@ -16765,6 +16830,12 @@ var _dict = {
     'nav.more': 'Ebirala',
     'nav.browse': 'Noonya',
     'nav.cart': 'Enkuupu',
+    'more.crops': 'Ebimera', 'more.animals': 'Ensolo', 'more.doctor': 'Omusawo wa AI',
+    'more.training': 'Kiga', 'more.delivery': 'Kunyiga', 'more.supply': 'Ebikozesebwa',
+    'more.finance': 'Ensimbi', 'more.b2b': 'Bizinensi', 'more.community': 'Ekitundu',
+    'more.coldchain': 'Okubikka', 'more.export': 'Kutumya Ebweru', 'more.ussd': 'USSD',
+    'more.about': 'Ebikuhuusa', 'more.contact': 'Tukwetegereze', 'more.market': 'Katale',
+    'more.prices': 'Ebbeeyi', 'more.ai': 'Omuyambi wa AI',
     'profile.signed_in_as': 'Oyingiriramu nga',
     'profile.verified': '✓ Mulimi Akakasiddwa',
     'profile.not_verified': 'Tekakasiddwa',
@@ -17106,6 +17177,31 @@ var _dict = {
     'trk.rider': 'Dereva',
     'trk.vehicle': 'Gari',
     'trk.no_rider': 'Bado hajapewa',
+    'toast.sign_in_required': 'Tafadhali ingia ili kuendelea 🔐',
+    'toast.sign_in_cart': 'Tafadhali ingia ili kufikia kikapu chako 🔐',
+    'toast.removed_saved': 'Imeondolewa kwenye zilizohifadhiwa',
+    'toast.saved_fav': 'Imehifadhiwa kwenye vipendwa ♥',
+    'toast.out_of_stock': 'Bidhaa hii haipatikani',
+    'toast.product_not_found': 'Bidhaa haikupatikana — rejesha soko',
+    'toast.added_to_cart': '🛒 {name} imeongezwa kwenye kikapu!',
+    'toast.cart_qty_updated': '➕ Idadi ya {name} imesasishwa',
+    'toast.cart_max': 'Tu {max} {unit} zinapatikana — kikapu kimesasishwa',
+    'cart.empty_title': 'Kikapu chako kiko wazi', 'cart.empty_sub': 'Vinjari mazao mapya kutoka kwa wakulima',
+    'cart.shop_now': 'Nunua Sasa →', 'cart.zero_items': 'bidhaa 0',
+    'cart.n_items': 'bidhaa {count}', 'cart.n_items_plural': 'bidhaa {count}',
+    'cart.low_stock': 'Tu {max} {unit} zinapatikana', 'cart.oos': 'Haipatikani — ondoa ili uendelee',
+    'cart.min_order': 'Oda ya chini {min} {unit}', 'cart.price_note': 'Bei na upatikanaji hukaguliwa tena unapoweka oda.',
+    'cart.delivery_arranged': 'Itapangwa baada ya uthibitisho', 'cart.checkout': 'Endelea na Malipo →',
+    'cart.remove_oos': 'Ondoa bidhaa zisizopo ili uendelee', 'cart.remove_confirm': 'Ondoa {name} kwenye kikapu chako?',
+    'cart.removed': '{name} imeondolewa kwenye kikapu', 'cart.clear_confirm': 'Ondoa bidhaa zote kwenye kikapu chako?',
+    'cart.cleared': 'Kikapu kimefutwa', 'orders.sign_in_prompt': 'Ingia kuona maagizo yako',
+    'orders.loading': 'Inapakia maagizo…',
+    'more.crops': 'Mazao', 'more.animals': 'Wanyama', 'more.doctor': 'Daktari wa AI',
+    'more.training': 'Jifunza', 'more.delivery': 'Fuatilia', 'more.supply': 'Mahitaji',
+    'more.finance': 'Fedha', 'more.b2b': 'Biashara', 'more.community': 'Jamii',
+    'more.coldchain': 'Hifadhi Baridi', 'more.export': 'Usafirishaji', 'more.ussd': 'USSD',
+    'more.about': 'Kuhusu', 'more.contact': 'Wasiliana', 'more.market': 'Soko',
+    'more.prices': 'Bei', 'more.ai': 'Msaidizi wa AI',
   },
 
   rw: { // Kinyarwanda
@@ -17283,6 +17379,31 @@ var _dict = {
     'trk.rider': 'Livreur',
     'trk.vehicle': 'Véhicule',
     'trk.no_rider': 'Pas encore assigné',
+    'toast.sign_in_required': 'Veuillez vous connecter pour continuer 🔐',
+    'toast.sign_in_cart': 'Veuillez vous connecter pour accéder à votre panier 🔐',
+    'toast.removed_saved': 'Retiré des enregistrés',
+    'toast.saved_fav': 'Enregistré dans les favoris ♥',
+    'toast.out_of_stock': 'Ce produit est en rupture de stock',
+    'toast.product_not_found': 'Produit introuvable — actualisez le marché',
+    'toast.added_to_cart': '🛒 {name} ajouté au panier!',
+    'toast.cart_qty_updated': '➕ Quantité de {name} mise à jour',
+    'toast.cart_max': 'Seulement {max} {unit} disponibles — panier mis à jour',
+    'cart.empty_title': 'Votre panier est vide', 'cart.empty_sub': 'Parcourez les produits frais des agriculteurs',
+    'cart.shop_now': 'Acheter maintenant →', 'cart.zero_items': '0 article',
+    'cart.n_items': '{count} article', 'cart.n_items_plural': '{count} articles',
+    'cart.low_stock': 'Seulement {max} {unit} disponibles', 'cart.oos': 'Rupture de stock — supprimez pour continuer',
+    'cart.min_order': 'Commande minimum {min} {unit}', 'cart.price_note': 'Les prix et la disponibilité sont revérifiés à la commande.',
+    'cart.delivery_arranged': 'Arrangée après confirmation', 'cart.checkout': 'Passer à la caisse →',
+    'cart.remove_oos': 'Supprimez les articles en rupture pour continuer', 'cart.remove_confirm': 'Retirer {name} de votre panier?',
+    'cart.removed': '{name} retiré du panier', 'cart.clear_confirm': 'Vider tout votre panier?',
+    'cart.cleared': 'Panier vidé', 'orders.sign_in_prompt': 'Connectez-vous pour voir vos commandes',
+    'orders.loading': 'Chargement des commandes…',
+    'more.crops': 'Cultures', 'more.animals': 'Animaux', 'more.doctor': 'Médecin IA',
+    'more.training': 'Apprendre', 'more.delivery': 'Suivi', 'more.supply': 'Fournitures',
+    'more.finance': 'Finance', 'more.b2b': 'B2B', 'more.community': 'Communauté',
+    'more.coldchain': 'Chaîne du froid', 'more.export': 'Export', 'more.ussd': 'USSD',
+    'more.about': 'À propos', 'more.contact': 'Contact', 'more.market': 'Marché',
+    'more.prices': 'Prix', 'more.ai': 'Assistant IA',
   },
 
   ar: { // Arabic — RTL
@@ -17377,6 +17498,12 @@ var _dict = {
     'profile.farm_details': 'تفاصيل المزرعة',
     'profile.account': 'الحساب',
     'profile.signout_confirm': 'تسجيل الخروج',
+    'more.crops': 'المحاصيل', 'more.animals': 'الحيوانات', 'more.doctor': 'طبيب الذكاء الاصطناعي',
+    'more.training': 'تعلّم', 'more.delivery': 'تتبع', 'more.supply': 'التوريد',
+    'more.finance': 'المال', 'more.b2b': 'تجارة', 'more.community': 'المجتمع',
+    'more.coldchain': 'سلسلة التبريد', 'more.export': 'التصدير', 'more.ussd': 'USSD',
+    'more.about': 'عن التطبيق', 'more.contact': 'تواصل معنا', 'more.market': 'السوق',
+    'more.prices': 'الأسعار', 'more.ai': 'مساعد الذكاء الاصطناعي',
   }
 };
 
