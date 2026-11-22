@@ -14392,11 +14392,11 @@ async function doLogin() {
       _recordFail();
       var msg = res.error.message || 'Login failed.';
       if (msg.indexOf('Invalid login credentials')>-1||msg.indexOf('invalid_credentials')>-1) {
-        _showLoginErr('Wrong email or password. Check and try again.');
+        _showLoginErr(t('err.wrong_credentials'));
       } else if (msg.indexOf('Email not confirmed')>-1) {
-        _showLoginErr('Check your email and click the confirmation link first.');
+        _showLoginErr(t('err.email_not_confirmed'));
       } else if (msg.indexOf('rate')>-1||msg.indexOf('limit')>-1) {
-        _showLoginErr('Too many attempts. Wait 1 minute and try again.');
+        _showLoginErr(t('err.too_many_attempts'));
       } else {
         _showLoginErr(msg.slice(0,100));
       }
@@ -14416,7 +14416,7 @@ async function doLogin() {
     } catch(e){}
     closeModal('loginModal');
     updateNavUser(uname, urole);
-    showToast('Welcome back, ' + uname + '!');
+    showToast(t('toast.welcome_back',{name:uname}));
     if (typeof loadBasketFromCloud==='function') loadBasketFromCloud();
     postAuthLegalCheck();
   } catch(e) {
@@ -14454,9 +14454,9 @@ async function doRegister() {
   var _norm = normalizePhoneE164(phone);
   if (!_norm) { _showRegErr(PHONE_HINT); return; }
   phone = _norm;
-  if (!pwd)   { _showRegErr('Please create a password.'); return; }
-  if (pwd.length < 6) { _showRegErr('Password must be at least 6 characters.'); return; }
-  if (pwd !== conf)   { _showRegErr('Passwords do not match.'); return; }
+  if (!pwd)   { _showRegErr(t('err.required')); return; }
+  if (pwd.length < 6) { _showRegErr(t('err.pwd_short')); return; }
+  if (pwd !== conf)   { _showRegErr(t('err.pwd_match')); return; }
   if (!(document.getElementById('regAcceptTerms')||{}).checked) {
     showTermsErr('Please tick the box to agree to the Terms of Use and confirm you have read the Privacy Policy before creating your account.');
     return;
@@ -14629,24 +14629,24 @@ async function saveOAuthProfile() {
     if (errEl) { errEl.textContent = msg; errEl.style.display = 'block'; }
     return false;
   }
-  if (!sbAuth) return fail('Not connected. Please refresh the page.');
+  if (!sbAuth) return fail(t('err.not_connected'));
   var name = ((document.getElementById('oauthName') || {}).value || '').trim();
   var phone = ((document.getElementById('oauthPhone') || {}).value || '').trim();
   var role = (document.getElementById('oauthRole') || {}).value || 'vendor';
   var district = (document.getElementById('oauthDistrict') || {}).value || '';
   var terms = !!(document.getElementById('oauthAcceptTerms') || {}).checked;
-  if (name.length < 2 || name.length > 80) return fail('Please enter your full name.');
-  if (!phone) return fail('Please enter your phone number.');
+  if (name.length < 2 || name.length > 80) return fail(t('err.enter_full_name'));
+  if (!phone) return fail(t('err.enter_phone'));
   var normalized = normalizePhoneE164(phone);
   if (!normalized) return fail(PHONE_HINT);
   phone = normalized;
-  if (['farmer', 'vendor', 'hotel', 'supplier', 'exporter'].indexOf(role) < 0) return fail('Please choose your account type.');
-  if (!district) return fail('Please choose your district.');
-  if (!terms) return fail('Please tick the box to agree to the Terms of Use and confirm you have read the Privacy Policy.');
+  if (['farmer', 'vendor', 'hotel', 'supplier', 'exporter'].indexOf(role) < 0) return fail(t('err.choose_account_type'));
+  if (!district) return fail(t('err.choose_district'));
+  if (!terms) return fail(t('err.accept_terms'));
   var versions = await legalVersionsForRole(role);
-  if (!versions) return fail('We could not load the latest terms. Check your connection and try again.');
+  if (!versions) return fail(t('err.terms_load_failed'));
   var btn = document.getElementById('oauthSaveBtn');
-  if (btn) { btn.disabled = true; btn.textContent = 'Saving…'; }
+  if (btn) { btn.disabled = true; btn.textContent = t('btn.saving'); }
   try {
     var res = await sbAuth.auth.updateUser({
       data: {
@@ -16411,7 +16411,7 @@ async function submitLegalReview() {
     var s2 = await abApi('/api/legal/status');
     if (s2.ok) { showLegalReview(s2.json, _legalReviewMethod); fail('A newer version was published. Please review it and tick again.'); return; }
   }
-  if (r.status === 401) { fail('Your session expired. Please sign in again.'); return; }
+  if (r.status === 401) { fail(t('err.session_expired')); return; }
   fail((r.json && r.json.error && r.json.error !== 'network') ? r.json.error : 'We could not save your acceptance. Check your connection and try again. Nothing has been recorded yet.');
 }
 
@@ -16660,6 +16660,20 @@ var _dict = {
     'toast.location_set': 'Delivery location set to {name}',
     'toast.promo_unavailable': 'Promo codes are not available yet — no discount was applied',
     'toast.basket_empty': 'Your basket is empty',
+    'toast.welcome_back': 'Welcome back, {name}!',
+    // Auth errors
+    'err.wrong_credentials': 'Wrong email or password. Check and try again.',
+    'err.email_not_confirmed': 'Check your email and click the confirmation link first.',
+    'err.too_many_attempts': 'Too many attempts. Wait 1 minute and try again.',
+    'err.enter_full_name': 'Please enter your full name.',
+    'err.enter_phone': 'Please enter your phone number.',
+    'err.choose_account_type': 'Please choose your account type.',
+    'err.choose_district': 'Please choose your district.',
+    'err.accept_terms': 'Please tick the box to agree to the Terms of Use.',
+    'err.terms_load_failed': 'We could not load the latest terms. Check your connection and try again.',
+    'err.session_expired': 'Your session expired. Please sign in again.',
+    'err.not_connected': 'Not connected. Please refresh the page.',
+    'err.save_profile': 'Could not save your profile. Please try again.',
     // Cart strings
     'cart.empty_title': 'Your cart is empty',
     'cart.empty_sub': 'Browse fresh produce from Uganda\'s farmers',
@@ -17177,6 +17191,16 @@ var _dict = {
     'trk.rider': 'Dereva',
     'trk.vehicle': 'Gari',
     'trk.no_rider': 'Bado hajapewa',
+    'toast.welcome_back': 'Karibu tena, {name}!',
+    'err.wrong_credentials': 'Barua pepe au nywila si sahihi. Angalia na jaribu tena.',
+    'err.email_not_confirmed': 'Angalia barua pepe yako na ubofye kiungo cha uthibitisho kwanza.',
+    'err.too_many_attempts': 'Majaribio mengi sana. Subiri dakika 1 ujaribu tena.',
+    'err.enter_full_name': 'Tafadhali ingiza jina lako kamili.',
+    'err.enter_phone': 'Tafadhali ingiza nambari ya simu.',
+    'err.choose_account_type': 'Tafadhali chagua aina ya akaunti.',
+    'err.choose_district': 'Tafadhali chagua wilaya yako.',
+    'err.accept_terms': 'Tafadhali tiki kisanduku kukubali Masharti ya Matumizi.',
+    'err.session_expired': 'Kipindi chako kimeisha. Tafadhali ingia tena.',
     'toast.sign_in_required': 'Tafadhali ingia ili kuendelea 🔐',
     'toast.sign_in_cart': 'Tafadhali ingia ili kufikia kikapu chako 🔐',
     'toast.removed_saved': 'Imeondolewa kwenye zilizohifadhiwa',
@@ -17379,6 +17403,16 @@ var _dict = {
     'trk.rider': 'Livreur',
     'trk.vehicle': 'Véhicule',
     'trk.no_rider': 'Pas encore assigné',
+    'toast.welcome_back': 'Bon retour, {name}!',
+    'err.wrong_credentials': 'Email ou mot de passe incorrect. Vérifiez et réessayez.',
+    'err.email_not_confirmed': 'Vérifiez votre email et cliquez sur le lien de confirmation.',
+    'err.too_many_attempts': 'Trop de tentatives. Attendez 1 minute et réessayez.',
+    'err.enter_full_name': 'Veuillez entrer votre nom complet.',
+    'err.enter_phone': 'Veuillez entrer votre numéro de téléphone.',
+    'err.choose_account_type': 'Veuillez choisir votre type de compte.',
+    'err.choose_district': 'Veuillez choisir votre district.',
+    'err.accept_terms': 'Veuillez cocher la case pour accepter les Conditions d\'utilisation.',
+    'err.session_expired': 'Votre session a expiré. Veuillez vous reconnecter.',
     'toast.sign_in_required': 'Veuillez vous connecter pour continuer 🔐',
     'toast.sign_in_cart': 'Veuillez vous connecter pour accéder à votre panier 🔐',
     'toast.removed_saved': 'Retiré des enregistrés',
