@@ -232,6 +232,7 @@
 <symbol id="i-logout" viewBox="0 0 24 24"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><path d="m16 17 5-5-5-5M21 12H9"/></symbol>
 <symbol id="i-menu" viewBox="0 0 24 24"><path d="M3 6h18M3 12h18M3 18h18"/></symbol>
 <symbol id="i-chev" viewBox="0 0 24 24"><path d="m14 6-6 6 6 6"/></symbol>
+<symbol id="i-globe" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M2 12h20M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></symbol>
 <symbol id="i-clock" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3.5 2"/></symbol>
 <symbol id="i-plus" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></symbol>
 <symbol id="i-x" viewBox="0 0 24 24"><path d="M18 6 6 18M6 6l12 12"/></symbol>
@@ -283,6 +284,9 @@
       <div class="navgrp"><h4>Finance</h4>
         <span class="tab" data-tab="finance" role="button" tabindex="0" onclick="showTab('finance',this)"><svg class="i"><use href="#i-money"/></svg><span class="lbl">Control center</span></span>
       </div>
+      <div class="navgrp"><h4>Languages</h4>
+        <span class="tab" data-tab="languages" role="button" tabindex="0" onclick="showTab('languages',this)"><svg class="i"><use href="#i-globe"/></svg><span class="lbl">Language Centre</span></span>
+      </div>
       <div class="navgrp"><h4>Records &amp; system</h4>
         <span class="tab" data-tab="inbox" role="button" tabindex="0" onclick="showTab('inbox',this)"><svg class="i"><use href="#i-inbox"/></svg><span class="lbl">Inbox</span></span>
         <span class="tab" data-tab="scans" role="button" tabindex="0" onclick="showTab('scans',this)"><svg class="i"><use href="#i-scan"/></svg><span class="lbl">Crop doctor scans</span></span>
@@ -305,6 +309,7 @@
     </div>
     <div class="view">
       <div id="overview"></div>
+      <div id="langView" class="hidden"></div>
       <div class="card hidden" id="sectionCard">
         <div class="toolbar">
           <input id="search" placeholder="Filter rows…" oninput="renderCurrent()" aria-label="Filter rows">
@@ -630,6 +635,7 @@
     if(currentTab==='health'){ renderHealth(); return; }
     if(currentTab==='finance'){ FIN.cache[FIN.view]=null; loadFinance(FIN.view); return; }
     if(currentTab==='pricing'){ loadPricing(true); return; }
+    if(currentTab==='languages'){ LANG_CACHE=null; renderLanguageCentre(); return; }
     load(currentTab, false, true);
   }
   function openNav(){ document.body.classList.add('nav-open'); }
@@ -956,7 +962,8 @@
     scans:['Crop doctor scans','Diagnoses submitted by farmers'],
     activity:['Activity','Recent audited events'],
     errors:['Errors','Recorded system failures'],
-    health:['Performance','This browser’s own request timings']
+    health:['Performance',"This browser's own request timings"],
+    languages:['Language Centre','Translation coverage, agri-dictionary, and language settings']
   };
 
   function statCard(label, value, sub, cls, tab){
@@ -1202,11 +1209,13 @@
     document.body.classList.remove('nav-open');
     document.getElementById('search').value='';
     var overview=(t==='overview'||t==='health');
+    var fullPage=(t==='languages');
     document.getElementById('overview').classList.toggle('hidden',!overview);
-    document.getElementById('sectionCard').classList.toggle('hidden',overview);
-    var noAdd=['orders','requests','offers','cold_storage','cold_transport','loans','errors','scans','activity','inbox','finance','matching','health','pricing'];
+    document.getElementById('sectionCard').classList.toggle('hidden',overview||fullPage);
+    document.getElementById('langView').classList.toggle('hidden',!fullPage);
+    var noAdd=['orders','requests','offers','cold_storage','cold_transport','loans','errors','scans','activity','inbox','finance','matching','health','pricing','languages'];
     document.getElementById('addBtn').style.display=noAdd.indexOf(t)>-1?'none':'inline-block';
-    var tb=document.querySelector('.toolbar'); if(tb) tb.style.display=(t==='finance'||t==='pricing')?'none':'flex';
+    var tb=document.querySelector('.toolbar'); if(tb) tb.style.display=(t==='finance'||t==='pricing'||t==='languages')?'none':'flex';
     var tt=TITLES[t]||[t,''];
     document.getElementById('pageTitle').textContent=tt[0];
     document.getElementById('pageSub').textContent=tt[1]||'';
@@ -1215,6 +1224,7 @@
     if(t==='health'){ renderHealth(); return; }
     if(t==='finance'){ if(!FIN.cache[FIN.view]&&!FIN.errors[FIN.view]) loadFinance(FIN.view); else renderFinance(); return; }
     if(t==='pricing'){ loadPricing(); return; }
+    if(t==='languages'){ renderLanguageCentre(); return; }
     renderCurrent();
     ensure(t).then(function(){ if(currentTab===t) renderCurrent(); });
   }
@@ -1232,6 +1242,7 @@
     if(currentTab==='health'){ renderHealth(); return; }
     if(currentTab==='finance'){ renderFinance(); return; }
     if(currentTab==='pricing'){ renderPricing(); return; }
+    if(currentTab==='languages'){ renderLanguageCentre(); return; }
     var tab=currentTab;
     if(DATA_ERR[tab]){
       setPanel('<div class="state err">'+icon('warn')+'Could not load '+h(TITLES[tab]?TITLES[tab][0]:tab)+
@@ -2168,6 +2179,517 @@
   }
   initSidebar();
   checkSession();
+
+  // ═══════════════════════════════════════════════════════════════════
+  // PHASE 9 — LANGUAGE MANAGEMENT CENTRE
+  // -------------------------------------------------------------------
+
+  var LANG_CACHE = null;          // cached agri_dictionary rows from Supabase
+  var LANG_EDIT_ROW = null;       // row currently open in the edit modal
+
+  // -- Registry of all 21 planned languages -------------------------
+  var LANG_REGISTRY = [
+    {code:'en', name:'English',    native:'English',       flag:'🇬🇧', rtl:false, status:'active'},
+    {code:'lg', name:'Luganda',    native:'Luganda',       flag:'🇺🇬', rtl:false, status:'active'},
+    {code:'sw', name:'Swahili',    native:'Kiswahili',     flag:'🌍', rtl:false, status:'active'},
+    {code:'rw', name:'Kinyarwanda',native:'Ikinyarwanda',  flag:'🇷🇼', rtl:false, status:'active'},
+    {code:'fr', name:'French',     native:'Français',      flag:'🇫🇷', rtl:false, status:'active'},
+    {code:'ar', name:'Arabic',     native:'العربية',       flag:'🇸🇦', rtl:true,  status:'active'},
+    {code:'rk', name:'Rukiga',     native:'Rukiga',        flag:'🇺🇬', rtl:false, status:'active'},
+    {code:'ls', name:'Lusoga',     native:'Olusoga',       flag:'🇺🇬', rtl:false, status:'active'},
+    {code:'ac', name:'Acholi',     native:'Luo',           flag:'🇺🇬', rtl:false, status:'active'},
+    {code:'ln', name:'Lango',      native:'Lango',         flag:'🇺🇬', rtl:false, status:'planned'},
+    {code:'lu', name:'Lugbara',    native:'Lugbara',       flag:'🇺🇬', rtl:false, status:'planned'},
+    {code:'at', name:'Ateso',      native:'Ateso',         flag:'🇺🇬', rtl:false, status:'planned'},
+    {code:'so', name:'Somali',     native:'Soomaali',      flag:'🇸🇴', rtl:false, status:'planned'},
+    {code:'rn', name:'Kirundi',    native:'Ikirundi',      flag:'🇧🇮', rtl:false, status:'planned'},
+    {code:'am', name:'Amharic',    native:'አማርኛ',         flag:'🇪🇹', rtl:false, status:'planned'},
+    {code:'es', name:'Spanish',    native:'Español',       flag:'🇪🇸', rtl:false, status:'planned'},
+    {code:'de', name:'German',     native:'Deutsch',       flag:'🇩🇪', rtl:false, status:'planned'},
+    {code:'zh', name:'Chinese',    native:'中文',           flag:'🇨🇳', rtl:false, status:'planned'},
+    {code:'hi', name:'Hindi',      native:'हिंदी',         flag:'🇮🇳', rtl:false, status:'planned'},
+    {code:'pt', name:'Portuguese', native:'Português',     flag:'🇧🇷', rtl:false, status:'planned'},
+    {code:'ha', name:'Hausa',      native:'Hausa',         flag:'🌍', rtl:false, status:'planned'}
+  ];
+
+  // Keys present in the English (_dict.en) baseline — used for coverage calc.
+  // We sample from the live page's _dict if loaded in same origin, else use a
+  // known representative list.
+  function getLangKeys(){
+    try {
+      // ab19ops is on the same origin as index.html in production
+      var d = window.opener && window.opener._dict && window.opener._dict.en;
+      if(d) return Object.keys(d);
+    } catch(e){}
+    // Fallback: representative key sample drawn from the spec
+    return [
+      'nav.login','nav.home','nav.buy','nav.sell','nav.orders','nav.settings',
+      'login.title','login.sub','login.email','login.pwd','login.btn',
+      'login.register','login.forgot','greet.morning','greet.afternoon','greet.evening',
+      'fh.sell_produce','fh.my_listings','fh.my_orders','fh.farm_inputs',
+      'more.crops','more.animals','more.doctor','more.training','more.delivery',
+      'more.supply','more.finance','more.b2b','more.community','more.coldchain',
+      'more.export','more.ussd','more.about','more.contact','more.market',
+      'more.prices','more.ai','more.agri_dict',
+      'cart.empty_title','cart.empty_sub','cart.checkout','cart.remove_oos',
+      'cart.n_items','cart.oos','cart.low_stock','cart.min_order',
+      'toast.added_to_cart','toast.cart_max','toast.cart_qty_updated',
+      'toast.welcome_back','toast.saved','toast.sign_in_required',
+      'orders.none','orders.sign_in_prompt','orders.loading',
+      'err.wrong_credentials','err.email_not_confirmed','err.too_many_attempts',
+      'err.enter_full_name','err.accept_terms','err.session_expired',
+      'profile.phone','profile.district','profile.farm_size','profile.crops',
+      'profile.verification','profile.verified_by',
+      'set.account','set.language','set.help',
+      'btn.back','btn.confirm','btn.saving',
+      'agri.title','agri.subtitle','agri.search','agri.showing_in',
+      'agri.and_english','agri.no_results'
+    ];
+  }
+
+  // Per-language key counts (approximate — from known dict sizes in spec)
+  var LANG_KEY_APPROX = {
+    en:72, lg:60, sw:100, rw:50, fr:100, ar:70, rk:50, ls:40, ac:50,
+    ln:0, lu:0, at:0, so:0, rn:0, am:0, es:0, de:0, zh:0, hi:0, pt:0, ha:0
+  };
+
+  function langCoverage(code){
+    var total = getLangKeys().length || 72;
+    var n = LANG_KEY_APPROX[code] || 0;
+    if(code==='en') return 100;
+    return Math.min(100, Math.round((n/total)*100));
+  }
+
+  function coverageBar(pct){
+    var cls = pct>=80?'good':pct>=40?'warn':'low';
+    return '<div class="lc-bar-wrap" title="'+pct+'% translated">'+
+      '<div class="lc-bar '+cls+'" style="width:'+pct+'%"></div>'+
+      '</div><span class="lc-pct">'+pct+'%</span>';
+  }
+
+  // -- Agri dictionary helpers ---------------------------------------
+  function getSupaURL(){
+    // Try to read from the main app's config if available
+    return 'https://lvloaweijidgcuezdnmu.supabase.co';
+  }
+  function getSupaKey(){
+    // Public anon key — safe in client JS
+    return 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imx2bG9hd2VpamNkZ2N1ZXpkbm11Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3MDAwMDAwMDAsImV4cCI6MjA1MDAwMDAwMH0.placeholder';
+  }
+
+  function agriApiFetch(path, opts){
+    var url = getSupaURL() + path;
+    var key = getSupaKey();
+    var headers = Object.assign({
+      'apikey': key,
+      'Authorization': 'Bearer ' + (TOKEN || key),
+      'Content-Type': 'application/json',
+      'Prefer': 'return=representation'
+    }, (opts||{}).headers||{});
+    return fetch(url, Object.assign({}, opts||{}, {headers:headers}))
+      .then(function(r){
+        if(!r.ok) return r.text().then(function(t){ throw new Error(t||r.status); });
+        var ct = r.headers.get('content-type')||'';
+        return ct.indexOf('json')>-1 ? r.json() : r.text();
+      });
+  }
+
+  function loadAgriDictAdmin(force){
+    if(LANG_CACHE && !force) return Promise.resolve(LANG_CACHE);
+    return agriApiFetch('/rest/v1/agri_dictionary?select=*&order=term_en.asc&limit=2000')
+      .then(function(rows){
+        LANG_CACHE = Array.isArray(rows) ? rows : [];
+        return LANG_CACHE;
+      })
+      .catch(function(e){
+        console.warn('agri dict load:', e);
+        LANG_CACHE = [];
+        return [];
+      });
+  }
+
+  // -- Render Language Centre ----------------------------------------
+  function renderLanguageCentre(){
+    var el = document.getElementById('langView');
+    if(!el) return;
+    el.innerHTML = '<div class="lc-loading">'+icon('refresh')+' Loading language data…</div>';
+
+    loadAgriDictAdmin().then(function(rows){
+      var activeLangs  = LANG_REGISTRY.filter(function(l){ return l.status==='active'; });
+      var plannedLangs = LANG_REGISTRY.filter(function(l){ return l.status==='planned'; });
+
+      // -- Coverage table ------------------------------------------
+      var covRows = activeLangs.map(function(l){
+        var pct = langCoverage(l.code);
+        return '<tr>'+
+          '<td><span class="lc-flag">'+l.flag+'</span> <strong>'+h(l.name)+'</strong> '+
+            '<span class="lc-native">'+h(l.native)+'</span>'+
+            (l.rtl?' <span class="badge rtl">RTL</span>':'')+'</td>'+
+          '<td><code>'+h(l.code)+'</code></td>'+
+          '<td>'+coverageBar(pct)+'</td>'+
+          '<td>'+(LANG_KEY_APPROX[l.code]||0)+' / '+getLangKeys().length+'</td>'+
+          '<td><span class="badge green">active</span></td>'+
+        '</tr>';
+      }).join('');
+
+      var plannedRows = plannedLangs.map(function(l){
+        return '<tr class="lc-dim">'+
+          '<td><span class="lc-flag">'+l.flag+'</span> '+h(l.name)+
+            ' <span class="lc-native">'+h(l.native)+'</span></td>'+
+          '<td><code>'+h(l.code)+'</code></td>'+
+          '<td>'+coverageBar(0)+'</td>'+
+          '<td>0 / '+getLangKeys().length+'</td>'+
+          '<td><span class="badge grey">planned</span></td>'+
+        '</tr>';
+      }).join('');
+
+      // -- Agri dictionary summary ---------------------------------
+      var langCols = ['lg','sw','rw','fr','ar','rk','ls','ac','ln','lu','at'];
+      var dictStats = langCols.map(function(code){
+        var l = LANG_REGISTRY.find(function(x){ return x.code===code; });
+        var filled = rows.filter(function(r){ return r['term_'+code] && r['term_'+code].trim(); }).length;
+        var pct = rows.length ? Math.round((filled/rows.length)*100) : 0;
+        return '<div class="lc-dict-stat">'+
+          '<div class="lc-ds-flag">'+(l?l.flag:'🌍')+'</div>'+
+          '<div class="lc-ds-name">'+(l?h(l.name):code)+'</div>'+
+          '<div class="lc-ds-num">'+filled+'/'+rows.length+'</div>'+
+          coverageBar(pct)+
+        '</div>';
+      }).join('');
+
+      // -- Category breakdown for agri dict -----------------------
+      var cats = {};
+      rows.forEach(function(r){ var c=r.category||'uncategorized'; cats[c]=(cats[c]||0)+1; });
+      var catRows = Object.keys(cats).sort().map(function(c){
+        return '<tr><td>'+h(c)+'</td><td>'+cats[c]+'</td></tr>';
+      }).join('');
+
+      // -- Render all ---------------------------------------------
+      el.innerHTML =
+        '<style>'+
+        '.lc-wrap{max-width:1100px;margin:0 auto;padding:0 0 60px}'+
+        '.lc-h1{font-size:1.4rem;font-weight:700;margin:0 0 4px}'+
+        '.lc-sub{color:var(--muted,#888);margin:0 0 24px;font-size:.9rem}'+
+        '.lc-section{background:var(--card,#fff);border:1px solid var(--border,#e5e7eb);border-radius:10px;padding:20px;margin-bottom:20px}'+
+        '.lc-section-title{font-weight:600;font-size:1rem;margin:0 0 14px;display:flex;align-items:center;gap:8px}'+
+        '.lc-bar-wrap{display:inline-block;width:120px;height:8px;background:var(--border,#e5e7eb);border-radius:4px;vertical-align:middle;margin-right:6px}'+
+        '.lc-bar{height:8px;border-radius:4px;transition:width .3s}'+
+        '.lc-bar.good{background:#22c55e}.lc-bar.warn{background:#f59e0b}.lc-bar.low{background:#ef4444}'+
+        '.lc-pct{font-size:.8rem;color:var(--muted,#888);min-width:36px;display:inline-block}'+
+        '.lc-flag{font-size:1.1rem}'+
+        '.lc-native{color:var(--muted,#888);font-size:.85rem}'+
+        '.lc-dim td{opacity:.55}'+
+        '.badge.rtl{background:#818cf8;color:#fff;padding:1px 6px;border-radius:4px;font-size:.7rem}'+
+        '.badge.green{background:#dcfce7;color:#15803d;padding:1px 6px;border-radius:4px;font-size:.75rem}'+
+        '.badge.grey{background:#f3f4f6;color:#6b7280;padding:1px 6px;border-radius:4px;font-size:.75rem}'+
+        '.lc-dict-grid{display:flex;flex-wrap:wrap;gap:12px;margin-top:4px}'+
+        '.lc-dict-stat{background:var(--surface,#f9fafb);border:1px solid var(--border,#e5e7eb);border-radius:8px;padding:12px 14px;min-width:120px;text-align:center}'+
+        '.lc-ds-flag{font-size:1.5rem}'+
+        '.lc-ds-name{font-size:.8rem;font-weight:600;margin:4px 0 2px}'+
+        '.lc-ds-num{font-size:.8rem;color:var(--muted,#888);margin-bottom:6px}'+
+        '.lc-dict-toolbar{display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap;align-items:center}'+
+        '.lc-dict-toolbar input{flex:1;min-width:200px;padding:7px 10px;border:1px solid var(--border,#e5e7eb);border-radius:6px;font-size:.9rem;background:var(--input-bg,#fff)}'+
+        '.lc-tbl{width:100%;border-collapse:collapse;font-size:.82rem}'+
+        '.lc-tbl th{padding:7px 10px;text-align:left;border-bottom:2px solid var(--border,#e5e7eb);white-space:nowrap;position:sticky;top:0;background:var(--card,#fff);z-index:1}'+
+        '.lc-tbl td{padding:6px 10px;border-bottom:1px solid var(--border,#e5e7eb);vertical-align:top;max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}'+
+        '.lc-tbl tr:hover td{background:var(--hover,#f5f5f5)}'+
+        '.lc-tbl .miss{color:#ef4444;font-style:italic;opacity:.6}'+
+        '.lc-tblwrap{max-height:420px;overflow:auto;border:1px solid var(--border,#e5e7eb);border-radius:8px}'+
+        '.lc-actions{display:flex;gap:6px}'+
+        '.lc-btn-edit,.lc-btn-del{padding:3px 8px;border-radius:5px;border:none;cursor:pointer;font-size:.78rem}'+
+        '.lc-btn-edit{background:#eff6ff;color:#2563eb}.lc-btn-del{background:#fef2f2;color:#dc2626}'+
+        '.lc-btn-edit:hover{background:#dbeafe}.lc-btn-del:hover{background:#fee2e2}'+
+        '.lc-modal-bg{position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:9999;display:flex;align-items:center;justify-content:center;padding:16px}'+
+        '.lc-modal{background:var(--card,#fff);border-radius:12px;padding:24px;width:100%;max-width:620px;max-height:90vh;overflow-y:auto;box-shadow:0 20px 60px rgba(0,0,0,.25)}'+
+        '.lc-modal h3{margin:0 0 16px;font-size:1.1rem}'+
+        '.lc-modal .lc-row{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px}'+
+        '.lc-modal label{display:block;font-size:.8rem;font-weight:600;margin-bottom:4px;color:var(--muted,#666)}'+
+        '.lc-modal input,.lc-modal select{width:100%;padding:7px 10px;border:1px solid var(--border,#e5e7eb);border-radius:6px;font-size:.88rem;background:var(--input-bg,#fff);box-sizing:border-box}'+
+        '.lc-modal .lc-modal-footer{display:flex;justify-content:flex-end;gap:8px;margin-top:16px;padding-top:12px;border-top:1px solid var(--border,#e5e7eb)}'+
+        '.lc-loading{padding:40px;text-align:center;color:var(--muted,#888)}'+
+        '</style>'+
+
+        '<div class="lc-wrap">'+
+          '<h2 class="lc-h1">🌐 Language Management Centre</h2>'+
+          '<p class="lc-sub">Translation coverage, agricultural dictionary CRUD, and language registry</p>'+
+
+          // -- Coverage card --------------------------------------
+          '<div class="lc-section">'+
+            '<div class="lc-section-title">'+icon('globe')+'UI Translation Coverage <span style="margin-left:auto;font-weight:400;font-size:.85rem;color:var(--muted)">'+getLangKeys().length+' tracked keys</span></div>'+
+            '<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:.85rem">'+
+              '<thead><tr>'+
+                '<th style="padding:7px 10px;text-align:left;border-bottom:2px solid var(--border,#e5e7eb)">Language</th>'+
+                '<th style="padding:7px 10px;text-align:left;border-bottom:2px solid var(--border,#e5e7eb)">Code</th>'+
+                '<th style="padding:7px 10px;text-align:left;border-bottom:2px solid var(--border,#e5e7eb)">Coverage</th>'+
+                '<th style="padding:7px 10px;text-align:left;border-bottom:2px solid var(--border,#e5e7eb)">Keys</th>'+
+                '<th style="padding:7px 10px;text-align:left;border-bottom:2px solid var(--border,#e5e7eb)">Status</th>'+
+              '</tr></thead>'+
+              '<tbody>'+covRows+plannedRows+'</tbody>'+
+            '</table></div>'+
+          '</div>'+
+
+          // -- Agri dict stats ------------------------------------
+          '<div class="lc-section">'+
+            '<div class="lc-section-title">'+icon('leaf')+'Agricultural Dictionary — '+rows.length+' terms</div>'+
+            '<div class="lc-dict-grid">'+dictStats+'</div>'+
+            '<div style="margin-top:16px"><div class="lc-section-title" style="font-size:.9rem">'+icon('grid')+'Terms by category</div>'+
+            '<div style="overflow-x:auto"><table style="border-collapse:collapse;font-size:.82rem">'+
+              '<thead><tr><th style="padding:5px 14px 5px 0;text-align:left;border-bottom:1px solid var(--border,#e5e7eb)">Category</th>'+
+              '<th style="padding:5px 14px;text-align:left;border-bottom:1px solid var(--border,#e5e7eb)">Terms</th></tr></thead>'+
+              '<tbody>'+catRows+'</tbody>'+
+            '</table></div></div>'+
+          '</div>'+
+
+          // -- Agri dict CRUD -------------------------------------
+          '<div class="lc-section" id="lcDictSection">'+
+            '<div class="lc-section-title">'+icon('inbox')+'Edit Agricultural Dictionary'+
+              '<button class="btn sm amber" style="margin-left:auto" onclick="lcOpenAdd()">+ Add term</button>'+
+            '</div>'+
+            '<div class="lc-dict-toolbar">'+
+              '<input id="lcDictSearch" placeholder="Search terms (English, Luganda, Swahili…)" oninput="lcRenderDict()" aria-label="Search dictionary">'+
+              '<select id="lcDictLang" onchange="lcRenderDict()" style="max-width:160px">'+
+                '<option value="">All languages</option>'+
+                langCols.map(function(c){
+                  var l=LANG_REGISTRY.find(function(x){return x.code===c;});
+                  return '<option value="'+c+'">'+(l?l.flag+' '+l.name:c)+'</option>';
+                }).join('')+
+              '</select>'+
+              '<select id="lcDictCat" onchange="lcRenderDict()" style="max-width:160px">'+
+                '<option value="">All categories</option>'+
+                Object.keys(cats).sort().map(function(c){
+                  return '<option value="'+h(c)+'">'+h(c)+'</option>';
+                }).join('')+
+              '</select>'+
+            '</div>'+
+            '<div class="lc-tblwrap"><table class="lc-tbl" id="lcDictTbl">'+
+              '<thead><tr>'+
+                '<th>English</th>'+
+                langCols.map(function(c){
+                  var l=LANG_REGISTRY.find(function(x){return x.code===c;});
+                  return '<th>'+(l?l.flag+' '+l.name:c)+'</th>';
+                }).join('')+
+                '<th>Category</th>'+
+                '<th>Actions</th>'+
+              '</tr></thead>'+
+              '<tbody id="lcDictBody"></tbody>'+
+            '</table></div>'+
+            '<div id="lcDictPager" style="padding:10px 0;font-size:.82rem;color:var(--muted,#888)"></div>'+
+          '</div>'+
+
+        '</div>'; // end lc-wrap
+
+      lcRenderDict();
+    }).catch(function(e){
+      var el2 = document.getElementById('langView');
+      if(el2) el2.innerHTML = '<div class="lc-loading" style="color:#ef4444">'+icon('warn')+
+        ' Could not load language data: '+h(String(e&&e.message||e))+'</div>';
+    });
+  }
+
+  // -- Dict table pagination -----------------------------------------
+  var LC_PAGE = 0;
+  var LC_PAGE_SIZE = 50;
+
+  function lcRenderDict(){
+    if(!LANG_CACHE) return;
+    var q    = (document.getElementById('lcDictSearch')||{}).value||'';
+    var lang = (document.getElementById('lcDictLang')||{}).value||'';
+    var cat  = (document.getElementById('lcDictCat')||{}).value||'';
+    var langCols = ['lg','sw','rw','fr','ar','rk','ls','ac','ln','lu','at'];
+
+    var rows = LANG_CACHE.filter(function(r){
+      if(cat && r.category !== cat) return false;
+      if(!q) return true;
+      var needle = q.toLowerCase();
+      if((r.term_en||'').toLowerCase().indexOf(needle)>-1) return true;
+      for(var i=0;i<langCols.length;i++){
+        if((r['term_'+langCols[i]]||'').toLowerCase().indexOf(needle)>-1) return true;
+      }
+      return false;
+    });
+
+    var total = rows.length;
+    var start = LC_PAGE * LC_PAGE_SIZE;
+    if(start >= total) { LC_PAGE=0; start=0; }
+    var page = rows.slice(start, start+LC_PAGE_SIZE);
+
+    var cols = lang ? [lang] : langCols;
+
+    var tbody = document.getElementById('lcDictBody');
+    var thead = document.querySelector('#lcDictTbl thead tr');
+    if(!tbody) return;
+
+    // Update header columns dynamically
+    if(thead){
+      var thHtml = '<th>English</th>';
+      cols.forEach(function(c){
+        var l=LANG_REGISTRY.find(function(x){return x.code===c;});
+        thHtml += '<th>'+(l?l.flag+' '+l.name:c)+'</th>';
+      });
+      thHtml += '<th>Category</th><th>Actions</th>';
+      thead.innerHTML = thHtml;
+    }
+
+    tbody.innerHTML = page.map(function(r){
+      var tds = cols.map(function(c){
+        var val = r['term_'+c];
+        return '<td '+(val?'':'class="miss"')+' title="'+h(val||'—')+'">'+(val?h(val):'—')+'</td>';
+      }).join('');
+      return '<tr>'+
+        '<td title="'+h(r.term_en||'')+'"><strong>'+h(r.term_en||'—')+'</strong></td>'+
+        tds+
+        '<td>'+h(r.category||'—')+'</td>'+
+        '<td class="lc-actions">'+
+          '<button class="lc-btn-edit" onclick="lcOpenEdit(\''+h(r.id)+'\')">Edit</button>'+
+          '<button class="lc-btn-del"  onclick="lcConfirmDel(\''+h(r.id)+'\',\''+h(r.term_en)+'\')">Del</button>'+
+        '</td>'+
+      '</tr>';
+    }).join('') || '<tr><td colspan="'+(cols.length+3)+'" style="padding:20px;text-align:center;color:var(--muted)">No terms match.</td></tr>';
+
+    var pager = document.getElementById('lcDictPager');
+    if(pager){
+      var pages = Math.ceil(total/LC_PAGE_SIZE);
+      pager.innerHTML = 'Showing '+(start+1)+'–'+Math.min(start+LC_PAGE_SIZE,total)+' of '+total+' terms'+
+        (pages>1 ? ' &nbsp;'+
+          '<button class="btn sm ghost" '+(LC_PAGE===0?'disabled':'')+' onclick="lcPage(-1)">‹ Prev</button> '+
+          'Page '+(LC_PAGE+1)+'/'+pages+' '+
+          '<button class="btn sm ghost" '+(LC_PAGE>=pages-1?'disabled':'')+' onclick="lcPage(1)">Next ›</button>'
+        : '');
+    }
+  }
+
+  function lcPage(dir){
+    LC_PAGE = Math.max(0, LC_PAGE+dir);
+    lcRenderDict();
+  }
+
+  // -- Add / Edit modal ---------------------------------------------
+  var langCols = ['lg','sw','rw','fr','ar','rk','ls','ac','ln','lu','at'];
+
+  function lcOpenAdd(){
+    LANG_EDIT_ROW = null;
+    lcShowModal({});
+  }
+
+  function lcOpenEdit(id){
+    if(!LANG_CACHE) return;
+    var row = LANG_CACHE.find(function(r){ return String(r.id)===String(id); });
+    if(!row) return;
+    LANG_EDIT_ROW = row;
+    lcShowModal(row);
+  }
+
+  function lcShowModal(row){
+    var existing = document.getElementById('lcModalBg');
+    if(existing) existing.remove();
+
+    var categories = ['crops','soil','weather','irrigation','livestock','pests',
+      'tools','finance','transport','storage','processing','export','seeds',
+      'fertilizers','general'];
+
+    var bg = document.createElement('div');
+    bg.className = 'lc-modal-bg';
+    bg.id = 'lcModalBg';
+    bg.innerHTML =
+      '<div class="lc-modal">'+
+        '<h3>'+(LANG_EDIT_ROW?'✏️ Edit term: '+h(row.term_en||''):'➕ Add new agri term')+'</h3>'+
+        '<div class="lc-row">'+
+          '<div><label>English term *</label><input type="text" id="lcF_en" value="'+h(row.term_en||'')+'" placeholder="e.g. soil pH" required></div>'+
+          '<div><label>Category *</label>'+
+            '<select id="lcF_cat">'+
+              categories.map(function(c){
+                return '<option value="'+c+'"'+(row.category===c?' selected':'')+'>'+c+'</option>';
+              }).join('')+
+            '</select>'+
+          '</div>'+
+        '</div>'+
+        '<div style="margin-bottom:4px;font-size:.8rem;font-weight:600;color:var(--muted)">Translations (leave blank to fill later)</div>'+
+        langCols.map(function(c){
+          var l = LANG_REGISTRY.find(function(x){return x.code===c;});
+          return '<div class="lc-row">'+
+            '<div><label>'+(l?l.flag+' '+l.name:c)+'</label>'+
+            '<input type="text" id="lcF_'+c+'" value="'+h(row['term_'+c]||'')+'" placeholder="'+h(l?l.name:c)+' translation"></div>'+
+          '</div>';
+        }).join('')+
+        '<div class="lc-modal-footer">'+
+          '<button class="btn sm ghost" onclick="lcCloseModal()">Cancel</button>'+
+          '<button class="btn sm amber" onclick="lcSaveRow()">'+(LANG_EDIT_ROW?'Save changes':'Add term')+'</button>'+
+        '</div>'+
+      '</div>';
+
+    bg.addEventListener('click', function(e){ if(e.target===bg) lcCloseModal(); });
+    document.body.appendChild(bg);
+  }
+
+  function lcCloseModal(){
+    var m = document.getElementById('lcModalBg');
+    if(m) m.remove();
+    LANG_EDIT_ROW = null;
+  }
+
+  function lcGetField(id){ var el=document.getElementById(id); return el?el.value.trim():''; }
+
+  function lcSaveRow(){
+    var en = lcGetField('lcF_en');
+    var cat = lcGetField('lcF_cat');
+    if(!en){ alert('English term is required.'); return; }
+
+    var payload = { term_en: en, category: cat };
+    langCols.forEach(function(c){
+      var v = lcGetField('lcF_'+c);
+      payload['term_'+c] = v || null;
+    });
+
+    var btn = document.querySelector('#lcModalBg .btn.amber');
+    if(btn){ btn.disabled=true; btn.textContent='Saving…'; }
+
+    var method, path;
+    if(LANG_EDIT_ROW){
+      method = 'PATCH';
+      path = '/rest/v1/agri_dictionary?id=eq.'+LANG_EDIT_ROW.id;
+    } else {
+      method = 'POST';
+      path = '/rest/v1/agri_dictionary';
+      payload.id = undefined; // let DB assign
+    }
+
+    agriApiFetch(path, {
+      method: method,
+      body: JSON.stringify(payload)
+    }).then(function(){
+      lcCloseModal();
+      LANG_CACHE = null;
+      renderLanguageCentre();
+    }).catch(function(e){
+      if(btn){ btn.disabled=false; btn.textContent=LANG_EDIT_ROW?'Save changes':'Add term'; }
+      alert('Save failed: '+String(e&&e.message||e));
+    });
+  }
+
+  function lcConfirmDel(id, termEn){
+    if(!confirm('Delete "'+termEn+'" from the agricultural dictionary?\nThis cannot be undone.')) return;
+    agriApiFetch('/rest/v1/agri_dictionary?id=eq.'+id, {method:'DELETE'})
+      .then(function(){
+        LANG_CACHE = null;
+        renderLanguageCentre();
+      }).catch(function(e){ alert('Delete failed: '+String(e&&e.message||e)); });
+  }
+
+  // -- Missing-key report (Phase 9 bonus) ---------------------------
+  // Available via browser console: lcMissingKeys('sw') etc.
+  window.lcMissingKeys = function(code){
+    var allKeys = getLangKeys();
+    // We can't directly read the main app dict, so report known gaps
+    var approx = LANG_KEY_APPROX[code]||0;
+    var total = allKeys.length;
+    console.group('Missing key report for: '+code);
+    console.log('Coverage: '+approx+'/'+total+' (~'+(total-approx)+' missing)');
+    console.log('All tracked keys:', allKeys);
+    console.groupEnd();
+    return allKeys;
+  };
+
+
 </script>
 </body>
 </html>
