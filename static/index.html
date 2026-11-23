@@ -5412,7 +5412,7 @@ function showPage(name) {
   console.log('[AB] showPage:', name, 'currentUser:', !!currentUser);
   // Auth gate — redirect guests to login for protected pages
   if (_AUTH_REQUIRED_PAGES.indexOf(name) !== -1 && !currentUser) {
-    showToast('Please sign in to continue 🔐');
+    showToast(t('toast.sign_in_required'));
     if (typeof openModal === 'function') openModal('loginModal');
     return;
   }
@@ -5447,6 +5447,10 @@ function showPage(name) {
   if (name === 'cart')     renderCartPage();
   if (name === 'orders')   loadBuyerOrders();
   if (name === 'profile-buyer') renderBuyerProfile();
+  if (name === 'agri_dict') {
+    if (typeof renderAgriTranslator === 'function')
+      renderAgriTranslator('agriTranslatorWidget');
+  }
 }
 // Android back button — also handles returning to landing page
 history.pushState({ ab:1 }, '', window.location.href);
@@ -5691,8 +5695,8 @@ function favIds() {
 function isFav(id) { return favIds().has(String(id)); }
 function toggleFav(id) {
   const set = favIds(), key = String(id);
-  if (set.has(key)) { set.delete(key); showToast('Removed from saved'); }
-  else { set.add(key); showToast('Saved to favourites ♥'); }
+  if (set.has(key)) { set.delete(key); showToast(t('toast.removed_saved')); }
+  else { set.add(key); showToast(t('toast.saved_fav')); }
   try { localStorage.setItem('ab_favs', JSON.stringify([...set])); } catch (e) {}
   document.querySelectorAll('.prod-card-fav[data-fav-id]').forEach(btn => {
     if (btn.getAttribute('data-fav-id') !== key) return;
@@ -5953,7 +5957,7 @@ function pdAddToCart(opts) {
   if (!l) return;
   const available = listingAvailable(l);
   const minQty = listingMinQty(l);
-  if (available < minQty) { showToast('This listing is out of stock'); return; }
+  if (available < minQty) { showToast(t('toast.out_of_stock')); return; }
   const qty = Math.max(minQty, Math.min(available, Math.floor(window._pdQty || minQty)));
   const meta = {
     image: listingImage(l) || '',
@@ -5969,7 +5973,7 @@ function pdAddToCart(opts) {
 function pdBuyNow() {
   const l = window._pdListing;
   if (!l) return;
-  if (listingAvailable(l) < listingMinQty(l)) { showToast('This listing is out of stock'); return; }
+  if (listingAvailable(l) < listingMinQty(l)) { showToast(t('toast.out_of_stock')); return; }
   pdAddToCart({ openDrawer: false });
   closeBasket();
   showPage('cart');
@@ -5984,10 +5988,10 @@ function pdToggleFav() {
 /** Quick add from grid without opening detail */
 function quickAddToCart(id) {
   const l = allListings.find(x => String(x.id) === String(id));
-  if (!l) { showToast('Product not found — refresh the marketplace'); return; }
+  if (!l) { showToast(t('toast.product_not_found')); return; }
   const available = listingAvailable(l);
   const minQty = listingMinQty(l);
-  if (available < minQty) { showToast('This listing is out of stock'); return; }
+  if (available < minQty) { showToast(t('toast.out_of_stock')); return; }
   const meta = {
     image: listingImage(l) || '',
     farmer: (l.farmers && l.farmers.full_name) || l.farmer_name || '',
@@ -6023,16 +6027,16 @@ function renderCartPage() {
   const notices = document.getElementById('cartNotices');
   if (!list) return;
   if (!basketItems || !basketItems.length) {
-    list.innerHTML = '<div class="cart-empty"><div class="cart-empty-icon">🛒</div><h3>Your cart is empty</h3><p>Browse fresh produce from Uganda\'s farmers</p><button class="btn-sm" onclick="showPage(\'market\')" style="margin-top:4px">Shop Now →</button></div>';
+    list.innerHTML = '<div class="cart-empty"><div class="cart-empty-icon">🛒</div><h3>'+t('cart.empty_title')+'</h3><p>'+t('cart.empty_sub')+'</p><button class="btn-sm" onclick="showPage(\'market\')" style="margin-top:4px">'+t('cart.shop_now')+'</button></div>';
     if (summary) summary.style.display = 'none';
     if (actions) actions.style.display = 'none';
     if (notices) notices.innerHTML = '';
-    if (countEl) countEl.textContent = '0 items';
+    if (countEl) countEl.textContent = t('cart.zero_items');
     return;
   }
   if (actions) actions.style.display = 'flex';
   const totalQty = basketItems.reduce((s, i) => s + i.qty, 0);
-  if (countEl) countEl.textContent = totalQty + (totalQty === 1 ? ' item' : ' items');
+  if (countEl) countEl.textContent = t('cart.n_items', totalQty);
   list.innerHTML = basketItems.map(function(item, i) {
     const b = basketQtyBounds(item);
     const unit = escHtml(item.unit || 'kg');
@@ -6043,10 +6047,10 @@ function renderCartPage() {
       ? '<img src="' + escHtml(item.image) + '" alt="" loading="lazy" style="width:100%;height:100%;object-fit:cover;border-radius:inherit" onerror="this.style.display=\'none\';this.nextElementSibling.style.display=\'flex\'"><span style="display:none">' + (item.emoji || '🌾') + '</span>'
       : (item.emoji || '🌾');
     const lowStock = b.max < 9999 && b.max <= Math.max(10, b.min * 2)
-      ? '<div class="cart-item-stock" style="color:#ffc107">Only ' + b.max + ' ' + unit + ' available</div>' : '';
+      ? '<div class="cart-item-stock" style="color:#ffc107">'+t('cart.low_stock',{max:b.max,unit:unit})+'</div>' : '';
     const oosNote = item.outOfStock
-      ? '<div class="cart-item-stock" style="color:#f44336">Out of stock — remove to continue</div>' : '';
-    const minNote = b.min > 1 ? '<div class="cart-item-line">Minimum order ' + b.min + ' ' + unit + '</div>' : '';
+      ? '<div class="cart-item-stock" style="color:#f44336">'+t('cart.oos')+'</div>' : '';
+    const minNote = b.min > 1 ? '<div class="cart-item-line">'+t('cart.min_order',{min:b.min,unit:unit})+'</div>' : '';
     return '<div class="cart-item">'
       + '<div class="cart-item-img">' + img + '</div>'
       + '<div class="cart-item-body">'
@@ -6065,19 +6069,19 @@ function renderCartPage() {
       + '</div>';
   }).join('');
   if (notices) {
-    notices.innerHTML = '<div class="cart-note"><span>ⓘ</span><span>Prices and availability are checked again on the server when you place the order.</span></div>';
+    notices.innerHTML = '<div class="cart-note"><span>ⓘ</span><span>'+t('cart.price_note')+'</span></div>';
   }
   if (summary) {
     summary.style.display = 'block';
     const totals = getBasketTotals();
     const sub = document.getElementById('cartSubtotal'); if (sub) sub.textContent = fmtUgx(totals.subtotal);
-    const del = document.getElementById('cartDelivery'); if (del) del.textContent = 'Arranged after confirmation';
+    const del = document.getElementById('cartDelivery'); if (del) del.textContent = t('cart.delivery_arranged');
     const tot = document.getElementById('cartTotal'); if (tot) tot.textContent = fmtUgx(totals.total);
     const anyOos = basketItems.some(i => i.outOfStock);
     const checkoutBtn = document.getElementById('cartCheckoutBtn');
     if (checkoutBtn) {
       checkoutBtn.disabled = anyOos;
-      checkoutBtn.textContent = anyOos ? 'Remove out-of-stock items to continue' : 'Proceed to Checkout →';
+      checkoutBtn.textContent = anyOos ? t('cart.remove_oos') : t('cart.checkout');
     }
   }
 }
@@ -6088,7 +6092,7 @@ function cartPageAdjust(idx, delta) {
   const b = basketQtyBounds(item);
   const next = Math.max(b.min, Math.min(item.qty + delta, b.max));
   if (next === item.qty) {
-    showToast(delta > 0 ? 'Only ' + b.max + ' ' + (item.unit || '') + ' available' : 'Minimum order is ' + b.min);
+    showToast(delta > 0 ? t('cart.low_stock',{max:b.max,unit:item.unit||''}) : t('cart.min_order',{min:b.min,unit:item.unit||''}));
     return;
   }
   item.qty = next;
@@ -6102,26 +6106,26 @@ function cartPageAdjust(idx, delta) {
 function cartPageRemove(idx) {
   const item = basketItems[idx];
   if (!item) return;
-  if (!confirm('Remove ' + item.name + ' from your cart?')) return;
+  if (!confirm(t('cart.remove_confirm',{name:item.name}))) return;
   basketItems.splice(idx, 1);
   saveBasket();
   if (typeof syncBasketToCloud === 'function') syncBasketToCloud();
   updateBasketBadge();
   renderBasket();
   renderCartPage();
-  showToast(item.name + ' removed from cart');
+  showToast(t('cart.removed',{name:item.name}));
 }
 
 function clearCartPage() {
   if (!basketItems.length) return;
-  if (!confirm('Remove all items from your cart?')) return;
+  if (!confirm(t('cart.clear_confirm'))) return;
   basketItems = [];
   saveBasket();
   if (typeof syncBasketToCloud === 'function') syncBasketToCloud();
   updateBasketBadge();
   renderBasket();
   renderCartPage();
-  showToast('Cart cleared');
+  showToast(t('cart.cleared'));
 }
 
 /** Load buyer orders */
@@ -6129,10 +6133,10 @@ async function loadBuyerOrders(filter) {
   const container = document.getElementById('ordersListBuyer');
   if (!container) return;
   if (!currentUser) {
-    container.innerHTML = `<div style="text-align:center;padding:40px 16px;color:var(--text2)"><div style="font-size:2.5rem;margin-bottom:12px">🔐</div><div style="font-weight:700;color:var(--text);margin-bottom:6px">Sign in to see orders</div><button class="btn-sm" onclick="openModal('loginModal')" style="margin-top:8px">Sign In</button></div>`;
+    container.innerHTML = `<div style="text-align:center;padding:40px 16px;color:var(--text2)"><div style="font-size:2.5rem;margin-bottom:12px">🔐</div><div style="font-weight:700;color:var(--text);margin-bottom:6px">${t('orders.sign_in_prompt')}</div><button class="btn-sm" onclick="openModal('loginModal')" style="margin-top:8px">${t('nav.login')}</button></div>`;
     return;
   }
-  container.innerHTML = '<div style="text-align:center;padding:32px;color:var(--text2)"><div class="spinner" style="margin:0 auto 12px"></div>Loading orders…</div>';
+  container.innerHTML = '<div style="text-align:center;padding:32px;color:var(--text2)"><div class="spinner" style="margin:0 auto 12px"></div>'+t('orders.loading')+'</div>';
   try {
     const tok = await getAuthToken().catch(()=>null);
     const headers = tok ? {'Authorization':'Bearer '+tok} : {};
@@ -6305,7 +6309,7 @@ function chooseLocation(name) {
   const el = document.getElementById('bhLocCity');
   if (el) el.textContent = name + ', Uganda';
   closeLocSheet();
-  showToast('Delivery location set to ' + name);
+  showToast(t('toast.location_set',{name:name}));
 }
 
 document.addEventListener('DOMContentLoaded', function() {
@@ -6491,7 +6495,7 @@ function resetMarketFilters() {
   renderListings();
 }
 function sortListings(v){ if(v==='price_asc') allListings.sort((a,b)=>a.price_per_kg-b.price_per_kg); if(v==='price_desc') allListings.sort((a,b)=>b.price_per_kg-a.price_per_kg); if(v==='newest') allListings.sort((a,b)=>new Date(b.created_at||0)-new Date(a.created_at||0)); renderListings(); }
-function refreshListings(){ allListings=[]; window._listingsFull=false; loadListings(); showToast('Refreshing listings…'); }
+function refreshListings(){ allListings=[]; window._listingsFull=false; loadListings(); showToast(t('toast.refreshing')); }
 
 // ─────────────────────────────────────────────────────────────────
 // ANIMALS MARKETPLACE — FULL ENGINE
@@ -6756,7 +6760,7 @@ function toggleBasket() { basketOpen ? closeBasket() : openBasket(); }
 
 function openBasket() {
   if (!currentUser) {
-    showToast('Please sign in to view your cart 🔐');
+    showToast(t('toast.sign_in_cart'));
     if (typeof openModal === 'function') openModal('loginModal');
     return;
   }
@@ -6793,7 +6797,7 @@ function basketQtyBounds(item) {
 function addToBasket(id, name, price, unit, emoji, category, sellerId, qty, meta, opts) {
   // Auth gate — buyers must be signed in to add items to cart
   if (!currentUser) {
-    showToast('Please sign in to add items to your cart 🔐');
+    showToast(t('toast.sign_in_cart'));
     if (typeof openModal === 'function') openModal('loginModal');
     return;
   }
@@ -6816,8 +6820,8 @@ function addToBasket(id, name, price, unit, emoji, category, sellerId, qty, meta
     if (meta.minQty)   existing.minQty = meta.minQty;
     if (meta.maxQty)   existing.maxQty = meta.maxQty;
     showToast(existing.qty >= bounds.max
-      ? `Only ${bounds.max} ${unit} available — cart updated`
-      : `➕ ${cleanName} qty updated`);
+      ? t('toast.cart_max',{max:bounds.max,unit:unit})
+      : t('toast.cart_qty_updated',{name:cleanName}));
   } else {
     const bounds = basketQtyBounds({ minQty: meta.minQty, maxQty: meta.maxQty });
     const firstQty = Math.min(Math.max(addQty, bounds.min), bounds.max);
@@ -6827,7 +6831,7 @@ function addToBasket(id, name, price, unit, emoji, category, sellerId, qty, meta
       image: meta.image || '', farmer: meta.farmer || '', district: meta.district || '',
       minQty: bounds.min, maxQty: bounds.max
     });
-    showToast(`🛒 ${cleanName} added to basket!`);
+    showToast(t('toast.added_to_cart',{name:cleanName}));
     trackInterest(name);
   }
   saveBasket();
@@ -6955,12 +6959,12 @@ function renderBasket() {
 // in the browser would only change the number on this screen, so it is refused
 // rather than shown as a discount the order will not receive.
 function applyPromo() {
-  showToast('Promo codes are not available yet — no discount was applied');
+  showToast(t('toast.promo_unavailable'));
 }
 
 function openCheckout() {
-  if (!basketItems.length) { showToast('Your basket is empty'); return; }
-  if (basketItems.some(i => i.outOfStock)) { showToast('Remove out-of-stock items before checkout'); return; }
+  if (!basketItems.length) { showToast(t('toast.basket_empty')); return; }
+  if (basketItems.some(i => i.outOfStock)) { showToast(t('cart.remove_oos')); return; }
   closeBasket();
   const { subtotal, total } = getBasketTotals();
   const fmt = n => 'UGX ' + Number(n).toLocaleString();
@@ -12480,10 +12484,23 @@ function checkCookieBanner(){
   }
 }
 function toggleFaq(qEl){ const aEl=qEl.nextElementSibling; const isOpen=aEl.classList.contains('open'); document.querySelectorAll('.faq-a.open').forEach(a=>{ a.classList.remove('open'); a.previousElementSibling?.classList.remove('open'); }); if(!isOpen){ aEl.classList.add('open'); qEl.classList.add('open'); } }
-function setLang(code){ localStorage.setItem('ab_lang',code); var langBtn=document.getElementById('langPickerBtn'); if(langBtn) langBtn.textContent={en:'🌐 EN',lg:'🇺🇬 LG',rn:'🌄 RN',ac:'🌾 AC'}[code]||'🌐'; closeModal('langModal'); showToast('Language updated ✓'); /* i18n engine overrides this below */ }
+function setLang(code){ localStorage.setItem('ab_lang',code); closeModal('langModal'); showToast('Language updated ✓'); /* i18n engine overrides this below */ }
 // ── Settings hub (Telegram-style: home menu + one screen per section) ──────────
 var _setScreen='home';
-var _LANGS=[['en','🇬🇧 English'],['lg','🇺🇬 Luganda'],['rn','🌄 Runyankole'],['ac','🌾 Acholi/Luo']];
+/* Language registry — code, English name, native name, RTL, status */
+var _LANG_REGISTRY=[
+  {code:'en', en:'English',       native:'English',      flag:'🇬🇧', rtl:false, status:'full'},
+  {code:'lg', en:'Luganda',       native:'Oluganda',     flag:'🇺🇬', rtl:false, status:'partial'},
+  {code:'rn', en:'Runyankole',    native:'Orunyankore',  flag:'🇺🇬', rtl:false, status:'partial'},
+  {code:'rk', en:'Rukiga',        native:'Orikiga',      flag:'🇺🇬', rtl:false, status:'partial'},
+  {code:'ls', en:'Lusoga',        native:'Olusoga',      flag:'🇺🇬', rtl:false, status:'partial'},
+  {code:'ac', en:'Acholi',        native:'Lwo',          flag:'🇺🇬', rtl:false, status:'partial'},
+  {code:'sw', en:'Kiswahili',     native:'Kiswahili',    flag:'🌍', rtl:false, status:'partial'},
+  {code:'rw', en:'Kinyarwanda',   native:'Ikinyarwanda', flag:'🇷🇼', rtl:false, status:'partial'},
+  {code:'fr', en:'French',        native:'Français',     flag:'🇫🇷', rtl:false, status:'partial'},
+  {code:'ar', en:'Arabic',        native:'العربية',      flag:'🇸🇦', rtl:true,  status:'partial'},
+];
+var _LANGS=_LANG_REGISTRY.map(function(l){return [l.code, l.flag+' '+l.en];});
 var _ROLE_LABELS={farmer:'🌾 Farmer (I sell produce)',vendor:'🛒 Buyer (I buy produce)',hotel:'🏨 Hotel / Restaurant (B2B)',supplier:'🏪 Supplier (I sell farm inputs)',exporter:'🌍 Exporter / Trading Co. (I sell across borders)'};
 var _ROLE_SHORT={farmer:'Farmer',vendor:'Buyer',hotel:'Hotel / Restaurant',supplier:'Supplier',exporter:'Exporter / Trading Co.',guest:'Guest'};
 var _SCREEN_TITLES={account:'set.account',notifications:'set.notif',language:'set.language',privacy:'set.privacy',help:'set.help'};
@@ -12604,10 +12621,21 @@ function renderSettings(){
   }
 
   else if(screen==='language'){
-    html+='<div class="st-panel"><div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">';
-    _LANGS.forEach(function(l){
-      var on=l[0]===lang;
-      html+='<button onclick="setLangFromSettings(\''+l[0]+'\')" style="padding:12px 8px;border-radius:10px;cursor:pointer;font-size:0.88rem;font-weight:600;color:var(--text);border:1px solid '+(on?'var(--green)':'var(--border)')+';background:'+(on?'var(--green-dim)':'var(--card)')+'">'+l[1]+'</button>';
+    html+='<div class="st-panel">' +
+      '<input id="langSearch" type="text" placeholder="🔍 Search language…" oninput="filterLangs(this.value)" ' +
+        'style="width:100%;box-sizing:border-box;padding:10px 12px;border-radius:10px;border:1px solid var(--border);background:var(--card);color:var(--text);font-size:0.9rem;margin-bottom:12px">' +
+      '<div id="langGrid" style="display:flex;flex-direction:column;gap:6px">';
+    _LANG_REGISTRY.forEach(function(l){
+      var on=l.code===lang;
+      var statusDot = l.status==='full' ? '' : '<span style="font-size:0.65rem;color:var(--text2);margin-left:4px">partial</span>';
+      html+='<button class="lang-opt-btn" data-code="'+l.code+'" data-search="'+l.en.toLowerCase()+' '+l.native.toLowerCase()+'" '+
+        'onclick="setLangFromSettings(\''+l.code+'\')" ' +
+        'style="display:flex;align-items:center;gap:12px;padding:11px 14px;border-radius:12px;cursor:pointer;text-align:left;'+
+        'border:1.5px solid '+(on?'var(--green)':'var(--border)')+';background:'+(on?'var(--green-dim)':'var(--card)')+'">'+
+        '<span style="font-size:1.3rem">'+l.flag+'</span>'+
+        '<span style="flex:1"><span style="font-weight:700;font-size:0.92rem;color:var(--text)">'+l.en+'</span>'+statusDot+'<br>'+
+          '<span style="font-size:0.78rem;color:var(--text2)">'+l.native+'</span></span>'+
+        (on?'<span style="color:var(--green);font-size:1.1rem">✓</span>':'')+'</button>';
     });
     html+='</div></div>';
   }
@@ -12641,6 +12669,13 @@ function renderSettings(){
   if(screen==='home' && currentUser) refreshPushSubtitle();
 }
 function setLangFromSettings(code){ setLang(code); renderSettings(); }
+function filterLangs(q){
+  q=(q||'').toLowerCase().trim();
+  document.querySelectorAll('.lang-opt-btn').forEach(function(btn){
+    var s=btn.getAttribute('data-search')||'';
+    btn.style.display=(!q||s.indexOf(q)>-1)?'':'none';
+  });
+}
 
 // ── Phone-alert status for the Settings screens ──
 function _pushReg(){
@@ -13815,21 +13850,30 @@ var ROLE_NAV = {
 // shown farmer-only selling tools, and a farmer shouldn't be shown the B2B
 // bulk-buying portal. Every page is still reachable directly; this only curates
 // what each role sees surfaced.
-var MORE_ITEMS = {
-  crops:{icon:'🌿',label:'Crops'}, animals:{icon:'🐄',label:'Animals'},
-  doctor:{icon:'🩺',label:'AI Doctor'}, training:{icon:'🎓',label:'Learn'},
-  delivery:{icon:'🚚',label:'Track'}, supply:{icon:'🏪',label:'Supply'},
-  finance:{icon:'💰',label:'Finance'}, b2b:{icon:'🏢',label:'B2B'},
-  community:{icon:'🌱',label:'Community'}, coldchain:{icon:'❄️',label:'Cold Chain'},
-  export:{icon:'🌍',label:'Export'}, ussd:{icon:'📱',label:'USSD'},
-  about:{icon:'💡',label:'About'}, contact:{icon:'✉️',label:'Contact'},
-  market:{icon:'🛒',label:'Market'}, prices:{icon:'📊',label:'Prices'},
-  ai:{icon:'✨',label:'AI Assistant'}
-};
+function _moreItems(){return{
+  crops:   {icon:'🌿',label:t('more.crops')},
+  animals: {icon:'🐄',label:t('more.animals')},
+  doctor:  {icon:'🩺',label:t('more.doctor')},
+  training:{icon:'🎓',label:t('more.training')},
+  delivery:{icon:'🚚',label:t('more.delivery')},
+  supply:  {icon:'🏪',label:t('more.supply')},
+  finance: {icon:'💰',label:t('more.finance')},
+  b2b:     {icon:'🏢',label:t('more.b2b')},
+  community:{icon:'🌱',label:t('more.community')},
+  coldchain:{icon:'❄️',label:t('more.coldchain')},
+  export:  {icon:'🌍',label:t('more.export')},
+  ussd:    {icon:'📱',label:t('more.ussd')},
+  about:   {icon:'💡',label:t('more.about')},
+  contact: {icon:'✉️',label:t('more.contact')},
+  market:  {icon:'🛒',label:t('more.market')},
+  prices:  {icon:'📊',label:t('more.prices')},
+  ai:      {icon:'✨',label:t('more.ai')},
+  agri_dict:{icon:'📖',label:t('more.agri_dict')}
+};}
 var MORE_BY_ROLE = {
   guest:  ['crops','animals','doctor','training','delivery','supply','finance','b2b','community','coldchain','export','ussd','about','contact'],
-  farmer: ['market','prices','ai','crops','animals','doctor','training','finance','supply','coldchain','export','delivery','community','ussd','about','contact'],
-  exporter: ['market','prices','ai','crops','animals','doctor','training','finance','supply','coldchain','export','delivery','community','ussd','about','contact'],
+  farmer: ['market','prices','ai','agri_dict','crops','animals','doctor','training','finance','supply','coldchain','export','delivery','community','ussd','about','contact'],
+  exporter: ['market','prices','ai','agri_dict','crops','animals','doctor','training','finance','supply','coldchain','export','delivery','community','ussd','about','contact'],
   vendor: ['crops','animals','delivery','training','community','coldchain','ussd','about','contact'],
   hotel:  ['b2b','supply','delivery','coldchain','finance','community','training','ussd','about','contact'],
   supplier:['supply','delivery','community','training','coldchain','finance','ussd','about','contact'],
@@ -13839,6 +13883,7 @@ function renderMoreGrid(){
   var grid=document.querySelector('#moreSheet .more-grid'); if(!grid) return;
   var role=(typeof getCurrentRole==='function')?getCurrentRole():'guest';
   var keys=MORE_BY_ROLE[role]||MORE_BY_ROLE.guest;
+  var MORE_ITEMS=_moreItems();
   grid.innerHTML=keys.map(function(k){ var it=MORE_ITEMS[k]; if(!it) return '';
     // The AI assistant has no page — it slides open over whatever is showing.
     var act = k==='ai' ? 'closeMore();toggleAI()' : 'mnav(\''+k+'\')';
@@ -14352,11 +14397,11 @@ async function doLogin() {
       _recordFail();
       var msg = res.error.message || 'Login failed.';
       if (msg.indexOf('Invalid login credentials')>-1||msg.indexOf('invalid_credentials')>-1) {
-        _showLoginErr('Wrong email or password. Check and try again.');
+        _showLoginErr(t('err.wrong_credentials'));
       } else if (msg.indexOf('Email not confirmed')>-1) {
-        _showLoginErr('Check your email and click the confirmation link first.');
+        _showLoginErr(t('err.email_not_confirmed'));
       } else if (msg.indexOf('rate')>-1||msg.indexOf('limit')>-1) {
-        _showLoginErr('Too many attempts. Wait 1 minute and try again.');
+        _showLoginErr(t('err.too_many_attempts'));
       } else {
         _showLoginErr(msg.slice(0,100));
       }
@@ -14376,7 +14421,7 @@ async function doLogin() {
     } catch(e){}
     closeModal('loginModal');
     updateNavUser(uname, urole);
-    showToast('Welcome back, ' + uname + '!');
+    showToast(t('toast.welcome_back',{name:uname}));
     if (typeof loadBasketFromCloud==='function') loadBasketFromCloud();
     postAuthLegalCheck();
   } catch(e) {
@@ -14414,9 +14459,9 @@ async function doRegister() {
   var _norm = normalizePhoneE164(phone);
   if (!_norm) { _showRegErr(PHONE_HINT); return; }
   phone = _norm;
-  if (!pwd)   { _showRegErr('Please create a password.'); return; }
-  if (pwd.length < 6) { _showRegErr('Password must be at least 6 characters.'); return; }
-  if (pwd !== conf)   { _showRegErr('Passwords do not match.'); return; }
+  if (!pwd)   { _showRegErr(t('err.required')); return; }
+  if (pwd.length < 6) { _showRegErr(t('err.pwd_short')); return; }
+  if (pwd !== conf)   { _showRegErr(t('err.pwd_match')); return; }
   if (!(document.getElementById('regAcceptTerms')||{}).checked) {
     showTermsErr('Please tick the box to agree to the Terms of Use and confirm you have read the Privacy Policy before creating your account.');
     return;
@@ -14589,24 +14634,24 @@ async function saveOAuthProfile() {
     if (errEl) { errEl.textContent = msg; errEl.style.display = 'block'; }
     return false;
   }
-  if (!sbAuth) return fail('Not connected. Please refresh the page.');
+  if (!sbAuth) return fail(t('err.not_connected'));
   var name = ((document.getElementById('oauthName') || {}).value || '').trim();
   var phone = ((document.getElementById('oauthPhone') || {}).value || '').trim();
   var role = (document.getElementById('oauthRole') || {}).value || 'vendor';
   var district = (document.getElementById('oauthDistrict') || {}).value || '';
   var terms = !!(document.getElementById('oauthAcceptTerms') || {}).checked;
-  if (name.length < 2 || name.length > 80) return fail('Please enter your full name.');
-  if (!phone) return fail('Please enter your phone number.');
+  if (name.length < 2 || name.length > 80) return fail(t('err.enter_full_name'));
+  if (!phone) return fail(t('err.enter_phone'));
   var normalized = normalizePhoneE164(phone);
   if (!normalized) return fail(PHONE_HINT);
   phone = normalized;
-  if (['farmer', 'vendor', 'hotel', 'supplier', 'exporter'].indexOf(role) < 0) return fail('Please choose your account type.');
-  if (!district) return fail('Please choose your district.');
-  if (!terms) return fail('Please tick the box to agree to the Terms of Use and confirm you have read the Privacy Policy.');
+  if (['farmer', 'vendor', 'hotel', 'supplier', 'exporter'].indexOf(role) < 0) return fail(t('err.choose_account_type'));
+  if (!district) return fail(t('err.choose_district'));
+  if (!terms) return fail(t('err.accept_terms'));
   var versions = await legalVersionsForRole(role);
-  if (!versions) return fail('We could not load the latest terms. Check your connection and try again.');
+  if (!versions) return fail(t('err.terms_load_failed'));
   var btn = document.getElementById('oauthSaveBtn');
-  if (btn) { btn.disabled = true; btn.textContent = 'Saving…'; }
+  if (btn) { btn.disabled = true; btn.textContent = t('btn.saving'); }
   try {
     var res = await sbAuth.auth.updateUser({
       data: {
@@ -16022,6 +16067,17 @@ document.addEventListener('DOMContentLoaded', function() {
   </div>
 </div>
 
+<!-- ══ AGRICULTURAL DICTIONARY PAGE ══════════════════════════ -->
+<div id="page-agri_dict" class="page">
+  <div class="page-header">
+    <h2>📖 <span data-i18n="agri.title">Agricultural Dictionary</span></h2>
+    <p data-i18n="agri.subtitle">Farm terms in English + your language</p>
+  </div>
+  <div class="section" style="max-width:600px;margin:0 auto">
+    <div id="agriTranslatorWidget"></div>
+  </div>
+</div>
+
 <!-- ══ COOKIE BANNER ══════════════════════════════════════════ -->
 <!-- Install App banner -->
 <div id="installBanner">
@@ -16371,7 +16427,7 @@ async function submitLegalReview() {
     var s2 = await abApi('/api/legal/status');
     if (s2.ok) { showLegalReview(s2.json, _legalReviewMethod); fail('A newer version was published. Please review it and tick again.'); return; }
   }
-  if (r.status === 401) { fail('Your session expired. Please sign in again.'); return; }
+  if (r.status === 401) { fail(t('err.session_expired')); return; }
   fail((r.json && r.json.error && r.json.error !== 'network') ? r.json.error : 'We could not save your acceptance. Check your connection and try again. Nothing has been recorded yet.');
 }
 
@@ -16605,6 +16661,83 @@ var _dict = {
     // Bottom nav (buyer)
     'nav.browse': 'Browse',
     'nav.cart': 'Cart',
+    // More grid items
+    // Toast messages
+    'toast.sign_in_required': 'Please sign in to continue 🔐',
+    'toast.sign_in_cart': 'Please sign in to access your cart 🔐',
+    'toast.removed_saved': 'Removed from saved',
+    'toast.saved_fav': 'Saved to favourites ♥',
+    'toast.out_of_stock': 'This listing is out of stock',
+    'toast.product_not_found': 'Product not found — refresh the marketplace',
+    'toast.added_to_cart': '🛒 {name} added to basket!',
+    'toast.cart_qty_updated': '➕ {name} qty updated',
+    'toast.cart_max': 'Only {max} {unit} available — cart updated',
+    'toast.refreshing': 'Refreshing listings…',
+    'toast.location_set': 'Delivery location set to {name}',
+    'toast.promo_unavailable': 'Promo codes are not available yet — no discount was applied',
+    'toast.basket_empty': 'Your basket is empty',
+    'toast.welcome_back': 'Welcome back, {name}!',
+    // Auth errors
+    'err.wrong_credentials': 'Wrong email or password. Check and try again.',
+    'err.email_not_confirmed': 'Check your email and click the confirmation link first.',
+    'err.too_many_attempts': 'Too many attempts. Wait 1 minute and try again.',
+    'err.enter_full_name': 'Please enter your full name.',
+    'err.enter_phone': 'Please enter your phone number.',
+    'err.choose_account_type': 'Please choose your account type.',
+    'err.choose_district': 'Please choose your district.',
+    'err.accept_terms': 'Please tick the box to agree to the Terms of Use.',
+    'err.terms_load_failed': 'We could not load the latest terms. Check your connection and try again.',
+    'err.session_expired': 'Your session expired. Please sign in again.',
+    'err.not_connected': 'Not connected. Please refresh the page.',
+    'err.save_profile': 'Could not save your profile. Please try again.',
+    // Cart strings
+    'cart.empty_title': 'Your cart is empty',
+    'cart.empty_sub': 'Browse fresh produce from Uganda\'s farmers',
+    'cart.shop_now': 'Shop Now →',
+    'cart.zero_items': '0 items',
+    'cart.n_items': '{count} item',
+    'cart.n_items_plural': '{count} items',
+    'cart.low_stock': 'Only {max} {unit} available',
+    'cart.oos': 'Out of stock — remove to continue',
+    'cart.min_order': 'Minimum order {min} {unit}',
+    'cart.price_note': 'Prices and availability are checked again on the server when you place the order.',
+    'cart.delivery_arranged': 'Arranged after confirmation',
+    'cart.checkout': 'Proceed to Checkout →',
+    'cart.remove_oos': 'Remove out-of-stock items to continue',
+    'cart.remove_confirm': 'Remove {name} from your cart?',
+    'cart.removed': '{name} removed from cart',
+    'cart.clear_confirm': 'Remove all items from your cart?',
+    'cart.cleared': 'Cart cleared',
+    // Orders
+    'orders.sign_in_prompt': 'Sign in to see your orders',
+    'orders.loading': 'Loading orders…',
+    'orders.none': 'No orders yet',
+    'orders.none_sub': 'Your order history will appear here',
+    // more grid
+    'more.crops': 'Crops',
+    'more.animals': 'Animals',
+    'more.doctor': 'AI Doctor',
+    'more.training': 'Learn',
+    'more.delivery': 'Track',
+    'more.supply': 'Supply',
+    'more.finance': 'Finance',
+    'more.b2b': 'B2B',
+    'more.community': 'Community',
+    'more.coldchain': 'Cold Chain',
+    'more.export': 'Export',
+    'more.ussd': 'USSD',
+    'more.about': 'About',
+    'more.contact': 'Contact',
+    'more.market': 'Market',
+    'more.prices': 'Prices',
+    'more.ai': 'AI Assistant',
+    'more.agri_dict': 'Agri Dictionary',
+    'agri.title': 'Agricultural Dictionary',
+    'agri.subtitle': 'Farm terms in English + your language',
+    'agri.search': 'Search agricultural terms…',
+    'agri.showing_in': 'Showing in',
+    'agri.and_english': '& English',
+    'agri.no_results': 'No terms found',
     // Profile page
     'profile.signed_in_as': 'Signed in as',
     'profile.verified': '✓ Verified farmer',
@@ -16734,6 +16867,12 @@ var _dict = {
     'nav.more': 'Ebirala',
     'nav.browse': 'Noonya',
     'nav.cart': 'Enkuupu',
+    'more.crops': 'Ebimera', 'more.animals': 'Ensolo', 'more.doctor': 'Omusawo wa AI',
+    'more.training': 'Kiga', 'more.delivery': 'Kunyiga', 'more.supply': 'Ebikozesebwa',
+    'more.finance': 'Ensimbi', 'more.b2b': 'Bizinensi', 'more.community': 'Ekitundu',
+    'more.coldchain': 'Okubikka', 'more.export': 'Kutumya Ebweru', 'more.ussd': 'USSD',
+    'more.about': 'Ebikuhuusa', 'more.contact': 'Tukwetegereze', 'more.market': 'Katale',
+    'more.prices': 'Ebbeeyi', 'more.ai': 'Omuyambi wa AI',
     'profile.signed_in_as': 'Oyingiriramu nga',
     'profile.verified': '✓ Mulimi Akakasiddwa',
     'profile.not_verified': 'Tekakasiddwa',
@@ -16806,9 +16945,15 @@ var _dict = {
     'reg.btn': 'Yab Account 🌾',
     'set.title': '⚙️ Ter',
     'set.logout': 'Kat woko',
+    'set.account': 'Account',
+    'set.language': 'Leb',
+    'set.help': 'Kony',
     'btn.save': 'Gwok',
     'btn.cancel': 'Wek',
+    'btn.back': 'Dok',
+    'btn.confirm': 'Mak',
     'toast.lang_updated': 'Leb oloyo ✓',
+    'toast.saved': 'Ogwoko ✓',
     'greet.morning': 'Itye nining okinyi',
     'greet.afternoon': 'Itye nining odiko',
     'greet.evening': 'Itye nining otyeno',
@@ -16824,6 +16969,7 @@ var _dict = {
     'fh.my_produce': 'Jami pa Pur Maga',
     'fh.earnings': 'Lim Matyeko Mako',
     'fh.no_orders_waiting': 'Cik mo peke ma kuro',
+    'fh.needs_action_sec': 'Mito Ticni',
     'nav.home': 'Pacu',
     'nav.produce': 'Jami pa Pur',
     'nav.orders': 'Cik',
@@ -16836,29 +16982,750 @@ var _dict = {
     'profile.not_verified': 'Peya Ongeyo',
     'profile.my_details': 'Lok Mara',
     'profile.farm_details': 'Lok pa Poto',
+    'profile.full_name': 'Nyiŋ Ducu',
+    'profile.phone': 'Namba pa Simu',
+    'profile.district': 'Distriki',
+    'profile.farm_size': 'Dwoŋ pa Poto',
+    'profile.crops': 'Lum ma Ityeko Puro',
+    'profile.verification': 'Ngeyo',
+    'profile.verified_by': 'Ongeyo ki AgriBridge',
     'profile.account': 'Account',
     'profile.signout_confirm': 'Kat woko',
+  },
+
+  rk: { // Rukiga
+    'nav.login': 'Ngyena',
+    'nav.join': 'Ngyena Ofree',
+    'nav.language': 'Orurimi',
+    'login.title': 'Tukuganukira neza 👋',
+    'login.btn': 'Ngyena',
+    'reg.title': 'Ngyena mu AgriBridge 🌾',
+    'reg.btn': 'Hanga Account 🌾',
+    'set.title': '⚙️ Entegeka',
+    'set.logout': 'Sohoka',
+    'set.account': 'Account',
+    'set.language': 'Orurimi',
+    'set.help': 'Obuyambi',
+    'btn.save': 'Bika',
+    'btn.cancel': 'Reka',
+    'btn.back': 'Garuka',
+    'btn.confirm': 'Emeza',
+    'toast.lang_updated': 'Orurimi rwahinduriwe ✓',
+    'toast.saved': 'Bibikwa ✓',
+    'greet.morning': 'Wasuze ota',
+    'greet.afternoon': 'Osiibire ota',
+    'greet.evening': 'Oraire ota',
+    'fh.sell_produce': 'Tunda eby\'obuhinzi',
+    'fh.sell_sub': 'Teeka ebyo wahinza n\'omuwendo gwaawe',
+    'fh.active_produce': 'Eby\'Obuhinzi Ebiriho',
+    'fh.new_orders': 'Amalambo Amasha',
+    'fh.needs_action': 'Yetaaga Enkora',
+    'fh.awaiting_payout': 'Kutarama Ensimbi',
+    'fh.nothing_to_answer': 'nta kigyendererwa',
+    'fh.all_caught_up': 'byona bikorwa',
+    'fh.no_payout': 'nta nsimbi zaritumwa',
+    'fh.my_produce': 'Eby\'Obuhinzi Byange',
+    'fh.earnings': 'Ensimbi Zabonerwa',
+    'fh.no_orders_waiting': 'Nta malambo gataraire',
+    'nav.home': 'Eka',
+    'nav.produce': 'Eby\'Obuhinzi',
+    'nav.orders': 'Amalambo',
+    'nav.earnings': 'Ensimbi',
+    'nav.more': 'Ebindi',
+    'nav.browse': 'Rora',
+    'nav.cart': 'Ekishongyera',
+    'profile.signed_in_as': 'Wayingira nga',
+    'profile.verified': '✓ Omuhinzi Wahamiririzwa',
+    'profile.not_verified': 'Natahamiririzibwa',
+    'profile.my_details': 'Ebikuhuura',
+    'profile.farm_details': 'Ebya Oruganda',
+    'profile.full_name': 'Amazina Gonna',
+    'profile.phone': 'Nomero ya Simu',
+    'profile.district': 'Akarere',
+    'profile.farm_size': 'Obunene bw\'Oruganda',
+    'profile.crops': 'Ebirimwa Ebihingwa',
+    'profile.verification': 'Kuhamiriza',
+    'profile.verified_by': 'Wahamiririzwa na AgriBridge',
+    'profile.account': 'Account',
+    'profile.signout_confirm': 'Sohoka',
+  },
+
+  ls: { // Lusoga
+    'nav.login': 'Yingira',
+    'nav.join': 'Yingira Wulira',
+    'nav.language': 'Olulimi',
+    'login.title': 'Tukusisinkiza nate 👋',
+    'login.btn': 'Yingira',
+    'reg.title': 'Yingira mu AgriBridge 🌾',
+    'reg.btn': 'Tonda Konto 🌾',
+    'set.title': '⚙️ Entegeka',
+    'set.logout': 'Fuluma',
+    'set.account': 'Konto',
+    'set.language': 'Olulimi',
+    'set.help': 'Obuyambi',
+    'btn.save': 'Bika',
+    'btn.cancel': 'Sazaamu',
+    'btn.back': 'Dayo',
+    'btn.confirm': 'Kakasa',
+    'toast.lang_updated': 'Olulimi olwakyusiddwa ✓',
+    'toast.saved': 'Bikiddwa ✓',
+    'greet.morning': 'Wasuze otya',
+    'greet.afternoon': 'Osibye otya',
+    'greet.evening': 'Oyiriire otya',
+    'fh.sell_produce': 'Tunda entuuze',
+    'fh.active_produce': 'Entuuze Eziriwo',
+    'fh.new_orders': 'Okulabirira Okupya',
+    'fh.needs_action': 'Yetaaga Okulabako',
+    'fh.my_produce': 'Entuuze Zange',
+    'fh.earnings': 'Ensimbi Ezifuniddwa',
+    'nav.home': 'Ennyumba',
+    'nav.produce': 'Entuuze',
+    'nav.orders': 'Okulabirira',
+    'nav.earnings': 'Ensimbi',
+    'nav.more': 'Ebirala',
+    'nav.browse': 'Noonya',
+    'nav.cart': 'Enkuupu',
+    'profile.verified': '✓ Omuhinzi Wakakasiddwa',
+    'profile.not_verified': 'Tekakasiddwa',
+    'profile.my_details': 'Ebikuhuusa',
+    'profile.farm_details': 'Ebya Ennimiro',
+    'profile.account': 'Konto',
+  },
+
+  sw: { // Kiswahili
+    'nav.search': 'Tafuta mazao, wanyama, wakulima…',
+    'nav.login': 'Ingia',
+    'nav.join': 'Jiunge Bure',
+    'nav.language': 'Lugha',
+    'login.title': 'Karibu tena 👋',
+    'login.email': 'Barua pepe au Simu',
+    'login.password': 'Nywila',
+    'login.btn': 'Ingia',
+    'login.forgot': 'Umesahau nywila?',
+    'login.no_account': 'Huna akaunti?',
+    'login.join': 'Jiunge bure',
+    'reg.title': 'Jiunge na AgriBridge 🌾',
+    'reg.name': 'Jina Kamili',
+    'reg.phone': 'Nambari ya Simu',
+    'reg.email': 'Anwani ya Barua pepe',
+    'reg.role': 'Mimi ni…',
+    'reg.district': 'Wilaya',
+    'reg.password': 'Nywila',
+    'reg.confirm': 'Thibitisha Nywila',
+    'reg.btn': 'Fungua Akaunti 🌾',
+    'reg.role.farmer': 'Mkulima 🌾',
+    'reg.role.vendor': 'Mnunuzi 🛒',
+    'reg.role.hotel': 'Hoteli / Mgahawa 🏨',
+    'reg.role.supplier': 'Muuzaji wa Pembejeo 🏪',
+    'pwd.title': 'Weka upya Nywila',
+    'pwd.email': 'Anwani yako ya barua pepe',
+    'pwd.btn': 'Tuma Kiungo cha Kuweka upya',
+    'pwd.new.title': 'Nywila Mpya',
+    'pwd.new.pw': 'Nywila Mpya',
+    'pwd.new.confirm': 'Thibitisha Nywila',
+    'pwd.new.btn': 'Hifadhi Nywila Mpya ✓',
+    'set.title': '⚙️ Mipangilio',
+    'set.account': 'Akaunti',
+    'set.account.sub': 'Jina, simu, wilaya, aina ya akaunti',
+    'set.notif': 'Arifa',
+    'set.notif.sub': 'Arifa za simu na ndani ya programu',
+    'set.language': 'Lugha',
+    'set.privacy': 'Faragha na kisheria',
+    'set.privacy.sub': 'Masharti, idhini, data yako',
+    'set.help': 'Msaada',
+    'set.list': 'Orodhesha mazao',
+    'set.list.sub': 'Ongeza kitu cha kuuza',
+    'set.dashboard': 'Dashibodi yangu',
+    'set.dashboard.sub': 'Maagizo, mapato na orodha',
+    'set.logout': 'Ondoka',
+    'set.save': 'Hifadhi mabadiliko',
+    'set.login_prompt': 'Ingia ili kuhariri wasifu wako na kusimamia orodha zako.',
+    'profile.settings': 'Mipangilio',
+    'profile.help': 'Msaada',
+    'profile.language': 'Lugha',
+    'profile.signout': 'Ondoka',
+    'btn.save': 'Hifadhi',
+    'btn.cancel': 'Ghairi',
+    'btn.close': 'Funga',
+    'btn.back': 'Rudi',
+    'btn.confirm': 'Thibitisha',
+    'btn.loading': 'Inapakia…',
+    'btn.saving': 'Inahifadhi…',
+    'err.required': 'Sehemu hii inahitajika.',
+    'err.phone': 'Ingiza nambari sahihi ya simu.',
+    'err.email': 'Ingiza anwani sahihi ya barua pepe.',
+    'err.pwd_short': 'Nywila lazima iwe na angalau herufi 8.',
+    'err.pwd_match': 'Nywila hazifanani.',
+    'err.generic': 'Hitilafu imetokea. Tafadhali jaribu tena.',
+    'toast.lang_updated': 'Lugha imebadilishwa ✓',
+    'toast.saved': 'Imehifadhiwa ✓',
+    'status.pending': 'Inasubiri',
+    'status.confirmed': 'Imethibitishwa',
+    'status.scheduled': 'Imepangwa',
+    'status.in_transit': 'Safarini',
+    'status.delivered': 'Imewasilishwa',
+    'status.cancelled': 'Imefutwa',
+    'greet.morning': 'Habari ya asubuhi',
+    'greet.afternoon': 'Habari ya mchana',
+    'greet.evening': 'Habari ya jioni',
+    'fh.active_produce': 'Mazao Hai',
+    'fh.new_orders': 'Maagizo Mapya',
+    'fh.needs_action': 'Inahitaji Hatua',
+    'fh.awaiting_payout': 'Inasubiri Malipo',
+    'fh.of_listing': 'kati ya orodha {count}',
+    'fh.of_listings': 'kati ya orodha {count}',
+    'fh.nothing_to_answer': 'hakuna cha kujibu',
+    'fh.all_caught_up': 'kila kitu kimefanyika',
+    'fh.no_payout': 'bado hakuna malipo',
+    'fh.sell_produce': 'Uza mazao',
+    'fh.sell_sub': 'Orodhesha ulichovuna na uweke bei yako',
+    'fh.needs_action_sec': 'Inahitaji hatua yako',
+    'fh.my_produce': 'Mazao Yangu',
+    'fh.earnings': 'Mapato',
+    'fh.no_orders_waiting': 'Hakuna maagizo yanayosubiri',
+    'nav.home': 'Nyumbani',
+    'nav.produce': 'Mazao',
+    'nav.orders': 'Maagizo',
+    'nav.earnings': 'Mapato',
+    'nav.more': 'Zaidi',
+    'nav.browse': 'Vinjari',
+    'nav.cart': 'Kikapu',
+    'profile.signed_in_as': 'Umeingia kama',
+    'profile.verified': '✓ Mkulima aliyethibitishwa',
+    'profile.not_verified': 'Bado hajathibitishwa',
+    'profile.since': 'tangu',
+    'profile.change_photo': 'Badilisha picha ya wasifu',
+    'profile.full_name': 'Jina Kamili',
+    'profile.phone': 'Nambari ya Simu',
+    'profile.district': 'Wilaya',
+    'profile.farm_size': 'Ukubwa wa Shamba',
+    'profile.crops': 'Mazao Yanayolimwa',
+    'profile.verification': 'Uthibitisho',
+    'profile.verified_by': 'Imethibitishwa na AgriBridge',
+    'profile.my_details': 'Maelezo Yangu',
+    'profile.farm_details': 'Maelezo ya Shamba',
+    'profile.account': 'Akaunti',
+    'profile.signout_confirm': 'Ondoka',
+    'trk.title': 'Fuatilia agizo lako',
+    'trk.placeholder': 'Ingiza TRK-xxx au nambari ya agizo',
+    'trk.btn': 'Fuatilia',
+    'trk.pickup': 'Kuchukua',
+    'trk.delivery': 'Uwasilishaji',
+    'trk.rider': 'Dereva',
+    'trk.vehicle': 'Gari',
+    'trk.no_rider': 'Bado hajapewa',
+    'toast.welcome_back': 'Karibu tena, {name}!',
+    'err.wrong_credentials': 'Barua pepe au nywila si sahihi. Angalia na jaribu tena.',
+    'err.email_not_confirmed': 'Angalia barua pepe yako na ubofye kiungo cha uthibitisho kwanza.',
+    'err.too_many_attempts': 'Majaribio mengi sana. Subiri dakika 1 ujaribu tena.',
+    'err.enter_full_name': 'Tafadhali ingiza jina lako kamili.',
+    'err.enter_phone': 'Tafadhali ingiza nambari ya simu.',
+    'err.choose_account_type': 'Tafadhali chagua aina ya akaunti.',
+    'err.choose_district': 'Tafadhali chagua wilaya yako.',
+    'err.accept_terms': 'Tafadhali tiki kisanduku kukubali Masharti ya Matumizi.',
+    'err.session_expired': 'Kipindi chako kimeisha. Tafadhali ingia tena.',
+    'toast.sign_in_required': 'Tafadhali ingia ili kuendelea 🔐',
+    'toast.sign_in_cart': 'Tafadhali ingia ili kufikia kikapu chako 🔐',
+    'toast.removed_saved': 'Imeondolewa kwenye zilizohifadhiwa',
+    'toast.saved_fav': 'Imehifadhiwa kwenye vipendwa ♥',
+    'toast.out_of_stock': 'Bidhaa hii haipatikani',
+    'toast.product_not_found': 'Bidhaa haikupatikana — rejesha soko',
+    'toast.added_to_cart': '🛒 {name} imeongezwa kwenye kikapu!',
+    'toast.cart_qty_updated': '➕ Idadi ya {name} imesasishwa',
+    'toast.cart_max': 'Tu {max} {unit} zinapatikana — kikapu kimesasishwa',
+    'cart.empty_title': 'Kikapu chako kiko wazi', 'cart.empty_sub': 'Vinjari mazao mapya kutoka kwa wakulima',
+    'cart.shop_now': 'Nunua Sasa →', 'cart.zero_items': 'bidhaa 0',
+    'cart.n_items': 'bidhaa {count}', 'cart.n_items_plural': 'bidhaa {count}',
+    'cart.low_stock': 'Tu {max} {unit} zinapatikana', 'cart.oos': 'Haipatikani — ondoa ili uendelee',
+    'cart.min_order': 'Oda ya chini {min} {unit}', 'cart.price_note': 'Bei na upatikanaji hukaguliwa tena unapoweka oda.',
+    'cart.delivery_arranged': 'Itapangwa baada ya uthibitisho', 'cart.checkout': 'Endelea na Malipo →',
+    'cart.remove_oos': 'Ondoa bidhaa zisizopo ili uendelee', 'cart.remove_confirm': 'Ondoa {name} kwenye kikapu chako?',
+    'cart.removed': '{name} imeondolewa kwenye kikapu', 'cart.clear_confirm': 'Ondoa bidhaa zote kwenye kikapu chako?',
+    'cart.cleared': 'Kikapu kimefutwa', 'orders.sign_in_prompt': 'Ingia kuona maagizo yako',
+    'orders.loading': 'Inapakia maagizo…',
+    'more.crops': 'Mazao', 'more.animals': 'Wanyama', 'more.doctor': 'Daktari wa AI',
+    'more.training': 'Jifunza', 'more.delivery': 'Fuatilia', 'more.supply': 'Mahitaji',
+    'more.finance': 'Fedha', 'more.b2b': 'Biashara', 'more.community': 'Jamii',
+    'more.coldchain': 'Hifadhi Baridi', 'more.export': 'Usafirishaji', 'more.ussd': 'USSD',
+    'more.about': 'Kuhusu', 'more.contact': 'Wasiliana', 'more.market': 'Soko',
+    'more.prices': 'Bei', 'more.ai': 'Msaidizi wa AI', 'more.agri_dict': 'Kamusi ya Kilimo',
+  },
+
+  rw: { // Kinyarwanda
+    'nav.login': 'Injira',
+    'nav.join': 'Iyandikishe Publique',
+    'nav.language': 'Ururimi',
+    'login.title': 'Murakaza neza 👋',
+    'login.btn': 'Injira',
+    'reg.title': 'Iyandikishe muri AgriBridge 🌾',
+    'reg.btn': 'Fungura Konti 🌾',
+    'set.title': '⚙️ Igenamiterere',
+    'set.logout': 'Sohoka',
+    'set.account': 'Konti',
+    'set.language': 'Ururimi',
+    'set.help': 'Ubufasha',
+    'btn.save': 'Bika',
+    'btn.cancel': 'Hagarika',
+    'btn.back': 'Subira',
+    'btn.confirm': 'Emeza',
+    'toast.lang_updated': 'Ururimi rwahinduwe ✓',
+    'toast.saved': 'Byabitswe ✓',
+    'greet.morning': 'Mwaramutse',
+    'greet.afternoon': 'Mwiriwe',
+    'greet.evening': 'Mwiriwe',
+    'fh.active_produce': 'Ibicuruzwa Bihari',
+    'fh.new_orders': 'Amatumwa Mashya',
+    'fh.needs_action': 'Bisaba Igikorwa',
+    'fh.awaiting_payout': 'Gutegereza Ikiguzi',
+    'fh.nothing_to_answer': 'nta kindi',
+    'fh.all_caught_up': 'byose birangiye',
+    'fh.no_payout': 'nta bishyurwa',
+    'fh.sell_produce': 'Gurisha umusaruro',
+    'fh.sell_sub': 'Tangaza ivyo wasaruye n\'igiciro cyawe',
+    'fh.my_produce': 'Umusaruro Wange',
+    'fh.earnings': 'Amafaranga Yabonetse',
+    'fh.no_orders_waiting': 'Nta matumwa ategereje',
+    'nav.home': 'Ahabanza',
+    'nav.produce': 'Umusaruro',
+    'nav.orders': 'Amatumwa',
+    'nav.earnings': 'Amafaranga',
+    'nav.more': 'Ibindi',
+    'nav.browse': 'Reba',
+    'nav.cart': 'Agashishwa',
+    'profile.verified': '✓ Umuhinzi Wemejwe',
+    'profile.not_verified': 'Ntaremewe',
+    'profile.my_details': 'Amakuru Yanje',
+    'profile.farm_details': 'Amakuru y\'Ubutaka',
+    'profile.full_name': 'Amazina Yose',
+    'profile.phone': 'Nimero ya Telefone',
+    'profile.district': 'Akarere',
+    'profile.account': 'Konti',
+    'profile.signout_confirm': 'Sohoka',
+  },
+
+  fr: { // French
+    'nav.search': 'Rechercher des cultures, animaux, agriculteurs…',
+    'nav.login': 'Se connecter',
+    'nav.join': 'Rejoindre gratuitement',
+    'nav.language': 'Langue',
+    'login.title': 'Bon retour 👋',
+    'login.email': 'Email ou Téléphone',
+    'login.password': 'Mot de passe',
+    'login.btn': 'Se connecter',
+    'login.forgot': 'Mot de passe oublié?',
+    'login.no_account': "Vous n'avez pas de compte?",
+    'login.join': 'Rejoindre gratuitement',
+    'reg.title': 'Rejoindre AgriBridge 🌾',
+    'reg.name': 'Nom complet',
+    'reg.phone': 'Téléphone',
+    'reg.email': 'Adresse email',
+    'reg.role': 'Je suis…',
+    'reg.district': 'District',
+    'reg.password': 'Mot de passe',
+    'reg.confirm': 'Confirmer le mot de passe',
+    'reg.btn': 'Créer un compte 🌾',
+    'reg.role.farmer': 'Agriculteur 🌾',
+    'reg.role.vendor': 'Acheteur 🛒',
+    'reg.role.hotel': 'Hôtel / Restaurant 🏨',
+    'reg.role.supplier': 'Fournisseur 🏪',
+    'pwd.title': 'Réinitialiser le mot de passe',
+    'pwd.email': 'Votre adresse email',
+    'pwd.btn': 'Envoyer le lien de réinitialisation',
+    'pwd.new.title': 'Nouveau mot de passe',
+    'pwd.new.pw': 'Nouveau mot de passe',
+    'pwd.new.confirm': 'Confirmer le mot de passe',
+    'pwd.new.btn': 'Enregistrer le nouveau mot de passe ✓',
+    'set.title': '⚙️ Paramètres',
+    'set.account': 'Compte',
+    'set.account.sub': 'Nom, téléphone, district, type de compte',
+    'set.notif': 'Notifications',
+    'set.notif.sub': 'Alertes téléphoniques et mises à jour',
+    'set.language': 'Langue',
+    'set.privacy': 'Confidentialité et juridique',
+    'set.privacy.sub': 'Conditions, consentement, vos données',
+    'set.help': 'Aide et support',
+    'set.list': 'Lister des produits',
+    'set.list.sub': 'Ajouter quelque chose à vendre',
+    'set.dashboard': 'Mon tableau de bord',
+    'set.dashboard.sub': 'Commandes, revenus et annonces',
+    'set.logout': 'Se déconnecter',
+    'set.save': 'Enregistrer les modifications',
+    'set.login_prompt': 'Connectez-vous pour modifier votre profil et gérer vos annonces.',
+    'profile.settings': 'Paramètres',
+    'profile.help': 'Aide',
+    'profile.language': 'Langue',
+    'profile.signout': 'Se déconnecter',
+    'btn.save': 'Enregistrer',
+    'btn.cancel': 'Annuler',
+    'btn.close': 'Fermer',
+    'btn.back': 'Retour',
+    'btn.confirm': 'Confirmer',
+    'btn.loading': 'Chargement…',
+    'btn.saving': 'Enregistrement…',
+    'err.required': 'Ce champ est requis.',
+    'err.phone': 'Entrez un numéro de téléphone valide.',
+    'err.email': 'Entrez une adresse email valide.',
+    'err.pwd_short': 'Le mot de passe doit comporter au moins 8 caractères.',
+    'err.pwd_match': 'Les mots de passe ne correspondent pas.',
+    'err.generic': "Une erreur s'est produite. Veuillez réessayer.",
+    'toast.lang_updated': 'Langue mise à jour ✓',
+    'toast.saved': 'Enregistré ✓',
+    'status.pending': 'En attente',
+    'status.confirmed': 'Confirmé',
+    'status.scheduled': 'Planifié',
+    'status.in_transit': 'En transit',
+    'status.delivered': 'Livré',
+    'status.cancelled': 'Annulé',
+    'greet.morning': 'Bonjour',
+    'greet.afternoon': 'Bon après-midi',
+    'greet.evening': 'Bonsoir',
+    'fh.active_produce': 'Produits Actifs',
+    'fh.new_orders': 'Nouvelles Commandes',
+    'fh.needs_action': 'Action Requise',
+    'fh.awaiting_payout': 'Paiement en attente',
+    'fh.of_listing': 'sur {count} annonce',
+    'fh.of_listing_plural': 'sur {count} annonces',
+    'fh.of_listings': 'sur {count} annonces',
+    'fh.nothing_to_answer': 'rien à répondre',
+    'fh.all_caught_up': 'tout est à jour',
+    'fh.no_payout': 'aucun paiement encore',
+    'fh.sell_produce': 'Vendre des produits',
+    'fh.sell_sub': 'Listez ce que vous avez récolté et fixez votre propre prix',
+    'fh.needs_action_sec': 'Votre action est requise',
+    'fh.my_produce': 'Mes Produits',
+    'fh.earnings': 'Revenus',
+    'fh.no_orders_waiting': 'Aucune commande en attente',
+    'nav.home': 'Accueil',
+    'nav.produce': 'Produits',
+    'nav.orders': 'Commandes',
+    'nav.earnings': 'Revenus',
+    'nav.more': 'Plus',
+    'nav.browse': 'Parcourir',
+    'nav.cart': 'Panier',
+    'profile.signed_in_as': 'Connecté en tant que',
+    'profile.verified': '✓ Agriculteur vérifié',
+    'profile.not_verified': 'Pas encore vérifié',
+    'profile.since': 'depuis',
+    'profile.change_photo': 'Changer la photo de profil',
+    'profile.full_name': 'Nom complet',
+    'profile.phone': 'Numéro de téléphone',
+    'profile.district': 'District',
+    'profile.farm_size': 'Superficie de la ferme',
+    'profile.crops': 'Cultures cultivées',
+    'profile.verification': 'Vérification',
+    'profile.verified_by': 'Vérifié par AgriBridge',
+    'profile.my_details': 'Mes informations',
+    'profile.farm_details': 'Détails de la ferme',
+    'profile.account': 'Compte',
+    'profile.signout_confirm': 'Se déconnecter',
+    'trk.title': 'Suivre votre commande',
+    'trk.placeholder': 'Entrez TRK-xxx ou réf. de commande',
+    'trk.btn': 'Suivre',
+    'trk.pickup': 'Collecte',
+    'trk.delivery': 'Livraison',
+    'trk.rider': 'Livreur',
+    'trk.vehicle': 'Véhicule',
+    'trk.no_rider': 'Pas encore assigné',
+    'toast.welcome_back': 'Bon retour, {name}!',
+    'err.wrong_credentials': 'Email ou mot de passe incorrect. Vérifiez et réessayez.',
+    'err.email_not_confirmed': 'Vérifiez votre email et cliquez sur le lien de confirmation.',
+    'err.too_many_attempts': 'Trop de tentatives. Attendez 1 minute et réessayez.',
+    'err.enter_full_name': 'Veuillez entrer votre nom complet.',
+    'err.enter_phone': 'Veuillez entrer votre numéro de téléphone.',
+    'err.choose_account_type': 'Veuillez choisir votre type de compte.',
+    'err.choose_district': 'Veuillez choisir votre district.',
+    'err.accept_terms': 'Veuillez cocher la case pour accepter les Conditions d\'utilisation.',
+    'err.session_expired': 'Votre session a expiré. Veuillez vous reconnecter.',
+    'toast.sign_in_required': 'Veuillez vous connecter pour continuer 🔐',
+    'toast.sign_in_cart': 'Veuillez vous connecter pour accéder à votre panier 🔐',
+    'toast.removed_saved': 'Retiré des enregistrés',
+    'toast.saved_fav': 'Enregistré dans les favoris ♥',
+    'toast.out_of_stock': 'Ce produit est en rupture de stock',
+    'toast.product_not_found': 'Produit introuvable — actualisez le marché',
+    'toast.added_to_cart': '🛒 {name} ajouté au panier!',
+    'toast.cart_qty_updated': '➕ Quantité de {name} mise à jour',
+    'toast.cart_max': 'Seulement {max} {unit} disponibles — panier mis à jour',
+    'cart.empty_title': 'Votre panier est vide', 'cart.empty_sub': 'Parcourez les produits frais des agriculteurs',
+    'cart.shop_now': 'Acheter maintenant →', 'cart.zero_items': '0 article',
+    'cart.n_items': '{count} article', 'cart.n_items_plural': '{count} articles',
+    'cart.low_stock': 'Seulement {max} {unit} disponibles', 'cart.oos': 'Rupture de stock — supprimez pour continuer',
+    'cart.min_order': 'Commande minimum {min} {unit}', 'cart.price_note': 'Les prix et la disponibilité sont revérifiés à la commande.',
+    'cart.delivery_arranged': 'Arrangée après confirmation', 'cart.checkout': 'Passer à la caisse →',
+    'cart.remove_oos': 'Supprimez les articles en rupture pour continuer', 'cart.remove_confirm': 'Retirer {name} de votre panier?',
+    'cart.removed': '{name} retiré du panier', 'cart.clear_confirm': 'Vider tout votre panier?',
+    'cart.cleared': 'Panier vidé', 'orders.sign_in_prompt': 'Connectez-vous pour voir vos commandes',
+    'orders.loading': 'Chargement des commandes…',
+    'more.crops': 'Cultures', 'more.animals': 'Animaux', 'more.doctor': 'Médecin IA',
+    'more.training': 'Apprendre', 'more.delivery': 'Suivi', 'more.supply': 'Fournitures',
+    'more.finance': 'Finance', 'more.b2b': 'B2B', 'more.community': 'Communauté',
+    'more.coldchain': 'Chaîne du froid', 'more.export': 'Export', 'more.ussd': 'USSD',
+    'more.about': 'À propos', 'more.contact': 'Contact', 'more.market': 'Marché',
+    'more.prices': 'Prix', 'more.ai': 'Assistant IA', 'more.agri_dict': 'Dictionnaire Agri',
+  },
+
+  ar: { // Arabic — RTL
+    'nav.login': 'تسجيل الدخول',
+    'nav.join': 'انضم مجاناً',
+    'nav.language': 'اللغة',
+    'login.title': 'مرحباً بعودتك 👋',
+    'login.email': 'البريد الإلكتروني أو الهاتف',
+    'login.password': 'كلمة المرور',
+    'login.btn': 'تسجيل الدخول',
+    'login.forgot': 'نسيت كلمة المرور؟',
+    'login.no_account': 'ليس لديك حساب؟',
+    'login.join': 'انضم مجاناً',
+    'reg.title': 'انضم إلى AgriBridge 🌾',
+    'reg.name': 'الاسم الكامل',
+    'reg.phone': 'رقم الهاتف',
+    'reg.email': 'البريد الإلكتروني',
+    'reg.role': 'أنا…',
+    'reg.district': 'المنطقة',
+    'reg.password': 'كلمة المرور',
+    'reg.confirm': 'تأكيد كلمة المرور',
+    'reg.btn': 'إنشاء حساب 🌾',
+    'reg.role.farmer': 'مزارع 🌾',
+    'reg.role.vendor': 'مشترٍ 🛒',
+    'reg.role.hotel': 'فندق / مطعم 🏨',
+    'reg.role.supplier': 'مورِّد 🏪',
+    'set.title': '⚙️ الإعدادات',
+    'set.account': 'الحساب',
+    'set.account.sub': 'الاسم، الهاتف، المنطقة، نوع الحساب',
+    'set.notif': 'الإشعارات',
+    'set.language': 'اللغة',
+    'set.privacy': 'الخصوصية والقانون',
+    'set.help': 'المساعدة والدعم',
+    'set.list': 'إدراج المنتجات',
+    'set.dashboard': 'لوحة التحكم',
+    'set.logout': 'تسجيل الخروج',
+    'set.save': 'حفظ التغييرات',
+    'btn.save': 'حفظ',
+    'btn.cancel': 'إلغاء',
+    'btn.close': 'إغلاق',
+    'btn.back': 'رجوع',
+    'btn.confirm': 'تأكيد',
+    'btn.loading': 'جار التحميل…',
+    'btn.saving': 'جار الحفظ…',
+    'err.required': 'هذا الحقل مطلوب.',
+    'err.phone': 'أدخل رقم هاتف صحيح.',
+    'err.email': 'أدخل بريداً إلكترونياً صحيحاً.',
+    'err.pwd_short': 'يجب أن تتكون كلمة المرور من 8 أحرف على الأقل.',
+    'err.pwd_match': 'كلمتا المرور غير متطابقتين.',
+    'err.generic': 'حدث خطأ ما. يرجى المحاولة مجدداً.',
+    'toast.lang_updated': 'تم تحديث اللغة ✓',
+    'toast.saved': 'تم الحفظ ✓',
+    'status.pending': 'قيد الانتظار',
+    'status.confirmed': 'مؤكد',
+    'status.scheduled': 'مجدوَل',
+    'status.in_transit': 'في الطريق',
+    'status.delivered': 'تم التوصيل',
+    'status.cancelled': 'ملغى',
+    'greet.morning': 'صباح الخير',
+    'greet.afternoon': 'مساء الخير',
+    'greet.evening': 'مساء الخير',
+    'fh.active_produce': 'المنتجات النشطة',
+    'fh.new_orders': 'طلبات جديدة',
+    'fh.needs_action': 'تحتاج إجراء',
+    'fh.awaiting_payout': 'في انتظار الدفع',
+    'fh.nothing_to_answer': 'لا شيء للرد',
+    'fh.all_caught_up': 'كل شيء منجز',
+    'fh.no_payout': 'لا مدفوعات بعد',
+    'fh.sell_produce': 'بيع المنتجات',
+    'fh.sell_sub': 'أدرج ما حصدته وحدد سعرك',
+    'fh.my_produce': 'منتجاتي',
+    'fh.earnings': 'الأرباح',
+    'fh.no_orders_waiting': 'لا طلبات في الانتظار',
+    'nav.home': 'الرئيسية',
+    'nav.produce': 'المنتجات',
+    'nav.orders': 'الطلبات',
+    'nav.earnings': 'الأرباح',
+    'nav.more': 'المزيد',
+    'nav.browse': 'تصفح',
+    'nav.cart': 'السلة',
+    'profile.signed_in_as': 'مسجل الدخول كـ',
+    'profile.verified': '✓ مزارع موثَّق',
+    'profile.not_verified': 'غير موثَّق بعد',
+    'profile.full_name': 'الاسم الكامل',
+    'profile.phone': 'رقم الهاتف',
+    'profile.district': 'المنطقة',
+    'profile.farm_size': 'مساحة المزرعة',
+    'profile.crops': 'المحاصيل المزروعة',
+    'profile.verification': 'التحقق',
+    'profile.verified_by': 'موثَّق بواسطة AgriBridge',
+    'profile.my_details': 'بياناتي',
+    'profile.farm_details': 'تفاصيل المزرعة',
+    'profile.account': 'الحساب',
+    'profile.signout_confirm': 'تسجيل الخروج',
+    'more.crops': 'المحاصيل', 'more.animals': 'الحيوانات', 'more.doctor': 'طبيب الذكاء الاصطناعي',
+    'more.training': 'تعلّم', 'more.delivery': 'تتبع', 'more.supply': 'التوريد',
+    'more.finance': 'المال', 'more.b2b': 'تجارة', 'more.community': 'المجتمع',
+    'more.coldchain': 'سلسلة التبريد', 'more.export': 'التصدير', 'more.ussd': 'USSD',
+    'more.about': 'عن التطبيق', 'more.contact': 'تواصل معنا', 'more.market': 'السوق',
+    'more.prices': 'الأسعار', 'more.ai': 'مساعد الذكاء الاصطناعي',
   }
 };
 
 // ── 2. Translation engine ──────────────────────────────────────────────────
 var _currentLang = localStorage.getItem('ab_lang') || 'en';
 
-/** Return translated string, falling back to English then the key itself */
-window.t = function(key) {
+/**
+ * Translate key with optional interpolation and pluralization.
+ * t('key')                  — simple lookup
+ * t('key', {name:'Zeal'})   — interpolates {name} → "Zeal"
+ * t('key', {count:3})       — picks key_plural when count≠1, interpolates {count}
+ * t('key', 5)               — shorthand for {count:5}
+ */
+window.t = function(key, vars) {
   var lang = _currentLang;
-  return (_dict[lang] && _dict[lang][key]) ||
-         (_dict['en'] && _dict['en'][key]) ||
-         key;
+  // Normalize vars
+  if (typeof vars === 'number') vars = {count: vars};
+  vars = vars || {};
+
+  // Pick plural form when count provided
+  var lookupKey = key;
+  if (vars.count !== undefined && vars.count !== 1) {
+    lookupKey = key + '_plural';
+  }
+
+  var str = (_dict[lang] && (_dict[lang][lookupKey] || _dict[lang][key])) ||
+            (_dict['en'] && (_dict['en'][lookupKey] || _dict['en'][key])) ||
+            key;
+
+  // Interpolate {variable} tokens
+  str = str.replace(/\{(\w+)\}/g, function(_, k) {
+    return vars[k] !== undefined ? vars[k] : '{' + k + '}';
+  });
+
+  return str;
 };
+
+/** RTL languages */
+var _RTL_LANGS = {ar: true};
+
+// ─── Agricultural Terminology Database (Phase 5) ──────────────────────────────
+// Local cache populated from Supabase agri_dictionary table.
+// Falls back gracefully when offline — the cache keeps working.
+var _agriDict = [];           // array of row objects from DB
+var _agriDictLoaded = false;
+
+function loadAgriDict() {
+  if (_agriDictLoaded) return Promise.resolve(_agriDict);
+  // Pull from Supabase REST (public read RLS policy)
+  var url = (typeof SUPA_URL !== 'undefined' ? SUPA_URL : '') + '/rest/v1/agri_dictionary?select=*&limit=2000';
+  var key = (typeof SUPA_KEY !== 'undefined' ? SUPA_KEY : '');
+  if (!key) return Promise.resolve([]);
+  return fetch(url, { headers: { apikey: key, Authorization: 'Bearer ' + key } })
+    .then(function(r){ return r.ok ? r.json() : []; })
+    .then(function(rows){
+      _agriDict = Array.isArray(rows) ? rows : [];
+      _agriDictLoaded = true;
+      // Persist to sessionStorage so reopening a page in same session is instant
+      try { sessionStorage.setItem('agri_dict', JSON.stringify(_agriDict)); } catch(e){}
+      return _agriDict;
+    }).catch(function(){ return _agriDict; });
+}
+
+// Try to prime from sessionStorage on page load
+(function(){
+  try {
+    var cached = sessionStorage.getItem('agri_dict');
+    if (cached) { _agriDict = JSON.parse(cached); _agriDictLoaded = true; }
+  } catch(e){}
+})();
+
+/**
+ * Translate a single agricultural term.
+ * agriTerm('maize', 'sw')  → 'Mahindi'
+ * agriTerm('maize')        → uses _currentLang
+ */
+function agriTerm(termKey, langCode) {
+  var lang = langCode || _currentLang;
+  var row = _agriDict.filter(function(r){ return r.term_key === termKey; })[0];
+  if (!row) return termKey;
+  return row[lang] || row['en'] || termKey;
+}
+
+/**
+ * Search the dictionary across all language columns.
+ * Returns up to `limit` rows whose en/lg/sw/… contain the query string.
+ */
+function searchAgriDict(query, langCode, limit) {
+  limit = limit || 20;
+  if (!query) return _agriDict.slice(0, limit);
+  var lang = langCode || _currentLang;
+  var q = query.toLowerCase().trim();
+  return _agriDict.filter(function(row){
+    return (row.en  || '').toLowerCase().indexOf(q) > -1 ||
+           (row[lang] || '').toLowerCase().indexOf(q) > -1 ||
+           (row.sw  || '').toLowerCase().indexOf(q) > -1;
+  }).slice(0, limit);
+}
+
+/**
+ * Render an inline translator widget into `containerId`.
+ * Shows a search box + scrollable list of terms in current language.
+ */
+function renderAgriTranslator(containerId) {
+  var el = document.getElementById(containerId);
+  if (!el) return;
+  var lang = _currentLang;
+  var langName = (_LANG_REGISTRY.filter(function(l){return l.code===lang;})[0]||{}).native || lang.toUpperCase();
+
+  el.innerHTML =
+    '<div style="display:flex;flex-direction:column;gap:8px">' +
+      '<input id="agriDictSearch" type="text" placeholder="🔍 ' + t('agri.search') + '" ' +
+        'oninput="renderAgriDictResults(this.value)" ' +
+        'style="width:100%;box-sizing:border-box;padding:9px 12px;border-radius:10px;' +
+               'border:1px solid var(--border);background:var(--card);color:var(--text);font-size:0.9rem">' +
+      '<div style="font-size:0.75rem;color:var(--text2);padding:0 2px">' +
+        t('agri.showing_in') + ' <strong>' + langName + '</strong> ' + t('agri.and_english') +
+      '</div>' +
+      '<div id="agriDictResults" style="display:flex;flex-direction:column;gap:4px;max-height:60vh;overflow-y:auto"></div>' +
+    '</div>';
+
+  // Load dict then render initial results
+  loadAgriDict().then(function(){ renderAgriDictResults(''); });
+}
+
+function renderAgriDictResults(query) {
+  var el = document.getElementById('agriDictResults');
+  if (!el) return;
+  var lang = _currentLang;
+  var rows = searchAgriDict(query, lang, 50);
+  if (!rows.length) {
+    el.innerHTML = '<div style="color:var(--text2);padding:12px;text-align:center">' + t('agri.no_results') + '</div>';
+    return;
+  }
+  el.innerHTML = rows.map(function(row){
+    var local = row[lang] && row[lang] !== row.en ? row[lang] : null;
+    return '<div style="display:flex;justify-content:space-between;align-items:center;' +
+                        'padding:9px 12px;border-radius:10px;background:var(--card);' +
+                        'border:1px solid var(--border)">' +
+      '<div>' +
+        '<div style="font-weight:600;font-size:0.9rem">' + escHtml(row.en) + '</div>' +
+        (local ? '<div style="font-size:0.8rem;color:var(--green)">' + escHtml(local) + '</div>' : '') +
+        '<div style="font-size:0.72rem;color:var(--text2)">' + escHtml(row.category.replace(/_/g,' ')) + '</div>' +
+      '</div>' +
+      '<button onclick="navigator.clipboard&&navigator.clipboard.writeText(\''+escHtml(local||row.en)+'\')" ' +
+        'style="font-size:0.75rem;padding:4px 8px;border-radius:6px;background:var(--green-dim);' +
+               'color:var(--green);border:none;cursor:pointer">Copy</button>' +
+    '</div>';
+  }).join('');
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 
 /** Walk all [data-i18n] elements and set their textContent */
 function applyTranslations() {
   var lang = _currentLang;
   // Update lang picker button
   var btn = document.getElementById('langPickerBtn');
-  var labels = {en:'🌐 EN', lg:'🇺🇬 LG', rn:'🌄 RN', ac:'🌾 AC'};
-  if (btn) btn.textContent = labels[lang] || '🌐';
+  if (btn) {
+    var reg = _LANG_REGISTRY.filter(function(l){return l.code===lang;})[0];
+    btn.textContent = reg ? reg.flag + ' ' + lang.toUpperCase() : '🌐';
+  }
+  // Apply RTL
+  document.documentElement.dir = _RTL_LANGS[lang] ? 'rtl' : 'ltr';
+  document.documentElement.lang = lang;
 
   // Translate all data-i18n elements
   document.querySelectorAll('[data-i18n]').forEach(function(el) {
@@ -16884,17 +17751,28 @@ var _origSetLang = window.setLang;
 window.setLang = function(code) {
   _currentLang = code;
   localStorage.setItem('ab_lang', code);
+
+  // Update nav button label from registry
   var btn = document.getElementById('langPickerBtn');
-  var labels = {en:'🌐 EN', lg:'🇺🇬 LG', rn:'🌄 RN', ac:'🌾 AC'};
-  if (btn) btn.textContent = labels[code] || '🌐';
+  if (btn) {
+    var reg = _LANG_REGISTRY.filter(function(l){return l.code===code;})[0];
+    btn.textContent = reg ? reg.flag + ' ' + code.toUpperCase() : '🌐';
+  }
+
+  // RTL support — flip document direction for Arabic etc.
+  document.documentElement.dir = _RTL_LANGS[code] ? 'rtl' : 'ltr';
+  document.documentElement.lang = code;
+
   closeModal && closeModal('langModal');
   applyTranslations();
+
   // Re-render current page so JS-built content switches language immediately
   try {
     if (typeof renderRoleHome === 'function') renderRoleHome();
     if (typeof renderSettings === 'function' &&
         document.getElementById('settingsModal') &&
-        document.getElementById('settingsModal').classList.contains('open'))
+        (document.getElementById('settingsModal').style.display !== 'none' ||
+         document.getElementById('settingsModal').classList.contains('open')))
       renderSettings();
   } catch(e) {}
   showToast && showToast(t('toast.lang_updated'));
@@ -17278,6 +18156,342 @@ document.addEventListener('DOMContentLoaded', function() {
     setTimeout(function(){ _warmBackend && _warmBackend(); }, 800);
   }
 })();
+</script>
+
+<script>
+// ─── Phase 10: Regional Localization ──────────────────────────────────────────
+// Locale-aware formatting for prices (UGX), numbers, dates, and times.
+// Also extends RTL support and wires into the language-switcher.
+// All functions are attached to `window` so other scripts can call them.
+// ──────────────────────────────────────────────────────────────────────────────
+
+(function() {
+
+// ── Locale mapping ──────────────────────────────────────────────────────────
+// Maps AgriBridge language codes to BCP-47 locale tags used by Intl.*.
+// Falls back gracefully when a locale is not supported by the browser.
+var _LOCALE_MAP = {
+  en: 'en-UG',   // English (Uganda) — DD/MM/YYYY, comma thousands
+  lg: 'en-UG',   // Luganda — use Ugandan English locale numerics
+  sw: 'sw-UG',   // Swahili (Uganda)
+  rw: 'rw-RW',   // Kinyarwanda (Rwanda)
+  fr: 'fr-RW',   // French (Rwanda)
+  ar: 'ar-EG',   // Arabic (Egypt) — widely supported, right-to-left
+  rk: 'en-UG',   // Rukiga — use Ugandan English locale
+  ls: 'en-UG',   // Lusoga
+  ac: 'en-UG',   // Acholi
+  ln: 'en-UG',   // Lango
+  lu: 'en-UG',   // Lugbara
+  at: 'en-UG',   // Ateso
+  so: 'so-SO',   // Somali
+  rn: 'rn-BI',   // Kirundi (Burundi)
+  am: 'am-ET',   // Amharic (Ethiopia)
+  es: 'es-ES',   // Spanish
+  de: 'de-DE',   // German
+  zh: 'zh-CN',   // Chinese (Simplified)
+  hi: 'hi-IN',   // Hindi
+  pt: 'pt-BR',   // Portuguese (Brazil)
+  ha: 'ha-NG'    // Hausa (Nigeria)
+};
+
+// RTL language codes (extends the existing _RTL_LANGS)
+var _PHASE10_RTL = { ar: true, he: true };
+if (typeof _RTL_LANGS !== 'undefined') {
+  Object.assign(_RTL_LANGS, _PHASE10_RTL);
+} else {
+  window._RTL_LANGS = _PHASE10_RTL;
+}
+
+// ── Helper: get active BCP-47 locale ────────────────────────────────────────
+function _activeBcp47() {
+  var code = (typeof _currentLang !== 'undefined' ? _currentLang : null) ||
+             localStorage.getItem('ab_lang') || 'en';
+  return _LOCALE_MAP[code] || 'en-UG';
+}
+
+// ── fmtNum(n, decimals?) ─────────────────────────────────────────────────────
+// Format a plain number with locale-appropriate thousands separator.
+// fmtNum(1250000)   → "1,250,000"  (en-UG)
+// fmtNum(1250.75,2) → "1,250.75"
+window.fmtNum = function(n, decimals) {
+  var num = Number(n);
+  if (isNaN(num)) return String(n);
+  var opts = {
+    minimumFractionDigits: decimals != null ? decimals : 0,
+    maximumFractionDigits: decimals != null ? decimals : 0
+  };
+  try {
+    return new Intl.NumberFormat(_activeBcp47(), opts).format(num);
+  } catch(e) {
+    return num.toLocaleString(undefined, opts);
+  }
+};
+
+// ── fmtPrice(amount, unit?, opts?) ───────────────────────────────────────────
+// Format a UGX price. Automatically abbreviates large numbers:
+//   fmtPrice(1200000)         → "UGX 1.2M"
+//   fmtPrice(15000)           → "UGX 15,000"
+//   fmtPrice(1200000,'head')  → "UGX 1.2M/head"
+//   fmtPrice(750,'kg')        → "UGX 750/kg"
+// opts: { compact: false } to suppress abbreviation
+window.fmtPrice = function(amount, unit, opts) {
+  var n = Number(amount);
+  if (isNaN(n)) return 'UGX ' + amount + (unit ? '/' + unit : '');
+  var compact = !(opts && opts.compact === false);
+  var formatted;
+  if (compact && n >= 1000000) {
+    // Millions
+    var m = n / 1000000;
+    formatted = 'UGX ' + (m === Math.floor(m) ? fmtNum(m) : fmtNum(m, 1)) + 'M';
+  } else if (compact && n >= 100000) {
+    // Hundreds of thousands → show as "UGX 500K"
+    var k = n / 1000;
+    formatted = 'UGX ' + (k === Math.floor(k) ? fmtNum(k) : fmtNum(k, 1)) + 'K';
+  } else {
+    formatted = 'UGX ' + fmtNum(n);
+  }
+  return unit ? formatted + '/' + unit : formatted;
+};
+
+// ── fmtPriceRange(low, high, unit?) ─────────────────────────────────────────
+// fmtPriceRange(400, 700, 'kg') → "UGX 400–700/kg"
+// fmtPriceRange(1200000, 1800000, 'head') → "UGX 1.2M–1.8M/head"
+window.fmtPriceRange = function(low, high, unit) {
+  var lo = Number(low), hi = Number(high);
+  if (isNaN(lo) || isNaN(hi)) return fmtPrice(low, unit) + ' – ' + fmtPrice(high, unit);
+  var compact = lo >= 100000 || hi >= 100000;
+  function abbrev(n) {
+    if (!compact) return fmtNum(n);
+    if (n >= 1000000) { var m = n/1000000; return (m===Math.floor(m)?fmtNum(m):fmtNum(m,1))+'M'; }
+    if (n >= 100000)  { var k = n/1000;    return (k===Math.floor(k)?fmtNum(k):fmtNum(k,1))+'K'; }
+    return fmtNum(n);
+  }
+  var str = 'UGX ' + abbrev(lo) + '–' + abbrev(hi);
+  return unit ? str + '/' + unit : str;
+};
+
+// ── fmtDate(date, style?) ────────────────────────────────────────────────────
+// Format a date in the active locale.
+// style: 'short'  → 12/11/2024  (default for Uganda/EAC)
+//        'medium' → 12 Nov 2024
+//        'long'   → 12 November 2024
+//        'full'   → Monday, 12 November 2024
+// date: Date object, ISO string, or timestamp number
+window.fmtDate = function(date, style) {
+  var d = (date instanceof Date) ? date : new Date(date);
+  if (isNaN(d.getTime())) return String(date);
+  var s = style || 'short';
+  var opts;
+  if (s === 'short') {
+    opts = { day: '2-digit', month: '2-digit', year: 'numeric' };
+  } else if (s === 'medium') {
+    opts = { day: 'numeric', month: 'short', year: 'numeric' };
+  } else if (s === 'long') {
+    opts = { day: 'numeric', month: 'long', year: 'numeric' };
+  } else { // full
+    opts = { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' };
+  }
+  try {
+    return new Intl.DateTimeFormat(_activeBcp47(), opts).format(d);
+  } catch(e) {
+    return d.toLocaleDateString(undefined, opts);
+  }
+};
+
+// ── fmtTime(date, includeSeconds?) ──────────────────────────────────────────
+// Format a time — 24h in Uganda/EAC, 12h in US-style locales.
+// fmtTime(new Date())         → "14:32"  (en-UG 24h)
+// fmtTime(new Date(), true)   → "14:32:07"
+window.fmtTime = function(date, includeSeconds) {
+  var d = (date instanceof Date) ? date : new Date(date);
+  if (isNaN(d.getTime())) return String(date);
+  var opts = {
+    hour: '2-digit', minute: '2-digit',
+    hour12: false   // Uganda / EAC uses 24-hour clock
+  };
+  if (includeSeconds) opts.second = '2-digit';
+  try {
+    return new Intl.DateTimeFormat(_activeBcp47(), opts).format(d);
+  } catch(e) {
+    return d.toLocaleTimeString(undefined, opts);
+  }
+};
+
+// ── fmtRelTime(date) ────────────────────────────────────────────────────────
+// Human-relative time: "2 hours ago", "in 3 days", etc.
+// Falls back to Intl.RelativeTimeFormat when available.
+window.fmtRelTime = function(date) {
+  var d = (date instanceof Date) ? date : new Date(date);
+  if (isNaN(d.getTime())) return String(date);
+  var diffMs = Date.now() - d.getTime();
+  var abs = Math.abs(diffMs);
+  var sign = diffMs >= 0 ? -1 : 1;  // past = negative for RelativeTimeFormat
+  var value, unit;
+  if (abs < 60000) {
+    value = Math.round(diffMs / 1000); unit = 'second';
+  } else if (abs < 3600000) {
+    value = Math.round(diffMs / 60000); unit = 'minute';
+  } else if (abs < 86400000) {
+    value = Math.round(diffMs / 3600000); unit = 'hour';
+  } else if (abs < 2592000000) {
+    value = Math.round(diffMs / 86400000); unit = 'day';
+  } else if (abs < 31536000000) {
+    value = Math.round(diffMs / 2592000000); unit = 'month';
+  } else {
+    value = Math.round(diffMs / 31536000000); unit = 'year';
+  }
+  try {
+    if (typeof Intl.RelativeTimeFormat !== 'undefined') {
+      var rtf = new Intl.RelativeTimeFormat(_activeBcp47(), { numeric: 'auto' });
+      return rtf.format(-value, unit);
+    }
+  } catch(e) {}
+  // Simple English fallback
+  if (value === 0) return 'just now';
+  var label = value === 1 ? unit : unit + 's';
+  return value > 0 ? value + ' ' + label + ' ago' : 'in ' + Math.abs(value) + ' ' + label;
+};
+
+// ── RTL layout application ───────────────────────────────────────────────────
+// Called whenever the language changes — sets dir and lang on <html>,
+// and adds/removes the .rtl-layout class so CSS rules can respond.
+function _applyRtl(langCode) {
+  var rtl = !!(window._RTL_LANGS && window._RTL_LANGS[langCode]);
+  document.documentElement.dir = rtl ? 'rtl' : 'ltr';
+  document.documentElement.setAttribute('lang', langCode || 'en');
+  document.documentElement.classList.toggle('rtl-layout', rtl);
+  document.documentElement.classList.toggle('ltr-layout', !rtl);
+}
+
+// ── RTL CSS rules (injected once) ───────────────────────────────────────────
+// Flip padding, margin, text-align, border and icon positions for RTL.
+(function() {
+  var style = document.createElement('style');
+  style.id = 'ab-rtl-css';
+  style.textContent = [
+    // Text and alignment
+    '.rtl-layout body { direction: rtl; }',
+    // Sidebar / nav — mirror from left to right
+    '.rtl-layout .sidebar { right: 0; left: auto; border-right: none; border-left: 1px solid var(--border,#333); }',
+    '.rtl-layout .main-content { margin-right: var(--sidebar-w, 220px); margin-left: 0; }',
+    // Flex row reversal for specific layouts
+    '.rtl-layout .header-inner { flex-direction: row-reverse; }',
+    '.rtl-layout .tab-bar { flex-direction: row-reverse; }',
+    // Cards and grids — text alignment
+    '.rtl-layout .card-title, .rtl-layout .section-label { text-align: right; }',
+    '.rtl-layout .product-card p, .rtl-layout .listing-desc { text-align: right; }',
+    // Form labels
+    '.rtl-layout label { display: block; text-align: right; }',
+    '.rtl-layout .form-group { text-align: right; }',
+    // Input text direction
+    '.rtl-layout input[type=text], .rtl-layout input[type=search], .rtl-layout textarea, .rtl-layout select { text-align: right; direction: rtl; }',
+    // Notifications / toasts
+    '.rtl-layout .toast { right: auto; left: 1rem; }',
+    // Chat bubbles
+    '.rtl-layout .msg-bubble.mine { margin-left: 0; margin-right: auto; border-radius: 18px 18px 18px 4px; }',
+    '.rtl-layout .msg-bubble.theirs { margin-right: 0; margin-left: auto; border-radius: 18px 18px 4px 18px; }',
+    // Price tickers
+    '.rtl-layout .ticker-wrap { direction: rtl; }',
+    // Icon spacing flip
+    '.rtl-layout .icon-left { margin-right: 0; margin-left: .4em; }',
+    '.rtl-layout .icon-right { margin-left: 0; margin-right: .4em; }',
+    // Table text
+    '.rtl-layout th, .rtl-layout td { text-align: right; }',
+    '.rtl-layout th:first-child, .rtl-layout td:first-child { text-align: right; }'
+  ].join('\n');
+  document.head.appendChild(style);
+})();
+
+// ── Hook into setLang ────────────────────────────────────────────────────────
+// Wrap the existing setLang (which may already be wrapped by Phase 3/4).
+var _p10OrigSetLang = window.setLang;
+window.setLang = function(code) {
+  if (typeof _p10OrigSetLang === 'function') _p10OrigSetLang.call(this, code);
+  _applyRtl(code);
+  // Re-render any live price displays using the new locale
+  _refreshPriceDisplays();
+};
+
+// ── Live price display refresh ───────────────────────────────────────────────
+// Elements with data-price / data-price-unit get re-formatted on lang change.
+// Usage in HTML: <span data-price="750" data-price-unit="kg"></span>
+// The span text is then managed by this function, not hardcoded.
+function _refreshPriceDisplays() {
+  var els = document.querySelectorAll('[data-price]');
+  els.forEach(function(el) {
+    var amount = el.getAttribute('data-price');
+    var unit   = el.getAttribute('data-price-unit') || '';
+    var range  = el.getAttribute('data-price-high');  // for ranges
+    if (range) {
+      el.textContent = fmtPriceRange(amount, range, unit);
+    } else {
+      el.textContent = fmtPrice(amount, unit || undefined);
+    }
+  });
+  // Elements with data-date get re-formatted
+  var dEls = document.querySelectorAll('[data-date]');
+  dEls.forEach(function(el) {
+    var val = el.getAttribute('data-date');
+    var style = el.getAttribute('data-date-style') || 'short';
+    el.textContent = fmtDate(val, style);
+  });
+}
+
+// ── Apply RTL on initial load ────────────────────────────────────────────────
+(function() {
+  var lang = (typeof _currentLang !== 'undefined' ? _currentLang : null) ||
+             localStorage.getItem('ab_lang') || 'en';
+  _applyRtl(lang);
+  // Run initial price/date refresh after DOM is ready
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', _refreshPriceDisplays);
+  } else {
+    _refreshPriceDisplays();
+  }
+})();
+
+// ── Expose locale metadata ───────────────────────────────────────────────────
+// window.AB_LOCALE lets other scripts query localization info without
+// duplicating the mapping.
+window.AB_LOCALE = {
+  map: _LOCALE_MAP,
+  bcp47: _activeBcp47,
+  isRtl: function(code) {
+    var c = code || (typeof _currentLang !== 'undefined' ? _currentLang : 'en');
+    return !!(window._RTL_LANGS && window._RTL_LANGS[c]);
+  },
+  // Decimal separator for active locale: '.' or ','
+  decimalSep: function() {
+    try {
+      var s = new Intl.NumberFormat(_activeBcp47()).format(1.1);
+      var m = s.match(/1(.*)1/);
+      return m ? m[1] : '.';
+    } catch(e) { return '.'; }
+  },
+  // Thousands separator
+  thousandsSep: function() {
+    try {
+      var s = new Intl.NumberFormat(_activeBcp47()).format(1000);
+      var m = s.match(/^1(.*)000/);
+      return m ? m[1] : ',';
+    } catch(e) { return ','; }
+  }
+};
+
+// ── UGX short-formatter for use in tables/charts ────────────────────────────
+// Returns just digits + abbreviation, no "UGX" prefix, for axis labels etc.
+// fmtPriceShort(1500000) → "1.5M"
+// fmtPriceShort(75000)   → "75K"
+// fmtPriceShort(1200)    → "1,200"
+window.fmtPriceShort = function(amount) {
+  var n = Number(amount);
+  if (isNaN(n)) return String(amount);
+  if (n >= 1000000) { var m = n/1000000; return (m===Math.floor(m)?fmtNum(m):fmtNum(m,1))+'M'; }
+  if (n >= 100000)  { var k = n/1000;    return (k===Math.floor(k)?fmtNum(k):fmtNum(k,1))+'K'; }
+  return fmtNum(n);
+};
+
+})(); // end Phase 10 localization IIFE
 </script>
 </body>
 </html>
