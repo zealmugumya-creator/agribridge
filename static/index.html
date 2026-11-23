@@ -18157,5 +18157,341 @@ document.addEventListener('DOMContentLoaded', function() {
   }
 })();
 </script>
+
+<script>
+// ─── Phase 10: Regional Localization ──────────────────────────────────────────
+// Locale-aware formatting for prices (UGX), numbers, dates, and times.
+// Also extends RTL support and wires into the language-switcher.
+// All functions are attached to `window` so other scripts can call them.
+// ──────────────────────────────────────────────────────────────────────────────
+
+(function() {
+
+// ── Locale mapping ──────────────────────────────────────────────────────────
+// Maps AgriBridge language codes to BCP-47 locale tags used by Intl.*.
+// Falls back gracefully when a locale is not supported by the browser.
+var _LOCALE_MAP = {
+  en: 'en-UG',   // English (Uganda) — DD/MM/YYYY, comma thousands
+  lg: 'en-UG',   // Luganda — use Ugandan English locale numerics
+  sw: 'sw-UG',   // Swahili (Uganda)
+  rw: 'rw-RW',   // Kinyarwanda (Rwanda)
+  fr: 'fr-RW',   // French (Rwanda)
+  ar: 'ar-EG',   // Arabic (Egypt) — widely supported, right-to-left
+  rk: 'en-UG',   // Rukiga — use Ugandan English locale
+  ls: 'en-UG',   // Lusoga
+  ac: 'en-UG',   // Acholi
+  ln: 'en-UG',   // Lango
+  lu: 'en-UG',   // Lugbara
+  at: 'en-UG',   // Ateso
+  so: 'so-SO',   // Somali
+  rn: 'rn-BI',   // Kirundi (Burundi)
+  am: 'am-ET',   // Amharic (Ethiopia)
+  es: 'es-ES',   // Spanish
+  de: 'de-DE',   // German
+  zh: 'zh-CN',   // Chinese (Simplified)
+  hi: 'hi-IN',   // Hindi
+  pt: 'pt-BR',   // Portuguese (Brazil)
+  ha: 'ha-NG'    // Hausa (Nigeria)
+};
+
+// RTL language codes (extends the existing _RTL_LANGS)
+var _PHASE10_RTL = { ar: true, he: true };
+if (typeof _RTL_LANGS !== 'undefined') {
+  Object.assign(_RTL_LANGS, _PHASE10_RTL);
+} else {
+  window._RTL_LANGS = _PHASE10_RTL;
+}
+
+// ── Helper: get active BCP-47 locale ────────────────────────────────────────
+function _activeBcp47() {
+  var code = (typeof _currentLang !== 'undefined' ? _currentLang : null) ||
+             localStorage.getItem('ab_lang') || 'en';
+  return _LOCALE_MAP[code] || 'en-UG';
+}
+
+// ── fmtNum(n, decimals?) ─────────────────────────────────────────────────────
+// Format a plain number with locale-appropriate thousands separator.
+// fmtNum(1250000)   → "1,250,000"  (en-UG)
+// fmtNum(1250.75,2) → "1,250.75"
+window.fmtNum = function(n, decimals) {
+  var num = Number(n);
+  if (isNaN(num)) return String(n);
+  var opts = {
+    minimumFractionDigits: decimals != null ? decimals : 0,
+    maximumFractionDigits: decimals != null ? decimals : 0
+  };
+  try {
+    return new Intl.NumberFormat(_activeBcp47(), opts).format(num);
+  } catch(e) {
+    return num.toLocaleString(undefined, opts);
+  }
+};
+
+// ── fmtPrice(amount, unit?, opts?) ───────────────────────────────────────────
+// Format a UGX price. Automatically abbreviates large numbers:
+//   fmtPrice(1200000)         → "UGX 1.2M"
+//   fmtPrice(15000)           → "UGX 15,000"
+//   fmtPrice(1200000,'head')  → "UGX 1.2M/head"
+//   fmtPrice(750,'kg')        → "UGX 750/kg"
+// opts: { compact: false } to suppress abbreviation
+window.fmtPrice = function(amount, unit, opts) {
+  var n = Number(amount);
+  if (isNaN(n)) return 'UGX ' + amount + (unit ? '/' + unit : '');
+  var compact = !(opts && opts.compact === false);
+  var formatted;
+  if (compact && n >= 1000000) {
+    // Millions
+    var m = n / 1000000;
+    formatted = 'UGX ' + (m === Math.floor(m) ? fmtNum(m) : fmtNum(m, 1)) + 'M';
+  } else if (compact && n >= 100000) {
+    // Hundreds of thousands → show as "UGX 500K"
+    var k = n / 1000;
+    formatted = 'UGX ' + (k === Math.floor(k) ? fmtNum(k) : fmtNum(k, 1)) + 'K';
+  } else {
+    formatted = 'UGX ' + fmtNum(n);
+  }
+  return unit ? formatted + '/' + unit : formatted;
+};
+
+// ── fmtPriceRange(low, high, unit?) ─────────────────────────────────────────
+// fmtPriceRange(400, 700, 'kg') → "UGX 400–700/kg"
+// fmtPriceRange(1200000, 1800000, 'head') → "UGX 1.2M–1.8M/head"
+window.fmtPriceRange = function(low, high, unit) {
+  var lo = Number(low), hi = Number(high);
+  if (isNaN(lo) || isNaN(hi)) return fmtPrice(low, unit) + ' – ' + fmtPrice(high, unit);
+  var compact = lo >= 100000 || hi >= 100000;
+  function abbrev(n) {
+    if (!compact) return fmtNum(n);
+    if (n >= 1000000) { var m = n/1000000; return (m===Math.floor(m)?fmtNum(m):fmtNum(m,1))+'M'; }
+    if (n >= 100000)  { var k = n/1000;    return (k===Math.floor(k)?fmtNum(k):fmtNum(k,1))+'K'; }
+    return fmtNum(n);
+  }
+  var str = 'UGX ' + abbrev(lo) + '–' + abbrev(hi);
+  return unit ? str + '/' + unit : str;
+};
+
+// ── fmtDate(date, style?) ────────────────────────────────────────────────────
+// Format a date in the active locale.
+// style: 'short'  → 12/11/2024  (default for Uganda/EAC)
+//        'medium' → 12 Nov 2024
+//        'long'   → 12 November 2024
+//        'full'   → Monday, 12 November 2024
+// date: Date object, ISO string, or timestamp number
+window.fmtDate = function(date, style) {
+  var d = (date instanceof Date) ? date : new Date(date);
+  if (isNaN(d.getTime())) return String(date);
+  var s = style || 'short';
+  var opts;
+  if (s === 'short') {
+    opts = { day: '2-digit', month: '2-digit', year: 'numeric' };
+  } else if (s === 'medium') {
+    opts = { day: 'numeric', month: 'short', year: 'numeric' };
+  } else if (s === 'long') {
+    opts = { day: 'numeric', month: 'long', year: 'numeric' };
+  } else { // full
+    opts = { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' };
+  }
+  try {
+    return new Intl.DateTimeFormat(_activeBcp47(), opts).format(d);
+  } catch(e) {
+    return d.toLocaleDateString(undefined, opts);
+  }
+};
+
+// ── fmtTime(date, includeSeconds?) ──────────────────────────────────────────
+// Format a time — 24h in Uganda/EAC, 12h in US-style locales.
+// fmtTime(new Date())         → "14:32"  (en-UG 24h)
+// fmtTime(new Date(), true)   → "14:32:07"
+window.fmtTime = function(date, includeSeconds) {
+  var d = (date instanceof Date) ? date : new Date(date);
+  if (isNaN(d.getTime())) return String(date);
+  var opts = {
+    hour: '2-digit', minute: '2-digit',
+    hour12: false   // Uganda / EAC uses 24-hour clock
+  };
+  if (includeSeconds) opts.second = '2-digit';
+  try {
+    return new Intl.DateTimeFormat(_activeBcp47(), opts).format(d);
+  } catch(e) {
+    return d.toLocaleTimeString(undefined, opts);
+  }
+};
+
+// ── fmtRelTime(date) ────────────────────────────────────────────────────────
+// Human-relative time: "2 hours ago", "in 3 days", etc.
+// Falls back to Intl.RelativeTimeFormat when available.
+window.fmtRelTime = function(date) {
+  var d = (date instanceof Date) ? date : new Date(date);
+  if (isNaN(d.getTime())) return String(date);
+  var diffMs = Date.now() - d.getTime();
+  var abs = Math.abs(diffMs);
+  var sign = diffMs >= 0 ? -1 : 1;  // past = negative for RelativeTimeFormat
+  var value, unit;
+  if (abs < 60000) {
+    value = Math.round(diffMs / 1000); unit = 'second';
+  } else if (abs < 3600000) {
+    value = Math.round(diffMs / 60000); unit = 'minute';
+  } else if (abs < 86400000) {
+    value = Math.round(diffMs / 3600000); unit = 'hour';
+  } else if (abs < 2592000000) {
+    value = Math.round(diffMs / 86400000); unit = 'day';
+  } else if (abs < 31536000000) {
+    value = Math.round(diffMs / 2592000000); unit = 'month';
+  } else {
+    value = Math.round(diffMs / 31536000000); unit = 'year';
+  }
+  try {
+    if (typeof Intl.RelativeTimeFormat !== 'undefined') {
+      var rtf = new Intl.RelativeTimeFormat(_activeBcp47(), { numeric: 'auto' });
+      return rtf.format(-value, unit);
+    }
+  } catch(e) {}
+  // Simple English fallback
+  if (value === 0) return 'just now';
+  var label = value === 1 ? unit : unit + 's';
+  return value > 0 ? value + ' ' + label + ' ago' : 'in ' + Math.abs(value) + ' ' + label;
+};
+
+// ── RTL layout application ───────────────────────────────────────────────────
+// Called whenever the language changes — sets dir and lang on <html>,
+// and adds/removes the .rtl-layout class so CSS rules can respond.
+function _applyRtl(langCode) {
+  var rtl = !!(window._RTL_LANGS && window._RTL_LANGS[langCode]);
+  document.documentElement.dir = rtl ? 'rtl' : 'ltr';
+  document.documentElement.setAttribute('lang', langCode || 'en');
+  document.documentElement.classList.toggle('rtl-layout', rtl);
+  document.documentElement.classList.toggle('ltr-layout', !rtl);
+}
+
+// ── RTL CSS rules (injected once) ───────────────────────────────────────────
+// Flip padding, margin, text-align, border and icon positions for RTL.
+(function() {
+  var style = document.createElement('style');
+  style.id = 'ab-rtl-css';
+  style.textContent = [
+    // Text and alignment
+    '.rtl-layout body { direction: rtl; }',
+    // Sidebar / nav — mirror from left to right
+    '.rtl-layout .sidebar { right: 0; left: auto; border-right: none; border-left: 1px solid var(--border,#333); }',
+    '.rtl-layout .main-content { margin-right: var(--sidebar-w, 220px); margin-left: 0; }',
+    // Flex row reversal for specific layouts
+    '.rtl-layout .header-inner { flex-direction: row-reverse; }',
+    '.rtl-layout .tab-bar { flex-direction: row-reverse; }',
+    // Cards and grids — text alignment
+    '.rtl-layout .card-title, .rtl-layout .section-label { text-align: right; }',
+    '.rtl-layout .product-card p, .rtl-layout .listing-desc { text-align: right; }',
+    // Form labels
+    '.rtl-layout label { display: block; text-align: right; }',
+    '.rtl-layout .form-group { text-align: right; }',
+    // Input text direction
+    '.rtl-layout input[type=text], .rtl-layout input[type=search], .rtl-layout textarea, .rtl-layout select { text-align: right; direction: rtl; }',
+    // Notifications / toasts
+    '.rtl-layout .toast { right: auto; left: 1rem; }',
+    // Chat bubbles
+    '.rtl-layout .msg-bubble.mine { margin-left: 0; margin-right: auto; border-radius: 18px 18px 18px 4px; }',
+    '.rtl-layout .msg-bubble.theirs { margin-right: 0; margin-left: auto; border-radius: 18px 18px 4px 18px; }',
+    // Price tickers
+    '.rtl-layout .ticker-wrap { direction: rtl; }',
+    // Icon spacing flip
+    '.rtl-layout .icon-left { margin-right: 0; margin-left: .4em; }',
+    '.rtl-layout .icon-right { margin-left: 0; margin-right: .4em; }',
+    // Table text
+    '.rtl-layout th, .rtl-layout td { text-align: right; }',
+    '.rtl-layout th:first-child, .rtl-layout td:first-child { text-align: right; }'
+  ].join('\n');
+  document.head.appendChild(style);
+})();
+
+// ── Hook into setLang ────────────────────────────────────────────────────────
+// Wrap the existing setLang (which may already be wrapped by Phase 3/4).
+var _p10OrigSetLang = window.setLang;
+window.setLang = function(code) {
+  if (typeof _p10OrigSetLang === 'function') _p10OrigSetLang.call(this, code);
+  _applyRtl(code);
+  // Re-render any live price displays using the new locale
+  _refreshPriceDisplays();
+};
+
+// ── Live price display refresh ───────────────────────────────────────────────
+// Elements with data-price / data-price-unit get re-formatted on lang change.
+// Usage in HTML: <span data-price="750" data-price-unit="kg"></span>
+// The span text is then managed by this function, not hardcoded.
+function _refreshPriceDisplays() {
+  var els = document.querySelectorAll('[data-price]');
+  els.forEach(function(el) {
+    var amount = el.getAttribute('data-price');
+    var unit   = el.getAttribute('data-price-unit') || '';
+    var range  = el.getAttribute('data-price-high');  // for ranges
+    if (range) {
+      el.textContent = fmtPriceRange(amount, range, unit);
+    } else {
+      el.textContent = fmtPrice(amount, unit || undefined);
+    }
+  });
+  // Elements with data-date get re-formatted
+  var dEls = document.querySelectorAll('[data-date]');
+  dEls.forEach(function(el) {
+    var val = el.getAttribute('data-date');
+    var style = el.getAttribute('data-date-style') || 'short';
+    el.textContent = fmtDate(val, style);
+  });
+}
+
+// ── Apply RTL on initial load ────────────────────────────────────────────────
+(function() {
+  var lang = (typeof _currentLang !== 'undefined' ? _currentLang : null) ||
+             localStorage.getItem('ab_lang') || 'en';
+  _applyRtl(lang);
+  // Run initial price/date refresh after DOM is ready
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', _refreshPriceDisplays);
+  } else {
+    _refreshPriceDisplays();
+  }
+})();
+
+// ── Expose locale metadata ───────────────────────────────────────────────────
+// window.AB_LOCALE lets other scripts query localization info without
+// duplicating the mapping.
+window.AB_LOCALE = {
+  map: _LOCALE_MAP,
+  bcp47: _activeBcp47,
+  isRtl: function(code) {
+    var c = code || (typeof _currentLang !== 'undefined' ? _currentLang : 'en');
+    return !!(window._RTL_LANGS && window._RTL_LANGS[c]);
+  },
+  // Decimal separator for active locale: '.' or ','
+  decimalSep: function() {
+    try {
+      var s = new Intl.NumberFormat(_activeBcp47()).format(1.1);
+      var m = s.match(/1(.*)1/);
+      return m ? m[1] : '.';
+    } catch(e) { return '.'; }
+  },
+  // Thousands separator
+  thousandsSep: function() {
+    try {
+      var s = new Intl.NumberFormat(_activeBcp47()).format(1000);
+      var m = s.match(/^1(.*)000/);
+      return m ? m[1] : ',';
+    } catch(e) { return ','; }
+  }
+};
+
+// ── UGX short-formatter for use in tables/charts ────────────────────────────
+// Returns just digits + abbreviation, no "UGX" prefix, for axis labels etc.
+// fmtPriceShort(1500000) → "1.5M"
+// fmtPriceShort(75000)   → "75K"
+// fmtPriceShort(1200)    → "1,200"
+window.fmtPriceShort = function(amount) {
+  var n = Number(amount);
+  if (isNaN(n)) return String(amount);
+  if (n >= 1000000) { var m = n/1000000; return (m===Math.floor(m)?fmtNum(m):fmtNum(m,1))+'M'; }
+  if (n >= 100000)  { var k = n/1000;    return (k===Math.floor(k)?fmtNum(k):fmtNum(k,1))+'K'; }
+  return fmtNum(n);
+};
+
+})(); // end Phase 10 localization IIFE
+</script>
 </body>
 </html>
