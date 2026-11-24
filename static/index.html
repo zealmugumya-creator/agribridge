@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- AB_BUILD:20261122_LANG -->
+<!-- AB_BUILD:20261124_REG -->
 <html lang="en">
 <head>
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
@@ -9,7 +9,7 @@
 // Self-update: if this page is served from browser cache, force a fresh reload.
 // We store the build stamp in sessionStorage; if it mismatches we reload once.
 (function(){
-  var STAMP = '20261122_LANG';
+  var STAMP = '20261124_REG';
   var key = '_ab_stamp';
   try {
     if (sessionStorage.getItem(key) !== STAMP) {
@@ -14547,10 +14547,10 @@ async function doRegister() {
       var res = await sbAuth.auth.signUp({ email: email, password: pwd, options: { data: meta } });
       if (res.error) {
         var msg = res.error.message || 'Registration failed.';
-        if (msg.indexOf('already') > -1 || msg.indexOf('duplicate') > -1) msg = 'This email is already registered. Try logging in.';
-        else if (msg.indexOf('Password') > -1) msg = 'Password must be at least 6 characters.';
+        if (msg.indexOf('already') > -1 || msg.indexOf('duplicate') > -1 || msg.indexOf('User already registered') > -1) msg = 'This email is already registered. Try logging in.';
         else if (msg.indexOf('valid email') > -1) msg = 'Please enter a valid email address.';
         else if (msg.indexOf('rate') > -1 || msg.indexOf('limit') > -1) msg = 'Too many attempts. Wait 1 minute and try again.';
+        else if (msg.indexOf('captcha') > -1) msg = 'Please try again. If this keeps happening, use Continue with Google.';
         _showRegErr('Registration failed: ' + msg);
         return;
       }
