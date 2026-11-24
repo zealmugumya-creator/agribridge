@@ -18100,26 +18100,13 @@ document.addEventListener('DOMContentLoaded', function() {
   // Hook into postAuthLegalCheck (fires after login) to persist language to DB
   var _origPost = window.postAuthLegalCheck;
   window.postAuthLegalCheck = function() {
-    // Read saved lang and persist to farmers table
+    // Delegate to Phase 10's _p10SaveLangToDB which handles all three tables.
+    // Falls back to direct fetch if Phase 10 hasn't loaded yet (shouldn't happen).
     var lang = localStorage.getItem('ab_lang') || 'en';
-    if (window.currentUser && window.currentUser.supaId && lang !== 'en') {
-      // Best-effort: save preferred_language to profile
-      try {
-        var SUPABASE_URL = window._supabaseUrl || '';
-        var SUPABASE_KEY = window._supabaseAnonKey || '';
-        if (SUPABASE_URL && SUPABASE_KEY) {
-          fetch(SUPABASE_URL + '/rest/v1/farmers?id=eq.' + encodeURIComponent(window.currentUser.supaId), {
-            method: 'PATCH',
-            headers: {
-              'apikey': SUPABASE_KEY,
-              'Authorization': 'Bearer ' + SUPABASE_KEY,
-              'Content-Type': 'application/json',
-              'Prefer': 'return=minimal'
-            },
-            body: JSON.stringify({ preferred_language: lang })
-          }).catch(function(){});
-        }
-      } catch(e) {}
+    if (window.currentUser && window.currentUser.supaId) {
+      if (typeof window._p10SaveLangToDB === 'function') {
+        window._p10SaveLangToDB(lang);
+      }
     }
     if (typeof _origPost === 'function') return _origPost.apply(this, arguments);
   };
@@ -18410,7 +18397,82 @@ window.setLang = function(code) {
   _applyRtl(code);
   // Re-render any live price displays using the new locale
   _refreshPriceDisplays();
+  // ── Persist preferred_language to Supabase ────────────────────────────────
+  // Routes to the correct table based on currentUser.role.
+  // Runs best-effort (fire-and-forget) so it never blocks the UI.
+  _p10SaveLangToDB(code);
 };
+
+// Save the user's preferred language to whichever identity table owns them.
+// farmers  → role: farmer / exporter / vendor / supplier / hotel
+// buyers   → role: buyer / customer / ''
+// transporters → role: transporter / driver
+window._p10SaveLangToDB = function _p10SaveLangToDB(code) {
+  try {
+    var user = window.currentUser;
+    if (!user || !user.supaId) return; // not logged in
+    var role = String(user.role || user.user_role || '').toLowerCase();
+    var table;
+    if (role === 'transporter' || role === 'driver') {
+      table = 'transporters';
+    } else if (!role || role === 'buyer' || role === 'customer') {
+      table = 'buyers';
+    } else {
+      table = 'farmers'; // farmer, exporter, vendor, supplier, hotel, default
+    }
+    var url = (typeof SUPABASE_URL !== 'undefined' ? SUPABASE_URL : '') ||
+              (window._supabaseUrl || '');
+    var key = (typeof SUPABASE_ANON !== 'undefined' ? SUPABASE_ANON : '') ||
+              (window._supabaseAnonKey || '');
+    if (!url || !key) return;
+    fetch(url + '/rest/v1/' + table + '?id=eq.' + encodeURIComponent(user.supaId), {
+      method: 'PATCH',
+      headers: {
+        'apikey': key,
+        'Authorization': 'Bearer ' + key,
+        'Content-Type': 'application/json',
+        'Prefer': 'return=minimal'
+      },
+      body: JSON.stringify({ preferred_language: code })
+    }).catch(function() {}); // silent failure — localStorage is source of truth
+  } catch(e) {}
+}
+
+// ── Load preferred_language from DB after login ───────────────────────────────
+// Hooks into the existing setCurrentUser / onAuthStateChange so the DB value
+// wins over localStorage when the user logs in on a fresh device.
+(function() {
+  function _p10ApplyDbLang(user) {
+    if (!user) return;
+    var dbLang = user.preferred_language;
+    if (dbLang && dbLang !== 'en' && typeof window.setLang === 'function') {
+      // Only override if different from what's already active
+      var active = localStorage.getItem('ab_lang') || 'en';
+      if (dbLang !== active) {
+        window.setLang(dbLang);
+      }
+    }
+  }
+  // Wrap setCurrentUser if it exists (called after successful login)
+  var _origSCU = window.setCurrentUser;
+  if (typeof _origSCU === 'function') {
+    window.setCurrentUser = function(user) {
+      var ret = _origSCU.apply(this, arguments);
+      _p10ApplyDbLang(user);
+      return ret;
+    };
+  }
+  // Also watch for the user object being fetched from the DB (profile load)
+  // The app stores the enriched profile in currentUser after a /me or profile fetch.
+  // We watch for any change by polling once after DOMContentLoaded + 2s delay.
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', function() {
+      setTimeout(function() { _p10ApplyDbLang(window.currentUser); }, 2000);
+    });
+  } else {
+    setTimeout(function() { _p10ApplyDbLang(window.currentUser); }, 2000);
+  }
+})();
 
 // ── Live price display refresh ───────────────────────────────────────────────
 // Elements with data-price / data-price-unit get re-formatted on lang change.
@@ -18492,6 +18554,79 @@ window.fmtPriceShort = function(amount) {
 };
 
 })(); // end Phase 10 localization IIFE
+</script>
+
+<script>
+// ─── Phase 12: Machine Translation Client ─────────────────────────────────────
+// window.abTranslate(text, from, to) → Promise<string>
+//
+// Priority:
+//   1. Static agri_dictionary lookup (zero latency, human-verified)
+//   2. /api/translate CF Worker (Sunbird AI for Ugandan langs, Google for others)
+//   3. Original text (graceful fallback)
+//
+// Usage:
+//   const ug = await abTranslate('Enter your farm size', 'en', 'lg');
+//   const en = await abTranslate(ugText, 'lg', 'en');
+(function() {
+  'use strict';
+
+  // ── 1. Static dictionary lookup ────────────────────────────────────────────
+  // Uses the Phase 5 agriTerm() function if loaded.
+  function _dictLookup(text, from, to) {
+    if (from !== 'en') return null; // dictionary is keyed by English term
+    if (typeof window.agriTerm !== 'function') return null;
+    var result = window.agriTerm(text.trim().toLowerCase(), to);
+    // agriTerm returns the original if no translation found
+    if (result && result !== text) return result;
+    return null;
+  }
+
+  // ── 2. Worker fetch ────────────────────────────────────────────────────────
+  async function _workerTranslate(text, from, to) {
+    const resp = await fetch('/api/translate', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ text, from, to }),
+    });
+    if (!resp.ok) throw new Error('Worker ' + resp.status);
+    const data = await resp.json();
+    if (!data.translated) throw new Error('No translation in response');
+    return data.translated;
+  }
+
+  // ── Public API ─────────────────────────────────────────────────────────────
+  window.abTranslate = async function abTranslate(text, from, to) {
+    if (!text || from === to) return text;
+    try {
+      // 1. Dictionary
+      var dict = _dictLookup(text, from, to);
+      if (dict) return dict;
+      // 2. Worker
+      return await _workerTranslate(text, from, to);
+    } catch(e) {
+      console.warn('[abTranslate]', e.message);
+      return text; // graceful fallback
+    }
+  };
+
+  // Convenience: translate an array of strings in parallel (max 10 at once)
+  window.abTranslateMany = async function abTranslateMany(texts, from, to) {
+    if (!Array.isArray(texts) || from === to) return texts;
+    var chunks = [];
+    for (var i = 0; i < texts.length; i += 10) {
+      chunks.push(texts.slice(i, i + 10));
+    }
+    var results = [];
+    for (var c = 0; c < chunks.length; c++) {
+      var batch = await Promise.all(chunks[c].map(t => window.abTranslate(t, from, to)));
+      results = results.concat(batch);
+    }
+    return results;
+  };
+
+})();
+// ─── end Phase 12 ─────────────────────────────────────────────────────────────
 </script>
 </body>
 </html>

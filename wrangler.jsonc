@@ -1,14 +1,41 @@
 {
   // Cloudflare Workers Builds: serves the static web app in ./static.
+  // The Worker script (workers/translate.js) intercepts /api/translate;
+  // everything else falls through to the static assets.
   // "name" must match the Worker's name in the Cloudflare dashboard.
   "name": "agribridge",
+  "main": "workers/translate.js",
   "compatibility_date": "2026-10-06",
   "assets": {
     "directory": "./static",
     "html_handling": "auto-trailing-slash",
-    "not_found_handling": "single-page-application"
+    "not_found_handling": "single-page-application",
+    "binding": "ASSETS"
   },
   "rules": [
     { "type": "Text", "globs": ["**/*.html"], "fallthrough": true }
-  ]
+  ],
+
+  // KV namespace for translation cache (24h TTL)
+  // Create via: wrangler kv:namespace create TRANSLATIONS_KV
+  // Then paste the id here and in [env.production] below.
+  "kv_namespaces": [
+    {
+      "binding": "TRANSLATIONS_KV",
+      "id": "REPLACE_WITH_KV_NAMESPACE_ID",
+      "preview_id": "REPLACE_WITH_KV_PREVIEW_ID"
+    }
+  ],
+
+  // Secrets (set via wrangler secret put, never commit values):
+  //   wrangler secret put SUNBIRD_API_KEY
+  //   wrangler secret put GOOGLE_TRANSLATE_KEY
+  //
+  // Local dev: add to .dev.vars (gitignored):
+  //   SUNBIRD_API_KEY=sk-...
+  //   GOOGLE_TRANSLATE_KEY=AIza...
+
+  "vars": {
+    "ENVIRONMENT": "production"
+  }
 }
