@@ -7733,21 +7733,60 @@ async function sendAIMsg() {
   const text = (inp?.value||'').trim();
   if (!text) return;
   if (inp) inp.value = '';
+
+  // ── Multilingual AI: detect active language ─────────────────────────────
+  const activeLang = (typeof _currentLang !== 'undefined' ? _currentLang : null)
+                   || localStorage.getItem('ab_lang') || 'en';
+  const needsTranslation = activeLang !== 'en' && typeof window.abTranslate === 'function';
+
   addAIMsg(text, 'user');
-  const typing = addAIMsg('Thinking…', 'bot typing');
+  // "Thinking…" in the user's language (falls back gracefully)
+  const _thinkingLabels = {
+    lg:'Ntegeera…', sw:'Ninafikiri…', rw:'Ndatekereza…', fr:'Je réfléchis…',
+    ar:'أفكر…', ac:'Atye timo…', rk:'Ndatekereza…', lu:'Alimbira…',
+    at:'Naaibore…', ls:'Ntegeera…', so:'Waan fakir…', am:'እያሰብኩ ነው…',
+    hi:'सोच रहा हूँ…', zh:'思考中…', ha:'Ina tunani…'
+  };
+  const _thinkingText = _thinkingLabels[activeLang] || 'Thinking…';
+  const typing = addAIMsg(_thinkingText, 'bot typing');
+
+  // ── Step 1: translate user message → English for the AI backend ─────────
+  let msgForAI = text;
+  if (needsTranslation) {
+    try { msgForAI = await window.abTranslate(text, activeLang, 'en'); } catch(e) {}
+  }
+
+  // ── Step 2: get AI reply (always in English) ─────────────────────────────
   // Ask the real AI (Groq, via our backend — key stays server-side). Fall back
   // to the built-in offline helper if the backend is unreachable/unconfigured.
   let reply = null;
   try {
     const res = await fetch(USSD_API + '/api/ai', {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ message: text }),
-      signal: AbortSignal.timeout(10000)
+      body: JSON.stringify({
+        message: msgForAI,
+        lang: activeLang,          // hint for backend to format numbers/names regionally
+        original_message: text     // passed through for logging; not used by AI
+      }),
+      signal: AbortSignal.timeout(12000)
     });
     if (res.ok) { const d = await res.json(); if (d && d.reply) reply = d.reply; }
   } catch (e) {}
-  if (!reply) reply = localAIResponse(text);
-  const cleanReply = processAIActions(reply);
+  if (!reply) reply = localAIResponse(msgForAI);
+
+  // Process navigation/basket action tags before translation
+  // (tags like [NAVIGATE:market] must stay ASCII — strip them before translating)
+  const ACTION_TAG_RE = /\[(?:NAVIGATE|OPEN_BASKET|CHECKOUT|CLEAR_BASKET|TRACK_ORDERS|ADD):[^\]]*\]/g;
+  const tags = reply.match(ACTION_TAG_RE) || [];
+  let replyText = reply.replace(ACTION_TAG_RE, '').trim();
+
+  // ── Step 3: translate English reply → user's language ───────────────────
+  if (needsTranslation && replyText) {
+    try { replyText = await window.abTranslate(replyText, 'en', activeLang); } catch(e) {}
+  }
+
+  // Re-attach action tags at the end (processAIActions will consume them)
+  const cleanReply = processAIActions(replyText + (tags.length ? ' ' + tags.join(' ') : ''));
   typing?.remove();
   addAIMsg(cleanReply, 'bot');
   speakAIReply(cleanReply);
@@ -18401,7 +18440,33 @@ window.setLang = function(code) {
   // Routes to the correct table based on currentUser.role.
   // Runs best-effort (fire-and-forget) so it never blocks the UI.
   _p10SaveLangToDB(code);
+  // ── Update AI chat input placeholder ─────────────────────────────────────
+  _updateAIInputPlaceholder(code);
 };
+
+// Update the AI chat input placeholder text to match the active language.
+var _AI_INPUT_PLACEHOLDERS = {
+  en: 'Ask anything about AgriBridge…',
+  lg: 'Buuza ekintu kyona ku AgriBridge…',
+  sw: 'Uliza chochote kuhusu AgriBridge…',
+  rw: 'Baza ikibazo cyose ku AgriBridge…',
+  fr: 'Posez n\'importe quelle question sur AgriBridge…',
+  ar: 'اسأل أي شيء عن AgriBridge…',
+  ac: 'Penye gin mo mo ikom AgriBridge…',
+  rk: 'Biira ekibazo kyona ku AgriBridge…',
+  lu: 'Saba ekintu kyona ku AgriBridge…',
+  at: 'Penj itunga logo logo pa AgriBridge…',
+  ls: 'Buuza ekintu kyona ku AgriBridge…',
+  so: 'Wax kasta weydii AgriBridge…',
+  hi: 'AgriBridge के बारे में कुछ भी पूछें…',
+  zh: '询问有关 AgriBridge 的任何问题…',
+  ha: 'Yi tambaya game da AgriBridge…',
+};
+function _updateAIInputPlaceholder(code) {
+  var inp = document.getElementById('aiInput');
+  if (!inp) return;
+  inp.placeholder = _AI_INPUT_PLACEHOLDERS[code] || _AI_INPUT_PLACEHOLDERS['en'];
+}
 
 // Save the user's preferred language to whichever identity table owns them.
 // farmers  → role: farmer / exporter / vendor / supplier / hotel
