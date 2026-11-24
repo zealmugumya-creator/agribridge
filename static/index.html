@@ -14484,15 +14484,30 @@ async function doLogin() {
   }
 }
 
+// ── REST fallback signup (no Supabase library needed) ─────────────────
+async function _restSignUp(email, pwd, meta) {
+  var res = await fetch(SUPABASE_URL + '/auth/v1/signup', {
+    method: 'POST',
+    headers: { 'apikey': SUPABASE_ANON, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ email: email, password: pwd, data: meta })
+  });
+  var j = await res.json().catch(function(){ return {}; });
+  if (!res.ok) {
+    var msg = (j && (j.msg || j.message || j.error_description)) || 'Registration failed.';
+    throw new Error(msg);
+  }
+  return j; // { user, session } or { id, ... }
+}
+
 // ── doRegister — replaces original ───────────────────
 async function doRegister() {
   _clearRegErr();
   if (!sbAuth) {
     // Supabase library may still be loading — try to init once more
     if (typeof supabase !== 'undefined') { initSupabase(); }
-    // Wait up to 4s for sbAuth to become available
-    for (var _w = 0; _w < 8 && !sbAuth; _w++) { await new Promise(r => setTimeout(r, 500)); }
-    if (!sbAuth) { _showRegErr('Connection error. Please check your internet and try again.'); return; }
+    // Wait up to 3s for sbAuth to become available
+    for (var _w = 0; _w < 6 && !sbAuth; _w++) { await new Promise(r => setTimeout(r, 500)); }
+    // If still no sbAuth, we'll use the REST fallback below — don't block
   }
   var name     = ((document.getElementById('regName')    ||{}).value||'').trim();
   var phone    = ((document.getElementById('regPhone')   ||{}).value||'').trim();
@@ -14524,39 +14539,45 @@ async function doRegister() {
   var btn = document.getElementById('regSubmitBtn');
   if (btn) { btn.disabled = true; btn.textContent = 'Creating Account...'; }
   try {
-    var res = await sbAuth.auth.signUp({
-      email: email, password: pwd,
-      options: { data: { name: name, full_name: name, phone: phone, role: role, district: district,
-        legal_signup: { accepted_at: new Date().toISOString(), versions: legalVersions },
-        marketing_optin: { sms: wantsSms } } }
-    });
-    if (res.error) {
-      var msg = res.error.message || 'Registration failed.';
-      if (msg.indexOf('already') > -1 || msg.indexOf('duplicate') > -1) {
-        msg = 'This email is already registered. Try logging in.';
-      } else if (msg.indexOf('Password') > -1) {
-        msg = 'Password must be at least 6 characters.';
-      } else if (msg.indexOf('valid email') > -1) {
-        msg = 'Please enter a valid email address.';
-      } else if (msg.indexOf('rate') > -1 || msg.indexOf('limit') > -1) {
-        msg = 'Too many attempts. Wait 1 minute and try again.';
+    var meta = { name: name, full_name: name, phone: phone, role: role, district: district,
+      legal_signup: { accepted_at: new Date().toISOString(), versions: legalVersions },
+      marketing_optin: { sms: wantsSms } };
+    var resData, resSession;
+    if (sbAuth) {
+      var res = await sbAuth.auth.signUp({ email: email, password: pwd, options: { data: meta } });
+      if (res.error) {
+        var msg = res.error.message || 'Registration failed.';
+        if (msg.indexOf('already') > -1 || msg.indexOf('duplicate') > -1) msg = 'This email is already registered. Try logging in.';
+        else if (msg.indexOf('Password') > -1) msg = 'Password must be at least 6 characters.';
+        else if (msg.indexOf('valid email') > -1) msg = 'Please enter a valid email address.';
+        else if (msg.indexOf('rate') > -1 || msg.indexOf('limit') > -1) msg = 'Too many attempts. Wait 1 minute and try again.';
+        _showRegErr('Registration failed: ' + msg);
+        return;
       }
-      _showRegErr('Registration failed: ' + msg);
-      return;
+      if (!res.data || !res.data.user) { _showRegErr('Registration did not return an account. Please try again.'); return; }
+      resData = res.data.user; resSession = res.data.session;
+    } else {
+      // Library not loaded — use direct REST API
+      try {
+        var j = await _restSignUp(email, pwd, meta);
+        resData = j.user || j; resSession = j.session || null;
+        if (!resData || !resData.id) { _showRegErr('Registration did not return an account. Please try again.'); return; }
+      } catch(e) {
+        var msg = e.message || 'Registration failed.';
+        if (msg.indexOf('already') > -1 || msg.indexOf('duplicate') > -1) msg = 'This email is already registered. Try logging in.';
+        else if (msg.indexOf('rate') > -1 || msg.indexOf('limit') > -1) msg = 'Too many attempts. Wait 1 minute and try again.';
+        _showRegErr('Registration failed: ' + msg); return;
+      }
     }
-    if (!res.data || !res.data.user) {
-      _showRegErr('Registration did not return an account. Please try again.');
-      return;
-    }
-    var needsConfirm = !res.data.session;
-    var profile = {id: res.data.user.id, full_name: name, phone: phone, role: role, district: district, email: email};
+    var needsConfirm = !resSession;
+    var profile = {id: resData.id, full_name: name, phone: phone, role: role, district: district, email: email};
     try { localStorage.setItem('ab_pending_profile', JSON.stringify(profile)); } catch(e){}
     closeModal('registerModal');
     if (needsConfirm) {
       showToast('Check your email (' + email + ') and click the confirmation link!');
     } else {
       currentUser = { name:name, phone:phone, role:role, district:district, email:email,
-                      supaId: res.data.user ? res.data.user.id : null };
+                      supaId: resData.id || null };
       updateNavUser(name, role);
       showToast('Welcome to AgriBridge, ' + name + '! Account created.');
       if (!await flushPendingProfiles()) {
@@ -14588,15 +14609,12 @@ async function doRegister() {
 var _oauthOnboardingOpen = false;
 
 async function refreshOAuthButtons() {
-  try {
-    var r = await fetch(SUPA_URL + '/auth/v1/settings', { headers: { apikey: SUPA_KEY } });
-    var j = await r.json().catch(function(){ return {}; });
-    var enabled = !!(j && j.external && j.external.google);
-    ['googleLoginWrap', 'googleRegisterWrap'].forEach(function(id) {
-      var el = document.getElementById(id);
-      if (el) el.style.display = enabled ? 'block' : 'none';
-    });
-  } catch (e) { /* leave the buttons hidden */ }
+  // Always show Google buttons — Google OAuth is configured in Supabase.
+  // Don't hide them behind a network check that fails on slow connections.
+  ['googleLoginWrap', 'googleRegisterWrap'].forEach(function(id) {
+    var el = document.getElementById(id);
+    if (el) el.style.display = 'block';
+  });
 }
 
 async function doGoogleLogin(source) {
@@ -14604,8 +14622,9 @@ async function doGoogleLogin(source) {
     if (typeof supabase !== 'undefined') { initSupabase(); }
     for (var _w = 0; _w < 8 && !sbAuth; _w++) { await new Promise(r => setTimeout(r, 500)); }
     if (!sbAuth) {
-      if (source === 'register') _showRegErr('Connection error. Please check your internet and try again.');
-      else _showLoginErr('Connection error. Please check your internet and try again.');
+      // Library still not loaded — use direct OAuth redirect URL
+      var redirectTo = encodeURIComponent(window.location.origin + '/');
+      window.location.href = SUPABASE_URL + '/auth/v1/authorize?provider=google&redirect_to=' + redirectTo + '&prompt=select_account';
       return;
     }
   }
