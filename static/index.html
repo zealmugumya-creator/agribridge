@@ -23,7 +23,7 @@
 })();
 </script>
 <script src="business-config.js"></script>
-<meta http-equiv="Content-Security-Policy" content="default-src 'self' https: data: blob:; script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://fonts.googleapis.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://fonts.gstatic.com; img-src 'self' https: data: blob:; connect-src 'self' https://lvloaweijidgcuezdnmu.supabase.co https://agribridge-1-og7a.onrender.com wss://lvloaweijidgcuezdnmu.supabase.co https://nominatim.openstreetmap.org https://router.project-osrm.org; font-src 'self' https://fonts.gstatic.com; frame-src https://www.youtube.com;">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self' https: data: blob:; script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://unpkg.com https://fonts.googleapis.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://fonts.gstatic.com; img-src 'self' https: data: blob:; connect-src 'self' https://lvloaweijidgcuezdnmu.supabase.co https://agribridge-1-og7a.onrender.com wss://lvloaweijidgcuezdnmu.supabase.co https://nominatim.openstreetmap.org https://router.project-osrm.org; font-src 'self' https://fonts.gstatic.com; frame-src https://www.youtube.com;">
 <meta http-equiv="X-Content-Type-Options" content="nosniff">
 <meta http-equiv="X-Frame-Options" content="SAMEORIGIN">
 <meta http-equiv="Referrer-Policy" content="strict-origin-when-cross-origin">
@@ -51,7 +51,7 @@
 <link rel="icon" type="image/png" sizes="512x512" href="icon-512.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=Syne:wght@600;700;800&family=Playfair+Display:ital,wght@0,700;0,800;1,700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2" onerror="var s=document.createElement('script');s.src='https://unpkg.com/@supabase/supabase-js@2';document.head.appendChild(s)"></script>
 <style>
 /* ══════════════════════════════════════════════════════════════
    AGRIBRIDGE v6.2 — COMPLETE CSS
@@ -14421,7 +14421,11 @@ function updateNavUser(nameOrUser, role) {
 async function doLogin() {
   _clearLoginErr();
   if (_isLockedOut()) { _showLockoutUI(); return; }
-  if (!sbAuth) { _showLoginErr('Not connected. Please refresh the page.'); return; }
+  if (!sbAuth) {
+    if (typeof supabase !== 'undefined') { initSupabase(); }
+    for (var _w = 0; _w < 8 && !sbAuth; _w++) { await new Promise(r => setTimeout(r, 500)); }
+    if (!sbAuth) { _showLoginErr('Connection error. Please check your internet and try again.'); return; }
+  }
   var raw = ((document.getElementById('loginPhone')||{}).value||'').trim();
   var pwd = (document.getElementById('loginPwd')||{}).value||'';
   if (!raw) { _showLoginErr('Please enter your email.'); return; }
@@ -14483,7 +14487,13 @@ async function doLogin() {
 // ── doRegister — replaces original ───────────────────
 async function doRegister() {
   _clearRegErr();
-  if (!sbAuth) { _showRegErr('Not connected. Please refresh the page.'); return; }
+  if (!sbAuth) {
+    // Supabase library may still be loading — try to init once more
+    if (typeof supabase !== 'undefined') { initSupabase(); }
+    // Wait up to 4s for sbAuth to become available
+    for (var _w = 0; _w < 8 && !sbAuth; _w++) { await new Promise(r => setTimeout(r, 500)); }
+    if (!sbAuth) { _showRegErr('Connection error. Please check your internet and try again.'); return; }
+  }
   var name     = ((document.getElementById('regName')    ||{}).value||'').trim();
   var phone    = ((document.getElementById('regPhone')   ||{}).value||'').trim();
   var email    = ((document.getElementById('regEmail')   ||{}).value||'').trim();
@@ -14591,9 +14601,13 @@ async function refreshOAuthButtons() {
 
 async function doGoogleLogin(source) {
   if (!sbAuth) {
-    if (source === 'register') _showRegErr('Not connected. Please refresh the page.');
-    else _showLoginErr('Not connected. Please refresh the page.');
-    return;
+    if (typeof supabase !== 'undefined') { initSupabase(); }
+    for (var _w = 0; _w < 8 && !sbAuth; _w++) { await new Promise(r => setTimeout(r, 500)); }
+    if (!sbAuth) {
+      if (source === 'register') _showRegErr('Connection error. Please check your internet and try again.');
+      else _showLoginErr('Connection error. Please check your internet and try again.');
+      return;
+    }
   }
   var btn = document.getElementById(source === 'register' ? 'googleRegisterBtn' : 'googleLoginBtn');
   if (btn) btn.disabled = true;
