@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- AB_BUILD:20261125_UI -->
+<!-- AB_BUILD:20261125_UI2 -->
 <html lang="en">
 <head>
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
@@ -9,7 +9,7 @@
 // Self-update: if this page is served from browser cache, force a fresh reload.
 // We store the build stamp in sessionStorage; if it mismatches we reload once.
 (function(){
-  var STAMP = '20261125_UI';
+  var STAMP = '20261125_UI2';
   var key = '_ab_stamp';
   try {
     if (sessionStorage.getItem(key) !== STAMP) {
@@ -5425,7 +5425,7 @@ setInterval(() => { document.querySelectorAll('.flash-countdown').forEach(el => 
 // PAGE NAVIGATION
 // ─────────────────────────────────────────────────────────────────
 let _navHistory = ['home'];
-function openMore(){ if(typeof renderMoreGrid==='function') renderMoreGrid(); var o=document.getElementById('moreOverlay'),s=document.getElementById('moreSheet'); if(o)o.classList.add('open'); if(s)s.classList.add('open'); }
+function openMore(){ try{ if(typeof renderMoreGrid==='function') renderMoreGrid(); }catch(e){} var o=document.getElementById('moreOverlay'),s=document.getElementById('moreSheet'); if(o)o.classList.add('open'); if(s){s.classList.add('open'); s.style.zIndex='400';} }
 function closeMore(){ var o=document.getElementById('moreOverlay'),s=document.getElementById('moreSheet'); if(o)o.classList.remove('open'); if(s)s.classList.remove('open'); }
 function mnav(n){ closeMore(); showPage(n); }
 // Pages that require the user to be signed in
@@ -14539,25 +14539,32 @@ function authSelectRole(role, cardEl) {
   // Store for use
   window._authSelectedRole = role;
 }
-// Pre-select on modal open
-document.addEventListener('DOMContentLoaded', function(){
-  var regModal = document.getElementById('registerModal');
-  if (regModal) {
+// Pre-select role card when register modal opens
+(function(){
+  function _initRoleObserver(){
+    var regModal = document.getElementById('registerModal');
+    if (!regModal) return;
     var observer = new MutationObserver(function(){
-      if (regModal.classList.contains('open')) {
-        var sel = document.getElementById('regRole');
-        var curRole = (sel && sel.value) || 'farmer';
-        var cards = document.querySelectorAll('#authRoleCards .auth-role-card');
-        cards.forEach(function(c){ c.classList.remove('selected'); });
-        // map select value back to card
-        var isBuyer = ['vendor','hotel','exporter','supplier'].indexOf(curRole) > -1;
-        var targetCard = cards[isBuyer ? 1 : 0];
-        if (targetCard) targetCard.classList.add('selected');
-      }
+      try {
+        if (regModal.classList.contains('open')) {
+          var sel = document.getElementById('regRole');
+          var curRole = (sel && sel.value) || 'farmer';
+          var cards = document.querySelectorAll('#authRoleCards .auth-role-card');
+          cards.forEach(function(c){ c.classList.remove('selected'); });
+          var isBuyer = ['vendor','hotel','exporter','supplier'].indexOf(curRole) > -1;
+          var targetCard = cards[isBuyer ? 1 : 0];
+          if (targetCard) targetCard.classList.add('selected');
+        }
+      } catch(e){}
     });
     observer.observe(regModal, { attributes: true, attributeFilter: ['class'] });
   }
-});
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', _initRoleObserver);
+  } else {
+    _initRoleObserver();
+  }
+})();
 
 async function doRegister() {
   _clearRegErr();
