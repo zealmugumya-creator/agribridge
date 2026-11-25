@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- AB_BUILD:20261125_LOCKDOWN_D -->
+<!-- AB_BUILD:20261125_LOCKDOWN_E -->
 <html lang="en">
 <head>
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
@@ -9,7 +9,7 @@
 // Self-update: if this page is served from browser cache, force a fresh reload.
 // We store the build stamp in sessionStorage; if it mismatches we reload once.
 (function(){
-  var STAMP = '20261125_LOCKDOWN_D';
+  var STAMP = '20261125_LOCKDOWN_E';
   var key = '_ab_stamp';
   try {
     if (sessionStorage.getItem(key) !== STAMP) {
@@ -2797,11 +2797,11 @@ html.is-web:not(.app-entered) body{overflow:hidden}
     // Only skip welcome screen if actually logged in — not just "entered before"
     var entered=false; try{ entered=sessionStorage.getItem('ab_entered')==='1' && loggedIn; }catch(e){}
     d.classList.add(isApp?'is-app':'is-web');
-    // Web browser: always open, no lock screen
-    // Installed PWA/app: requires login
-    if(!isApp || loggedIn || entered) {
+    // Website (browser): shows welcome/landing page — enter app only after login
+    // PWA (installed app): shows welcome screen — enter app only after login
+    // Both require login; welcome screen is the public face for both
+    if(loggedIn || entered) {
       d.classList.add('app-entered');
-      // Auto-load home data for returning users
       document.addEventListener('DOMContentLoaded', function(){
         if(typeof showPage==='function') showPage('home');
         else if(typeof loadHomeStats==='function') loadHomeStats();
@@ -4875,10 +4875,8 @@ function mnav(n){ closeMore(); showPage(n); }
 var _AUTH_REQUIRED_PAGES = ['cart','orders','dashboard','farmer-produce','farmer-orders','farmer-earnings','farmer-profile','buyer-orders','boost','pitch'];
 function showPage(name) {
   console.log('[AB] showPage:', name, 'currentUser:', !!currentUser);
-  // Auth gate — only PWA/installed app requires login; browser is open
-  var isApp = document.documentElement.classList.contains('is-app');
-  if (isApp && !currentUser) {
-    // Return to welcome screen in PWA mode
+  // Auth gate — both browser and PWA require login
+  if (!currentUser) {
     try { document.documentElement.classList.remove('app-entered'); } catch(e){}
     try { sessionStorage.removeItem('ab_entered'); } catch(e){}
     var wl = document.getElementById('webLanding');
