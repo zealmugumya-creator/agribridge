@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- AB_BUILD:20261125_LOCKDOWN_E -->
+<!-- AB_BUILD:20261125_LOCKDOWN_F -->
 <html lang="en">
 <head>
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
@@ -9,7 +9,7 @@
 // Self-update: if this page is served from browser cache, force a fresh reload.
 // We store the build stamp in sessionStorage; if it mismatches we reload once.
 (function(){
-  var STAMP = '20261125_LOCKDOWN_E';
+  var STAMP = '20261125_LOCKDOWN_F';
   var key = '_ab_stamp';
   try {
     if (sessionStorage.getItem(key) !== STAMP) {
@@ -2797,10 +2797,9 @@ html.is-web:not(.app-entered) body{overflow:hidden}
     // Only skip welcome screen if actually logged in — not just "entered before"
     var entered=false; try{ entered=sessionStorage.getItem('ab_entered')==='1' && loggedIn; }catch(e){}
     d.classList.add(isApp?'is-app':'is-web');
-    // Website (browser): shows welcome/landing page — enter app only after login
-    // PWA (installed app): shows welcome screen — enter app only after login
-    // Both require login; welcome screen is the public face for both
-    if(loggedIn || entered) {
+    // Website (browser): always open — browse freely without login
+    // PWA (installed app): must login — welcome screen shown until signed in
+    if(!isApp || loggedIn || entered) {
       d.classList.add('app-entered');
       document.addEventListener('DOMContentLoaded', function(){
         if(typeof showPage==='function') showPage('home');
@@ -4875,8 +4874,9 @@ function mnav(n){ closeMore(); showPage(n); }
 var _AUTH_REQUIRED_PAGES = ['cart','orders','dashboard','farmer-produce','farmer-orders','farmer-earnings','farmer-profile','buyer-orders','boost','pitch'];
 function showPage(name) {
   console.log('[AB] showPage:', name, 'currentUser:', !!currentUser);
-  // Auth gate — both browser and PWA require login
-  if (!currentUser) {
+  // Auth gate — PWA only; browser users browse freely
+  var isApp = document.documentElement.classList.contains('is-app');
+  if (isApp && !currentUser) {
     try { document.documentElement.classList.remove('app-entered'); } catch(e){}
     try { sessionStorage.removeItem('ab_entered'); } catch(e){}
     var wl = document.getElementById('webLanding');
