@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- AB_BUILD:20261125_LOCKDOWN_G -->
+<!-- AB_BUILD:20261125_LOCKDOWN_H -->
 <html lang="en">
 <head>
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
@@ -9,7 +9,7 @@
 // Self-update: if this page is served from browser cache, force a fresh reload.
 // We store the build stamp in sessionStorage; if it mismatches we reload once.
 (function(){
-  var STAMP = '20261125_LOCKDOWN_G';
+  var STAMP = '20261125_LOCKDOWN_H';
   var key = '_ab_stamp';
   try {
     if (sessionStorage.getItem(key) !== STAMP) {
@@ -1123,14 +1123,13 @@ input:focus,select:focus,textarea:focus{outline:none;border-color:var(--green) !
   --wl-shadow:0 4px 24px rgba(26,122,60,.12);
 }
 #webLanding{display:none}
-/* Website (browser): never show welcome screen — browse freely */
-/* PWA (is-app): show welcome screen until logged in */
-html.is-app:not(.app-entered) #webLanding{
+/* Browser: show Cafe Javas white landing page */
+html.is-web:not(.app-entered) #webLanding{
   display:block;position:fixed;inset:0;z-index:6000;
   overflow-y:auto;-webkit-overflow-scrolling:touch;
   background:var(--wl-cream);color:var(--wl-text)
 }
-html.is-app:not(.app-entered) body{overflow:hidden}
+html.is-web:not(.app-entered) body{overflow:hidden}
 #webLanding *{box-sizing:border-box}
 #webLanding a{color:inherit;text-decoration:none}
 
@@ -2811,282 +2810,842 @@ html.is-app:not(.app-entered) body{overflow:hidden}
   }catch(e){ document.documentElement.classList.add('is-web'); }
 })();</script>
 
-<!-- ══════════════════ WEB LANDING (browser visitors only) ══════════════════ -->
-<div id="webLanding" role="region" aria-label="AgriBridge Welcome">
+<!-- ══════════════════ WEB LANDING (browser visitors — Cafe Javas style) ══════════════════ -->
+<div id="webLanding" role="region" aria-label="AgriBridge — Bridging Farms, Building Markets">
 
-<!-- ══ WELCOME SCREEN CSS ══ -->
-<style>
-#webLanding{
-  background:#060f09;
-  color:#fff;
-  min-height:100vh;
-  display:flex;
-  flex-direction:column;
-  font-family:'Plus Jakarta Sans',Inter,sans-serif;
-}
-/* Top bar */
-.wl2-topbar{
-  display:flex;align-items:center;justify-content:space-between;
-  padding:14px 18px 10px;
-  position:relative;z-index:2;
-}
-.wl2-logo{display:flex;align-items:center;gap:9px}
-.wl2-logo img{width:36px;height:36px;border-radius:10px}
-.wl2-logo span{font-weight:800;font-size:1.05rem;color:#fff}
-.wl2-topbar-right{display:flex;align-items:center;gap:8px}
-.wl2-lang{background:rgba(255,255,255,0.1);border:1px solid rgba(255,255,255,0.15);color:#fff;border-radius:8px;padding:5px 10px;font-size:0.82rem;font-weight:600;cursor:pointer;font-family:inherit}
-.wl2-login-btn{background:transparent;border:1.5px solid rgba(255,255,255,0.3);color:#fff;border-radius:8px;padding:6px 16px;font-size:0.85rem;font-weight:700;cursor:pointer;font-family:inherit;transition:all 0.2s}
-.wl2-login-btn:hover{border-color:#fff;background:rgba(255,255,255,0.08)}
-/* Hero carousel */
-.wl2-hero{
-  position:relative;overflow:hidden;
-  margin:0 14px;border-radius:18px;
-  height:200px;flex-shrink:0;
-}
-.wl2-hero-slides{display:flex;height:100%;transition:transform 0.5s cubic-bezier(.4,0,.2,1)}
-.wl2-hero-slide{
-  min-width:100%;height:100%;
-  background-size:cover;background-position:center;
-  position:relative;border-radius:18px;overflow:hidden;
-}
-.wl2-hero-slide::after{
-  content:'';position:absolute;inset:0;
-  background:linear-gradient(to top, rgba(6,15,9,0.85) 0%, rgba(6,15,9,0.1) 60%);
-}
-.wl2-hero-label{
-  position:absolute;bottom:12px;left:14px;right:14px;z-index:1;
-  display:flex;align-items:center;justify-content:space-between;
-}
-.wl2-hero-price{
-  background:rgba(6,15,9,0.7);border:1px solid rgba(255,255,255,0.15);
-  color:#fff;border-radius:20px;padding:4px 12px;
-  font-size:0.78rem;font-weight:600;backdrop-filter:blur(8px);
-}
-.wl2-hero-live{
-  background:rgba(6,15,9,0.7);border:1px solid rgba(76,175,80,0.5);
-  color:#4caf50;border-radius:20px;padding:4px 10px;
-  font-size:0.75rem;font-weight:700;backdrop-filter:blur(8px);
-  display:flex;align-items:center;gap:5px;
-}
-.wl2-hero-live::before{content:'';width:7px;height:7px;border-radius:50%;background:#4caf50;display:inline-block;animation:wl2pulse 1.5s infinite}
-@keyframes wl2pulse{0%,100%{opacity:1}50%{opacity:0.4}}
-.wl2-dots{
-  position:absolute;bottom:-18px;left:50%;transform:translateX(-50%);
-  display:flex;gap:5px;z-index:2;
-}
-.wl2-dot{width:6px;height:6px;border-radius:50%;background:rgba(255,255,255,0.3);transition:all 0.3s;cursor:pointer}
-.wl2-dot.active{background:#4caf50;width:18px;border-radius:3px}
-/* Main content area */
-.wl2-body{
-  flex:1;display:flex;flex-direction:column;
-  padding:28px 18px 24px;
-}
-.wl2-headline{font-size:1.5rem;font-weight:800;line-height:1.25;margin-bottom:6px;color:#fff}
-.wl2-headline em{color:#4caf50;font-style:normal}
-.wl2-sub{font-size:0.85rem;color:rgba(255,255,255,0.65);line-height:1.5;margin-bottom:8px}
-/* Trust chips */
-.wl2-chips{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:20px}
-.wl2-chip{
-  background:rgba(255,255,255,0.07);border:1px solid rgba(255,255,255,0.12);
-  color:rgba(255,255,255,0.75);border-radius:20px;padding:4px 10px;
-  font-size:0.72rem;font-weight:600;display:flex;align-items:center;gap:4px;
-}
-.wl2-chip::before{content:'✓';color:#4caf50}
-/* How to start */
-.wl2-how{font-size:0.88rem;font-weight:700;color:#fff;margin-bottom:10px}
-/* Role cards */
-.wl2-roles{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:20px}
-.wl2-role{
-  background:rgba(255,255,255,0.05);border:1.5px solid rgba(255,255,255,0.12);
-  border-radius:14px;padding:16px 12px;cursor:pointer;transition:all 0.2s;
-  text-align:left;
-}
-.wl2-role:hover,.wl2-role.sel{border-color:#4caf50;background:rgba(76,175,80,0.1)}
-.wl2-role.sel{box-shadow:0 0 0 2px rgba(76,175,80,0.2)}
-.wl2-role-icon{font-size:1.5rem;margin-bottom:7px;display:block}
-.wl2-role-title{font-weight:800;font-size:0.9rem;color:#fff;margin-bottom:3px}
-.wl2-role-sub{font-size:0.72rem;color:rgba(255,255,255,0.5);line-height:1.3}
-/* CTA buttons */
-.wl2-cta-stack{display:flex;flex-direction:column;gap:10px}
-.wl2-get-started{
-  width:100%;padding:15px;background:#4caf50;color:#fff;
-  border:none;border-radius:13px;font-size:1rem;font-weight:800;
-  cursor:pointer;font-family:inherit;
-  box-shadow:0 4px 20px rgba(76,175,80,0.35);transition:all 0.2s;
-}
-.wl2-get-started:hover{background:#43a047;box-shadow:0 6px 24px rgba(76,175,80,0.45)}
-.wl2-google{
-  width:100%;display:flex;align-items:center;justify-content:center;gap:10px;
-  padding:14px;background:#fff;color:#1f1f1f;
-  border:none;border-radius:13px;font-size:0.95rem;font-weight:700;
-  cursor:pointer;font-family:inherit;box-shadow:0 2px 8px rgba(0,0,0,0.25);
-  transition:all 0.2s;
-}
-.wl2-google:hover{background:#f5f5f5}
-.wl2-google svg{width:20px;height:20px;flex-shrink:0}
-.wl2-guest{text-align:center;margin-top:12px;font-size:0.8rem;color:rgba(255,255,255,0.4)}
-.wl2-guest a{color:rgba(255,255,255,0.4);text-decoration:none}
-.wl2-guest a:hover{color:rgba(255,255,255,0.7)}
-</style>
-
-<!-- TOP BAR -->
-<div class="wl2-topbar">
-  <div class="wl2-logo">
-    <img src="icon.png" alt="AgriBridge">
-    <span>AgriBridge</span>
-  </div>
-  <div class="wl2-topbar-right">
-    <select class="wl2-lang" onchange="if(typeof setLang==='function')setLang(this.value)">
-      <option value="en">EN</option>
-      <option value="lg">LG</option>
-      <option value="ny">NY</option>
-      <option value="sw">SW</option>
-    </select>
-    <button class="wl2-login-btn" onclick="wl2Login()">Log In</button>
-  </div>
-</div>
-
-<!-- HERO CAROUSEL -->
-<div class="wl2-hero" id="wl2Hero">
-  <div class="wl2-hero-slides" id="wl2Slides">
-    <div class="wl2-hero-slide" style="background-image:url('https://images.unsplash.com/photo-1542838132-92c53300491e?w=800&q=80')">
-      <div class="wl2-hero-label">
-        <span class="wl2-hero-price">🌽 Fresh Maize — UGX 900/kg (Gulu)</span>
-        <span class="wl2-hero-live">Live</span>
-      </div>
+  <!-- ══ NAV ══ -->
+  <header class="wl-nav" id="wlNav">
+    <div style="display:flex;align-items:center">
+      <img src="/logo.png" alt="AgriBridge" style="height:52px;width:auto;object-fit:contain;filter:drop-shadow(0 2px 8px rgba(26,122,60,0.25)) drop-shadow(0 1px 3px rgba(0,0,0,0.12))" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'">
+      <span style="display:none;align-items:center;font-family:'Playfair Display',serif;font-weight:800;font-size:1.3rem;color:var(--wl-green)">🌱 Agri<span style="color:var(--wl-text)">Bridge</span></span>
     </div>
-    <div class="wl2-hero-slide" style="background-image:url('https://images.unsplash.com/photo-1500595046743-cd271d694d30?w=800&q=80')">
-      <div class="wl2-hero-label">
-        <span class="wl2-hero-price">🐄 Ankole Cattle — UGX 2.8M/head</span>
-        <span class="wl2-hero-live">Live</span>
-      </div>
-    </div>
-    <div class="wl2-hero-slide" style="background-image:url('https://images.unsplash.com/photo-1587049352846-4a222e784d38?w=800&q=80')">
-      <div class="wl2-hero-label">
-        <span class="wl2-hero-price">🍅 Tomatoes — UGX 1,500/kg (Wakiso)</span>
-        <span class="wl2-hero-live">Live</span>
-      </div>
-    </div>
-  </div>
-  <div class="wl2-dots" id="wl2Dots">
-    <div class="wl2-dot active" onclick="wl2GoSlide(0)"></div>
-    <div class="wl2-dot" onclick="wl2GoSlide(1)"></div>
-    <div class="wl2-dot" onclick="wl2GoSlide(2)"></div>
-  </div>
-</div>
-
-<!-- MAIN BODY -->
-<div class="wl2-body">
-  <h1 class="wl2-headline">Uganda's <em>Live</em> Farm-to-<br>Market Feed</h1>
-  <p class="wl2-sub">Trade directly with verified farmers &amp; wholesale buyers. Tap any live trade below to explore or start.</p>
-  <div class="wl2-chips">
-    <span class="wl2-chip">Verified Producers</span>
-    <span class="wl2-chip">Mobile Money Escrow</span>
-    <span class="wl2-chip">Live District Prices</span>
-  </div>
-  <div class="wl2-how">How would you like to start?</div>
-  <div class="wl2-roles" id="wl2RoleCards">
-    <div class="wl2-role sel" onclick="wl2SelectRole('farmer',this)">
-      <span class="wl2-role-icon">🌱</span>
-      <div class="wl2-role-title">I am a Seller</div>
-      <div class="wl2-role-sub">Farmer, Producer, Cooperative</div>
-    </div>
-    <div class="wl2-role" onclick="wl2SelectRole('vendor',this)">
-      <span class="wl2-role-icon">🧺</span>
-      <div class="wl2-role-title">I am a Buyer</div>
-      <div class="wl2-role-sub">Wholesale, Trader, Off-taker</div>
-    </div>
-  </div>
-  <div class="wl2-cta-stack">
-    <button class="wl2-get-started" onclick="wl2GetStarted()">Get Started</button>
-    <button class="wl2-google" onclick="wl2Google()">
-      <svg viewBox="0 0 48 48"><path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/><path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/><path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"/><path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/></svg>
-      Continue with Google
+    <nav class="wl-navlinks">
+      <a href="#wl-how" onclick="wlNavScroll('wl-how');return false">How it works</a>
+      <a href="#wl-roles" onclick="wlNavScroll('wl-roles');return false">Who it's for</a>
+      <a href="#wl-why" onclick="wlNavScroll('wl-why');return false">Why Us</a>
+      <a href="#" onclick="wlOpenBrowse();return false" style="font-weight:700;color:var(--wl-green)">Browse Produce</a>
+      <button class="wl-btn ghost" onclick="enterApp('login')">Log In</button>
+      <button class="wl-btn" onclick="enterApp('register')">Join Free</button>
+    </nav>
+    <button class="wl-nav-toggle" id="wlNavToggle" aria-label="Open menu" onclick="wlToggleMobileNav()">
+      <span></span><span></span><span></span>
     </button>
-    <div class="wl2-guest">Already have an account? <a href="#" onclick="wl2Login();return false">Log In →</a></div>
+  </header>
+  <!-- Mobile nav dropdown -->
+  <div class="wl-nav-mobile" id="wlNavMobile">
+    <a href="#wl-how" onclick="wlNavScroll('wl-how');wlToggleMobileNav();return false">How it works</a>
+    <a href="#wl-roles" onclick="wlNavScroll('wl-roles');wlToggleMobileNav();return false">Who it's for</a>
+    <a href="#wl-why" onclick="wlNavScroll('wl-why');wlToggleMobileNav();return false">Why AgriBridge</a>
+    <a href="#" onclick="wlOpenBrowse();wlToggleMobileNav();return false" style="color:var(--wl-green);font-weight:700">🛒 Browse All Produce</a>
+    <div class="wl-nav-mobile-btns">
+      <button class="wl-btn ghost" onclick="enterApp('login');wlToggleMobileNav()">Log In</button>
+      <button class="wl-btn" onclick="enterApp('register');wlToggleMobileNav()">Join Free</button>
+    </div>
   </div>
-</div>
 
-<script>
-// ── Welcome screen logic ──────────────────────────────────────
-var _wl2Role = 'farmer';
-var _wl2Slide = 0;
-var _wl2SlideTimer = null;
+  <!-- ══ HERO SLIDER ══ -->
+  <div class="wl-slider-wrap" id="wlSliderWrap">
+    <div class="wl-slides" id="wlSlides">
 
-function wl2SelectRole(role, el) {
-  _wl2Role = role;
-  document.querySelectorAll('.wl2-role').forEach(function(c){ c.classList.remove('sel'); });
-  if (el) el.classList.add('sel');
-}
+      <!-- Slide 1 — Marketplace -->
+      <div class="wl-slide" style="background:none">
+        <img src="/img/hero1.jpg" alt="" style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover;object-position:center" aria-hidden="true">
+        <div style="position:absolute;inset:0;background:linear-gradient(100deg,rgba(5,25,12,.82) 40%,rgba(5,25,12,.35) 100%)" aria-hidden="true"></div>
+        <div class="wl-slide-inner">
+          <div>
+            <div class="wl-slide-label">🌍 Bridging Farms · Building Markets</div>
+            <h1 class="wl-slide-h">Uganda's <em>freshest</em><br>farm marketplace</h1>
+            <p class="wl-slide-p">Buy directly from verified Ugandan farmers. No middlemen, farm-fresh prices, delivered to your door.</p>
+            <div class="wl-slide-cta">
+              <button class="wl-slide-btn primary" onclick="wlOpenBrowse()">Browse Produce →</button>
+              <button class="wl-slide-btn outline" onclick="enterApp('register')">Join Free</button>
+            </div>
+          </div>
+          <div class="wl-slide-art" aria-hidden="true">
+            <img src="/img/maize.jpg" alt="Fresh Maize" style="width:min(260px,42vw);height:min(260px,42vw);object-fit:cover;border-radius:24px;box-shadow:0 20px 60px rgba(0,0,0,.55);border:3px solid rgba(255,255,255,.18)">
+          </div>
+        </div>
+      </div>
 
-function wl2GetStarted() {
-  // Set role in register form then enter app
-  if (typeof enterApp === 'function') {
-    enterApp('register');
-    // After modal opens, set the role
-    setTimeout(function(){
-      var sel = document.getElementById('regRole');
-      if (sel) { sel.value = _wl2Role; if(typeof updateRegRoleTerms==='function') updateRegRoleTerms(); }
-      // Also update role cards in register modal
-      if (typeof authSelectRole === 'function') {
-        var isBuyer = ['vendor','hotel','exporter','supplier'].indexOf(_wl2Role) > -1;
-        var cards = document.querySelectorAll('#authRoleCards .auth-role-card');
-        cards.forEach(function(c){ c.classList.remove('selected'); });
-        if (cards[isBuyer ? 1 : 0]) cards[isBuyer ? 1 : 0].classList.add('selected');
+      <!-- Slide 2 — Farmers sell -->
+      <div class="wl-slide" style="background:none">
+        <img src="/img/hero2.jpg" alt="" style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover;object-position:center" aria-hidden="true">
+        <div style="position:absolute;inset:0;background:linear-gradient(100deg,rgba(10,30,5,.82) 40%,rgba(10,30,5,.35) 100%)" aria-hidden="true"></div>
+        <div class="wl-slide-inner">
+          <div>
+            <div class="wl-slide-label">👨‍🌾 For Farmers</div>
+            <h1 class="wl-slide-h">Sell your crops<br>at <em>fair prices</em></h1>
+            <p class="wl-slide-p">List produce, get orders from verified buyers across Uganda, and track every delivery from farm to door.</p>
+            <div class="wl-slide-cta">
+              <button class="wl-slide-btn primary" onclick="enterApp('register')">List your farm →</button>
+              <button class="wl-slide-btn outline" onclick="enterApp('login')">Sign in</button>
+            </div>
+          </div>
+          <div class="wl-slide-art" aria-hidden="true">
+            <img src="/img/beans.jpg" alt="Fresh Beans" style="width:min(260px,42vw);height:min(260px,42vw);object-fit:cover;border-radius:24px;box-shadow:0 20px 60px rgba(0,0,0,.55);border:3px solid rgba(255,255,255,.18)">
+          </div>
+        </div>
+      </div>
+
+      <!-- Slide 3 — AI tools -->
+      <div class="wl-slide" style="background:none">
+        <img src="/img/hero3.jpg" alt="" style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover;object-position:center" aria-hidden="true">
+        <div style="position:absolute;inset:0;background:linear-gradient(100deg,rgba(15,25,5,.82) 40%,rgba(15,25,5,.35) 100%)" aria-hidden="true"></div>
+        <div class="wl-slide-inner">
+          <div>
+            <div class="wl-slide-label">🤖 AI-powered farming</div>
+            <h1 class="wl-slide-h">Your <em>AI farm</em><br>assistant</h1>
+            <p class="wl-slide-p">Diagnose crop and animal diseases instantly, get personalised growing advice, and track market prices in real time.</p>
+            <div class="wl-slide-cta">
+              <button class="wl-slide-btn primary" onclick="enterApp()">Try AI assistant →</button>
+              <button class="wl-slide-btn outline" onclick="enterApp('register')">Get started free</button>
+            </div>
+          </div>
+          <div class="wl-slide-art" aria-hidden="true">
+            <img src="/img/tomatoes.jpg" alt="Fresh Tomatoes" style="width:min(260px,42vw);height:min(260px,42vw);object-fit:cover;border-radius:24px;box-shadow:0 20px 60px rgba(0,0,0,.55);border:3px solid rgba(255,255,255,.18)">
+          </div>
+        </div>
+      </div>
+
+      <!-- Slide 4 — Transport -->
+      <div class="wl-slide" style="background:none">
+        <img src="/img/hero4.jpg" alt="" style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover;object-position:center" aria-hidden="true">
+        <div style="position:absolute;inset:0;background:linear-gradient(100deg,rgba(20,15,5,.82) 40%,rgba(20,15,5,.35) 100%)" aria-hidden="true"></div>
+        <div class="wl-slide-inner">
+          <div>
+            <div class="wl-slide-label">🚚 Logistics network</div>
+            <h1 class="wl-slide-h">Farm to table,<br><em>tracked live</em></h1>
+            <p class="wl-slide-p">Book verified transporters, track every delivery in real time, and earn more as a driver on Uganda's agri-logistics network.</p>
+            <div class="wl-slide-cta">
+              <button class="wl-slide-btn primary" onclick="enterApp()">Book transport →</button>
+              <button class="wl-slide-btn outline" onclick="window.location='/transporter'">Driver portal →</button>
+            </div>
+          </div>
+          <div class="wl-slide-art" aria-hidden="true">
+            <img src="/img/matooke.jpg" alt="Matooke Bananas" style="width:min(260px,42vw);height:min(260px,42vw);object-fit:cover;border-radius:24px;box-shadow:0 20px 60px rgba(0,0,0,.55);border:3px solid rgba(255,255,255,.18)">
+          </div>
+        </div>
+      </div>
+
+    </div><!-- /slides -->
+
+    <button class="wl-arrow prev" id="wlPrev" onclick="wlSlide(-1)" aria-label="Previous slide">&#8249;</button>
+    <button class="wl-arrow next" id="wlNext" onclick="wlSlide(1)" aria-label="Next slide">&#8250;</button>
+
+    <div class="wl-dots" id="wlDots">
+      <button class="wl-dot active" onclick="wlGoTo(0)" aria-label="Slide 1"></button>
+      <button class="wl-dot" onclick="wlGoTo(1)" aria-label="Slide 2"></button>
+      <button class="wl-dot" onclick="wlGoTo(2)" aria-label="Slide 3"></button>
+      <button class="wl-dot" onclick="wlGoTo(3)" aria-label="Slide 4"></button>
+    </div>
+  </div><!-- /slider -->
+
+  <!-- ══ STATS BAR ══ -->
+  <div class="wl-stats-bar">
+    <div class="wl-stats-inner">
+      <div class="wl-stat-item">
+        <span class="wl-stat-num">85+</span>
+        <span class="wl-stat-label">Verified Farmers</span>
+      </div>
+      <div class="wl-stat-item">
+        <span class="wl-stat-num">102+</span>
+        <span class="wl-stat-label">Active Listings</span>
+      </div>
+      <div class="wl-stat-item">
+        <span class="wl-stat-num">20+</span>
+        <span class="wl-stat-label">Districts</span>
+      </div>
+      <div class="wl-stat-item">
+        <span class="wl-stat-num">Free</span>
+        <span class="wl-stat-label">To Browse</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══ QUICK LINKS STRIP ══ -->
+  <nav class="wl-strip" aria-label="Quick links">
+    <div class="wl-strip-inner">
+      <button class="wl-strip-link" onclick="wlOpenBrowse()"><span>🛒</span> Shop Now</button>
+      <button class="wl-strip-link" onclick="enterApp('register')"><span>🌾</span> Sell Produce</button>
+      <button class="wl-strip-link" onclick="window.location='/transporter'"><span>🚚</span> Driver Portal</button>
+      <button class="wl-strip-link" onclick="enterApp()"><span>🤖</span> AI Assistant</button>
+      <button class="wl-strip-link" onclick="showInstallModal()"><span>📲</span> Get the App</button>
+    </div>
+  </nav>
+
+  <!-- ══ FEATURED PRODUCE ══ -->
+  <section class="wl-products" id="wl-products">
+    <div class="wl-sec-head">
+      <div>
+        <h2 class="wl-h2">Fresh from the Farm</h2>
+        <p class="wl-h2-sub">Sourced directly from verified farmers across Uganda</p>
+      </div>
+      <button class="wl-see-all" onclick="wlOpenBrowse()">See all produce →</button>
+    </div>
+    <!-- live product cards injected here by wlRefreshProducts() -->
+    <div class="wl-prod-grid">
+      <div class="wl-prod-card" onclick="wlOpenBrowse('vegetables')" style="cursor:pointer">
+        <div class="wl-prod-img" style="padding:0;background:linear-gradient(135deg,#0d2a16,#1a5c30)">
+          <img src="https://images.unsplash.com/photo-1567306226416-28f0efdc88ce?w=400&q=80" alt="Cassava" style="width:100%;height:100%;object-fit:cover;display:block" loading="lazy" onerror="this.style.display='none'">
+          <div class="wl-prod-badge fresh">Fresh</div>
+        </div>
+        <div class="wl-prod-body">
+          <div class="wl-prod-name">Cassava</div>
+          <div class="wl-prod-farm">Northern Uganda</div>
+          <div class="wl-prod-price">UGX 400–700<small>/kg</small></div>
+        </div>
+        <div class="wl-prod-foot"><button class="wl-prod-btn" onclick="wlOpenBrowse('vegetables');event.stopPropagation()">View listings →</button></div>
+      </div>
+      <div class="wl-prod-card" onclick="wlOpenBrowse('fruits')" style="cursor:pointer">
+        <div class="wl-prod-img" style="padding:0;background:linear-gradient(135deg,#2a1a05,#7a3a05)">
+          <img src="https://images.unsplash.com/photo-1601493700631-2b16ec4b4716?w=400&q=80" alt="Mango" style="width:100%;height:100%;object-fit:cover;display:block" loading="lazy" onerror="this.style.display='none'">
+          <div class="wl-prod-badge fresh">Fresh</div>
+        </div>
+        <div class="wl-prod-body">
+          <div class="wl-prod-name">Mango</div>
+          <div class="wl-prod-farm">Eastern Uganda</div>
+          <div class="wl-prod-price">UGX 500<small>/kg</small></div>
+        </div>
+        <div class="wl-prod-foot"><button class="wl-prod-btn" onclick="wlOpenBrowse('fruits');event.stopPropagation()">View listings →</button></div>
+      </div>
+      <div class="wl-prod-card" onclick="wlOpenBrowse('vegetables')" style="cursor:pointer">
+        <div class="wl-prod-img" style="padding:0;background:linear-gradient(135deg,#0a2a0a,#1a5c1a)">
+          <img src="https://images.unsplash.com/photo-1563565375-f3fdfdbefa83?w=400&q=80" alt="Green Pepper" style="width:100%;height:100%;object-fit:cover;display:block" loading="lazy" onerror="this.style.display='none'">
+          <div class="wl-prod-badge fresh">Fresh</div>
+        </div>
+        <div class="wl-prod-body">
+          <div class="wl-prod-name">Green Pepper</div>
+          <div class="wl-prod-farm">Central Uganda</div>
+          <div class="wl-prod-price">UGX 3,000<small>/kg</small></div>
+        </div>
+        <div class="wl-prod-foot"><button class="wl-prod-btn" onclick="wlOpenBrowse('vegetables');event.stopPropagation()">View listings →</button></div>
+      </div>
+      <div class="wl-prod-card" onclick="wlOpenBrowse('all')" style="cursor:pointer">
+        <div class="wl-prod-img" style="padding:0;background:linear-gradient(135deg,#1a0a2a,#4a1a7a)">
+          <img src="https://images.unsplash.com/photo-1570586437263-ab629fccc818?w=400&q=80" alt="Pumpkin" style="width:100%;height:100%;object-fit:cover;display:block" loading="lazy" onerror="this.style.display='none'">
+          <div class="wl-prod-badge new">New</div>
+        </div>
+        <div class="wl-prod-body">
+          <div class="wl-prod-name">Pumpkin</div>
+          <div class="wl-prod-farm">Western Uganda</div>
+          <div class="wl-prod-price">UGX 1,500<small>/kg</small></div>
+        </div>
+        <div class="wl-prod-foot"><button class="wl-prod-btn" onclick="wlOpenBrowse('all');event.stopPropagation()">View listings →</button></div>
+      </div>
+    </div>
+    <!-- Advertise-here strip — shown when paid slots are free -->
+    <div id="wl-ad-slot" style="display:none;margin-top:18px;background:linear-gradient(100deg,#0d2a16,#1a5c30);border-radius:16px;padding:16px 20px;display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap">
+      <div>
+        <div style="font-family:'Syne',sans-serif;font-weight:800;color:#fff;font-size:1rem">📢 Advertise your produce here</div>
+        <div style="color:rgba(255,255,255,.75);font-size:.82rem;margin-top:3px"><span class="wl-ad-count">4 slots available</span> · From UGX 15,000/day · Seen by every new visitor</div>
+      </div>
+      <button onclick="enterApp('register')" style="padding:10px 20px;background:#fff;color:#0d2a16;border:none;border-radius:10px;font-weight:800;font-size:.88rem;cursor:pointer;font-family:inherit;white-space:nowrap">Feature my produce →</button>
+    </div>
+  </section>
+
+  <!-- ══ CATEGORY TILES ══ -->
+  <section class="wl-cats" id="wl-categories">
+    <div class="wl-cats-inner">
+      <div style="text-align:center;margin-bottom:8px">
+        <h2 class="wl-h2">Shop by Category</h2>
+        <p class="wl-h2-sub">Fresh produce from every corner of Uganda</p>
+      </div>
+      <div class="wl-cats-grid">
+        <div class="wl-cat-tile" onclick="wlOpenBrowse('vegetables')">
+          <img src="https://images.unsplash.com/photo-1540420773420-3366772f4999?w=400&q=80" alt="Vegetables" loading="lazy" onerror="this.style.display='none'">
+          <div class="wl-cat-overlay"></div>
+          <div class="wl-cat-label"><b>🥦 Vegetables</b><small>Tomatoes, greens, peppers &amp; more</small></div>
+        </div>
+        <div class="wl-cat-tile" onclick="wlOpenBrowse('fruits')">
+          <img src="https://images.unsplash.com/photo-1619566636858-adf3ef46400b?w=400&q=80" alt="Fruits" loading="lazy" onerror="this.style.display='none'">
+          <div class="wl-cat-overlay"></div>
+          <div class="wl-cat-label"><b>🍋 Fruits</b><small>Mangoes, bananas, pawpaw &amp; more</small></div>
+        </div>
+        <div class="wl-cat-tile" onclick="wlOpenBrowse('cereals-grains')">
+          <img src="https://images.unsplash.com/photo-1574323347407-f5e1ad6d020b?w=400&q=80" alt="Cereals" loading="lazy" onerror="this.style.display='none'">
+          <div class="wl-cat-overlay"></div>
+          <div class="wl-cat-label"><b>🌾 Cereals &amp; Grains</b><small>Maize, rice, millet, sorghum</small></div>
+        </div>
+        <div class="wl-cat-tile" onclick="wlOpenBrowse('livestock')">
+          <img src="https://images.unsplash.com/photo-1500595046743-cd271d694d30?w=400&q=80" alt="Livestock" loading="lazy" onerror="this.style.display='none'">
+          <div class="wl-cat-overlay"></div>
+          <div class="wl-cat-label"><b>🐄 Livestock</b><small>Cattle, goats, sheep, poultry</small></div>
+        </div>
+        <div class="wl-cat-tile" onclick="wlOpenBrowse('dairy')">
+          <img src="https://images.unsplash.com/photo-1550583724-b2692b85b150?w=400&q=80" alt="Dairy" loading="lazy" onerror="this.style.display='none'">
+          <div class="wl-cat-overlay"></div>
+          <div class="wl-cat-label"><b>🥛 Dairy</b><small>Fresh milk, yoghurt &amp; cheese</small></div>
+        </div>
+        <div class="wl-cat-tile" onclick="wlOpenBrowse('roots-tubers')">
+          <img src="https://images.unsplash.com/photo-1518977676601-b53f82aba655?w=400&q=80" alt="Roots and Tubers" loading="lazy" onerror="this.style.display='none'">
+          <div class="wl-cat-overlay"></div>
+          <div class="wl-cat-label"><b>🍠 Roots &amp; Tubers</b><small>Cassava, sweet potato, matooke</small></div>
+        </div>
+        <div class="wl-cat-tile" onclick="wlOpenBrowse('fish-aquaculture')">
+          <img src="https://images.unsplash.com/photo-1534482421-64566f976cfa?w=400&q=80" alt="Fish" loading="lazy" onerror="this.style.display='none'">
+          <div class="wl-cat-overlay"></div>
+          <div class="wl-cat-label"><b>🐟 Fish &amp; Aquaculture</b><small>Tilapia, Nile perch, mukene</small></div>
+        </div>
+        <div class="wl-cat-tile" onclick="wlOpenBrowse('honey-beekeeping')">
+          <img src="https://images.unsplash.com/photo-1587049352846-4a222e784d38?w=400&q=80" alt="Honey" loading="lazy" onerror="this.style.display='none'">
+          <div class="wl-cat-overlay"></div>
+          <div class="wl-cat-label"><b>🍯 Honey</b><small>Raw honey, beeswax &amp; bee products</small></div>
+        </div>
+        <div class="wl-cat-tile" onclick="wlOpenBrowse('cash-crops')">
+          <img src="https://images.unsplash.com/photo-1447933601403-0c6688de566e?w=400&q=80" alt="Cash Crops" loading="lazy" onerror="this.style.display='none'">
+          <div class="wl-cat-overlay"></div>
+          <div class="wl-cat-label"><b>☕ Cash Crops</b><small>Coffee, tea, cocoa, cotton</small></div>
+        </div>
+        <div class="wl-cat-tile" onclick="wlOpenBrowse('legumes-pulses')">
+          <img src="https://images.unsplash.com/photo-1515543904379-3d757afe72e4?w=400&q=80" alt="Legumes" loading="lazy" onerror="this.style.display='none'">
+          <div class="wl-cat-overlay"></div>
+          <div class="wl-cat-label"><b>🫘 Legumes &amp; Pulses</b><small>Beans, cowpeas, soybeans</small></div>
+        </div>
+        <div class="wl-cat-tile" onclick="wlOpenBrowse('herbs-spices')">
+          <img src="https://images.unsplash.com/photo-1466637574441-749b8f19452f?w=400&q=80" alt="Herbs and Spices" loading="lazy" onerror="this.style.display='none'">
+          <div class="wl-cat-overlay"></div>
+          <div class="wl-cat-label"><b>🌿 Herbs &amp; Spices</b><small>Ginger, turmeric, coriander</small></div>
+        </div>
+        <div class="wl-cat-tile" onclick="wlOpenBrowse('processed-products')">
+          <img src="https://images.unsplash.com/photo-1495195134817-aeb325a55b65?w=400&q=80" alt="Processed Products" loading="lazy" onerror="this.style.display='none'">
+          <div class="wl-cat-overlay"></div>
+          <div class="wl-cat-label"><b>🫙 Processed Products</b><small>Flour, oils, dried fruit &amp; more</small></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ══ HOW IT WORKS ══ -->
+  <section class="wl-how" id="wl-how">
+    <div class="wl-how-inner">
+      <div style="text-align:center;margin-bottom:4px">
+        <h2 class="wl-h2">How AgriBridge works</h2>
+        <p class="wl-h2-sub">Three simple steps — farm to your table</p>
+      </div>
+      <div class="wl-steps">
+        <div class="wl-step">
+          <div class="wl-step-num">1</div>
+          <h3>Browse &amp; Order</h3>
+          <p>Find fresh produce from verified farmers near you. Filter by crop type, location, or price. Add to cart and check out in seconds.</p>
+        </div>
+        <div class="wl-step">
+          <div class="wl-step-num">2</div>
+          <h3>Farmer Confirms</h3>
+          <p>Your chosen farmer gets notified instantly, packs your order fresh, and hands it to a verified transporter from our logistics network.</p>
+        </div>
+        <div class="wl-step">
+          <div class="wl-step-num">3</div>
+          <h3>Track &amp; Receive</h3>
+          <p>Follow your delivery live on the map. Farm-fresh produce arrives at your door — no middlemen, no markups.</p>
+        </div>
+        <div class="wl-step">
+          <div class="wl-step-num">4</div>
+          <h3>No Smartphone? No problem.</h3>
+          <p>Dial <strong>*789#</strong> on any MTN or Airtel phone to access AgriBridge via USSD. Works even without internet.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ══ WHY AGRIBRIDGE ══ -->
+  <section class="wl-why" id="wl-why">
+    <div class="wl-why-inner">
+      <div class="wl-why-head">
+        <h2 class="wl-h2">Why choose AgriBridge?</h2>
+        <p class="wl-why-sub">We're built differently — for Uganda's farmers, by people who understand the land</p>
+      </div>
+      <div class="wl-why-grid">
+        <div class="wl-why-card">
+          <span class="wl-why-icon">🛡️</span>
+          <div class="wl-why-title">Verified Farmers Only</div>
+          <p class="wl-why-desc">Every farmer on our platform is verified. You know exactly who grew your food and where it came from.</p>
+        </div>
+        <div class="wl-why-card">
+          <span class="wl-why-icon">💰</span>
+          <div class="wl-why-title">Zero Middlemen</div>
+          <p class="wl-why-desc">Buy directly from the farm gate. No brokers, no markups — farmers earn more and you pay less.</p>
+        </div>
+        <div class="wl-why-card">
+          <span class="wl-why-icon">📶</span>
+          <div class="wl-why-title">Works Offline via USSD</div>
+          <p class="wl-why-desc">Dial <strong>*789#</strong> on any MTN or Airtel phone. No smartphone, no internet — just fresh produce.</p>
+        </div>
+        <div class="wl-why-card">
+          <span class="wl-why-icon">🤖</span>
+          <div class="wl-why-title">AI-Powered Advice</div>
+          <p class="wl-why-desc">Diagnose crop diseases, check market prices, get personalised growing tips — powered by AI, available 24/7.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ══ FOR FARMERS ══ -->
+  <section class="wl-farmers" id="wl-farmers">
+    <div class="wl-farmers-inner">
+      <div class="wl-farmers-txt">
+        <h2>Grow your farm<br><em>income today</em></h2>
+        <p>Join 85+ verified Ugandan farmers already selling their produce directly to buyers across the country. List your crops and livestock for free, receive orders, and get paid through Mobile Money.</p>
+        <div class="wl-farmers-btns">
+          <button class="wl-farmers-btn-primary" onclick="enterApp('register')">List Your Produce Free →</button>
+          <button class="wl-farmers-btn-ghost" onclick="wlNavScroll('wl-how')">How it works</button>
+        </div>
+      </div>
+      <div class="wl-farmers-cards">
+        <div class="wl-farmers-card">
+          <div class="wl-farmers-card-icon">🌾</div>
+          <div class="wl-farmers-card-num">85+</div>
+          <div class="wl-farmers-card-lbl">Active Farmers</div>
+        </div>
+        <div class="wl-farmers-card">
+          <div class="wl-farmers-card-icon">🗺️</div>
+          <div class="wl-farmers-card-num">20+</div>
+          <div class="wl-farmers-card-lbl">Districts Covered</div>
+        </div>
+        <div class="wl-farmers-card">
+          <div class="wl-farmers-card-icon">📦</div>
+          <div class="wl-farmers-card-num">102+</div>
+          <div class="wl-farmers-card-lbl">Live Listings</div>
+        </div>
+        <div class="wl-farmers-card">
+          <div class="wl-farmers-card-icon">📱</div>
+          <div class="wl-farmers-card-num">*789#</div>
+          <div class="wl-farmers-card-lbl">USSD Access</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ══ TESTIMONIALS ══ -->
+  <section class="wl-testi">
+    <div class="wl-testi-inner">
+      <div class="wl-testi-head">
+        <h2 class="wl-h2">What farmers &amp; buyers say</h2>
+      </div>
+      <div class="wl-testi-grid">
+        <div class="wl-testi-card">
+          <div class="wl-testi-stars">★★★★★</div>
+          <p class="wl-testi-quote">"I used to sell my maize to a middleman at half price. Now I list on AgriBridge and get buyers from Kampala paying fair market rates directly."</p>
+          <div class="wl-testi-author">
+            <div class="wl-testi-avatar">👨‍🌾</div>
+            <div>
+              <div class="wl-testi-name">Ochieng Samuel</div>
+              <div class="wl-testi-role">Maize Farmer, Gulu</div>
+            </div>
+          </div>
+        </div>
+        <div class="wl-testi-card">
+          <div class="wl-testi-stars">★★★★★</div>
+          <p class="wl-testi-quote">"I supply vegetables to our hotel kitchen every week. AgriBridge makes it easy to find verified farmers with fresh stock and reliable delivery."</p>
+          <div class="wl-testi-author">
+            <div class="wl-testi-avatar">🏨</div>
+            <div>
+              <div class="wl-testi-name">Grace Nakato</div>
+              <div class="wl-testi-role">Procurement, Kampala Hotel</div>
+            </div>
+          </div>
+        </div>
+        <div class="wl-testi-card">
+          <div class="wl-testi-stars">★★★★★</div>
+          <p class="wl-testi-quote">"The AI crop doctor helped me identify a disease in my tomatoes before it spread. Saved my entire harvest. I cannot imagine farming without this tool now."</p>
+          <div class="wl-testi-author">
+            <div class="wl-testi-avatar">👩‍🌾</div>
+            <div>
+              <div class="wl-testi-name">Harriet Nansubuga</div>
+              <div class="wl-testi-role">Vegetable Farmer, Mukono</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ══ ROLES ══ -->
+  <section class="wl-roles" id="wl-roles">
+    <div class="wl-roles-inner">
+      <h2 class="wl-h2">Built for every role</h2>
+      <p class="wl-h2-sub">One platform — a tailored experience for each link in the chain</p>
+      <div class="wl-chips">
+        <div class="wl-chip" onclick="enterApp('register')">
+          <span>🌾</span><b>Farmer</b><small>Sell &amp; grow your income</small>
+        </div>
+        <div class="wl-chip" onclick="enterApp()">
+          <span>🛒</span><b>Buyer</b><small>Source fresh produce directly</small>
+        </div>
+        <a class="wl-chip" href="/transporter">
+          <span>🚚</span><b>Transporter</b><small>Driver portal →</small>
+        </a>
+        <div class="wl-chip" onclick="enterApp('register')">
+          <span>🏪</span><b>Supplier</b><small>List &amp; sell agri-inputs</small>
+        </div>
+        <div class="wl-chip" onclick="enterApp('login')">
+          <span>🏨</span><b>Hotel / Restaurant</b><small>Bulk fresh sourcing</small>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ══ TRUST STRIP ══ -->
+  <section class="wl-trust">
+    <div class="wl-trust-inner">
+      <div class="wl-trust-item">
+        <div class="wl-trust-ic">🛡️</div>
+        <b>Trusted &amp; Secure</b>
+        <small>Verified farmers &amp; safe transactions</small>
+      </div>
+      <div class="wl-trust-item">
+        <div class="wl-trust-ic">📶</div>
+        <b>Offline &amp; USSD</b>
+        <small>Works without internet on any phone</small>
+      </div>
+      <div class="wl-trust-item">
+        <div class="wl-trust-ic">🌐</div>
+        <b>Multi-language</b>
+        <small>English, Luganda, Runyankole &amp; more</small>
+      </div>
+      <div class="wl-trust-item">
+        <div class="wl-trust-ic">💬</div>
+        <b>24/7 Support</b>
+        <small>AI + human help, always available</small>
+      </div>
+    </div>
+  </section>
+
+  <!-- ══ SOCIAL + SUBSCRIBE ══ -->
+  <section class="wl-social-strip">
+    <div class="wl-social-inner">
+      <div class="wl-social-left">
+        <h3>Follow AgriBridge</h3>
+        <p>Farm tips, market prices &amp; harvest news every day</p>
+        <div class="wl-socials">
+          <a class="wl-soc-btn" href="https://www.instagram.com/agribrige" target="_blank" rel="noopener" aria-label="Instagram">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zM12 0C8.741 0 8.333.014 7.053.072 2.695.272.273 2.69.073 7.052.014 8.333 0 8.741 0 12c0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98C8.333 23.986 8.741 24 12 24c3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.059-1.28.073-1.689.073-4.948 0-3.259-.014-3.667-.072-4.947-.196-4.354-2.617-6.78-6.979-6.98C15.668.014 15.259 0 12 0zm0 5.838a6.162 6.162 0 100 12.324 6.162 6.162 0 000-12.324zM12 16a4 4 0 110-8 4 4 0 010 8zm6.406-11.845a1.44 1.44 0 100 2.881 1.44 1.44 0 000-2.881z"/></svg>
+          </a>
+          <a class="wl-soc-btn" href="https://www.facebook.com/people/Agribridge-Agribrige/61572887219965" target="_blank" rel="noopener" aria-label="Facebook">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M24 12.073C24 5.405 18.627 0 12 0S0 5.405 0 12.073C0 18.1 4.388 23.094 10.125 24v-8.437H7.078v-3.49h3.047V9.41c0-3.025 1.792-4.697 4.533-4.697 1.312 0 2.686.236 2.686.236v2.971h-1.514c-1.491 0-1.956.93-1.956 1.886v2.267h3.328l-.532 3.49h-2.796V24C19.612 23.094 24 18.1 24 12.073z"/></svg>
+          </a>
+          <a class="wl-soc-btn" href="https://www.linkedin.com/in/agribrige-com-6aaa24449" target="_blank" rel="noopener" aria-label="LinkedIn">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M20.447 20.452h-3.554v-5.569c0-1.328-.027-3.037-1.852-3.037-1.853 0-2.136 1.445-2.136 2.939v5.667H9.351V9h3.414v1.561h.046c.477-.9 1.637-1.85 3.37-1.85 3.601 0 4.267 2.37 4.267 5.455v6.286zM5.337 7.433a2.062 2.062 0 01-2.063-2.065 2.064 2.064 0 112.063 2.065zm1.782 13.019H3.555V9h3.564v11.452zM22.225 0H1.771C.792 0 0 .774 0 1.729v20.542C0 23.227.792 24 1.771 24h20.451C23.2 24 24 23.227 24 22.271V1.729C24 .774 23.2 0 22.222 0h.003z"/></svg>
+          </a>
+        </div>
+      </div>
+      <div>
+        <label for="wlSubEmail" style="display:block;font-size:.86rem;font-weight:700;color:#fff;margin-bottom:8px">Subscribe to market price alerts</label>
+        <div class="wl-subscribe">
+          <input class="wl-sub-input" type="email" id="wlSubEmail" placeholder="your@email.com" autocomplete="email">
+          <button class="wl-sub-btn" onclick="wlSubscribe()">Subscribe</button>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ══ FINAL CTA ══ -->
+  <section class="wl-final">
+    <div class="wl-final-inner">
+      <h2 class="wl-h2">Your Growth. Our Mission.</h2>
+      <p class="wl-final-p">Join thousands of Ugandan farmers and buyers already trading smarter on AgriBridge. Zero middlemen, real-time tracking, and AI tools to grow your income.</p>
+      <div class="wl-final-cta">
+        <button class="wl-btn lg" onclick="enterApp()">Launch AgriBridge →</button>
+        <button class="wl-btn ghost lg" onclick="enterApp('register')">Create free account</button>
+      </div>
+      <div class="wl-stores">
+        <button class="wl-store wl-install-btn" id="wlInstallBtn" onclick="showInstallModal()" style="display:none"><span>📲</span><span><small>Install the</small>AgriBridge App</span></button>
+        <button class="wl-store" id="wlAndroidBtn" onclick="showInstallModal()"><span>▶</span><span><small>Get it on</small>Google Play</span></button>
+        <button class="wl-store" id="wlIosBtn" onclick="showInstallModal()"><span></span><span><small>Download on the</small>App Store</span></button>
+      </div>
+      <div class="wl-ussd" style="margin-top:14px">📵 No smartphone? Dial <b>*789#</b> on any MTN or Airtel phone.</div>
+    </div>
+  </section>
+
+  <!-- ══ FOOTER ══ -->
+  <footer class="wl-foot">
+    <div class="wl-foot-inner">
+      <div class="wl-foot-grid">
+        <!-- Brand -->
+        <div class="wl-foot-brand">
+          <img src="/logo.png" alt="AgriBridge" style="height:56px;width:auto;object-fit:contain" onerror="this.style.display='none'">
+          <p>Uganda's all-in-one agricultural marketplace — connecting farmers, buyers, and transporters across East Africa.</p>
+        </div>
+        <!-- Locations -->
+        <div class="wl-foot-col">
+          <h4>Locations</h4>
+          <ul>
+            <li><span style="color:rgba(255,255,255,.55);font-size:.86rem">Kampala (HQ)</span></li>
+            <li><span style="color:rgba(255,255,255,.55);font-size:.86rem">Mbarara</span></li>
+            <li><span style="color:rgba(255,255,255,.55);font-size:.86rem">Gulu</span></li>
+            <li><span style="color:rgba(255,255,255,.55);font-size:.86rem">Jinja</span></li>
+            <li><span style="color:rgba(255,255,255,.55);font-size:.86rem">Mbale</span></li>
+          </ul>
+        </div>
+        <!-- Platform -->
+        <div class="wl-foot-col">
+          <h4>Platform</h4>
+          <ul>
+            <li><a href="#" onclick="enterApp();return false">Marketplace</a></li>
+            <li><a href="#" onclick="enterApp();return false">AI Assistant</a></li>
+            <li><a href="#" onclick="enterApp();return false">Farm Management</a></li>
+            <li><a href="/transporter">Driver Portal</a></li>
+            <li><button onclick="showInstallModal()">Get the App</button></li>
+          </ul>
+        </div>
+        <!-- Legal -->
+        <div class="wl-foot-col">
+          <h4>Legal</h4>
+          <ul>
+            <li><a href="legal/terms-of-use.html">Terms of Use</a></li>
+            <li><a href="legal/privacy-policy.html">Privacy Policy</a></li>
+            <li><a href="legal/index.html">Legal Centre</a></li>
+            <li><button onclick="openPrivacyRequest()">Privacy Requests</button></li>
+            <li><a href="#" onclick="enterApp('login');return false">Sign In</a></li>
+            <li><a href="#" onclick="enterApp('register');return false">Register</a></li>
+          </ul>
+        </div>
+      </div>
+      <div class="wl-foot-bottom">
+        <span class="wl-foot-copy">© 2026 AgriBridge Uganda · Bridging Farms. Building Markets.</span>
+        <div class="wl-foot-socials">
+          <a class="wl-soc-btn" href="https://www.instagram.com/agribrige" target="_blank" rel="noopener" aria-label="Instagram" style="background:rgba(255,255,255,.08);border-color:rgba(255,255,255,.12)">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zM12 0C8.741 0 8.333.014 7.053.072 2.695.272.273 2.69.073 7.052.014 8.333 0 8.741 0 12c0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98C8.333 23.986 8.741 24 12 24c3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.059-1.28.073-1.689.073-4.948 0-3.259-.014-3.667-.072-4.947-.196-4.354-2.617-6.78-6.979-6.98C15.668.014 15.259 0 12 0zm0 5.838a6.162 6.162 0 100 12.324 6.162 6.162 0 000-12.324zM12 16a4 4 0 110-8 4 4 0 010 8zm6.406-11.845a1.44 1.44 0 100 2.881 1.44 1.44 0 000-2.881z"/></svg>
+          </a>
+          <a class="wl-soc-btn" href="https://www.facebook.com/people/Agribridge-Agribrige/61572887219965" target="_blank" rel="noopener" aria-label="Facebook" style="background:rgba(255,255,255,.08);border-color:rgba(255,255,255,.12)">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M24 12.073C24 5.405 18.627 0 12 0S0 5.405 0 12.073C0 18.1 4.388 23.094 10.125 24v-8.437H7.078v-3.49h3.047V9.41c0-3.025 1.792-4.697 4.533-4.697 1.312 0 2.686.236 2.686.236v2.971h-1.514c-1.491 0-1.956.93-1.956 1.886v2.267h3.328l-.532 3.49h-2.796V24C19.612 23.094 24 18.1 24 12.073z"/></svg>
+          </a>
+          <a class="wl-soc-btn" href="https://www.linkedin.com/in/agribrige-com-6aaa24449" target="_blank" rel="noopener" aria-label="LinkedIn" style="background:rgba(255,255,255,.08);border-color:rgba(255,255,255,.12)">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M20.447 20.452h-3.554v-5.569c0-1.328-.027-3.037-1.852-3.037-1.853 0-2.136 1.445-2.136 2.939v5.667H9.351V9h3.414v1.561h.046c.477-.9 1.637-1.85 3.37-1.85 3.601 0 4.267 2.37 4.267 5.455v6.286zM5.337 7.433a2.062 2.062 0 01-2.063-2.065 2.064 2.064 0 112.063 2.065zm1.782 13.019H3.555V9h3.564v11.452zM22.225 0H1.771C.792 0 0 .774 0 1.729v20.542C0 23.227.792 24 1.771 24h20.451C23.2 24 24 23.227 24 22.271V1.729C24 .774 23.2 0 22.222 0h.003z"/></svg>
+          </a>
+        </div>
+      </div>
+    </div>
+  </footer>
+
+  <!-- ══ SLIDER SCRIPT ══ -->
+  <script>
+  (function(){
+    var cur=0,wrap=document.getElementById('wlSlides'),dots;
+    function totalSlides(){return document.querySelectorAll('#wlSlides .wl-slide').length||4}
+    function update(){
+      if(!wrap)return;
+      var t=totalSlides();
+      wrap.style.transform='translateX(-'+cur*100+'%)';
+      dots=document.querySelectorAll('.wl-dot');
+      dots.forEach(function(d,i){d.classList.toggle('active',i===cur)});
+    }
+    window.wlSlide=function(dir){
+      cur=(cur+dir+totalSlides())%totalSlides();update();
+      clearInterval(window._wlTimer);window._wlTimer=setInterval(function(){wlSlide(1)},5000);
+    };
+    window.wlGoTo=function(i){
+      cur=i;update();
+      clearInterval(window._wlTimer);window._wlTimer=setInterval(function(){wlSlide(1)},5000);
+    };
+    // pause on hover
+    var sw=document.getElementById('wlSliderWrap');
+    if(sw){
+      sw.addEventListener('mouseenter',function(){clearInterval(window._wlTimer)});
+      sw.addEventListener('mouseleave',function(){window._wlTimer=setInterval(function(){wlSlide(1)},5000)});
+    }
+    // subscribe toast
+    window.wlSubscribe=function(){
+      var el=document.getElementById('wlSubEmail');
+      if(!el||!el.value.includes('@')){alert('Please enter a valid email address.');return}
+      el.value='';
+      var msg=document.createElement('div');
+      msg.textContent='✓ Subscribed! You\'ll receive market price alerts.';
+      msg.style.cssText='position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:#1a7a3c;color:#fff;padding:12px 24px;border-radius:12px;font-weight:700;font-size:.9rem;z-index:9999;box-shadow:0 4px 20px rgba(0,0,0,.3)';
+      document.body.appendChild(msg);setTimeout(function(){msg.remove()},3500);
+    };
+    // start timer
+    window._wlTimer=setInterval(function(){wlSlide(1)},5000);
+
+    // ── Mobile nav toggle ──
+    window.wlToggleMobileNav=function(){
+      var m=document.getElementById('wlNavMobile');
+      var t=document.getElementById('wlNavToggle');
+      if(!m) return;
+      var open=m.classList.toggle('open');
+      if(t) t.setAttribute('aria-expanded', open ? 'true' : 'false');
+    };
+
+    // ── Smooth-scroll to section (keeps within #webLanding) ──
+    window.wlNavScroll=function(id){
+      var el=document.getElementById(id);
+      var landing=document.getElementById('webLanding');
+      if(!el) return;
+      // Close mobile nav if open
+      var m=document.getElementById('wlNavMobile');
+      if(m) m.classList.remove('open');
+      // Scroll within the landing overlay
+      var container = landing || window;
+      var top = el.getBoundingClientRect().top + (landing ? landing.scrollTop : window.scrollY) - 72;
+      if(landing && landing.scrollTo){
+        landing.scrollTo({top: top, behavior:'smooth'});
+      } else {
+        window.scrollTo({top: top, behavior:'smooth'});
       }
-    }, 200);
-  }
-}
+    };
 
-function wl2Login() {
-  if (typeof enterApp === 'function') enterApp('login');
-}
+    // load live data (banners from DB, featured listings)
+    if(typeof wlLoadLandingData==='function'){
+      wlLoadLandingData();
+    } else {
+      document.addEventListener('DOMContentLoaded',function(){
+        if(typeof wlLoadLandingData==='function') wlLoadLandingData();
+      });
+    }
 
-function wl2Google() {
-  // Use direct OAuth redirect (works even if supabase-js not loaded)
-  var SUPABASE_URL = (typeof window.SUPABASE_URL !== 'undefined') ? window.SUPABASE_URL :
-    (typeof _supabaseUrl !== 'undefined') ? _supabaseUrl : '';
-  if (!SUPABASE_URL && typeof sbAuth !== 'undefined' && sbAuth) {
-    sbAuth.auth.signInWithOAuth({ provider: 'google', options: { redirectTo: window.location.origin + '/' } });
-    return;
-  }
-  if (SUPABASE_URL) {
-    window.location.href = SUPABASE_URL + '/auth/v1/authorize?provider=google&redirect_to=' + encodeURIComponent(window.location.origin + '/');
-    return;
-  }
-  // Fallback: enter app and open Google login
-  if (typeof doGoogleLogin === 'function') { if(typeof enterApp==='function') enterApp(); setTimeout(function(){ doGoogleLogin('register'); }, 300); }
-}
+    // ── ESC closes browse modals ──
+    document.addEventListener('keydown', function(e){
+      if(e.key==='Escape'){
+        if(typeof wlCloseGate==='function') wlCloseGate();
+        if(typeof wlCloseProdModal==='function') wlCloseProdModal();
+      }
+    });
 
-function wl2BrowseGuest() {
-  // No guest access — redirect to register
-  if (typeof openModal === 'function') openModal('registerModal');
-}
+    // ── Scroll-reveal for category tiles ──
+    (function(){
+      if(!window.IntersectionObserver) return;
+      var io = new IntersectionObserver(function(entries){
+        entries.forEach(function(e){
+          if(e.isIntersecting){ e.target.classList.add('wl-visible'); io.unobserve(e.target); }
+        });
+      },{threshold:0.12});
+      document.querySelectorAll('.wl-cat-tile').forEach(function(el){ io.observe(el); });
+    })();
+  })();
+  </script>
 
-// Hero carousel
-function wl2GoSlide(n) {
-  _wl2Slide = n;
-  var slides = document.getElementById('wl2Slides');
-  var dots = document.querySelectorAll('.wl2-dot');
-  if (slides) slides.style.transform = 'translateX(-' + (n * 100) + '%)';
-  dots.forEach(function(d, i){ d.classList.toggle('active', i === n); });
-}
-function wl2NextSlide() {
-  var total = document.querySelectorAll('.wl2-hero-slide').length;
-  wl2GoSlide((_wl2Slide + 1) % total);
-}
-// Auto-advance
-if (_wl2SlideTimer) clearInterval(_wl2SlideTimer);
-_wl2SlideTimer = setInterval(wl2NextSlide, 3500);
+  <!-- ══ WEB BROWSE PAGE ══ -->
+  <div id="wl-browse">
+    <!-- Sticky top bar -->
+    <div class="wlb-topbar">
+      <button class="wlb-back" onclick="wlCloseBrowse()">← Back</button>
+      <div class="wlb-search">
+        <input type="text" id="wlbSearch" placeholder="Search produce, farmer, district…" oninput="wlbFilterCards()" autocomplete="off">
+      </div>
+      <span class="wlb-count" id="wlbCount"></span>
+    </div>
 
-// Update live prices from the app's data if available
-setTimeout(function(){
-  try {
-    var slides = document.querySelectorAll('.wl2-hero-slide .wl2-hero-price');
-    // Could inject real prices here from liveListings array if loaded
-  } catch(e){}
-}, 2000);
-</script>
+    <!-- Category nav (Café Javas top menu strip) -->
+    <div class="wlb-cat-hero" id="wlbCatHero" role="tablist" aria-label="Browse categories">
+      <button class="wlb-cat-btn active" onclick="wlbSetCat('all',this)" role="tab" aria-selected="true"><span class="cat-ic">🌍</span>All</button>
+      <button class="wlb-cat-btn" onclick="wlbSetCat('vegetables',this)" role="tab"><span class="cat-ic">🥦</span>Vegetables</button>
+      <button class="wlb-cat-btn" onclick="wlbSetCat('fruits',this)" role="tab"><span class="cat-ic">🍋</span>Fruits</button>
+      <button class="wlb-cat-btn" onclick="wlbSetCat('cereals-grains',this)" role="tab"><span class="cat-ic">🌾</span>Cereals</button>
+      <button class="wlb-cat-btn" onclick="wlbSetCat('legumes-pulses',this)" role="tab"><span class="cat-ic">🫘</span>Legumes</button>
+      <button class="wlb-cat-btn" onclick="wlbSetCat('roots-tubers',this)" role="tab"><span class="cat-ic">🍠</span>Roots</button>
+      <button class="wlb-cat-btn" onclick="wlbSetCat('nuts-oilseeds',this)" role="tab"><span class="cat-ic">🥜</span>Nuts</button>
+      <button class="wlb-cat-btn" onclick="wlbSetCat('cash-crops',this)" role="tab"><span class="cat-ic">☕</span>Cash Crops</button>
+      <button class="wlb-cat-btn" onclick="wlbSetCat('herbs-spices',this)" role="tab"><span class="cat-ic">🌿</span>Herbs</button>
+      <button class="wlb-cat-btn" onclick="wlbSetCat('livestock',this)" role="tab"><span class="cat-ic">🐄</span>Livestock</button>
+      <button class="wlb-cat-btn" onclick="wlbSetCat('meat-products',this)" role="tab"><span class="cat-ic">🥩</span>Meat</button>
+      <button class="wlb-cat-btn" onclick="wlbSetCat('dairy',this)" role="tab"><span class="cat-ic">🥛</span>Dairy</button>
+      <button class="wlb-cat-btn" onclick="wlbSetCat('fish-aquaculture',this)" role="tab"><span class="cat-ic">🐟</span>Fish</button>
+      <button class="wlb-cat-btn" onclick="wlbSetCat('honey-beekeeping',this)" role="tab"><span class="cat-ic">🍯</span>Honey</button>
+      <button class="wlb-cat-btn" onclick="wlbSetCat('flowers-horticulture',this)" role="tab"><span class="cat-ic">🌸</span>Flowers</button>
+      <button class="wlb-cat-btn" onclick="wlbSetCat('processed-products',this)" role="tab"><span class="cat-ic">🫙</span>Processed</button>
+      <button class="wlb-cat-btn" onclick="wlbSetCat('animal-feed',this)" role="tab"><span class="cat-ic">🌱</span>Animal Feed</button>
+      <button class="wlb-cat-btn" onclick="wlbSetCat('seeds-planting',this)" role="tab"><span class="cat-ic">🌰</span>Seeds</button>
+      <button class="wlb-cat-btn" onclick="wlbSetCat('forestry',this)" role="tab"><span class="cat-ic">🪵</span>Forestry</button>
+      <button class="wlb-cat-btn" onclick="wlbSetCat('medicinal-plants',this)" role="tab"><span class="cat-ic">🌿</span>Medicinal</button>
+      <button class="wlb-cat-btn" onclick="wlbSetCat('agri-byproducts',this)" role="tab"><span class="cat-ic">♻️</span>By-products</button>
+    </div>
+
+    <!-- Ad/Deals carousel banner -->
+    <div class="wlb-ad-carousel" id="wlbAdCarousel">
+      <div class="wlb-ad-track" id="wlbAdTrack">
+        <div class="wlb-ad-slide" style="background:linear-gradient(135deg,#0d2a16,#1a7a3c,#2db55d)">
+          <div class="wlb-ad-badge">🔥 DEALS TODAY</div>
+          <div class="wlb-ad-title">Fresh Tilapia — UGX 8,000/kg</div>
+          <div class="wlb-ad-sub">Cage-farmed, Lake Victoria • Delivery available • Jinja</div>
+          <button class="wlb-ad-btn" onclick="wlbSetCat('fish-aquaculture',null)">Order Now →</button>
+        </div>
+        <div class="wlb-ad-slide" style="background:linear-gradient(135deg,#2a1a00,#7a4a00,#c8900a)">
+          <div class="wlb-ad-badge">🍯 HARVEST SEASON</div>
+          <div class="wlb-ad-title">Raw Forest Honey — UGX 15,000/kg</div>
+          <div class="wlb-ad-sub">Unfiltered, dark &amp; aromatic • Madi-Okollo forest hives</div>
+          <button class="wlb-ad-btn" onclick="wlbSetCat('honey-beekeeping',null)">Shop Honey →</button>
+        </div>
+        <div class="wlb-ad-slide" style="background:linear-gradient(135deg,#1a0d00,#3a2000,#6a4a10)">
+          <div class="wlb-ad-badge">☕ EXPORT QUALITY</div>
+          <div class="wlb-ad-title">Robusta Coffee — UGX 10,000/kg</div>
+          <div class="wlb-ad-sub">Washed FAQ grade • Moisture 12.5% • Masaka district</div>
+          <button class="wlb-ad-btn" onclick="wlbSetCat('cash-crops',null)">Buy Direct →</button>
+        </div>
+        <div class="wlb-ad-slide" style="background:linear-gradient(135deg,#0a1a2a,#1a4a6a,#2a7aaa)">
+          <div class="wlb-ad-badge">🥛 DAIRY FRESH</div>
+          <div class="wlb-ad-title">Fresh Milk — UGX 1,200/litre</div>
+          <div class="wlb-ad-sub">Zero-grazing Friesians • Daily collection • Mbarara</div>
+          <button class="wlb-ad-btn" onclick="wlbSetCat('dairy',null)">Order Milk →</button>
+        </div>
+      </div>
+      <div class="wlb-ad-dots" id="wlbAdDots">
+        <span class="wlb-ad-dot active" onclick="wlbAdGo(0)"></span>
+        <span class="wlb-ad-dot" onclick="wlbAdGo(1)"></span>
+        <span class="wlb-ad-dot" onclick="wlbAdGo(2)"></span>
+        <span class="wlb-ad-dot" onclick="wlbAdGo(3)"></span>
+      </div>
+    </div>
+
+    <!-- Category hero band (shown when a category is selected) -->
+    <div class="wlb-hero-band" id="wlbHeroBand" style="display:none" aria-hidden="true">
+      <div class="wlb-hero-band-bg" id="wlbHeroBg"></div>
+      <div class="wlb-hero-band-overlay"></div>
+      <div class="wlb-hero-band-content">
+        <div class="wlb-hero-band-label" id="wlbHeroLabel">Fresh from Ugandan Farms</div>
+        <div class="wlb-hero-band-title" id="wlbHeroTitle">All Produce</div>
+        <div class="wlb-hero-band-sub" id="wlbHeroSub">Browse &amp; order directly from verified farmers</div>
+      </div>
+    </div>
+
+    <!-- Products / subcategory tiles -->
+    <div class="wlb-body">
+      <!-- Breadcrumb -->
+      <div class="wlb-breadcrumb" id="wlbBreadcrumb" style="display:none">
+        <button onclick="wlbBackToSubs()" class="wlb-bread-btn">← Back to categories</button>
+        <span class="wlb-bread-sep">›</span>
+        <span class="wlb-bread-cur" id="wlbBreadCur"></span>
+      </div>
+      <div class="wlb-section-label" id="wlbSectionLabel">BROWSE CATEGORIES</div>
+      <!-- Subcategory tile grid (Café Javas style) -->
+      <div id="wlbSubGrid" class="wlb-sub-grid"></div>
+      <!-- Product card grid -->
+      <div id="wlbGrid" class="wlb-grid" style="display:none">
+        <div class="wlb-loader">Loading fresh produce…</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══ PRODUCT DETAIL PANEL (slide-up, Café Javas style) ══ -->
+  <div id="wl-prod-modal" onclick="if(event.target===this)wlCloseProdModal()" role="dialog" aria-modal="true" aria-label="Product detail">
+    <div class="wl-pm-box" id="wlPmBox">
+      <button class="wl-pm-close" onclick="wlCloseProdModal()" aria-label="Close">✕</button>
+      <div class="wl-pm-img" id="wlPmImg"></div>
+      <div class="wl-pm-body" id="wlPmBody"></div>
+    </div>
+  </div>
+
+  <!-- ══ SIGN-IN GATE (shown when guest taps Order) ══ -->
+  <div id="wl-signin-gate" onclick="if(event.target===this)wlCloseGate()" role="dialog" aria-modal="true" aria-label="Sign in to order">
+    <div class="wl-sg-box">
+      <div class="wl-sg-handle"></div>
+      <div class="wl-sg-inner">
+        <div id="wlSgProductRow" class="wl-sg-product-row" style="display:none">
+          <div class="wl-sg-product-img" id="wlSgProductImg"></div>
+          <div>
+            <div class="wl-sg-product-name" id="wlSgProductName"></div>
+            <div class="wl-sg-product-price" id="wlSgProductPrice"></div>
+          </div>
+        </div>
+        <div class="wl-sg-icon">🌱</div>
+        <div class="wl-sg-title">Sign in to place your order</div>
+        <div class="wl-sg-sub">Join thousands of Ugandans buying fresh produce directly from verified farmers — no middlemen, farm-fresh prices.</div>
+        <div class="wl-sg-actions">
+          <button class="wl-sg-btn-primary" onclick="wlCloseGate();enterApp('register')">Create Free Account →</button>
+          <button class="wl-sg-btn-ghost" onclick="wlCloseGate();enterApp('login')">Sign In to My Account</button>
+          <button class="wl-sg-cancel" onclick="wlCloseGate()">Continue browsing</button>
+        </div>
+      </div>
+    </div>
+  </div>
 
 </div>
 
@@ -3111,6 +3670,9 @@ setTimeout(function(){
     <button class="splash-btn-secondary" style="margin-top:10px;border:none;background:none;color:var(--green-light);font-size:.9rem;padding:10px" onclick="splashBrowseGuest()">Browse as guest →</button>
   </div>
 </div>
+
+<!-- ══ SKIP LINK ══ -->
+<a href="#page-home" class="skip-link" style="position:absolute;left:-999px;top:4px;z-index:99999;background:var(--green);color:#000;padding:6px 12px;border-radius:6px;font-weight:700;text-decoration:none;font-size:0.85rem" onfocus="this.style.left='8px'" onblur="this.style.left='-999px'">Skip to main content</a>
 
 <!-- ══ SKIP LINK ══ -->
 <a href="#page-home" class="skip-link" style="position:absolute;left:-999px;top:4px;z-index:99999;background:var(--green);color:#000;padding:6px 12px;border-radius:6px;font-weight:700;text-decoration:none;font-size:0.85rem" onfocus="this.style.left='8px'" onblur="this.style.left='-999px'">Skip to main content</a>
