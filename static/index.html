@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- AB_BUILD:20261125_LOCKDOWN_H -->
+<!-- AB_BUILD:20261125_LOCKDOWN_I -->
 <html lang="en">
 <head>
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
@@ -9,7 +9,7 @@
 // Self-update: if this page is served from browser cache, force a fresh reload.
 // We store the build stamp in sessionStorage; if it mismatches we reload once.
 (function(){
-  var STAMP = '20261125_LOCKDOWN_H';
+  var STAMP = '20261125_LOCKDOWN_I';
   var key = '_ab_stamp';
   try {
     if (sessionStorage.getItem(key) !== STAMP) {
@@ -2798,9 +2798,9 @@ html.is-web:not(.app-entered) body{overflow:hidden}
     // Only skip welcome screen if actually logged in — not just "entered before"
     var entered=false; try{ entered=sessionStorage.getItem('ab_entered')==='1' && loggedIn; }catch(e){}
     d.classList.add(isApp?'is-app':'is-web');
-    // Website (browser): always open — browse freely without login
-    // PWA (installed app): must login — welcome screen shown until signed in
-    if(!isApp || loggedIn || entered) {
+    // Browser (website): show Cafe Javas landing first; app-entered added after clicking in
+    // PWA / installed app: must login — welcome screen shown until signed in
+    if(loggedIn || entered) {
       d.classList.add('app-entered');
       document.addEventListener('DOMContentLoaded', function(){
         if(typeof showPage==='function') showPage('home');
