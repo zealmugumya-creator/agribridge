@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- AB_BUILD:20261124_REG -->
+<!-- AB_BUILD:20261125_UI -->
 <html lang="en">
 <head>
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
@@ -9,7 +9,7 @@
 // Self-update: if this page is served from browser cache, force a fresh reload.
 // We store the build stamp in sessionStorage; if it mismatches we reload once.
 (function(){
-  var STAMP = '20261124_REG';
+  var STAMP = '20261125_UI';
   var key = '_ab_stamp';
   try {
     if (sessionStorage.getItem(key) !== STAMP) {
@@ -434,8 +434,12 @@ img{max-width:100%}
 .legal-doc-card h4{margin:0 0 4px;font-size:0.92rem}
 .legal-doc-card p{margin:0 0 6px;font-size:0.8rem;color:var(--text2)}
 .legal-foot-links a{margin-right:12px;font-size:0.82rem;color:var(--green)}
-.modal-overlay{display:none;position:fixed;inset:0;z-index:500;background:rgba(0,0,0,0.7);align-items:center;justify-content:center;padding:16px}
+.modal-overlay{display:none;position:fixed;inset:0;z-index:500;background:rgba(0,0,0,0.75);align-items:center;justify-content:center;padding:16px}
 .modal-overlay.open{display:flex;animation:fadeIn 0.25s ease}
+@media(max-width:600px){
+  .modal-overlay.auth-modal{padding:0;align-items:flex-end}
+  .modal-overlay.auth-modal .modal-box{border-radius:24px 24px 0 0;max-height:95vh;padding:28px 20px 36px;border-bottom:none}
+}
 /* The review screen and the privacy request it opens are the only overlays that
    refuse to be dismissed, and a person reaches them from inside Settings — where
    both would otherwise sit at z-index 500 and lose to whichever div comes later in
@@ -474,12 +478,30 @@ img{max-width:100%}
 .form-group textarea{resize:vertical;min-height:80px}
 .form-row{display:grid;grid-template-columns:1fr 1fr;gap:12px}
 .btn-submit{width:100%;padding:13px;background:var(--green);color:#000;border:none;border-radius:10px;font-size:1rem;font-weight:700;cursor:pointer;font-family:inherit;transition:opacity 0.2s}
-.btn-google{width:100%;display:flex;align-items:center;justify-content:center;gap:10px;padding:11px 14px;background:#fff;color:#1f1f1f;border:1px solid #dadce0;border-radius:10px;font-size:0.92rem;font-weight:600;cursor:pointer;font-family:inherit}
-.btn-google:hover{background:#f7f7f7}
+.btn-google{width:100%;display:flex;align-items:center;justify-content:center;gap:10px;padding:14px 14px;background:#fff;color:#1f1f1f;border:1.5px solid #dadce0;border-radius:12px;font-size:0.95rem;font-weight:700;cursor:pointer;font-family:inherit;box-shadow:0 2px 8px rgba(0,0,0,0.12)}
+.btn-google:hover{background:#f7f7f7;box-shadow:0 4px 16px rgba(0,0,0,0.16)}
 .btn-google:disabled{opacity:.6;cursor:wait}
-.btn-google svg{width:18px;height:18px;flex:0 0 18px}
-.auth-or{display:flex;align-items:center;gap:10px;color:var(--text2);font-size:0.75rem;margin:14px 0}
+.btn-google svg{width:20px;height:20px;flex:0 0 20px}
+.auth-or{display:flex;align-items:center;gap:10px;color:var(--text2);font-size:0.75rem;margin:16px 0}
 .auth-or::before,.auth-or::after{content:'';flex:1;height:1px;background:var(--border)}
+/* Auth role selector cards */
+.auth-role-row{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin:16px 0}
+.auth-role-card{background:var(--bg3,rgba(255,255,255,0.05));border:1.5px solid var(--border);border-radius:12px;padding:14px 10px;text-align:center;cursor:pointer;transition:all 0.2s;user-select:none}
+.auth-role-card:hover{border-color:var(--green);background:rgba(76,175,80,0.08)}
+.auth-role-card.selected{border-color:var(--green);background:rgba(76,175,80,0.14);box-shadow:0 0 0 2px rgba(76,175,80,0.25)}
+.auth-role-card .arc-icon{font-size:1.6rem;margin-bottom:6px}
+.auth-role-card .arc-title{font-weight:700;font-size:0.88rem;color:var(--text)}
+.auth-role-card .arc-sub{font-size:0.72rem;color:var(--text2);margin-top:3px;line-height:1.3}
+/* Auth modal header */
+.auth-modal-logo{display:flex;align-items:center;gap:8px;margin-bottom:20px}
+.auth-modal-logo img{width:32px;height:32px;border-radius:8px}
+.auth-modal-logo span{font-weight:800;font-size:1.05rem;color:var(--text)}
+.auth-get-started-btn{width:100%;padding:14px;background:var(--green);color:#fff;border:none;border-radius:12px;font-size:1rem;font-weight:700;cursor:pointer;font-family:inherit;transition:opacity 0.2s;margin-top:4px;box-shadow:0 4px 16px rgba(76,175,80,0.3)}
+.auth-get-started-btn:hover{opacity:0.9}
+.auth-get-started-btn:disabled{opacity:0.5;cursor:not-allowed}
+.auth-guest-link{text-align:center;margin-top:14px;font-size:0.8rem;color:var(--text2)}
+.auth-guest-link a{color:var(--text2);text-decoration:none}
+.auth-guest-link a:hover{color:var(--text)}
 .btn-submit:hover{opacity:0.9}
 .btn-submit:disabled{opacity:0.5;cursor:not-allowed}
 
@@ -14500,6 +14522,43 @@ async function _restSignUp(email, pwd, meta) {
 }
 
 // ── doRegister — replaces original ───────────────────
+// Role selector cards on register modal
+function authSelectRole(role, cardEl) {
+  // Update card UI
+  document.querySelectorAll('#authRoleCards .auth-role-card').forEach(function(c){ c.classList.remove('selected'); });
+  if (cardEl) cardEl.classList.add('selected');
+  // Sync hidden select
+  var sel = document.getElementById('regRole');
+  if (sel) {
+    // Map card roles to select values
+    var map = { farmer: 'farmer', vendor: 'vendor', hotel: 'hotel', supplier: 'supplier', exporter: 'exporter' };
+    sel.value = map[role] || role;
+    // Fire updateRegRoleTerms if it exists
+    if (typeof updateRegRoleTerms === 'function') updateRegRoleTerms();
+  }
+  // Store for use
+  window._authSelectedRole = role;
+}
+// Pre-select on modal open
+document.addEventListener('DOMContentLoaded', function(){
+  var regModal = document.getElementById('registerModal');
+  if (regModal) {
+    var observer = new MutationObserver(function(){
+      if (regModal.classList.contains('open')) {
+        var sel = document.getElementById('regRole');
+        var curRole = (sel && sel.value) || 'farmer';
+        var cards = document.querySelectorAll('#authRoleCards .auth-role-card');
+        cards.forEach(function(c){ c.classList.remove('selected'); });
+        // map select value back to card
+        var isBuyer = ['vendor','hotel','exporter','supplier'].indexOf(curRole) > -1;
+        var targetCard = cards[isBuyer ? 1 : 0];
+        if (targetCard) targetCard.classList.add('selected');
+      }
+    });
+    observer.observe(regModal, { attributes: true, attributeFilter: ['class'] });
+  }
+});
+
 async function doRegister() {
   _clearRegErr();
   if (!sbAuth) {
@@ -15638,15 +15697,26 @@ document.addEventListener('DOMContentLoaded', function() {
 </div>
 
 <!-- ══ LOGIN MODAL ══════════════════════════════════════════ -->
-<div class="modal-overlay" id="loginModal" onclick="handleOverlay(event,'loginModal')" role="dialog" aria-label="Login">
+<div class="modal-overlay auth-modal" id="loginModal" onclick="handleOverlay(event,'loginModal')" role="dialog" aria-label="Login">
   <div class="modal-box" id="loginModalInner">
-    <button class="modal-close" onclick="closeModal('loginModal')">✕</button>
-    <h3 data-i18n="login.title">Welcome Back 👋</h3>
-    <p style="font-size:0.83rem;color:var(--text2);margin-bottom:18px">Log in to manage your listings, orders and animals</p>
+    <button class="modal-close" onclick="closeModal('loginModal')" style="top:18px;right:18px">✕</button>
+    <div class="auth-modal-logo">
+      <img src="icon.png" alt="AgriBridge">
+      <span>AgriBridge</span>
+    </div>
+    <h3 style="font-size:1.35rem;font-weight:800;margin-bottom:4px" data-i18n="login.title">Welcome Back 👋</h3>
+    <p style="font-size:0.83rem;color:var(--text2);margin-bottom:20px">Log in to your account</p>
     <div id="loginLockMsg" style="display:none;background:#b71c1c22;border:1px solid #b71c1c;border-radius:8px;padding:10px 14px;margin-bottom:14px;font-size:0.83rem;color:#ff5252">
       🔒 Account locked after 5 failed attempts. Try again in <strong id="lockCountdown">5:00</strong> or <a href="#" onclick="openForgotPassword();return false" style="color:var(--amber)">reset your password</a>.
     </div>
     <div id="loginErrMsg" style="display:none;background:#b71c1c22;border:1px solid #b71c1c;border-radius:8px;padding:10px 14px;margin-bottom:14px;font-size:0.83rem;color:#ff5252"></div>
+    <div id="googleLoginWrap">
+      <button type="button" class="btn-google" id="googleLoginBtn" onclick="doGoogleLogin('login')">
+        <svg viewBox="0 0 48 48" aria-hidden="true" focusable="false"><path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/><path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/><path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"/><path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/></svg>
+        Continue with Google
+      </button>
+      <div class="auth-or">or sign in with email</div>
+    </div>
     <div class="form-group">
       <label>Phone Number or Email</label>
       <input type="text" id="loginPhone" placeholder="+256 7xx xxx xxx or email@example.com" autocomplete="username">
@@ -15662,27 +15732,38 @@ document.addEventListener('DOMContentLoaded', function() {
         <a href="#" onclick="openForgotPassword();return false" style="font-size:0.78rem;color:var(--green)">Forgot password?</a>
       </div>
     </div>
-    <button class="btn-submit" id="loginSubmitBtn" onclick="doLogin()" data-i18n="login.btn">Log In</button>
-    <div id="googleLoginWrap" style="display:none">
-      <div class="auth-or">or</div>
-      <button type="button" class="btn-google" id="googleLoginBtn" onclick="doGoogleLogin('login')">
-        <svg viewBox="0 0 48 48" aria-hidden="true" focusable="false"><path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/><path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/><path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"/><path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/></svg>
-        Continue with Google
-      </button>
-    </div>
-    <p style="text-align:center;margin-top:14px;font-size:0.85rem;color:var(--text2)">No account? <a href="#" onclick="closeModal('loginModal');openModal('registerModal')">Join Free</a></p>
+    <button class="auth-get-started-btn" id="loginSubmitBtn" onclick="doLogin()" data-i18n="login.btn">Log In</button>
+    <div class="auth-guest-link" style="margin-top:16px">No account? <a href="#" onclick="closeModal('loginModal');openModal('registerModal')" style="color:var(--green);font-weight:600">Join Free →</a></div>
   </div>
 </div>
 
 <!-- ══ REGISTER MODAL ════════════════════════════════════════ -->
-<div class="modal-overlay" id="registerModal" onclick="handleOverlay(event,'registerModal')" role="dialog" aria-label="Register">
+<div class="modal-overlay auth-modal" id="registerModal" onclick="handleOverlay(event,'registerModal')" role="dialog" aria-label="Register">
   <div class="modal-box" id="registerModalInner">
-    <button class="modal-close" onclick="closeModal('registerModal')">✕</button>
-    <h3 data-i18n="reg.title">Join AgriBridge Free 🌾</h3>
-    <p style="font-size:0.83rem;color:var(--text2);margin-bottom:18px">Create your account in 2 minutes — free forever</p>
+    <button class="modal-close" onclick="closeModal('registerModal')" style="top:18px;right:18px">✕</button>
+    <div class="auth-modal-logo">
+      <img src="icon.png" alt="AgriBridge">
+      <span>AgriBridge</span>
+    </div>
+    <h3 style="font-size:1.35rem;font-weight:800;margin-bottom:4px" data-i18n="reg.title">Join AgriBridge 🌾</h3>
+    <p style="font-size:0.83rem;color:var(--text2);margin-bottom:4px">Create your account in 2 minutes — free forever</p>
     <div id="regErrMsg" style="display:none;background:#b71c1c22;border:1px solid #b71c1c;border-radius:8px;padding:10px 14px;margin-bottom:14px;font-size:0.83rem;color:#ff5252"></div>
     <div id="regStep1">
-      <div id="googleRegisterWrap" style="display:none;margin-bottom:6px">
+      <!-- Role selector -->
+      <p style="font-size:0.82rem;font-weight:600;color:var(--text2);margin:12px 0 6px">How would you like to start?</p>
+      <div class="auth-role-row" id="authRoleCards">
+        <div class="auth-role-card selected" onclick="authSelectRole('farmer',this)">
+          <div class="arc-icon">🌱</div>
+          <div class="arc-title">I am a Seller</div>
+          <div class="arc-sub">Farmer, Producer, Cooperative</div>
+        </div>
+        <div class="auth-role-card" onclick="authSelectRole('vendor',this)">
+          <div class="arc-icon">🧺</div>
+          <div class="arc-title">I am a Buyer</div>
+          <div class="arc-sub">Wholesale, Trader, Off-taker</div>
+        </div>
+      </div>
+      <div id="googleRegisterWrap" style="margin-bottom:6px">
         <button type="button" class="btn-google" id="googleRegisterBtn" onclick="doGoogleLogin('register')">
           <svg viewBox="0 0 48 48" aria-hidden="true" focusable="false"><path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/><path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/><path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"/><path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/></svg>
           Continue with Google
@@ -15694,10 +15775,10 @@ document.addEventListener('DOMContentLoaded', function() {
       <div class="form-group" id="regPhoneFormGroup"><label data-i18n="reg.phone">Phone</label><input type="tel" id="regPhone" placeholder="+256 771 234567 or +20 103 679 7717" autocomplete="tel"></div>
       <div class="form-group"><label data-i18n="reg.email">Email Address</label><input type="email" id="regEmail" placeholder="your@email.com" autocomplete="email"></div>
       <div class="form-row">
-        <div class="form-group"><label>I am a…</label>
+        <div class="form-group" style="display:none"><label>I am a…</label>
           <select id="regRole" onchange="updateRegRoleTerms()"><option value="farmer">Farmer 🌾</option><option value="vendor">Vendor / Buyer 🛒</option><option value="hotel">Hotel / Restaurant 🏨</option><option value="supplier">Supplier / Input Seller 🏪</option><option value="exporter">Exporter / Trading Co. 🌍</option></select>
         </div>
-        <div class="form-group"><label>District</label>
+        <div class="form-group" style="flex:1"><label>District</label>
           <select id="regDistrict"><option>Kampala</option><option>Wakiso</option><option>Mukono</option><option>Jinja</option><option>Mbarara</option><option>Bushenyi</option><option>Kabale</option><option>Gulu</option><option>Lira</option><option>Mbale</option><option>Kasese</option><option>Masaka</option><option>Hoima</option><option>Arua</option><option>Other</option></select>
         </div>
       </div>
@@ -15736,13 +15817,15 @@ document.addEventListener('DOMContentLoaded', function() {
         </div>
         <div class="legal-note">The promotions box is optional. You can create an account without it and change it any time in Settings.</div>
       </div>
-      <button class="btn-submit" id="regSubmitBtn" onclick="doRegister()" data-i18n="reg.btn">Create Account 🌾</button>
+      <button class="auth-get-started-btn" id="regSubmitBtn" onclick="doRegister()" data-i18n="reg.btn">Get Started 🌾</button>
+      <div class="auth-guest-link">Already have an account? <a href="#" onclick="closeModal('registerModal');openModal('loginModal')" style="color:var(--green);font-weight:600">Log In →</a></div>
+      <div class="auth-guest-link" style="margin-top:6px"><a href="#" onclick="closeModal('registerModal')" style="color:var(--text2)">Just checking prices? Browse as Guest →</a></div>
     </div>
     <div id="regStep2" style="display:none;text-align:center;padding:10px 0">
       <div style="font-size:3rem;margin-bottom:8px">📧</div>
       <div style="font-weight:700;font-size:1rem;margin-bottom:6px">Check your email!</div>
       <p style="font-size:0.85rem;color:var(--text2)">We sent a confirmation link to <strong id="regEmailSent" style="color:var(--green)"></strong>. Click the link then log in.</p>
-      <button class="btn-submit" style="margin-top:14px" onclick="closeModal('registerModal');openModal('loginModal')">Go to Login</button>
+      <button class="auth-get-started-btn" style="margin-top:14px" onclick="closeModal('registerModal');openModal('loginModal')">Go to Login</button>
       <p style="text-align:center;margin-top:10px;font-size:0.8rem;color:var(--text2)">Didn't get it? <a href="#" onclick="resendConfirmEmail()">Resend email</a></p>
     </div>
   </div>
