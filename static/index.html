@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- AB_BUILD:20261125_WELCOME -->
+<!-- AB_BUILD:20261125_LOCKDOWN -->
 <html lang="en">
 <head>
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
@@ -9,7 +9,7 @@
 // Self-update: if this page is served from browser cache, force a fresh reload.
 // We store the build stamp in sessionStorage; if it mismatches we reload once.
 (function(){
-  var STAMP = '20261125_WELCOME';
+  var STAMP = '20261125_LOCKDOWN';
   var key = '_ab_stamp';
   try {
     if (sessionStorage.getItem(key) !== STAMP) {
@@ -3000,7 +3000,7 @@ html.is-web:not(.app-entered) body{overflow:hidden}
       <svg viewBox="0 0 48 48"><path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/><path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/><path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"/><path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/></svg>
       Continue with Google
     </button>
-    <div class="wl2-guest">Just checking prices? <a href="#" onclick="wl2BrowseGuest();return false">Browse as Guest →</a></div>
+    <div class="wl2-guest">Already have an account? <a href="#" onclick="wl2Login();return false">Log In →</a></div>
   </div>
 </div>
 
@@ -3056,7 +3056,8 @@ function wl2Google() {
 }
 
 function wl2BrowseGuest() {
-  if (typeof enterApp === 'function') enterApp();
+  // No guest access — redirect to register
+  if (typeof openModal === 'function') openModal('registerModal');
 }
 
 // Hero carousel
@@ -4872,9 +4873,14 @@ function mnav(n){ closeMore(); showPage(n); }
 var _AUTH_REQUIRED_PAGES = ['cart','orders','dashboard','farmer-produce','farmer-orders','farmer-earnings','farmer-profile','buyer-orders','boost','pitch'];
 function showPage(name) {
   console.log('[AB] showPage:', name, 'currentUser:', !!currentUser);
-  // Auth gate — redirect guests to login for protected pages
-  if (_AUTH_REQUIRED_PAGES.indexOf(name) !== -1 && !currentUser) {
-    showToast(t('toast.sign_in_required'));
+  // Full auth gate — ALL pages require login on web
+  var isApp = document.documentElement.classList.contains('is-app');
+  if (!isApp && !currentUser) {
+    // Return to welcome screen — no guest browsing
+    try { document.documentElement.classList.remove('app-entered'); } catch(e){}
+    try { sessionStorage.removeItem('ab_entered'); } catch(e){}
+    var wl = document.getElementById('webLanding');
+    if (wl) wl.scrollTop = 0;
     if (typeof openModal === 'function') openModal('loginModal');
     return;
   }
@@ -15268,7 +15274,6 @@ document.addEventListener('DOMContentLoaded', function() {
       </div>
       <button class="auth-get-started-btn" id="regSubmitBtn" onclick="doRegister()" data-i18n="reg.btn">Get Started 🌾</button>
       <div class="auth-guest-link">Already have an account? <a href="#" onclick="closeModal('registerModal');openModal('loginModal')" style="color:var(--green);font-weight:600">Log In →</a></div>
-      <div class="auth-guest-link" style="margin-top:6px"><a href="#" onclick="closeModal('registerModal')" style="color:var(--text2)">Just checking prices? Browse as Guest →</a></div>
     </div>
     <div id="regStep2" style="display:none;text-align:center;padding:10px 0">
       <div style="font-size:3rem;margin-bottom:8px">📧</div>
