@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- AB_BUILD:20261126_LOCKDOWN_L -->
+<!-- AB_BUILD:20261126_LOCKDOWN_M -->
 <html lang="en">
 <head>
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
@@ -9,7 +9,7 @@
 // Self-update: if this page is served from browser cache, force a fresh reload.
 // We store the build stamp in sessionStorage; if it mismatches we reload once.
 (function(){
-  var STAMP = '20261126_LOCKDOWN_L';
+  var STAMP = '20261126_LOCKDOWN_M';
   var key = '_ab_stamp';
   try {
     if (sessionStorage.getItem(key) !== STAMP) {
@@ -16256,13 +16256,17 @@ document.addEventListener('DOMContentLoaded', function() {
 // app users never see the landing, so this is a no-op for them.
 function enterApp(target){
   console.log('[AB] enterApp called, target:', target);
-  // Never let anyone peek inside without logging in first.
-  // Buttons on the landing page just open the auth modals.
+  // Login / Register buttons → open modal directly, stay on landing
   if(target==='register' && typeof openModal==='function'){ openModal('registerModal'); return; }
   if(target==='login'    && typeof openModal==='function'){ openModal('loginModal');    return; }
-  if(target==='market'   && typeof openModal==='function'){ openModal('loginModal');    return; }
-  // "Launch App" or any other call → login modal
-  if(typeof openModal==='function'){ openModal('loginModal'); }
+  // "Launch App" / no target → enter the app shell, then showPage() will
+  // open loginModal automatically if the user isn't signed in yet
+  try{ history.pushState({abApp:1},'',window.location.href); }catch(e){}
+  try{ document.documentElement.classList.add('app-entered'); }catch(e){}
+  try{ sessionStorage.setItem('ab_entered','1'); }catch(e){}
+  try{ window.scrollTo(0,0); }catch(e){}
+  if(target==='market' && typeof showPage==='function'){ setTimeout(function(){ showPage('market'); },50); return; }
+  if(typeof showPage==='function'){ setTimeout(function(){ showPage('home'); },50); }
 }
 function appStoreClick(){ showInstallModal(); }
 
