@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- AB_BUILD:20261126_LOCKDOWN_J -->
+<!-- AB_BUILD:20261126_LOCKDOWN_K -->
 <html lang="en">
 <head>
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
@@ -9,7 +9,7 @@
 // Self-update: if this page is served from browser cache, force a fresh reload.
 // We store the build stamp in sessionStorage; if it mismatches we reload once.
 (function(){
-  var STAMP = '20261126_LOCKDOWN_J';
+  var STAMP = '20261126_LOCKDOWN_K';
   var key = '_ab_stamp';
   try {
     if (sessionStorage.getItem(key) !== STAMP) {
@@ -14769,11 +14769,11 @@ async function logOut(){
   basketItems=[]; appliedPromo=null;
   localStorage.removeItem('ab_basket'); localStorage.removeItem('ab_promo');
   renderBasket(); updateBasketBadge();
-  // And leave the screen they were looking at. A farmer who signed out from their
-  // dashboard stayed on it — own listings, own orders, own earnings — with only two
-  // small nav buttons visibly changed, which is the other half of why sign-out reads
-  // as a button that does not work. Home repaints for whoever is now looking.
-  try{ showPage('home'); }catch(e){}
+  // Remove the app gate — user lands back on the welcome/landing screen
+  try{ sessionStorage.removeItem('ab_entered'); }catch(e){}
+  try{ document.documentElement.classList.remove('app-entered'); }catch(e){}
+  try{ var wl=document.getElementById('webLanding'); if(wl) wl.scrollTop=0; }catch(e){}
+  try{ window.scrollTo(0,0); }catch(e){}
 }
 // Play-required account deletion (audit H6). Calls the server-side erasure
 // endpoint with the verified session token; the SERVER scopes it to the caller's
@@ -16254,10 +16254,12 @@ document.addEventListener('DOMContentLoaded', function() {
 // app users never see the landing, so this is a no-op for them.
 function enterApp(target){
   console.log('[AB] enterApp called, target:', target);
-  // Gate: never let anyone inside unless already logged in.
-  // Just open login or register modal — the app unlocks only after successful auth.
+  // Never let anyone peek inside without logging in first.
+  // Buttons on the landing page just open the auth modals.
   if(target==='register' && typeof openModal==='function'){ openModal('registerModal'); return; }
-  // Default (login / launch / no target) → open login modal
+  if(target==='login'    && typeof openModal==='function'){ openModal('loginModal');    return; }
+  if(target==='market'   && typeof openModal==='function'){ openModal('loginModal');    return; }
+  // "Launch App" or any other call → login modal
   if(typeof openModal==='function'){ openModal('loginModal'); }
 }
 function appStoreClick(){ showInstallModal(); }
