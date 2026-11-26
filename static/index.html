@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- AB_BUILD:20261126_LOCKDOWN_P -->
+<!-- AB_BUILD:20261126_LOCKDOWN_Q -->
 <html lang="en">
 <head>
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
@@ -9,7 +9,7 @@
 // Self-update: if this page is served from browser cache, force a fresh reload.
 // We store the build stamp in sessionStorage; if it mismatches we reload once.
 (function(){
-  var STAMP = '20261126_LOCKDOWN_P';
+  var STAMP = '20261126_LOCKDOWN_Q';
   var key = '_ab_stamp';
   try {
     if (sessionStorage.getItem(key) !== STAMP) {
@@ -2819,6 +2819,34 @@ html.is-web:not(.app-entered) .modal-overlay{z-index:7000}
     }
   }catch(e){ document.documentElement.classList.add('is-web'); }
 })();</script>
+
+<!-- Early stubs so landing-page buttons work before the main JS loads -->
+<script>
+// enterApp and showSplash are defined fully later in the file.
+// These stubs ensure clicks before DOMContentLoaded still work.
+function showSplash(){
+  var sp=document.getElementById('page-splash');
+  if(!sp) return;
+  sp.style.display='flex'; sp.style.flexDirection='column';
+  // Start slider auto-play if function exists
+  if(typeof _spAutoPlay==='function'){ try{_spStopPlay();_spAutoPlay();}catch(e){} }
+}
+function enterApp(target){
+  if(target==='register'){ if(typeof openModal==='function') openModal('registerModal'); return; }
+  if(target==='login'){    if(typeof openModal==='function') openModal('loginModal');    return; }
+  var loggedIn=false; try{ loggedIn=!!JSON.parse(localStorage.getItem('ab_user')||'null'); }catch(e){}
+  if(loggedIn){
+    try{ document.documentElement.classList.add('app-entered'); }catch(e){}
+    try{ sessionStorage.setItem('ab_entered','1'); }catch(e){}
+    try{ window.scrollTo(0,0); }catch(e){}
+    if(target==='market'){ if(typeof showPage==='function') setTimeout(function(){ showPage('market'); },50); return; }
+    if(typeof showPage==='function') setTimeout(function(){ showPage('home'); },50);
+    return;
+  }
+  // Not logged in → show welcome splash
+  showSplash();
+}
+</script>
 
 <!-- ══════════════════ WEB LANDING (browser visitors only) ══════════════════ -->
 <div id="webLanding" role="region" aria-label="AgriBridge — Bridging Farms, Building Markets">
