@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- AB_BUILD:20261126_LOCKDOWN_K -->
+<!-- AB_BUILD:20261126_LOCKDOWN_L -->
 <html lang="en">
 <head>
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
@@ -9,7 +9,7 @@
 // Self-update: if this page is served from browser cache, force a fresh reload.
 // We store the build stamp in sessionStorage; if it mismatches we reload once.
 (function(){
-  var STAMP = '20261126_LOCKDOWN_K';
+  var STAMP = '20261126_LOCKDOWN_L';
   var key = '_ab_stamp';
   try {
     if (sessionStorage.getItem(key) !== STAMP) {
@@ -1107,6 +1107,8 @@ html.is-web:not(.app-entered) #webLanding{
   background:var(--wl-cream);color:var(--wl-text)
 }
 html.is-web:not(.app-entered) body{overflow:hidden}
+/* Modals must float above the landing page overlay */
+html.is-web:not(.app-entered) .modal-overlay{z-index:7000}
 #webLanding *{box-sizing:border-box}
 #webLanding a{color:inherit;text-decoration:none}
 
