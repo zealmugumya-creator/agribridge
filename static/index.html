@@ -2822,6 +2822,8 @@ html.is-web:not(.app-entered) .modal-overlay{z-index:7000}
 
 <!-- Early stubs so landing-page buttons work before the main JS loads -->
 <script>
+// t() translation stub — real one loads at line ~17763; this prevents ReferenceError crashes
+if(typeof window.t === 'undefined') window.t = function(key){ return key; };
 // enterApp and showSplash are defined fully later in the file.
 // These stubs ensure clicks before DOMContentLoaded still work.
 function showSplash(){
