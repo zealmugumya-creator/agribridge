@@ -3382,7 +3382,7 @@ function enterApp(target){
       <h2 class="wl-h2">Your Growth. Our Mission.</h2>
       <p class="wl-final-p">Join thousands of Ugandan farmers and buyers already trading smarter on AgriBridge. Zero middlemen, real-time tracking, and AI tools to grow your income.</p>
       <div class="wl-final-cta">
-        <button class="wl-btn lg" onclick="enterApp()">Launch AgriBridge →</button>
+        <button class="wl-btn lg" onclick="(function(){var sp=document.getElementById('page-splash');if(!sp){alert('splash not found');}else{sp.style.cssText='display:flex;flex-direction:column;position:fixed;inset:0;z-index:8000;background:#071210;overflow-y:auto';}})()">Launch AgriBridge →</button>
         <button class="wl-btn ghost lg" onclick="enterApp('register')">Create free account</button>
       </div>
       <div class="wl-stores">
