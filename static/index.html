@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- AB_BUILD:20261126_LOCKDOWN_M -->
+<!-- AB_BUILD:20261126_LOCKDOWN_N -->
 <html lang="en">
 <head>
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
@@ -9,7 +9,7 @@
 // Self-update: if this page is served from browser cache, force a fresh reload.
 // We store the build stamp in sessionStorage; if it mismatches we reload once.
 (function(){
-  var STAMP = '20261126_LOCKDOWN_M';
+  var STAMP = '20261126_LOCKDOWN_N';
   var key = '_ab_stamp';
   try {
     if (sessionStorage.getItem(key) !== STAMP) {
@@ -2590,22 +2590,55 @@ html.is-web:not(.app-entered) .modal-overlay{z-index:7000}
 .order-success-v2 .ref-box .val{font-family:monospace;font-size:1.1rem;font-weight:800;color:var(--green-light)}
 
 /* ── Splash / Onboarding page ── */
-#page-splash{position:fixed;inset:0;z-index:999;display:flex;flex-direction:column;background:#050B08;padding:0;overflow:hidden}
-.splash-bg{position:absolute;inset:0;background:url('https://images.unsplash.com/photo-1500595046743-cd271d694d30?w=800&q=80') center/cover no-repeat;filter:brightness(.45)}
-.splash-overlay{position:absolute;inset:0;background:linear-gradient(to top,rgba(5,11,8,.98) 35%,rgba(5,11,8,.1) 100%)}
-.splash-body{position:relative;z-index:2;flex:1;display:flex;flex-direction:column;justify-content:flex-end;padding:0 24px 48px}
-.splash-logo{display:flex;align-items:center;gap:10px;margin-bottom:28px}
-.splash-logo-ic{width:48px;height:48px;background:var(--green);border-radius:14px;display:flex;align-items:center;justify-content:center;font-size:1.6rem}
-.splash-logo-name{font-family:'Syne',sans-serif;font-size:1.7rem;font-weight:800;color:#fff}
-.splash-logo-name span{color:var(--green)}
-.splash-headline{font-family:'Syne',sans-serif;font-size:2rem;font-weight:800;color:#fff;line-height:1.18;margin-bottom:10px}
-.splash-headline em{color:var(--green);font-style:normal}
-.splash-tagline{font-size:.93rem;color:rgba(255,255,255,.7);line-height:1.55;margin-bottom:36px}
-.splash-tagline strong{color:rgba(255,255,255,.9)}
-.splash-dots{display:flex;gap:6px;margin-bottom:28px}
-.splash-dot{width:6px;height:6px;border-radius:50%;background:rgba(255,255,255,.25)}
-.splash-dot.active{background:var(--green);width:22px;border-radius:3px}
-.splash-btn-primary{width:100%;padding:15px;background:var(--green);color:#000;border:none;border-radius:14px;font-size:1rem;font-weight:800;cursor:pointer;font-family:inherit;margin-bottom:10px;letter-spacing:.01em}
+#page-splash{position:fixed;inset:0;z-index:999;display:flex;flex-direction:column;background:#071210;overflow-y:auto;overflow-x:hidden}
+/* Splash top bar */
+.sp-topbar{display:flex;align-items:center;justify-content:space-between;padding:14px 18px 10px;position:relative;z-index:3}
+.sp-logo{display:flex;align-items:center;gap:9px}
+.sp-logo img{height:34px;width:auto}
+.sp-logo-name{font-family:'Syne',sans-serif;font-size:1.25rem;font-weight:800;color:#fff}
+.sp-login-btn{background:transparent;border:1.5px solid rgba(255,255,255,.3);color:#fff;border-radius:10px;padding:7px 18px;font-size:.88rem;font-weight:600;cursor:pointer;font-family:inherit}
+.sp-login-btn:active{opacity:.7}
+/* Image slider */
+.sp-slider{position:relative;width:100%;height:220px;overflow:hidden;border-radius:0 0 24px 24px}
+.sp-slide{position:absolute;inset:0;background-size:cover;background-position:center;transition:opacity .6s ease}
+.sp-slide.active{opacity:1}
+.sp-slide:not(.active){opacity:0}
+.sp-slide-caption{position:absolute;bottom:0;left:0;right:0;background:linear-gradient(to top,rgba(5,11,8,.85) 60%,transparent);padding:12px 16px 14px;display:flex;align-items:center;justify-content:space-between}
+.sp-slide-label{font-size:.82rem;font-weight:700;color:#fff}
+.sp-live-pill{background:var(--green);color:#04160c;font-size:.72rem;font-weight:800;border-radius:20px;padding:3px 10px;display:flex;align-items:center;gap:5px}
+.sp-live-dot{width:6px;height:6px;border-radius:50%;background:#04160c;animation:ab-pulse 1.4s infinite}
+.sp-slider-nav{position:absolute;top:50%;transform:translateY(-50%);width:30px;height:30px;border-radius:50%;background:rgba(0,0,0,.35);border:none;color:#fff;font-size:1rem;cursor:pointer;display:flex;align-items:center;justify-content:center;z-index:2}
+.sp-slider-nav.prev{left:10px}
+.sp-slider-nav.next{right:10px}
+.sp-dots{position:absolute;bottom:14px;left:50%;transform:translateX(-50%);display:flex;gap:5px;z-index:3}
+.sp-dot{width:7px;height:7px;border-radius:50%;background:rgba(255,255,255,.35);border:none;cursor:pointer}
+.sp-dot.active{background:var(--green);width:20px;border-radius:4px}
+/* Splash body */
+.sp-body{padding:20px 18px 32px;flex:1}
+.sp-feed-title{font-family:'Syne',sans-serif;font-size:1.45rem;font-weight:800;color:#fff;line-height:1.25;margin-bottom:6px}
+.sp-feed-sub{font-size:.83rem;color:rgba(255,255,255,.6);line-height:1.5;margin-bottom:14px}
+.sp-badges{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:22px}
+.sp-badge{font-size:.72rem;color:rgba(255,255,255,.75);background:rgba(23,224,107,.1);border:1px solid rgba(23,224,107,.2);border-radius:20px;padding:4px 11px;white-space:nowrap}
+.sp-badge::before{content:'✓ ';color:var(--green)}
+/* Role picker */
+.sp-role-title{font-size:.92rem;font-weight:700;color:#fff;margin-bottom:11px}
+.sp-roles{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:20px}
+.sp-role{background:rgba(255,255,255,.05);border:1.5px solid rgba(255,255,255,.12);border-radius:14px;padding:14px 14px 12px;cursor:pointer;transition:border-color .2s,background .2s;text-align:left}
+.sp-role.selected{border-color:var(--green);background:rgba(23,224,107,.1)}
+.sp-role-icon{font-size:1.5rem;margin-bottom:7px}
+.sp-role-label{font-size:.93rem;font-weight:700;color:#fff;margin-bottom:3px}
+.sp-role-desc{font-size:.75rem;color:rgba(255,255,255,.5)}
+/* CTA buttons */
+.sp-cta{margin-top:4px}
+.sp-btn-primary{width:100%;padding:15px;background:var(--green);color:#04160c;border:none;border-radius:14px;font-size:1rem;font-weight:800;cursor:pointer;font-family:inherit;margin-bottom:10px}
+.sp-btn-primary:active{transform:scale(.98)}
+.sp-btn-google{width:100%;padding:14px;background:#fff;color:#222;border:none;border-radius:14px;font-size:.95rem;font-weight:600;cursor:pointer;font-family:inherit;display:flex;align-items:center;justify-content:center;gap:10px;margin-bottom:14px}
+.sp-btn-google:active{transform:scale(.98)}
+.sp-btn-google svg{width:20px;height:20px;flex-shrink:0}
+.sp-guest-link{text-align:center;font-size:.82rem;color:rgba(255,255,255,.45)}
+.sp-guest-link a{color:var(--green);text-decoration:none;font-weight:600}
+/* Legacy compat */
+.splash-btn-primary{width:100%;padding:15px;background:var(--green);color:#000;border:none;border-radius:14px;font-size:1rem;font-weight:800;cursor:pointer;font-family:inherit;margin-bottom:10px}
 .splash-btn-secondary{width:100%;padding:15px;background:transparent;color:rgba(255,255,255,.85);border:1.5px solid rgba(255,255,255,.25);border-radius:14px;font-size:1rem;font-weight:600;cursor:pointer;font-family:inherit}
 .splash-btn-secondary:active,.splash-btn-primary:active{transform:scale(.98)}
 
@@ -3628,23 +3661,61 @@ html.is-web:not(.app-entered) .modal-overlay{z-index:7000}
 
 <!-- ══ SPLASH / ONBOARDING PAGE ══ -->
 <div id="page-splash" style="display:none">
-  <div class="splash-bg"></div>
-  <div class="splash-overlay"></div>
-  <div class="splash-body">
-    <div class="splash-logo">
-      <div class="splash-logo-ic">🌱</div>
-      <div class="splash-logo-name">Agri<span>Bridge</span></div>
+  <!-- Top bar -->
+  <div class="sp-topbar">
+    <div class="sp-logo">
+      <img src="icon.png" alt="AgriBridge" onerror="this.style.display='none'">
+      <div class="sp-logo-name">AgriBridge</div>
     </div>
-    <div class="splash-headline">From <em>Farm</em><br>to Your Table</div>
-    <div class="splash-tagline">Buy <strong>fresh produce</strong> directly from verified Ugandan farmers. No middlemen. <strong>Farm-fresh prices.</strong></div>
-    <div class="splash-dots">
-      <div class="splash-dot active"></div>
-      <div class="splash-dot"></div>
-      <div class="splash-dot"></div>
+    <button class="sp-login-btn" onclick="splashLogin()">Log In</button>
+  </div>
+  <!-- Image slider -->
+  <div class="sp-slider" id="spSlider">
+    <div class="sp-slide active" style="background-image:url('https://images.unsplash.com/photo-1543362906-acfc16c67564?w=800&q=70')"></div>
+    <div class="sp-slide" style="background-image:url('https://images.unsplash.com/photo-1500595046743-cd271d694d30?w=800&q=70')"></div>
+    <div class="sp-slide" style="background-image:url('https://images.unsplash.com/photo-1586771107445-d3ca888129ff?w=800&q=70')"></div>
+    <div class="sp-slide-caption">
+      <span class="sp-slide-label" id="spSlideLabel">🌽 Fresh Maize — UGX 900 /kg (Gulu)</span>
+      <span class="sp-live-pill"><span class="sp-live-dot"></span>Live</span>
     </div>
-    <button class="splash-btn-primary" onclick="splashGetStarted()">Get Started →</button>
-    <button class="splash-btn-secondary" onclick="splashLogin()">I Already Have an Account</button>
-    <button class="splash-btn-secondary" style="margin-top:10px;border:none;background:none;color:var(--green-light);font-size:.9rem;padding:10px" onclick="splashBrowseGuest()">Browse as guest →</button>
+    <button class="sp-slider-nav prev" onclick="spSlideStep(-1)">‹</button>
+    <button class="sp-slider-nav next" onclick="spSlideStep(1)">›</button>
+    <div class="sp-dots" id="spDots">
+      <button class="sp-dot active" onclick="spSlideTo(0)"></button>
+      <button class="sp-dot" onclick="spSlideTo(1)"></button>
+      <button class="sp-dot" onclick="spSlideTo(2)"></button>
+    </div>
+  </div>
+  <!-- Body -->
+  <div class="sp-body">
+    <div class="sp-feed-title">Uganda's Live Farm-to-Market Feed</div>
+    <div class="sp-feed-sub">Trade directly with verified farmers &amp; wholesale buyers. 🍅 Tomatoes — UGX 1,500 /kg (Wakiso). Tap any live trade below to explore or start.</div>
+    <div class="sp-badges">
+      <span class="sp-badge">Verified Producers</span>
+      <span class="sp-badge">Mobile Money Escrow</span>
+      <span class="sp-badge">Live District Prices</span>
+    </div>
+    <div class="sp-role-title">How would you like to start?</div>
+    <div class="sp-roles">
+      <div class="sp-role selected" id="spRoleSeller" onclick="spSelectRole('seller')">
+        <div class="sp-role-icon">🌱</div>
+        <div class="sp-role-label">I am a Seller</div>
+        <div class="sp-role-desc">Farmer, Producer, Cooperative</div>
+      </div>
+      <div class="sp-role" id="spRoleBuyer" onclick="spSelectRole('buyer')">
+        <div class="sp-role-icon">🧺</div>
+        <div class="sp-role-label">I am a Buyer</div>
+        <div class="sp-role-desc">Wholesale, Trader, Off-taker</div>
+      </div>
+    </div>
+    <div class="sp-cta">
+      <button class="sp-btn-primary" onclick="splashGetStarted()">Get Started</button>
+      <button class="sp-btn-google" onclick="splashGoogleLogin()">
+        <svg viewBox="0 0 24 24"><path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/><path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/><path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l3.66-2.84z"/><path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/></svg>
+        Continue with Google
+      </button>
+      <div class="sp-guest-link">Just checking prices? <a href="#" onclick="splashBrowseGuest();return false">Browse as Guest →</a></div>
+    </div>
   </div>
 </div>
 
@@ -12940,29 +13011,71 @@ document.addEventListener('keydown', e => {
 // ─────────────────────────────────────────────────────────────────
 // SPLASH / ONBOARDING
 // ─────────────────────────────────────────────────────────────────
+// ── Splash slider ──
+var _spIdx = 0;
+var _spLabels = ['🌽 Fresh Maize — UGX 900 /kg (Gulu)','🐂 Ankole Cattle — UGX 1,200,000 (Mbarara)','🥜 Groundnuts — UGX 3,500 /kg (Lira)'];
+var _spTimer = null;
+function spSlideTo(i){
+  var slides = document.querySelectorAll('.sp-slide');
+  var dots = document.querySelectorAll('.sp-dot');
+  var lbl = document.getElementById('spSlideLabel');
+  if(!slides.length) return;
+  slides.forEach(function(s){ s.classList.remove('active'); });
+  dots.forEach(function(d){ d.classList.remove('active'); });
+  _spIdx = (i + slides.length) % slides.length;
+  slides[_spIdx].classList.add('active');
+  if(dots[_spIdx]) dots[_spIdx].classList.add('active');
+  if(lbl) lbl.textContent = _spLabels[_spIdx] || _spLabels[0];
+}
+function spSlideStep(dir){ spSlideTo(_spIdx + dir); }
+function _spAutoPlay(){ _spTimer = setInterval(function(){ spSlideTo(_spIdx+1); }, 3500); }
+function _spStopPlay(){ if(_spTimer){ clearInterval(_spTimer); _spTimer=null; } }
+// Role selection
+var _spRole = 'seller';
+function spSelectRole(r){
+  _spRole = r;
+  var s = document.getElementById('spRoleSeller');
+  var b = document.getElementById('spRoleBuyer');
+  if(s) s.classList.toggle('selected', r==='seller');
+  if(b) b.classList.toggle('selected', r==='buyer');
+}
 function showSplash() {
   var sp = document.getElementById('page-splash');
-  if (sp) sp.style.display = 'flex';
+  if (sp) { sp.style.display = 'flex'; sp.style.flexDirection = 'column'; }
+  _spStopPlay(); _spAutoPlay();
 }
 function hideSplash() {
   var sp = document.getElementById('page-splash');
-  if (sp) { sp.style.opacity = '0'; sp.style.transition = 'opacity .4s'; setTimeout(function(){ sp.style.display = 'none'; sp.style.opacity = ''; }, 400); }
+  _spStopPlay();
+  if (sp) { sp.style.opacity = '0'; sp.style.transition = 'opacity .35s'; setTimeout(function(){ sp.style.display = 'none'; sp.style.opacity = ''; }, 380); }
 }
 function splashGetStarted() {
   hideSplash();
   try { localStorage.setItem('ab_seen_splash', '1'); } catch(e) {}
-  // Open register modal after fade
-  setTimeout(function(){ openModal('registerModal'); }, 450);
+  setTimeout(function(){ openModal(_spRole==='buyer' ? 'registerModal' : 'registerModal'); }, 400);
 }
 function splashLogin() {
   hideSplash();
   try { localStorage.setItem('ab_seen_splash', '1'); } catch(e) {}
-  setTimeout(function(){ openModal('loginModal'); }, 450);
+  setTimeout(function(){ openModal('loginModal'); }, 400);
+}
+function splashGoogleLogin() {
+  hideSplash();
+  try { localStorage.setItem('ab_seen_splash', '1'); } catch(e) {}
+  // Trigger Google OAuth
+  setTimeout(function(){
+    if(typeof sbAuth !== 'undefined' && sbAuth.auth){
+      sbAuth.auth.signInWithOAuth({ provider:'google', options:{ redirectTo: window.location.origin } });
+    } else { openModal('loginModal'); }
+  }, 400);
 }
 function splashBrowseGuest() {
   hideSplash();
   try { localStorage.setItem('ab_seen_splash', '1'); } catch(e) {}
-  try { if(typeof showPage==='function') setTimeout(function(){ showPage('market'); }, 100); } catch(e) {}
+  // Guest: enter app but no login required — just show market/prices
+  try{ document.documentElement.classList.add('app-entered'); }catch(e){}
+  try{ sessionStorage.setItem('ab_entered','1'); }catch(e){}
+  setTimeout(function(){ if(typeof showPage==='function') showPage('market'); }, 100);
 }
 
 // ─────────────────────────────────────────────────────────────────
@@ -16259,14 +16372,17 @@ function enterApp(target){
   // Login / Register buttons → open modal directly, stay on landing
   if(target==='register' && typeof openModal==='function'){ openModal('registerModal'); return; }
   if(target==='login'    && typeof openModal==='function'){ openModal('loginModal');    return; }
-  // "Launch App" / no target → enter the app shell, then showPage() will
-  // open loginModal automatically if the user isn't signed in yet
-  try{ history.pushState({abApp:1},'',window.location.href); }catch(e){}
-  try{ document.documentElement.classList.add('app-entered'); }catch(e){}
-  try{ sessionStorage.setItem('ab_entered','1'); }catch(e){}
-  try{ window.scrollTo(0,0); }catch(e){}
-  if(target==='market' && typeof showPage==='function'){ setTimeout(function(){ showPage('market'); },50); return; }
-  if(typeof showPage==='function'){ setTimeout(function(){ showPage('home'); },50); }
+  // Already logged in → go straight in
+  if(currentUser){
+    try{ document.documentElement.classList.add('app-entered'); }catch(e){}
+    try{ sessionStorage.setItem('ab_entered','1'); }catch(e){}
+    try{ window.scrollTo(0,0); }catch(e){}
+    if(target==='market' && typeof showPage==='function'){ setTimeout(function(){ showPage('market'); },50); return; }
+    if(typeof showPage==='function'){ setTimeout(function(){ showPage('home'); },50); }
+    return;
+  }
+  // Not logged in → show the welcome/onboarding splash screen
+  showSplash();
 }
 function appStoreClick(){ showInstallModal(); }
 
