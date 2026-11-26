@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- AB_BUILD:20261126_RESTORE -->
+<!-- AB_BUILD:20261126_LOCKDOWN_J -->
 <html lang="en">
 <head>
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
@@ -9,7 +9,7 @@
 // Self-update: if this page is served from browser cache, force a fresh reload.
 // We store the build stamp in sessionStorage; if it mismatches we reload once.
 (function(){
-  var STAMP = '20261126_RESTORE';
+  var STAMP = '20261126_LOCKDOWN_J';
   var key = '_ab_stamp';
   try {
     if (sessionStorage.getItem(key) !== STAMP) {
@@ -2774,9 +2774,9 @@ html.is-web:not(.app-entered) body{overflow:hidden}
     var loggedIn=false; try{ loggedIn=!!JSON.parse(localStorage.getItem('ab_user')||'null'); }catch(e){}
     var entered=false; try{ entered=sessionStorage.getItem('ab_entered')==='1'; }catch(e){}
     d.classList.add(isApp?'is-app':'is-web');
-    if(isApp||loggedIn||entered) {
+    // Only skip welcome screen if already logged in (browser + PWA both require login)
+    if(loggedIn) {
       d.classList.add('app-entered');
-      // Auto-load home data for returning users who already have app-entered
       document.addEventListener('DOMContentLoaded', function(){
         if(typeof showPage==='function') showPage('home');
         else if(typeof loadHomeStats==='function') loadHomeStats();
@@ -14233,6 +14233,12 @@ function initSupabase() {
       // know which terms to ask for; offering the choice first could lock the
       // wrong type permanently.
       if (event === 'SIGNED_IN') {
+        // Unlock the app — remove the welcome gate for this session
+        try{ document.documentElement.classList.add('app-entered'); }catch(e){}
+        try{ sessionStorage.setItem('ab_entered','1'); }catch(e){}
+        try{ localStorage.setItem('ab_user', JSON.stringify(currentUser)); }catch(e){}
+        // Load home after gate is lifted
+        setTimeout(function(){ if(typeof showPage==='function') showPage('home'); },50);
         setTimeout(async function(){ await flushPendingProfiles(); if (!_oauthOnboardingOpen) postAuthLegalCheck(); }, 0);
       } else if (event === 'PASSWORD_RECOVERY') {
         // User clicked the reset link in their email — show the set-new-password modal.
@@ -14267,6 +14273,10 @@ function initSupabase() {
       var u = s.user;
       currentUser = { name: (u.user_metadata&&u.user_metadata.name)||(u.user_metadata&&u.user_metadata.full_name)||u.email.split('@')[0], role: (u.user_metadata&&u.user_metadata.role)||'vendor', phone: (u.user_metadata&&u.user_metadata.phone)||'', district: (u.user_metadata&&u.user_metadata.district)||'', email: u.email, supaId: u.id };
       localStorage.setItem('ab_user', JSON.stringify(currentUser));
+      // Returning logged-in user — unlock the app immediately
+      try{ document.documentElement.classList.add('app-entered'); }catch(e){}
+      try{ sessionStorage.setItem('ab_entered','1'); }catch(e){}
+      setTimeout(function(){ if(typeof showPage==='function') showPage('home'); },50);
       updateNavUser(currentUser.name, currentUser.role);
       loadAccountType();
       if (_oauthNeedsProfile(u)) _openOAuthProfile(u);
@@ -16244,30 +16254,11 @@ document.addEventListener('DOMContentLoaded', function() {
 // app users never see the landing, so this is a no-op for them.
 function enterApp(target){
   console.log('[AB] enterApp called, target:', target);
-  // Push a history state so the browser back button returns to the landing page
-  try{
-    if(!document.documentElement.classList.contains('app-entered')){
-      history.pushState({ abApp:1 }, '', window.location.href);
-    }
-  }catch(e){}
-  try{ document.documentElement.classList.add('app-entered'); }catch(e){}
-  try{ sessionStorage.setItem('ab_entered','1'); }catch(e){}
-  try{ window.scrollTo(0,0); }catch(e){}
-  // Always navigate to home and load products first
-  try { if(typeof showPage==='function') showPage('home'); } catch(e) {}
-  // Open modal or navigate immediately if a target was given — never show splash in that case
-  if(target==='login' && typeof openModal==='function'){ setTimeout(function(){ openModal('loginModal'); },100); return; }
-  if(target==='register' && typeof openModal==='function'){ setTimeout(function(){ openModal('registerModal'); },100); return; }
-  if(target==='market' && typeof showPage==='function'){ setTimeout(function(){ showPage('market'); },100); return; }
-  // Show splash for first-time visitors with no specific target
-  try {
-    var seenSplash = localStorage.getItem('ab_seen_splash');
-    var savedUser = localStorage.getItem('ab_user');
-    if (!seenSplash && !savedUser) {
-      setTimeout(showSplash, 200);
-      return;
-    }
-  } catch(e) {}
+  // Gate: never let anyone inside unless already logged in.
+  // Just open login or register modal — the app unlocks only after successful auth.
+  if(target==='register' && typeof openModal==='function'){ openModal('registerModal'); return; }
+  // Default (login / launch / no target) → open login modal
+  if(typeof openModal==='function'){ openModal('loginModal'); }
 }
 function appStoreClick(){ showInstallModal(); }
 
