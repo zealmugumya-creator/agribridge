@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- AB_BUILD:20261125_LOCKDOWN_I -->
+<!-- AB_BUILD:20261126_RESTORE -->
 <html lang="en">
 <head>
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
@@ -9,7 +9,7 @@
 // Self-update: if this page is served from browser cache, force a fresh reload.
 // We store the build stamp in sessionStorage; if it mismatches we reload once.
 (function(){
-  var STAMP = '20261125_LOCKDOWN_I';
+  var STAMP = '20261126_RESTORE';
   var key = '_ab_stamp';
   try {
     if (sessionStorage.getItem(key) !== STAMP) {
@@ -23,7 +23,7 @@
 })();
 </script>
 <script src="business-config.js"></script>
-<meta http-equiv="Content-Security-Policy" content="default-src 'self' https: data: blob:; script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://unpkg.com https://fonts.googleapis.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://fonts.gstatic.com; img-src 'self' https: data: blob:; connect-src 'self' https://lvloaweijidgcuezdnmu.supabase.co https://agribridge-1-og7a.onrender.com wss://lvloaweijidgcuezdnmu.supabase.co https://nominatim.openstreetmap.org https://router.project-osrm.org; font-src 'self' https://fonts.gstatic.com; frame-src https://www.youtube.com;">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self' https: data: blob:; script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://fonts.googleapis.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://fonts.gstatic.com; img-src 'self' https: data: blob:; connect-src 'self' https://lvloaweijidgcuezdnmu.supabase.co https://agribridge-1-og7a.onrender.com wss://lvloaweijidgcuezdnmu.supabase.co https://nominatim.openstreetmap.org https://router.project-osrm.org; font-src 'self' https://fonts.gstatic.com; frame-src https://www.youtube.com;">
 <meta http-equiv="X-Content-Type-Options" content="nosniff">
 <meta http-equiv="X-Frame-Options" content="SAMEORIGIN">
 <meta http-equiv="Referrer-Policy" content="strict-origin-when-cross-origin">
@@ -51,7 +51,7 @@
 <link rel="icon" type="image/png" sizes="512x512" href="icon-512.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=Syne:wght@600;700;800&family=Playfair+Display:ital,wght@0,700;0,800;1,700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2" onerror="var s=document.createElement('script');s.src='https://unpkg.com/@supabase/supabase-js@2';document.head.appendChild(s)"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <style>
 /* ══════════════════════════════════════════════════════════════
    AGRIBRIDGE v6.2 — COMPLETE CSS
@@ -434,12 +434,8 @@ img{max-width:100%}
 .legal-doc-card h4{margin:0 0 4px;font-size:0.92rem}
 .legal-doc-card p{margin:0 0 6px;font-size:0.8rem;color:var(--text2)}
 .legal-foot-links a{margin-right:12px;font-size:0.82rem;color:var(--green)}
-.modal-overlay{display:none;position:fixed;inset:0;z-index:500;background:rgba(0,0,0,0.75);align-items:center;justify-content:center;padding:16px}
+.modal-overlay{display:none;position:fixed;inset:0;z-index:500;background:rgba(0,0,0,0.7);align-items:center;justify-content:center;padding:16px}
 .modal-overlay.open{display:flex;animation:fadeIn 0.25s ease}
-@media(max-width:600px){
-  .modal-overlay.auth-modal{padding:0;align-items:flex-end}
-  .modal-overlay.auth-modal .modal-box{border-radius:24px 24px 0 0;max-height:95vh;padding:28px 20px 36px;border-bottom:none}
-}
 /* The review screen and the privacy request it opens are the only overlays that
    refuse to be dismissed, and a person reaches them from inside Settings — where
    both would otherwise sit at z-index 500 and lose to whichever div comes later in
@@ -478,30 +474,12 @@ img{max-width:100%}
 .form-group textarea{resize:vertical;min-height:80px}
 .form-row{display:grid;grid-template-columns:1fr 1fr;gap:12px}
 .btn-submit{width:100%;padding:13px;background:var(--green);color:#000;border:none;border-radius:10px;font-size:1rem;font-weight:700;cursor:pointer;font-family:inherit;transition:opacity 0.2s}
-.btn-google{width:100%;display:flex;align-items:center;justify-content:center;gap:10px;padding:14px 14px;background:#fff;color:#1f1f1f;border:1.5px solid #dadce0;border-radius:12px;font-size:0.95rem;font-weight:700;cursor:pointer;font-family:inherit;box-shadow:0 2px 8px rgba(0,0,0,0.12)}
-.btn-google:hover{background:#f7f7f7;box-shadow:0 4px 16px rgba(0,0,0,0.16)}
+.btn-google{width:100%;display:flex;align-items:center;justify-content:center;gap:10px;padding:11px 14px;background:#fff;color:#1f1f1f;border:1px solid #dadce0;border-radius:10px;font-size:0.92rem;font-weight:600;cursor:pointer;font-family:inherit}
+.btn-google:hover{background:#f7f7f7}
 .btn-google:disabled{opacity:.6;cursor:wait}
-.btn-google svg{width:20px;height:20px;flex:0 0 20px}
-.auth-or{display:flex;align-items:center;gap:10px;color:var(--text2);font-size:0.75rem;margin:16px 0}
+.btn-google svg{width:18px;height:18px;flex:0 0 18px}
+.auth-or{display:flex;align-items:center;gap:10px;color:var(--text2);font-size:0.75rem;margin:14px 0}
 .auth-or::before,.auth-or::after{content:'';flex:1;height:1px;background:var(--border)}
-/* Auth role selector cards */
-.auth-role-row{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin:16px 0}
-.auth-role-card{background:var(--bg3,rgba(255,255,255,0.05));border:1.5px solid var(--border);border-radius:12px;padding:14px 10px;text-align:center;cursor:pointer;transition:all 0.2s;user-select:none}
-.auth-role-card:hover{border-color:var(--green);background:rgba(76,175,80,0.08)}
-.auth-role-card.selected{border-color:var(--green);background:rgba(76,175,80,0.14);box-shadow:0 0 0 2px rgba(76,175,80,0.25)}
-.auth-role-card .arc-icon{font-size:1.6rem;margin-bottom:6px}
-.auth-role-card .arc-title{font-weight:700;font-size:0.88rem;color:var(--text)}
-.auth-role-card .arc-sub{font-size:0.72rem;color:var(--text2);margin-top:3px;line-height:1.3}
-/* Auth modal header */
-.auth-modal-logo{display:flex;align-items:center;gap:8px;margin-bottom:20px}
-.auth-modal-logo img{width:32px;height:32px;border-radius:8px}
-.auth-modal-logo span{font-weight:800;font-size:1.05rem;color:var(--text)}
-.auth-get-started-btn{width:100%;padding:14px;background:var(--green);color:#fff;border:none;border-radius:12px;font-size:1rem;font-weight:700;cursor:pointer;font-family:inherit;transition:opacity 0.2s;margin-top:4px;box-shadow:0 4px 16px rgba(76,175,80,0.3)}
-.auth-get-started-btn:hover{opacity:0.9}
-.auth-get-started-btn:disabled{opacity:0.5;cursor:not-allowed}
-.auth-guest-link{text-align:center;margin-top:14px;font-size:0.8rem;color:var(--text2)}
-.auth-guest-link a{color:var(--text2);text-decoration:none}
-.auth-guest-link a:hover{color:var(--text)}
 .btn-submit:hover{opacity:0.9}
 .btn-submit:disabled{opacity:0.5;cursor:not-allowed}
 
@@ -1123,7 +1101,6 @@ input:focus,select:focus,textarea:focus{outline:none;border-color:var(--green) !
   --wl-shadow:0 4px 24px rgba(26,122,60,.12);
 }
 #webLanding{display:none}
-/* Browser: show Cafe Javas white landing page */
 html.is-web:not(.app-entered) #webLanding{
   display:block;position:fixed;inset:0;z-index:6000;
   overflow-y:auto;-webkit-overflow-scrolling:touch;
@@ -2795,13 +2772,11 @@ html.is-web:not(.app-entered) body{overflow:hidden}
     var d=document.documentElement;
     var isApp=(window.matchMedia&&window.matchMedia('(display-mode: standalone)').matches)||window.navigator.standalone===true||!!window.Capacitor||location.search.indexOf('app=1')>-1;
     var loggedIn=false; try{ loggedIn=!!JSON.parse(localStorage.getItem('ab_user')||'null'); }catch(e){}
-    // Only skip welcome screen if actually logged in — not just "entered before"
-    var entered=false; try{ entered=sessionStorage.getItem('ab_entered')==='1' && loggedIn; }catch(e){}
+    var entered=false; try{ entered=sessionStorage.getItem('ab_entered')==='1'; }catch(e){}
     d.classList.add(isApp?'is-app':'is-web');
-    // Browser (website): show Cafe Javas landing first; app-entered added after clicking in
-    // PWA / installed app: must login — welcome screen shown until signed in
-    if(loggedIn || entered) {
+    if(isApp||loggedIn||entered) {
       d.classList.add('app-entered');
+      // Auto-load home data for returning users who already have app-entered
       document.addEventListener('DOMContentLoaded', function(){
         if(typeof showPage==='function') showPage('home');
         else if(typeof loadHomeStats==='function') loadHomeStats();
@@ -2810,7 +2785,7 @@ html.is-web:not(.app-entered) body{overflow:hidden}
   }catch(e){ document.documentElement.classList.add('is-web'); }
 })();</script>
 
-<!-- ══════════════════ WEB LANDING (browser visitors — Cafe Javas style) ══════════════════ -->
+<!-- ══════════════════ WEB LANDING (browser visitors only) ══════════════════ -->
 <div id="webLanding" role="region" aria-label="AgriBridge — Bridging Farms, Building Markets">
 
   <!-- ══ NAV ══ -->
@@ -3670,9 +3645,6 @@ html.is-web:not(.app-entered) body{overflow:hidden}
     <button class="splash-btn-secondary" style="margin-top:10px;border:none;background:none;color:var(--green-light);font-size:.9rem;padding:10px" onclick="splashBrowseGuest()">Browse as guest →</button>
   </div>
 </div>
-
-<!-- ══ SKIP LINK ══ -->
-<a href="#page-home" class="skip-link" style="position:absolute;left:-999px;top:4px;z-index:99999;background:var(--green);color:#000;padding:6px 12px;border-radius:6px;font-weight:700;text-decoration:none;font-size:0.85rem" onfocus="this.style.left='8px'" onblur="this.style.left='-999px'">Skip to main content</a>
 
 <!-- ══ SKIP LINK ══ -->
 <a href="#page-home" class="skip-link" style="position:absolute;left:-999px;top:4px;z-index:99999;background:var(--green);color:#000;padding:6px 12px;border-radius:6px;font-weight:700;text-decoration:none;font-size:0.85rem" onfocus="this.style.left='8px'" onblur="this.style.left='-999px'">Skip to main content</a>
@@ -5431,20 +5403,16 @@ setInterval(() => { document.querySelectorAll('.flash-countdown').forEach(el => 
 // PAGE NAVIGATION
 // ─────────────────────────────────────────────────────────────────
 let _navHistory = ['home'];
-function openMore(){ try{ if(typeof renderMoreGrid==='function') renderMoreGrid(); }catch(e){} var o=document.getElementById('moreOverlay'),s=document.getElementById('moreSheet'); if(o)o.classList.add('open'); if(s){s.classList.add('open'); s.style.zIndex='400';} }
+function openMore(){ if(typeof renderMoreGrid==='function') renderMoreGrid(); var o=document.getElementById('moreOverlay'),s=document.getElementById('moreSheet'); if(o)o.classList.add('open'); if(s)s.classList.add('open'); }
 function closeMore(){ var o=document.getElementById('moreOverlay'),s=document.getElementById('moreSheet'); if(o)o.classList.remove('open'); if(s)s.classList.remove('open'); }
 function mnav(n){ closeMore(); showPage(n); }
 // Pages that require the user to be signed in
 var _AUTH_REQUIRED_PAGES = ['cart','orders','dashboard','farmer-produce','farmer-orders','farmer-earnings','farmer-profile','buyer-orders','boost','pitch'];
 function showPage(name) {
   console.log('[AB] showPage:', name, 'currentUser:', !!currentUser);
-  // Auth gate — PWA only; browser users browse freely
-  var isApp = document.documentElement.classList.contains('is-app');
-  if (isApp && !currentUser) {
-    try { document.documentElement.classList.remove('app-entered'); } catch(e){}
-    try { sessionStorage.removeItem('ab_entered'); } catch(e){}
-    var wl = document.getElementById('webLanding');
-    if (wl) wl.scrollTop = 0;
+  // Auth gate — redirect guests to login for protected pages
+  if (_AUTH_REQUIRED_PAGES.indexOf(name) !== -1 && !currentUser) {
+    showToast(t('toast.sign_in_required'));
     if (typeof openModal === 'function') openModal('loginModal');
     return;
   }
@@ -14453,11 +14421,7 @@ function updateNavUser(nameOrUser, role) {
 async function doLogin() {
   _clearLoginErr();
   if (_isLockedOut()) { _showLockoutUI(); return; }
-  if (!sbAuth) {
-    if (typeof supabase !== 'undefined') { initSupabase(); }
-    for (var _w = 0; _w < 8 && !sbAuth; _w++) { await new Promise(r => setTimeout(r, 500)); }
-    if (!sbAuth) { _showLoginErr('Connection error. Please check your internet and try again.'); return; }
-  }
+  if (!sbAuth) { _showLoginErr('Not connected. Please refresh the page.'); return; }
   var raw = ((document.getElementById('loginPhone')||{}).value||'').trim();
   var pwd = (document.getElementById('loginPwd')||{}).value||'';
   if (!raw) { _showLoginErr('Please enter your email.'); return; }
@@ -14516,75 +14480,10 @@ async function doLogin() {
   }
 }
 
-// ── REST fallback signup (no Supabase library needed) ─────────────────
-async function _restSignUp(email, pwd, meta) {
-  var res = await fetch(SUPABASE_URL + '/auth/v1/signup', {
-    method: 'POST',
-    headers: { 'apikey': SUPABASE_ANON, 'Content-Type': 'application/json' },
-    body: JSON.stringify({ email: email, password: pwd, data: meta })
-  });
-  var j = await res.json().catch(function(){ return {}; });
-  if (!res.ok) {
-    var msg = (j && (j.msg || j.message || j.error_description)) || 'Registration failed.';
-    throw new Error(msg);
-  }
-  return j; // { user, session } or { id, ... }
-}
-
 // ── doRegister — replaces original ───────────────────
-// Role selector cards on register modal
-function authSelectRole(role, cardEl) {
-  // Update card UI
-  document.querySelectorAll('#authRoleCards .auth-role-card').forEach(function(c){ c.classList.remove('selected'); });
-  if (cardEl) cardEl.classList.add('selected');
-  // Sync hidden select
-  var sel = document.getElementById('regRole');
-  if (sel) {
-    // Map card roles to select values
-    var map = { farmer: 'farmer', vendor: 'vendor', hotel: 'hotel', supplier: 'supplier', exporter: 'exporter' };
-    sel.value = map[role] || role;
-    // Fire updateRegRoleTerms if it exists
-    if (typeof updateRegRoleTerms === 'function') updateRegRoleTerms();
-  }
-  // Store for use
-  window._authSelectedRole = role;
-}
-// Pre-select role card when register modal opens
-(function(){
-  function _initRoleObserver(){
-    var regModal = document.getElementById('registerModal');
-    if (!regModal) return;
-    var observer = new MutationObserver(function(){
-      try {
-        if (regModal.classList.contains('open')) {
-          var sel = document.getElementById('regRole');
-          var curRole = (sel && sel.value) || 'farmer';
-          var cards = document.querySelectorAll('#authRoleCards .auth-role-card');
-          cards.forEach(function(c){ c.classList.remove('selected'); });
-          var isBuyer = ['vendor','hotel','exporter','supplier'].indexOf(curRole) > -1;
-          var targetCard = cards[isBuyer ? 1 : 0];
-          if (targetCard) targetCard.classList.add('selected');
-        }
-      } catch(e){}
-    });
-    observer.observe(regModal, { attributes: true, attributeFilter: ['class'] });
-  }
-  if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', _initRoleObserver);
-  } else {
-    _initRoleObserver();
-  }
-})();
-
 async function doRegister() {
   _clearRegErr();
-  if (!sbAuth) {
-    // Supabase library may still be loading — try to init once more
-    if (typeof supabase !== 'undefined') { initSupabase(); }
-    // Wait up to 3s for sbAuth to become available
-    for (var _w = 0; _w < 6 && !sbAuth; _w++) { await new Promise(r => setTimeout(r, 500)); }
-    // If still no sbAuth, we'll use the REST fallback below — don't block
-  }
+  if (!sbAuth) { _showRegErr('Not connected. Please refresh the page.'); return; }
   var name     = ((document.getElementById('regName')    ||{}).value||'').trim();
   var phone    = ((document.getElementById('regPhone')   ||{}).value||'').trim();
   var email    = ((document.getElementById('regEmail')   ||{}).value||'').trim();
@@ -14615,45 +14514,39 @@ async function doRegister() {
   var btn = document.getElementById('regSubmitBtn');
   if (btn) { btn.disabled = true; btn.textContent = 'Creating Account...'; }
   try {
-    var meta = { name: name, full_name: name, phone: phone, role: role, district: district,
-      legal_signup: { accepted_at: new Date().toISOString(), versions: legalVersions },
-      marketing_optin: { sms: wantsSms } };
-    var resData, resSession;
-    if (sbAuth) {
-      var res = await sbAuth.auth.signUp({ email: email, password: pwd, options: { data: meta } });
-      if (res.error) {
-        var msg = res.error.message || 'Registration failed.';
-        if (msg.indexOf('already') > -1 || msg.indexOf('duplicate') > -1 || msg.indexOf('User already registered') > -1) msg = 'This email is already registered. Try logging in.';
-        else if (msg.indexOf('valid email') > -1) msg = 'Please enter a valid email address.';
-        else if (msg.indexOf('rate') > -1 || msg.indexOf('limit') > -1) msg = 'Too many attempts. Wait 1 minute and try again.';
-        else if (msg.indexOf('captcha') > -1) msg = 'Please try again. If this keeps happening, use Continue with Google.';
-        _showRegErr('Registration failed: ' + msg);
-        return;
+    var res = await sbAuth.auth.signUp({
+      email: email, password: pwd,
+      options: { data: { name: name, full_name: name, phone: phone, role: role, district: district,
+        legal_signup: { accepted_at: new Date().toISOString(), versions: legalVersions },
+        marketing_optin: { sms: wantsSms } } }
+    });
+    if (res.error) {
+      var msg = res.error.message || 'Registration failed.';
+      if (msg.indexOf('already') > -1 || msg.indexOf('duplicate') > -1) {
+        msg = 'This email is already registered. Try logging in.';
+      } else if (msg.indexOf('Password') > -1) {
+        msg = 'Password must be at least 6 characters.';
+      } else if (msg.indexOf('valid email') > -1) {
+        msg = 'Please enter a valid email address.';
+      } else if (msg.indexOf('rate') > -1 || msg.indexOf('limit') > -1) {
+        msg = 'Too many attempts. Wait 1 minute and try again.';
       }
-      if (!res.data || !res.data.user) { _showRegErr('Registration did not return an account. Please try again.'); return; }
-      resData = res.data.user; resSession = res.data.session;
-    } else {
-      // Library not loaded — use direct REST API
-      try {
-        var j = await _restSignUp(email, pwd, meta);
-        resData = j.user || j; resSession = j.session || null;
-        if (!resData || !resData.id) { _showRegErr('Registration did not return an account. Please try again.'); return; }
-      } catch(e) {
-        var msg = e.message || 'Registration failed.';
-        if (msg.indexOf('already') > -1 || msg.indexOf('duplicate') > -1) msg = 'This email is already registered. Try logging in.';
-        else if (msg.indexOf('rate') > -1 || msg.indexOf('limit') > -1) msg = 'Too many attempts. Wait 1 minute and try again.';
-        _showRegErr('Registration failed: ' + msg); return;
-      }
+      _showRegErr('Registration failed: ' + msg);
+      return;
     }
-    var needsConfirm = !resSession;
-    var profile = {id: resData.id, full_name: name, phone: phone, role: role, district: district, email: email};
+    if (!res.data || !res.data.user) {
+      _showRegErr('Registration did not return an account. Please try again.');
+      return;
+    }
+    var needsConfirm = !res.data.session;
+    var profile = {id: res.data.user.id, full_name: name, phone: phone, role: role, district: district, email: email};
     try { localStorage.setItem('ab_pending_profile', JSON.stringify(profile)); } catch(e){}
     closeModal('registerModal');
     if (needsConfirm) {
       showToast('Check your email (' + email + ') and click the confirmation link!');
     } else {
       currentUser = { name:name, phone:phone, role:role, district:district, email:email,
-                      supaId: resData.id || null };
+                      supaId: res.data.user ? res.data.user.id : null };
       updateNavUser(name, role);
       showToast('Welcome to AgriBridge, ' + name + '! Account created.');
       if (!await flushPendingProfiles()) {
@@ -14685,24 +14578,22 @@ async function doRegister() {
 var _oauthOnboardingOpen = false;
 
 async function refreshOAuthButtons() {
-  // Always show Google buttons — Google OAuth is configured in Supabase.
-  // Don't hide them behind a network check that fails on slow connections.
-  ['googleLoginWrap', 'googleRegisterWrap'].forEach(function(id) {
-    var el = document.getElementById(id);
-    if (el) el.style.display = 'block';
-  });
+  try {
+    var r = await fetch(SUPA_URL + '/auth/v1/settings', { headers: { apikey: SUPA_KEY } });
+    var j = await r.json().catch(function(){ return {}; });
+    var enabled = !!(j && j.external && j.external.google);
+    ['googleLoginWrap', 'googleRegisterWrap'].forEach(function(id) {
+      var el = document.getElementById(id);
+      if (el) el.style.display = enabled ? 'block' : 'none';
+    });
+  } catch (e) { /* leave the buttons hidden */ }
 }
 
 async function doGoogleLogin(source) {
   if (!sbAuth) {
-    if (typeof supabase !== 'undefined') { initSupabase(); }
-    for (var _w = 0; _w < 8 && !sbAuth; _w++) { await new Promise(r => setTimeout(r, 500)); }
-    if (!sbAuth) {
-      // Library still not loaded — use direct OAuth redirect URL
-      var redirectTo = encodeURIComponent(window.location.origin + '/');
-      window.location.href = SUPABASE_URL + '/auth/v1/authorize?provider=google&redirect_to=' + redirectTo + '&prompt=select_account';
-      return;
-    }
+    if (source === 'register') _showRegErr('Not connected. Please refresh the page.');
+    else _showLoginErr('Not connected. Please refresh the page.');
+    return;
   }
   var btn = document.getElementById(source === 'register' ? 'googleRegisterBtn' : 'googleLoginBtn');
   if (btn) btn.disabled = true;
@@ -14867,14 +14758,12 @@ async function logOut(){
   showToast('👋 Logged out successfully');
   basketItems=[]; appliedPromo=null;
   localStorage.removeItem('ab_basket'); localStorage.removeItem('ab_promo');
-  try{ renderBasket(); }catch(e){} try{ updateBasketBadge(); }catch(e){}
-  // Return to welcome screen — logged-out users should not see the app
-  try{ sessionStorage.removeItem('ab_entered'); }catch(e){}
-  try{ localStorage.removeItem('ab_seen_splash'); }catch(e){}
-  try{ document.documentElement.classList.remove('app-entered'); }catch(e){}
-  // Scroll welcome screen to top
-  try{ var wl=document.getElementById('webLanding'); if(wl) wl.scrollTop=0; }catch(e){}
-  try{ window.scrollTo(0,0); }catch(e){}
+  renderBasket(); updateBasketBadge();
+  // And leave the screen they were looking at. A farmer who signed out from their
+  // dashboard stayed on it — own listings, own orders, own earnings — with only two
+  // small nav buttons visibly changed, which is the other half of why sign-out reads
+  // as a button that does not work. Home repaints for whoever is now looking.
+  try{ showPage('home'); }catch(e){}
 }
 // Play-required account deletion (audit H6). Calls the server-side erasure
 // endpoint with the verified session token; the SERVER scopes it to the caller's
@@ -15716,26 +15605,15 @@ document.addEventListener('DOMContentLoaded', function() {
 </div>
 
 <!-- ══ LOGIN MODAL ══════════════════════════════════════════ -->
-<div class="modal-overlay auth-modal" id="loginModal" onclick="handleOverlay(event,'loginModal')" role="dialog" aria-label="Login">
+<div class="modal-overlay" id="loginModal" onclick="handleOverlay(event,'loginModal')" role="dialog" aria-label="Login">
   <div class="modal-box" id="loginModalInner">
-    <button class="modal-close" onclick="closeModal('loginModal')" style="top:18px;right:18px">✕</button>
-    <div class="auth-modal-logo">
-      <img src="icon.png" alt="AgriBridge">
-      <span>AgriBridge</span>
-    </div>
-    <h3 style="font-size:1.35rem;font-weight:800;margin-bottom:4px" data-i18n="login.title">Welcome Back 👋</h3>
-    <p style="font-size:0.83rem;color:var(--text2);margin-bottom:20px">Log in to your account</p>
+    <button class="modal-close" onclick="closeModal('loginModal')">✕</button>
+    <h3 data-i18n="login.title">Welcome Back 👋</h3>
+    <p style="font-size:0.83rem;color:var(--text2);margin-bottom:18px">Log in to manage your listings, orders and animals</p>
     <div id="loginLockMsg" style="display:none;background:#b71c1c22;border:1px solid #b71c1c;border-radius:8px;padding:10px 14px;margin-bottom:14px;font-size:0.83rem;color:#ff5252">
       🔒 Account locked after 5 failed attempts. Try again in <strong id="lockCountdown">5:00</strong> or <a href="#" onclick="openForgotPassword();return false" style="color:var(--amber)">reset your password</a>.
     </div>
     <div id="loginErrMsg" style="display:none;background:#b71c1c22;border:1px solid #b71c1c;border-radius:8px;padding:10px 14px;margin-bottom:14px;font-size:0.83rem;color:#ff5252"></div>
-    <div id="googleLoginWrap">
-      <button type="button" class="btn-google" id="googleLoginBtn" onclick="doGoogleLogin('login')">
-        <svg viewBox="0 0 48 48" aria-hidden="true" focusable="false"><path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/><path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/><path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"/><path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/></svg>
-        Continue with Google
-      </button>
-      <div class="auth-or">or sign in with email</div>
-    </div>
     <div class="form-group">
       <label>Phone Number or Email</label>
       <input type="text" id="loginPhone" placeholder="+256 7xx xxx xxx or email@example.com" autocomplete="username">
@@ -15751,38 +15629,27 @@ document.addEventListener('DOMContentLoaded', function() {
         <a href="#" onclick="openForgotPassword();return false" style="font-size:0.78rem;color:var(--green)">Forgot password?</a>
       </div>
     </div>
-    <button class="auth-get-started-btn" id="loginSubmitBtn" onclick="doLogin()" data-i18n="login.btn">Log In</button>
-    <div class="auth-guest-link" style="margin-top:16px">No account? <a href="#" onclick="closeModal('loginModal');openModal('registerModal')" style="color:var(--green);font-weight:600">Join Free →</a></div>
+    <button class="btn-submit" id="loginSubmitBtn" onclick="doLogin()" data-i18n="login.btn">Log In</button>
+    <div id="googleLoginWrap" style="display:none">
+      <div class="auth-or">or</div>
+      <button type="button" class="btn-google" id="googleLoginBtn" onclick="doGoogleLogin('login')">
+        <svg viewBox="0 0 48 48" aria-hidden="true" focusable="false"><path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/><path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/><path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"/><path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/></svg>
+        Continue with Google
+      </button>
+    </div>
+    <p style="text-align:center;margin-top:14px;font-size:0.85rem;color:var(--text2)">No account? <a href="#" onclick="closeModal('loginModal');openModal('registerModal')">Join Free</a></p>
   </div>
 </div>
 
 <!-- ══ REGISTER MODAL ════════════════════════════════════════ -->
-<div class="modal-overlay auth-modal" id="registerModal" onclick="handleOverlay(event,'registerModal')" role="dialog" aria-label="Register">
+<div class="modal-overlay" id="registerModal" onclick="handleOverlay(event,'registerModal')" role="dialog" aria-label="Register">
   <div class="modal-box" id="registerModalInner">
-    <button class="modal-close" onclick="closeModal('registerModal')" style="top:18px;right:18px">✕</button>
-    <div class="auth-modal-logo">
-      <img src="icon.png" alt="AgriBridge">
-      <span>AgriBridge</span>
-    </div>
-    <h3 style="font-size:1.35rem;font-weight:800;margin-bottom:4px" data-i18n="reg.title">Join AgriBridge 🌾</h3>
-    <p style="font-size:0.83rem;color:var(--text2);margin-bottom:4px">Create your account in 2 minutes — free forever</p>
+    <button class="modal-close" onclick="closeModal('registerModal')">✕</button>
+    <h3 data-i18n="reg.title">Join AgriBridge Free 🌾</h3>
+    <p style="font-size:0.83rem;color:var(--text2);margin-bottom:18px">Create your account in 2 minutes — free forever</p>
     <div id="regErrMsg" style="display:none;background:#b71c1c22;border:1px solid #b71c1c;border-radius:8px;padding:10px 14px;margin-bottom:14px;font-size:0.83rem;color:#ff5252"></div>
     <div id="regStep1">
-      <!-- Role selector -->
-      <p style="font-size:0.82rem;font-weight:600;color:var(--text2);margin:12px 0 6px">How would you like to start?</p>
-      <div class="auth-role-row" id="authRoleCards">
-        <div class="auth-role-card selected" onclick="authSelectRole('farmer',this)">
-          <div class="arc-icon">🌱</div>
-          <div class="arc-title">I am a Seller</div>
-          <div class="arc-sub">Farmer, Producer, Cooperative</div>
-        </div>
-        <div class="auth-role-card" onclick="authSelectRole('vendor',this)">
-          <div class="arc-icon">🧺</div>
-          <div class="arc-title">I am a Buyer</div>
-          <div class="arc-sub">Wholesale, Trader, Off-taker</div>
-        </div>
-      </div>
-      <div id="googleRegisterWrap" style="margin-bottom:6px">
+      <div id="googleRegisterWrap" style="display:none;margin-bottom:6px">
         <button type="button" class="btn-google" id="googleRegisterBtn" onclick="doGoogleLogin('register')">
           <svg viewBox="0 0 48 48" aria-hidden="true" focusable="false"><path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/><path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/><path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"/><path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/></svg>
           Continue with Google
@@ -15794,10 +15661,10 @@ document.addEventListener('DOMContentLoaded', function() {
       <div class="form-group" id="regPhoneFormGroup"><label data-i18n="reg.phone">Phone</label><input type="tel" id="regPhone" placeholder="+256 771 234567 or +20 103 679 7717" autocomplete="tel"></div>
       <div class="form-group"><label data-i18n="reg.email">Email Address</label><input type="email" id="regEmail" placeholder="your@email.com" autocomplete="email"></div>
       <div class="form-row">
-        <div class="form-group" style="display:none"><label>I am a…</label>
+        <div class="form-group"><label>I am a…</label>
           <select id="regRole" onchange="updateRegRoleTerms()"><option value="farmer">Farmer 🌾</option><option value="vendor">Vendor / Buyer 🛒</option><option value="hotel">Hotel / Restaurant 🏨</option><option value="supplier">Supplier / Input Seller 🏪</option><option value="exporter">Exporter / Trading Co. 🌍</option></select>
         </div>
-        <div class="form-group" style="flex:1"><label>District</label>
+        <div class="form-group"><label>District</label>
           <select id="regDistrict"><option>Kampala</option><option>Wakiso</option><option>Mukono</option><option>Jinja</option><option>Mbarara</option><option>Bushenyi</option><option>Kabale</option><option>Gulu</option><option>Lira</option><option>Mbale</option><option>Kasese</option><option>Masaka</option><option>Hoima</option><option>Arua</option><option>Other</option></select>
         </div>
       </div>
@@ -15836,14 +15703,13 @@ document.addEventListener('DOMContentLoaded', function() {
         </div>
         <div class="legal-note">The promotions box is optional. You can create an account without it and change it any time in Settings.</div>
       </div>
-      <button class="auth-get-started-btn" id="regSubmitBtn" onclick="doRegister()" data-i18n="reg.btn">Get Started 🌾</button>
-      <div class="auth-guest-link">Already have an account? <a href="#" onclick="closeModal('registerModal');openModal('loginModal')" style="color:var(--green);font-weight:600">Log In →</a></div>
+      <button class="btn-submit" id="regSubmitBtn" onclick="doRegister()" data-i18n="reg.btn">Create Account 🌾</button>
     </div>
     <div id="regStep2" style="display:none;text-align:center;padding:10px 0">
       <div style="font-size:3rem;margin-bottom:8px">📧</div>
       <div style="font-weight:700;font-size:1rem;margin-bottom:6px">Check your email!</div>
       <p style="font-size:0.85rem;color:var(--text2)">We sent a confirmation link to <strong id="regEmailSent" style="color:var(--green)"></strong>. Click the link then log in.</p>
-      <button class="auth-get-started-btn" style="margin-top:14px" onclick="closeModal('registerModal');openModal('loginModal')">Go to Login</button>
+      <button class="btn-submit" style="margin-top:14px" onclick="closeModal('registerModal');openModal('loginModal')">Go to Login</button>
       <p style="text-align:center;margin-top:10px;font-size:0.8rem;color:var(--text2)">Didn't get it? <a href="#" onclick="resendConfirmEmail()">Resend email</a></p>
     </div>
   </div>
