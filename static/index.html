@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- AB_BUILD:20261126_LOCKDOWN_N -->
+<!-- AB_BUILD:20261126_LOCKDOWN_O -->
 <html lang="en">
 <head>
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
@@ -9,7 +9,7 @@
 // Self-update: if this page is served from browser cache, force a fresh reload.
 // We store the build stamp in sessionStorage; if it mismatches we reload once.
 (function(){
-  var STAMP = '20261126_LOCKDOWN_N';
+  var STAMP = '20261126_LOCKDOWN_O';
   var key = '_ab_stamp';
   try {
     if (sessionStorage.getItem(key) !== STAMP) {
@@ -16372,8 +16372,10 @@ function enterApp(target){
   // Login / Register buttons → open modal directly, stay on landing
   if(target==='register' && typeof openModal==='function'){ openModal('registerModal'); return; }
   if(target==='login'    && typeof openModal==='function'){ openModal('loginModal');    return; }
-  // Already logged in → go straight in
-  if(currentUser){
+  // Check login state from localStorage (works before Supabase initialises)
+  var isLoggedIn = false;
+  try{ isLoggedIn = !!JSON.parse(localStorage.getItem('ab_user')||'null'); }catch(e){}
+  if(isLoggedIn){
     try{ document.documentElement.classList.add('app-entered'); }catch(e){}
     try{ sessionStorage.setItem('ab_entered','1'); }catch(e){}
     try{ window.scrollTo(0,0); }catch(e){}
@@ -16382,7 +16384,9 @@ function enterApp(target){
     return;
   }
   // Not logged in → show the welcome/onboarding splash screen
-  showSplash();
+  // Use setTimeout to ensure showSplash is defined (it's lower in the file)
+  if(typeof showSplash==='function'){ showSplash(); }
+  else{ setTimeout(function(){ if(typeof showSplash==='function') showSplash(); }, 200); }
 }
 function appStoreClick(){ showInstallModal(); }
 
