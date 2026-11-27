@@ -2637,6 +2637,32 @@ html.is-web:not(.app-entered) .modal-overlay{z-index:7000}
 .sp-btn-google svg{width:20px;height:20px;flex-shrink:0}
 .sp-guest-link{text-align:center;font-size:.82rem;color:rgba(255,255,255,.45)}
 .sp-guest-link a{color:var(--green);text-decoration:none;font-weight:600}
+/* ── Splash responsive ── */
+@media(min-width:600px){
+  .sp-slider{height:320px}
+  .sp-feed-title{font-size:1.8rem}
+  .sp-body{padding:28px 32px 40px;max-width:520px;margin:0 auto}
+  .sp-topbar{padding:18px 32px 12px}
+  .sp-btn-primary,.sp-btn-google{padding:17px;font-size:1.05rem}
+  .sp-roles{gap:14px}
+  .sp-role{padding:18px 16px 14px}
+  .sp-role-icon{font-size:1.8rem}
+}
+@media(min-width:900px){
+  #page-splash{flex-direction:row;overflow:hidden}
+  .sp-topbar{position:absolute;top:0;left:0;right:0;background:transparent;z-index:10}
+  .sp-slider{flex:1;height:100%;border-radius:0;min-height:100vh}
+  .sp-body{flex:0 0 420px;overflow-y:auto;padding:90px 36px 40px;background:#071210;display:flex;flex-direction:column;justify-content:center}
+  .sp-feed-title{font-size:1.9rem}
+}
+@media(max-width:360px){
+  .sp-feed-title{font-size:1.2rem}
+  .sp-feed-sub{font-size:.78rem}
+  .sp-body{padding:14px 14px 24px}
+  .sp-slider{height:180px}
+  .sp-role-label{font-size:.85rem}
+  .sp-btn-primary,.sp-btn-google{padding:13px;font-size:.9rem}
+}
 /* Legacy compat */
 .splash-btn-primary{width:100%;padding:15px;background:var(--green);color:#000;border:none;border-radius:14px;font-size:1rem;font-weight:800;cursor:pointer;font-family:inherit;margin-bottom:10px}
 .splash-btn-secondary{width:100%;padding:15px;background:transparent;color:rgba(255,255,255,.85);border:1.5px solid rgba(255,255,255,.25);border-radius:14px;font-size:1rem;font-weight:600;cursor:pointer;font-family:inherit}
@@ -14917,8 +14943,19 @@ async function logOut(){
   // Remove the app gate — user lands back on the welcome/landing screen
   try{ sessionStorage.removeItem('ab_entered'); }catch(e){}
   try{ document.documentElement.classList.remove('app-entered'); }catch(e){}
-  try{ var wl=document.getElementById('webLanding'); if(wl) wl.scrollTop=0; }catch(e){}
   try{ window.scrollTo(0,0); }catch(e){}
+  // PWA (installed app) → show splash screen; browser → show Cafe Javas landing
+  var _isApp=(window.matchMedia&&window.matchMedia('(display-mode: standalone)').matches)||window.navigator.standalone===true||!!window.Capacitor||location.search.indexOf('app=1')>-1;
+  if(_isApp){
+    // Show splash directly — no Cafe Javas landing in PWA mode
+    try{
+      var sp=document.getElementById('page-splash');
+      if(sp){ sp.style.cssText='display:flex;flex-direction:column;position:fixed;inset:0;z-index:8000;background:#071210;overflow-y:auto'; }
+      if(typeof _spAutoPlay==='function'){ try{_spStopPlay();_spAutoPlay();}catch(e){} }
+    }catch(e){}
+  } else {
+    try{ var wl=document.getElementById('webLanding'); if(wl) wl.scrollTop=0; }catch(e){}
+  }
 }
 // Play-required account deletion (audit H6). Calls the server-side erasure
 // endpoint with the verified session token; the SERVER scopes it to the caller's
