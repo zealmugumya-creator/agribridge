@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- AB_BUILD:20261127_AUTHGATE -->
+<!-- AB_BUILD:20261127_AUTHGATE_B -->
 <html lang="en">
 <head>
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
@@ -4130,8 +4130,8 @@ function enterApp(target){
     <div class="how-step"><div class="how-step-num">4</div><div class="how-step-body"><h4>💰 Farmer gets paid automatically</h4><p>On delivery confirmation, funds release from escrow to farmer&#39;s MTN MoMo. No cash. No delays. No middlemen.</p></div></div>
   </div>
   <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:12px;margin-top:28px">
-    <div class="value-prop-card"><div class="value-prop-icon">🌾</div><div class="value-prop-title">I am a Farmer</div><div class="value-prop-desc">List crops and animals free. Get fair prices. Access loans, insurance, and AI disease diagnosis.</div><button class="btn-sm" style="width:100%;margin-top:12px" onclick="openModal(&#39;registerModal&#39;)">Register as Farmer</button></div>
-    <div class="value-prop-card"><div class="value-prop-icon">🛒</div><div class="value-prop-title">I am a Buyer</div><div class="value-prop-desc">Browse fresh produce from verified farmers. Order online, pay via MoMo, get delivery to your door.</div><button class="btn-sm" style="width:100%;margin-top:12px;background:#1565C0" onclick="openModal(&#39;registerModal&#39;)">Register as Buyer</button></div>
+    <div class="value-prop-card"><div class="value-prop-icon">🌾</div><div class="value-prop-title">I am a Farmer</div><div class="value-prop-desc">List crops and animals free. Get fair prices. Access loans, insurance, and AI disease diagnosis.</div><button class="btn-sm" id="vpFarmerBtn" style="width:100%;margin-top:12px" onclick="_serveCardAction('farmer')">Register as Farmer</button></div>
+    <div class="value-prop-card"><div class="value-prop-icon">🛒</div><div class="value-prop-title">I am a Buyer</div><div class="value-prop-desc">Browse fresh produce from verified farmers. Order online, pay via MoMo, get delivery to your door.</div><button class="btn-sm" id="vpBuyerBtn" style="width:100%;margin-top:12px;background:#1565C0" onclick="_serveCardAction('buyer')">Register as Buyer</button></div>
     <div class="value-prop-card"><div class="value-prop-icon">🏨</div><div class="value-prop-title">Hotel / Restaurant</div><div class="value-prop-desc">Pre-cut beef, dressed chicken, packaged produce delivered by 5:30AM. Weekly invoicing available.</div><button class="btn-sm" style="width:100%;margin-top:12px;background:var(--amber);color:#000" onclick="openModal(&#39;b2bApplyModal&#39;)">Apply for B2B Account</button></div>
     <div class="value-prop-card"><div class="value-prop-icon">📱</div><div class="value-prop-title">No Internet? No Problem</div><div class="value-prop-desc">Dial <strong style="color:var(--amber)">*789#</strong> from any MTN or Airtel phone — no smartphone needed.</div><button class="btn-sm outline" style="width:100%;margin-top:12px" onclick="showPage(&#39;ussd&#39;)">Try USSD Simulator</button></div>
   </div>
@@ -4574,8 +4574,8 @@ AgriBridge service</div>
   <div id="atab-serve" class="about-panel section" style="display:none">
     <div class="section-title">Who We <span>Serve</span></div>
     <div class="problem-grid">
-      <div class="problem-card"><div class="p-icon">👨‍🌾</div><h4>Crop Farmers</h4><p>5M+ smallholder farmers growing crops on 1–5 acre plots. Want fair prices and reliable buyers.</p><button class="btn-card" onclick="openModal('registerModal')" style="margin-top:10px;font-size:0.78rem">Register as Farmer</button></div>
-      <div class="problem-card"><div class="p-icon">🐄</div><h4>Livestock Farmers</h4><p>Cattle, goat, poultry, fish, and bee farmers wanting certified sales channels and vet support.</p><button class="btn-card" onclick="showPage('animals')" style="margin-top:10px;font-size:0.78rem;background:var(--amber)">List Animal</button></div>
+      <div class="problem-card"><div class="p-icon">👨‍🌾</div><h4>Crop Farmers</h4><p>5M+ smallholder farmers growing crops on 1–5 acre plots. Want fair prices and reliable buyers.</p><button class="btn-card" id="serveCardFarmerBtn" onclick="_serveCardAction('farmer')" style="margin-top:10px;font-size:0.78rem">Register as Farmer</button></div>
+      <div class="problem-card"><div class="p-icon">🐄</div><h4>Livestock Farmers</h4><p>Cattle, goat, poultry, fish, and bee farmers wanting certified sales channels and vet support.</p><button class="btn-card" id="serveCardAnimalBtn" onclick="_serveCardAction('animal')" style="margin-top:10px;font-size:0.78rem;background:var(--amber)">List Animal</button></div>
       <div class="problem-card"><div class="p-icon">🏪</div><h4>Traders &amp; Vendors</h4><p>Market vendors and bulk buyers who want consistent supply of both crops and livestock at transparent prices.</p><button class="btn-card" onclick="showPage('market')" style="margin-top:10px;font-size:0.78rem">Browse Market</button></div>
       <div class="problem-card"><div class="p-icon">🏨</div><h4>Hotels &amp; Restaurants</h4><p>Kampala's 2,000+ hospitality businesses needing fresh produce and quality meat with reliable delivery.</p><button class="btn-card" onclick="showPage('contact')" style="margin-top:10px;font-size:0.78rem">Partner With Us</button></div>
     </div>
@@ -13217,6 +13217,51 @@ function splashBrowseGuest() {
 }
 
 // ─────────────────────────────────────────────────────────────────
+// SERVE CARD ACTIONS — smart buttons that adapt to login state
+// ─────────────────────────────────────────────────────────────────
+function _serveCardAction(type) {
+  // If user is already logged in, never show register modal — send them to the right place
+  var loggedIn = false;
+  try { loggedIn = !!JSON.parse(localStorage.getItem('ab_user') || 'null'); } catch(e) {}
+  if (!loggedIn) { loggedIn = document.documentElement.classList.contains('app-entered'); }
+  if (loggedIn) {
+    if (type === 'farmer') {
+      if (typeof openListProduceModal === 'function') openListProduceModal();
+      else if (typeof showPage === 'function') showPage('dashboard');
+    } else if (type === 'animal') {
+      if (typeof showPage === 'function') showPage('animals');
+      setTimeout(function(){ if (typeof openListAnimalModal === 'function') openListAnimalModal(); }, 300);
+    } else if (type === 'buyer') {
+      if (typeof showPage === 'function') showPage('market');
+    }
+    return;
+  }
+  // Not logged in — show register modal
+  if (typeof openModal === 'function') openModal('registerModal');
+}
+
+// Update serve-card button labels based on login state
+function _adaptServeCards() {
+  var loggedIn = false;
+  try { loggedIn = !!JSON.parse(localStorage.getItem('ab_user') || 'null'); } catch(e) {}
+  if (!loggedIn) { loggedIn = document.documentElement.classList.contains('app-entered'); }
+  var btnMappings = [
+    { id: 'serveCardFarmerBtn', loggedInLabel: '🌾 List Produce',    loggedOutLabel: 'Register as Farmer' },
+    { id: 'serveCardAnimalBtn', loggedInLabel: '🐄 List Animal',     loggedOutLabel: 'List Animal' },
+    { id: 'vpFarmerBtn',        loggedInLabel: '🌾 List Produce',    loggedOutLabel: 'Register as Farmer' },
+    { id: 'vpBuyerBtn',         loggedInLabel: '🛒 Browse Market',   loggedOutLabel: 'Register as Buyer' }
+  ];
+  btnMappings.forEach(function(m) {
+    var btn = document.getElementById(m.id);
+    if (!btn) return;
+    btn.textContent = loggedIn ? m.loggedInLabel : m.loggedOutLabel;
+  });
+}
+
+// Run on page load and whenever auth state changes
+document.addEventListener('DOMContentLoaded', function(){ _adaptServeCards(); });
+
+// ─────────────────────────────────────────────────────────────────
 // CARD PAYMENT MODAL
 // ─────────────────────────────────────────────────────────────────
 function openCardPayModal() {
@@ -14490,6 +14535,7 @@ function initSupabase() {
         try{ document.documentElement.classList.add('app-entered'); }catch(e){}
         try{ sessionStorage.setItem('ab_entered','1'); }catch(e){}
         try{ localStorage.setItem('ab_user', JSON.stringify(currentUser)); }catch(e){}
+        try{ if(typeof _adaptServeCards==='function') _adaptServeCards(); }catch(e){}
         // Load home after gate is lifted
         setTimeout(function(){ if(typeof showPage==='function') showPage('home'); },50);
         setTimeout(async function(){ await flushPendingProfiles(); if (!_oauthOnboardingOpen) postAuthLegalCheck(); }, 0);
@@ -14529,6 +14575,7 @@ function initSupabase() {
       // Returning logged-in user — unlock the app immediately
       try{ document.documentElement.classList.add('app-entered'); }catch(e){}
       try{ sessionStorage.setItem('ab_entered','1'); }catch(e){}
+      try{ if(typeof _adaptServeCards==='function') _adaptServeCards(); }catch(e){}
       setTimeout(function(){ if(typeof showPage==='function') showPage('home'); },50);
       updateNavUser(currentUser.name, currentUser.role);
       loadAccountType();
@@ -15025,6 +15072,7 @@ async function logOut(){
   // Remove the app gate — user lands back on the welcome/landing screen
   try{ sessionStorage.removeItem('ab_entered'); }catch(e){}
   try{ document.documentElement.classList.remove('app-entered'); }catch(e){}
+  try{ if(typeof _adaptServeCards==='function') _adaptServeCards(); }catch(e){}
   try{ window.scrollTo(0,0); }catch(e){}
   // PWA (installed app) → show splash screen; browser → show Cafe Javas landing
   var _isApp=(window.matchMedia&&window.matchMedia('(display-mode: standalone)').matches)||window.navigator.standalone===true||!!window.Capacitor||location.search.indexOf('app=1')>-1;
