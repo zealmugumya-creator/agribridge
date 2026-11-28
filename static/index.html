@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- AB_BUILD:20261127_AUTHGATE_B -->
+<!-- AB_BUILD:20261128_CHECKOUT_UX_C -->
 <html lang="en">
 <head>
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
@@ -386,6 +386,28 @@ img{max-width:100%}
 .bank-row{display:flex;justify-content:space-between;align-items:center;padding:6px 0;border-bottom:1px solid var(--border)}
 .bank-row span{color:var(--text2);font-size:0.82rem}
 .bank-row strong{font-size:0.9rem;text-align:right}
+/* ── Checkout processing / failure screens ───────────────────────── */
+.checkout-processing{text-align:center;padding:28px 8px 24px}
+.checkout-processing .proc-icon{font-size:3.5rem;margin-bottom:14px;animation:proc-pulse 1.6s ease-in-out infinite}
+@keyframes proc-pulse{0%,100%{transform:scale(1);opacity:1}50%{transform:scale(1.12);opacity:.7}}
+.proc-title{font-size:1.1rem;font-weight:700;margin-bottom:6px}
+.proc-sub{font-size:0.85rem;color:var(--text2);line-height:1.6;margin:0 0 20px}
+.proc-steps{display:flex;flex-direction:column;gap:8px;text-align:left;margin:0 0 20px;padding:0 4px}
+.proc-step{display:flex;align-items:center;gap:10px;font-size:0.85rem;padding:9px 12px;border-radius:10px;background:var(--bg3);border:1px solid var(--border);transition:border-color .3s}
+.proc-step.active{border-color:var(--green);background:rgba(46,196,113,0.08)}
+.proc-step.done{border-color:var(--green);opacity:.6}
+.proc-step .step-dot{width:20px;height:20px;border-radius:50%;background:var(--border);flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:0.7rem;transition:background .3s}
+.proc-step.active .step-dot{background:var(--green);animation:proc-pulse 1.2s infinite}
+.proc-step.done .step-dot{background:var(--green)}
+.proc-timer{font-size:0.75rem;color:var(--text2);margin-top:4px}
+.checkout-failure{text-align:center;padding:24px 8px 20px}
+.checkout-failure .fail-icon{font-size:3rem;margin-bottom:12px}
+.fail-title{font-size:1rem;font-weight:700;margin-bottom:6px;color:var(--red,#e74c3c)}
+.fail-sub{font-size:0.85rem;color:var(--text2);margin:0 0 20px;line-height:1.6}
+.fail-actions{display:flex;flex-direction:column;gap:10px}
+.fail-actions .btn-primary{padding:12px;border-radius:10px;width:100%}
+.fail-actions .btn-ghost-sm{background:transparent;border:1px solid var(--border);color:var(--text2);border-radius:10px;padding:10px;font-size:0.85rem;cursor:pointer;width:100%}
+.fail-actions .btn-ghost-sm:hover{border-color:var(--green);color:var(--text)}
 
 /* ── AI PANEL ── */
 .ai-fab{position:fixed;bottom:80px;left:16px;z-index:300;width:54px;height:54px;border-radius:50%;background:linear-gradient(135deg,#1a237e,#283593);color:#fff;font-size:1.3rem;display:flex;align-items:center;justify-content:center;animation:pulse 3s infinite;border:none;box-shadow:0 4px 20px rgba(26,35,126,0.45)}
@@ -5175,6 +5197,44 @@ AgriBridge service</div>
           <button class="btn-card" onclick="closeCheckout()" style="background:transparent;border:1px solid var(--green);color:var(--green)">Continue Shopping</button>
         </div>
       </div>
+    <!-- Step 3: Processing / polling screen -->
+    <div id="checkoutStep3" style="display:none">
+      <div class="checkout-processing">
+        <div class="proc-icon" id="procIcon">⏳</div>
+        <div class="proc-title" id="procTitle">Processing your payment…</div>
+        <div class="proc-sub" id="procSub">Please wait while we confirm your payment.<br>This usually takes under 30 seconds.</div>
+        <div class="proc-steps">
+          <div class="proc-step active" id="procStep1">
+            <div class="step-dot">1</div>
+            <span>Order placed &amp; stock reserved</span>
+          </div>
+          <div class="proc-step" id="procStep2">
+            <div class="step-dot">2</div>
+            <span id="procStep2Label">Waiting for payment confirmation</span>
+          </div>
+          <div class="proc-step" id="procStep3">
+            <div class="step-dot">3</div>
+            <span>Notifying farmer</span>
+          </div>
+        </div>
+        <div class="proc-timer" id="procTimer"></div>
+        <button class="btn-ghost-sm" style="margin-top:14px;background:transparent;border:1px solid var(--border);color:var(--text2);border-radius:10px;padding:9px 18px;font-size:0.82rem;cursor:pointer" onclick="_stopPollAndShowInstructions()">I already paid — show instructions instead</button>
+      </div>
+    </div>
+    <!-- Step 4: Failure / retry screen -->
+    <div id="checkoutStep4" style="display:none">
+      <div class="checkout-failure">
+        <div class="fail-icon">⚠️</div>
+        <div class="fail-title" id="failTitle">Payment not confirmed</div>
+        <div class="fail-sub" id="failSub">Your order is saved. You can retry the payment or choose a different method.</div>
+        <div class="fail-actions">
+          <button class="btn-primary" id="failRetryBtn" onclick="_retryFromFailScreen()">Try Again</button>
+          <button class="btn-ghost-sm" onclick="_switchMethodFromFailScreen()">Change payment method</button>
+          <button class="btn-ghost-sm" onclick="_showInstructionsFromFailScreen()">View manual payment instructions</button>
+          <button class="btn-ghost-sm" onclick="closeCheckout()">Close (pay later)</button>
+        </div>
+      </div>
+    </div>
     </div>
   </div>
 </div>
@@ -7745,16 +7805,12 @@ async function placeOrder() {
     // null = no gateway live, fall through to manual payment instructions below
   }
   if (btn) { btn.textContent = 'Confirm Order ✓'; btn.disabled = false; }
-  // Show success
-  const step1 = document.getElementById('checkoutStep1');
-  const step2 = document.getElementById('checkoutStep2');
-  if (step1) step1.style.display = 'none';
-  if (step2) step2.style.display = 'block';
+  // Always pre-populate the success screen refs so they're ready when we transition
   const refEl   = document.getElementById('orderRefDisplay');
   const trackEl = document.getElementById('trackCodeDisplay');
   if (refEl)   refEl.textContent   = ref;
   if (trackEl) trackEl.textContent = track;
-  // Show payment instructions based on selected method
+  // Build payment instructions HTML (we render it now; visibility is toggled later)
   const payInstrEl = document.getElementById('paymentInstructions');
   if (payInstrEl) {
     const fmtTotal = 'UGX ' + total.toLocaleString();
@@ -7824,22 +7880,29 @@ async function placeOrder() {
     payInstrEl.innerHTML = payHtml[selectedPayMethod] || '';
     payInstrEl.style.display = (payHtml[selectedPayMethod] && !payPush) ? 'block' : 'none';
   }
-  const waitBox = document.getElementById('payWaitBox');
-  if (waitBox) {
-    if (cardPaid) {
-      waitBox.style.display = 'block';
-      waitBox.innerHTML = '✅ <strong>Payment received. Thank you!</strong>';
-    } else if (cardOtpPending) {
-      showCardOtp(cardOtpPending.ref, cardOtpPending.flwRef, cardOtpPending.msg);
-    } else if (payPush) {
-      waitBox.style.display = 'block';
-      waitBox.innerHTML = '📱 <strong>' + escHtml(payPush) + '</strong><br><span style="color:var(--text2)">Waiting for confirmation…</span>';
-      pollPayment(ref, function(){ waitBox.innerHTML = '✅ <strong>Payment received. Thank you!</strong>'; showToast('✅ Payment received'); },
-        function(){ waitBox.innerHTML = '⏳ Still waiting. If you approved it, your order will update shortly. If not, <a href="#" onclick="retryPayment(\''+ref+'\','+total+');return false">try again</a>.'; });
-    } else if (payError) {
-      waitBox.style.display = 'block';
-      waitBox.innerHTML = '⚠️ ' + escHtml(payError) + '<br><a href="#" onclick="retryPayment(\''+ref+'\','+total+');return false">Try again</a> or pay cash on delivery.';
-    } else { waitBox.style.display = 'none'; }
+  // Decide which screen to show
+  const isOnlineMethod = (selectedPayMethod && selectedPayMethod !== 'cash' && selectedPayMethod !== 'bank');
+  if (cardOtpPending) {
+    // Show step2 success, then OTP modal on top
+    _showCheckoutStep(2);
+    showCardOtp(cardOtpPending.ref, cardOtpPending.flwRef, cardOtpPending.msg);
+  } else if (cardPaid) {
+    // Instant card success
+    _showCheckoutStep(2);
+    const waitBox = document.getElementById('payWaitBox');
+    if (waitBox) { waitBox.style.display='block'; waitBox.innerHTML='✅ <strong>Payment received. Thank you!</strong>'; }
+  } else if (payPush && isOnlineMethod) {
+    // Pushed payment (MoMo prompt sent) → show processing/polling screen
+    _startPaymentPolling(ref, total, selectedPayMethod, payPush);
+  } else if (payError && isOnlineMethod) {
+    // Gateway error → go straight to failure screen
+    _showPayFailure(ref, total, selectedPayMethod, payError);
+  } else {
+    // Cash / bank / no live gateway → show manual instructions on success screen
+    _showCheckoutStep(2);
+    const waitBox = document.getElementById('payWaitBox');
+    if (waitBox) waitBox.style.display = 'none';
+    if (payInstrEl) payInstrEl.style.display = 'block';
   }
   showToast(`✅ Order placed! ${ref}`);
   // Pre-fill tracking
@@ -7849,6 +7912,159 @@ async function placeOrder() {
   basketItems=[]; appliedPromo=null; saveBasket(); updateBasketBadge();
   if (currentUser?.phone) sbInsert('cart_sessions',{user_phone:currentUser.phone,cart_data:'[]',updated_at:new Date().toISOString()});
 }
+
+// ─────────────────────────────────────────────────────────────────
+// CHECKOUT PAYMENT POLLING ENGINE (Phase 6)
+// ─────────────────────────────────────────────────────────────────
+var _payPollState = null; // { ref, total, method, timer, interval, startTs }
+
+function _showCheckoutStep(n) {
+  [1,2,3,4].forEach(function(i){
+    var el = document.getElementById('checkoutStep'+i);
+    if (el) el.style.display = (i===n) ? 'block' : 'none';
+  });
+}
+
+/** Start the processing screen + polling loop for online payment methods. */
+function _startPaymentPolling(ref, total, method, pushMsg) {
+  _payPollState = { ref: ref, total: total, method: method, startTs: Date.now() };
+  _showCheckoutStep(3);
+
+  // Label step 2 based on method
+  var labelMap = {
+    momo:    'Approve the MTN MoMo prompt on your phone',
+    airtel:  'Approve the Airtel Money prompt on your phone',
+    card:    'Waiting for card authorisation',
+    pesapal: 'Completing payment on Pesapal',
+  };
+  var step2Label = document.getElementById('procStep2Label');
+  if (step2Label) step2Label.textContent = labelMap[method] || 'Waiting for payment confirmation';
+  if (pushMsg) {
+    var procSub = document.getElementById('procSub');
+    if (procSub) procSub.textContent = pushMsg;
+  }
+
+  // Mark step 1 done immediately
+  var s1 = document.getElementById('procStep1');
+  if (s1) { s1.classList.remove('active'); s1.classList.add('done'); s1.querySelector('.step-dot').textContent = '✓'; }
+  var s2 = document.getElementById('procStep2');
+  if (s2) { s2.classList.add('active'); }
+
+  // Countdown timer display
+  var timerEl = document.getElementById('procTimer');
+  var secs = 0;
+  var timerInterval = setInterval(function(){
+    secs++;
+    if (timerEl) timerEl.textContent = 'Checking for ' + secs + 's…';
+  }, 1000);
+  _payPollState.timerInterval = timerInterval;
+
+  // Poll /api/pay/status every 4s, up to 90s
+  var attempts = 0, maxAttempts = 22;
+  var pollInterval = setInterval(async function(){
+    attempts++;
+    var state = _payPollState;
+    if (!state) { clearInterval(pollInterval); clearInterval(timerInterval); return; }
+    try {
+      var tok = await refreshAuthToken();
+      if (!tok) { clearInterval(pollInterval); clearInterval(timerInterval); _showPayFailure(ref, total, method, 'Session expired'); return; }
+      var r = await fetch(USSD_API+'/api/pay/status?order_ref='+encodeURIComponent(ref), { headers:{'Authorization':'Bearer '+tok} });
+      var j = await r.json().catch(function(){return {};});
+      if (j.ok && j.paid) {
+        clearInterval(pollInterval); clearInterval(timerInterval);
+        _onPaymentConfirmed(ref, j);
+        return;
+      }
+      if (j.ok && j.status === 'cancelled') {
+        clearInterval(pollInterval); clearInterval(timerInterval);
+        _showPayFailure(ref, total, method, 'Payment was cancelled.');
+        return;
+      }
+    } catch(e) { /* network hiccup, keep polling */ }
+    if (attempts >= maxAttempts) {
+      clearInterval(pollInterval); clearInterval(timerInterval);
+      _showPayTimeout(ref, total, method);
+    }
+  }, 4000);
+  _payPollState.pollInterval = pollInterval;
+}
+
+function _stopPolling() {
+  if (_payPollState) {
+    clearInterval(_payPollState.pollInterval);
+    clearInterval(_payPollState.timerInterval);
+  }
+}
+
+function _onPaymentConfirmed(ref, statusData) {
+  _stopPolling();
+  // Advance proc steps to done
+  ['procStep1','procStep2','procStep3'].forEach(function(id){
+    var el = document.getElementById(id);
+    if (el) { el.classList.remove('active'); el.classList.add('done'); var d=el.querySelector('.step-dot'); if(d) d.textContent='✓'; }
+  });
+  var procIcon = document.getElementById('procIcon'); if (procIcon) { procIcon.textContent='🎉'; procIcon.style.animation='none'; }
+  var procTitle = document.getElementById('procTitle'); if (procTitle) procTitle.textContent = 'Payment confirmed!';
+  var procSub = document.getElementById('procSub'); if (procSub) procSub.textContent = 'Your order is confirmed. The farmer has been notified.';
+  showToast('✅ Payment confirmed!');
+  // After 2s, transition to success step2
+  setTimeout(function(){
+    _showCheckoutStep(2);
+    var waitBox = document.getElementById('payWaitBox');
+    if (waitBox) { waitBox.style.display='block'; waitBox.innerHTML='✅ <strong>Payment received. Thank you!</strong>'; }
+  }, 2000);
+}
+
+function _showPayFailure(ref, total, method, msg) {
+  _stopPolling();
+  _payPollState = { ref: ref, total: total, method: method };
+  var failSub = document.getElementById('failSub');
+  if (failSub) failSub.textContent = (msg || 'Payment was not confirmed.') + ' Your order is saved — you can retry or pay later.';
+  _showCheckoutStep(4);
+}
+
+function _showPayTimeout(ref, total, method) {
+  _stopPolling();
+  _payPollState = { ref: ref, total: total, method: method };
+  var failTitle = document.getElementById('failTitle'); if (failTitle) failTitle.textContent = 'Still waiting…';
+  var failSub = document.getElementById('failSub');
+  if (failSub) failSub.textContent = 'We didn\'t receive a confirmation in time. If you approved the payment, your order will update shortly. Otherwise, try again or use a different method.';
+  var retryBtn = document.getElementById('failRetryBtn'); if (retryBtn) retryBtn.textContent = 'Retry payment';
+  _showCheckoutStep(4);
+}
+
+function _retryFromFailScreen() {
+  if (!_payPollState) return;
+  var ref = _payPollState.ref, total = _payPollState.total, method = _payPollState.method;
+  _showCheckoutStep(3);
+  var procIcon=document.getElementById('procIcon'); if(procIcon){procIcon.textContent='⏳';procIcon.style.animation='';}
+  var procTitle=document.getElementById('procTitle'); if(procTitle) procTitle.textContent='Retrying payment…';
+  ['procStep1','procStep2','procStep3'].forEach(function(id){ var el=document.getElementById(id); if(el){el.classList.remove('done','active');el.querySelector('.step-dot').textContent=id.slice(-1);} });
+  _startPaymentPolling(ref, total, method, '');
+}
+
+function _switchMethodFromFailScreen() {
+  _stopPolling();
+  _payPollState = null;
+  _showCheckoutStep(1);
+  showToast('Choose a different payment method and confirm again');
+}
+
+function _showInstructionsFromFailScreen() {
+  if (!_payPollState) return;
+  _stopPolling();
+  _showCheckoutStep(2);
+  var waitBox = document.getElementById('payWaitBox');
+  if (waitBox) {
+    waitBox.style.display='block';
+    waitBox.innerHTML='⏳ Payment not yet confirmed. If you have already paid, your order will update automatically. If not — ';
+  }
+  // Show the payment instructions HTML that was set in placeOrder()
+  var payInstrEl = document.getElementById('paymentInstructions');
+  if (payInstrEl) payInstrEl.style.display = 'block';
+}
+
+function _stopPollAndShowInstructions() { _showInstructionsFromFailScreen(); }
 
 // ─────────────────────────────────────────────────────────────────
 // SUPER AI ASSISTANT — Knows the Entire AgriBridge System

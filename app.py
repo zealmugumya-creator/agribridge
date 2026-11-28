@@ -7384,17 +7384,112 @@ def _flw_momo_initiate(order_ref, amount, email, phone, network):
 @app.route('/api/pay/status', methods=['GET'])
 @rate_limit(max_req=60, window=300)
 def pay_status():
-    """Poll after a payment prompt: is this checkout paid yet? (own orders only)"""
+    """Poll after a payment prompt: return rich payment status for checkout UX.
+    Returns status, provider, amount, method, and tx_ref so the frontend can
+    show a processing screen with live updates. Only returns own orders."""
     uid, err = verify_supabase_user()
     if err:
         return err
     ref = _base_ref((request.args.get('order_ref') or '').strip()[:80])
-    rows = supa_get('orders', {'payment_ref': f'eq.{ref}',
-                               'select': 'buyer_id,payment_status'}, limit=50) or []
+    rows = supa_get('orders', {
+        'payment_ref': f'eq.{ref}',
+        'select': 'buyer_id,payment_status,payment_method,payment_ref,total_price,total_amount,status,tracking_code',
+    }, limit=50) or []
     rows = [r for r in rows if str(r.get('buyer_id')) == str(uid)]
     if not rows:
         return jsonify({'ok': False, 'error': 'order not found'}), 404
-    return jsonify({'ok': True, 'paid': all(r.get('payment_status') == 'paid' for r in rows)}), 200
+    all_paid = all(r.get('payment_status') == 'paid' for r in rows)
+    any_paid = any(r.get('payment_status') == 'paid' for r in rows)
+    order_status = rows[0].get('status', 'pending')
+    total = sum(
+        float(r.get('total_amount') or r.get('total_price') or 0)
+        for r in rows
+    )
+    # Derive a user-facing payment status from order fields
+    if all_paid:
+        pay_status_label = 'paid'
+    elif any_paid:
+        pay_status_label = 'partially_paid'
+    elif order_status == 'cancelled':
+        pay_status_label = 'cancelled'
+    else:
+        pay_status_label = 'pending'
+    resp = jsonify({
+        'ok': True,
+        'paid': all_paid,
+        'status': pay_status_label,
+        'order_status': order_status,
+        'method': rows[0].get('payment_method'),
+        'amount': total,
+        'currency': 'UGX',
+        'order_ref': ref,
+        'tracking_code': rows[0].get('tracking_code'),
+    })
+    resp.headers['Cache-Control'] = 'no-store'
+    return resp, 200
+
+
+@app.route('/api/pay/history', methods=['GET'])
+@rate_limit(max_req=30, window=60)
+def pay_history():
+    """Return the authenticated buyer's payment history.
+
+    Uses the orders table as a proxy until the payment_transactions table
+    (Phase 2) is deployed. Returns one row per distinct order reference,
+    most recent first. Buyers see only their own records.
+    """
+    uid, err = verify_supabase_user()
+    if err:
+        return err
+    page = max(0, int(request.args.get('page', 0)))
+    page_size = 20
+    offset_val = page * page_size
+
+    rows = supa_get('orders', {
+        'buyer_id': f'eq.{uid}',
+        'select': (
+            'payment_ref,payment_method,payment_status,total_price,total_amount,'
+            'status,tracking_code,created_at,updated_at'
+        ),
+        'order': 'created_at.desc',
+        'limit': str(page_size + 1),
+        'offset': str(offset_val),
+    }, limit=page_size + 1) or []
+
+    # Deduplicate by payment_ref (multi-item orders share one ref).
+    seen = {}
+    for r in rows:
+        pref = r.get('payment_ref') or ''
+        if pref not in seen:
+            seen[pref] = {
+                'order_ref': pref,
+                'tracking_code': r.get('tracking_code'),
+                'method': r.get('payment_method'),
+                'payment_status': r.get('payment_status') or 'unpaid',
+                'order_status': r.get('status') or 'pending',
+                'amount': 0.0,
+                'currency': 'UGX',
+                'date': r.get('created_at'),
+                'updated_at': r.get('updated_at'),
+            }
+        seen[pref]['amount'] += float(
+            r.get('total_amount') or r.get('total_price') or 0
+        )
+
+    items = list(seen.values())
+    has_more = len(rows) > page_size
+    if has_more:
+        items = items[:page_size]
+
+    resp = jsonify({
+        'ok': True,
+        'page': page,
+        'page_size': page_size,
+        'has_more': has_more,
+        'items': items,
+    })
+    resp.headers['Cache-Control'] = 'no-store'
+    return resp, 200
 
 
 def _at_momo_initiate(order_ref, amount, phone, provider='momo'):
